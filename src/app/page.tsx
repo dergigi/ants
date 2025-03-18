@@ -12,13 +12,11 @@ const searchExamples = [
   'from:pablo ndk'
 ];
 
-// Get a random example once when the module loads
-const randomExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
-
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [placeholder] = useState(() => searchExamples[Math.floor(Math.random() * searchExamples.length)]);
 
   useEffect(() => {
     connect();
@@ -29,7 +27,7 @@ export default function Home() {
     setIsLoading(true);
     
     try {
-      const searchQuery = query.trim() || randomExample;
+      const searchQuery = query.trim() || placeholder;
       
       // Check if this is a Vertex profile lookup
       if (VERTEX_REGEXP.test(searchQuery)) {
@@ -70,7 +68,7 @@ export default function Home() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={randomExample}
+              placeholder={placeholder}
               className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
             <button
