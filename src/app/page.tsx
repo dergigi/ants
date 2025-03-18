@@ -1,13 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ndk, connect } from '@/lib/ndk';
 
 export default function Home() {
   const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = () => {
-    // TODO: Implement search functionality
-    console.log('Searching for:', query);
+  useEffect(() => {
+    connect();
+  }, []);
+
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      // TODO: Implement actual search using NDK
+      console.log('Searching for:', query);
+      // We'll implement the actual search in the next step
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -26,12 +42,14 @@ export default function Home() {
           onKeyPress={handleKeyPress}
           placeholder="from:friends GM"
           className="w-full px-4 py-2 text-black bg-white rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+          disabled={isLoading}
         />
         <button
           onClick={handleSearch}
-          className="w-full px-4 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors"
+          className="w-full px-4 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+          disabled={isLoading}
         >
-          Search
+          {isLoading ? 'Searching...' : 'Search'}
         </button>
       </div>
     </main>
