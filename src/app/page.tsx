@@ -29,7 +29,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
         <form onSubmit={handleSearch} className="w-full">
           <div className="flex gap-2">
@@ -38,12 +38,12 @@ export default function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="vibe"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Searching...' : 'Search'}
             </button>
@@ -53,9 +53,9 @@ export default function Home() {
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
             {results.map((event) => (
-              <div key={event.id} className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-800">{event.content}</p>
-                <div className="mt-2 flex justify-between text-sm text-gray-500">
+              <div key={event.id} className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d]">
+                <p className="text-gray-100">{event.content}</p>
+                <div className="mt-2 flex justify-between text-sm text-gray-400">
                   <span>{event.pubkey.slice(0, 8)}...</span>
                   <span>{event.created_at ? new Date(event.created_at * 1000).toLocaleString() : 'Unknown date'}</span>
                 </div>
