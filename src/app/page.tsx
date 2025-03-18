@@ -5,10 +5,18 @@ import { ndk, connect } from '@/lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 
+const searchExamples = [
+  'p:fiatjaf',
+  'vibe coding',
+  '#penisButter',
+  'from:pablo ndk'
+];
+
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [placeholder] = useState(() => searchExamples[Math.floor(Math.random() * searchExamples.length)]);
 
   useEffect(() => {
     connect();
@@ -60,7 +68,7 @@ export default function Home() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="vibe or p:username"
+              placeholder={placeholder}
               className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
             <button
