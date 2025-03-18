@@ -24,7 +24,7 @@ export default function Home() {
       const events = await ndk.fetchEvents({
         kinds: [1], // text notes
         search: searchQuery,
-        limit: 20
+        limit: 21
       });
       
       setResults(Array.from(events));
@@ -43,24 +43,44 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-black text-white">
-      <div className="w-full max-w-md space-y-4">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="vibe"
-          className="w-full px-4 py-2 text-black bg-white rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
-          disabled={isLoading}
-        />
-        <button
-          onClick={handleSearch}
-          className="w-full px-4 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Searching...' : 'Search'}
-        </button>
+    <main className="min-h-screen bg-black text-white p-4">
+      <div className="max-w-2xl mx-auto space-y-8">
+        {/* Search Section */}
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="vibe"
+            className="w-full px-4 py-2 text-black bg-white rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleSearch}
+            className="w-full px-4 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Searching...' : 'Search'}
+          </button>
+        </div>
+
+        {/* Results Section */}
+        <div className="space-y-4">
+          {results.map((event) => (
+            <div key={event.id} className="bg-gray-900 rounded-lg p-4 space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-400">
+                  {event.pubkey.slice(0, 8)}...{event.pubkey.slice(-8)}
+                </span>
+                <span className="text-sm text-gray-500">
+                  {new Date(event.created_at * 1000).toLocaleString()}
+                </span>
+              </div>
+              <p className="text-white">{event.content}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
