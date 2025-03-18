@@ -1,25 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ndk, connect } from '@/lib/ndk';
+import { connect, getCurrentExample } from '@/lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
-
-const searchExamples = [
-  'p:fiatjaf',
-  'vibe coding',
-  '#penisButter',
-  'from:pablo ndk'
-];
+import { searchEvents } from '@/lib/search';
 
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [placeholder] = useState(() => searchExamples[Math.floor(Math.random() * searchExamples.length)]);
+  const [placeholder, setPlaceholder] = useState('');
 
   useEffect(() => {
-    connect();
+    const initializeNDK = async () => {
+      await connect();
+      setPlaceholder(getCurrentExample());
+    };
+    initializeNDK();
   }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -27,20 +25,28 @@ export default function Home() {
     setIsLoading(true);
     
     try {
+      // If the field is empty, use the current placeholder
+      if (!query.trim()) {
+        setQuery(placeholder);
+      }
+      
       const searchQuery = query.trim() || placeholder;
+      
+      console.log('Search details:', {
+        inputValue: query,
+        placeholder,
+        searchQuery,
+        usingPlaceholder: !query.trim()
+      });
       
       // Check if this is a Vertex profile lookup
       if (VERTEX_REGEXP.test(searchQuery)) {
         const profile = await lookupVertexProfile(searchQuery);
         setResults(profile ? [profile] : []);
       } else {
-        // Regular search
-        const events = await ndk.fetchEvents({
-          kinds: [1],
-          search: searchQuery,
-          limit: 21
-        });
-        setResults(Array.from(events));
+        // Regular search or author-filtered search
+        const events = await searchEvents(searchQuery);
+        setResults(events);
       }
     } catch (error) {
       console.error('Search error:', error);
