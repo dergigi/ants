@@ -1,14 +1,14 @@
 import NDK from '@nostr-dev-kit/ndk';
 
-// Initialize NDK with basic relays
+// Initialize NDK with both relays
 export const ndk = new NDK({
   explicitRelayUrls: [
-    'wss://relay.nostr.band',
-    'wss://relay.vertexlab.io'  // Vertex relay for profile lookups
+    'wss://relay.nostr.band',  // For regular searches
+    'wss://relay.vertexlab.io' // For profile lookups
   ]
 });
 
-// Connect to the relay
+// Connect to the relays
 export const connect = async () => {
   try {
     await ndk.connect();

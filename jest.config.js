@@ -3,5 +3,6 @@ module.exports = {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
-  }
+  },
+  setupFilesAfterEnv: ['<rootDir>/src/lib/test-setup.ts']
 }; 

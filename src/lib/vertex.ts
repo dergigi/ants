@@ -9,22 +9,25 @@ export const lookupVertexProfile = async (query: string): Promise<NDKEvent | nul
 
   const username = match[1];
   try {
+    // First try to find the profile by name
     const events = await ndk.fetchEvents({
       kinds: [0], // profile metadata
       search: username,
-      limit: 1
+      limit: 10 // Get more results to find exact match
     });
 
-    if (events.size === 0) return null;
+    // Look for exact name match
+    const event = Array.from(events).find(event => {
+      try {
+        const content = JSON.parse(event.content);
+        const displayName = content.display_name || content.displayName || content.name;
+        return displayName?.toLowerCase() === username.toLowerCase();
+      } catch {
+        return false;
+      }
+    });
 
-    const event = Array.from(events)[0];
-    const content = JSON.parse(event.content);
-    
-    // Check if the username matches the display name or name
-    const displayName = content.display_name || content.displayName || content.name;
-    if (displayName?.toLowerCase() !== username.toLowerCase()) return null;
-
-    return event;
+    return event || null;
   } catch (error) {
     console.error('Vertex profile lookup error:', error);
     return null;

@@ -1,6 +1,11 @@
 import { lookupVertexProfile } from './vertex';
+import { connect } from './ndk';
 
 describe('Vertex Profile Lookup', () => {
+  beforeAll(async () => {
+    await connect();
+  });
+
   it('should find fiatjaf profile', async () => {
     const profile = await lookupVertexProfile('p:fiatjaf');
     expect(profile).not.toBeNull();
@@ -9,5 +14,5 @@ describe('Vertex Profile Lookup', () => {
       const content = JSON.parse(profile.content);
       expect(content.display_name || content.displayName || content.name).toBe('fiatjaf');
     }
-  }, 10000); // 10 second timeout
+  }, 30000); // 30 second timeout
 }); 
