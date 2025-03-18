@@ -9,5 +9,5 @@ describe('Vertex Profile Lookup', () => {
       const content = JSON.parse(profile.content);
       expect(content.display_name || content.displayName || content.name).toBe('fiatjaf');
     }
-  });
+  }, 10000); // 10 second timeout
 }); 
