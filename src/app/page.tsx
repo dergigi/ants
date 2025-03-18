@@ -27,7 +27,7 @@ export default function Home() {
     setIsLoading(true);
     
     try {
-      const searchQuery = query.trim() || 'vibe';
+      const searchQuery = query.trim() || placeholder;
       
       // Check if this is a Vertex profile lookup
       if (VERTEX_REGEXP.test(searchQuery)) {
