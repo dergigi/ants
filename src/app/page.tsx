@@ -37,6 +37,16 @@ export default function Home() {
     }
   };
 
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -91,7 +101,7 @@ export default function Home() {
                     <p className="text-gray-100">{event.content}</p>
                     <div className="mt-2 flex justify-between text-sm text-gray-400">
                       <span>{event.pubkey.slice(0, 8)}...</span>
-                      <span>{event.created_at ? new Date(event.created_at * 1000).toLocaleString() : 'Unknown date'}</span>
+                      <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
                   </>
                 )}
