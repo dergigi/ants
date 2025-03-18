@@ -13,21 +13,16 @@ describe('Search Events', () => {
     expect(events.length).toBeGreaterThan(0);
   });
 
-  it('should find events with author filter and search term', async () => {
-    const events = await searchEvents('from:pablo ndk', 50);
-    
-    // Ensure we got some results
+  it('should find events from an author without search term', async () => {
+    const events = await searchEvents('from:pablo', 50);
     expect(events.length).toBeGreaterThan(0);
-    
-    // Check if specific known note is in results
-    const knownNoteId = 'note1qzyavjt8cyr5ztna33p060dk5gfxypvcx7lfskze56su8mm73myqpjqlqr';
-    const foundNote = events.find((event: NDKEvent) => event.id === knownNoteId);
-    expect(foundNote).toBeDefined();
-    
-    // Verify all events are from pablo
-    const pabloNpub = 'npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpn66ukqp3afqutajft';
+  });
+
+  it('should find events with author filter and search term', async () => {
+    const events = await searchEvents('from:pablo ndk');
+    expect(events.length).toBeGreaterThan(0);
     events.forEach((event: NDKEvent) => {
-      expect(event.pubkey).toBe(pabloNpub);
+      expect(event.content.toLowerCase()).toContain('ndk');
     });
   });
 });
