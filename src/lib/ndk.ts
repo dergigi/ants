@@ -1,4 +1,4 @@
-import { NDK } from '@nostr-dev-kit/ndk';
+import NDK from '@nostr-dev-kit/ndk';
 
 // Initialize NDK with a basic relay
 export const ndk = new NDK({
