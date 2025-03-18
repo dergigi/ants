@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ndk } from '@/lib/ndk';
+import { useState, useEffect } from 'react';
+import { ndk, connect } from '@/lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 
@@ -9,6 +9,10 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    connect();
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
