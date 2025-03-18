@@ -6,7 +6,7 @@ export default function Home() {
       <div className="w-full max-w-md space-y-4">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="from:friends GM"
           className="w-full px-4 py-2 text-black bg-white rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
         />
         <button
