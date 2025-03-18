@@ -2,23 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import { ndk, connect } from '@/lib/ndk';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 export default function Home() {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState<NDKEvent[]>([]);
 
   useEffect(() => {
     connect();
   }, []);
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setQuery('vibe');
+    }
     
     setIsLoading(true);
     try {
-      // TODO: Implement actual search using NDK
-      console.log('Searching for:', query);
-      // We'll implement the actual search in the next step
+      const searchQuery = query.trim() || 'vibe';
+      const events = await ndk.fetchEvents({
+        kinds: [1], // text notes
+        search: searchQuery,
+        limit: 20
+      });
+      
+      setResults(Array.from(events));
+      console.log('Search results:', events);
     } catch (error) {
       console.error('Search error:', error);
     } finally {
@@ -40,7 +50,7 @@ export default function Home() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="from:friends GM"
+          placeholder="vibe"
           className="w-full px-4 py-2 text-black bg-white rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
           disabled={isLoading}
         />
