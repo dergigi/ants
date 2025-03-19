@@ -38,25 +38,6 @@ describe('Search Events', () => {
       expect(event.pubkey).toBe(pabloPubkey);
     });
   });
-
-  it('should find GM events from dergigi', async () => {
-    // First get dergigi's pubkey
-    const dergigiProfile = await lookupVertexProfile('p:dergigi');
-    expect(dergigiProfile).toBeTruthy();
-    const dergigiPubkey = dergigiProfile!.pubkey;
-
-    // Search for events
-    const events = await searchEvents('GM from:dergigi');
-    expect(events.length).toBeGreaterThan(0);
-    
-    // Verify each event
-    events.forEach((event: NDKEvent) => {
-      // Check that the event contains 'gm' in its content
-      expect(event.content.toLowerCase()).toContain('gm');
-      // Check that the event was authored by dergigi
-      expect(event.pubkey).toBe(dergigiPubkey);
-    });
-  });
 });
 
 describe('Regular Search', () => {
@@ -84,7 +65,7 @@ describe('Search Examples', () => {
       const events = await searchEvents(example);
       expect(events.length).toBeGreaterThan(0);
 
-      events.forEach((event: NDKEvent) => {
+      for (const event of events) {
         const content = event.content.toLowerCase();
         
         // Handle different types of examples
@@ -97,17 +78,25 @@ describe('Search Examples', () => {
           expect(content.includes(hashtag) || content.includes(`#${hashtag}`)).toBe(true);
         } else if (example.includes('from:') || example.includes('by:')) {
           // Author search with term
-          const terms = example.split(' ').slice(1).join(' ').toLowerCase();
-          if (terms) {
-            expect(content.includes(terms)).toBe(true);
+          const [author, ...terms] = example.split(' ').slice(1);
+          const authorName = author.replace('from:', '').replace('by:', '');
+          
+          // Look up the author's pubkey
+          const profile = await lookupVertexProfile(`p:${authorName}`);
+          expect(profile).toBeTruthy();
+          expect(event.pubkey).toBe(profile!.pubkey);
+          
+          // Check search terms if present
+          if (terms.length > 0) {
+            const searchTerms = terms.join(' ').toLowerCase();
+            expect(content.includes(searchTerms)).toBe(true);
           }
-          // Author verification will be added when we fix the author verification system
         } else {
           // Regular search
           const terms = example.toLowerCase().split(' ');
           expect(terms.some(term => content.includes(term))).toBe(true);
         }
-      });
+      }
     });
   });
 });
