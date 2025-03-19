@@ -53,10 +53,11 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   const username = match[1].toLowerCase();
   
   try {
-    // Query the vertex relay for profile events
+    // Query the vertex relay for profile events with a search filter
     const events = await queryVertexRelay({ 
       kinds: [0],
-      limit: 100
+      search: username,
+      limit: 10
     });
     
     // Find matching profile by username in content
