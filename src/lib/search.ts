@@ -80,7 +80,16 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
     console.log('Searching with filters:', filters);
     const events = await ndk.fetchEvents(filters);
-    return Array.from(events);
+    const results = Array.from(events);
+
+    // If we have search terms, filter the results to ensure they contain the terms
+    if (terms && terms.trim()) {
+      return results.filter(event => 
+        event.content.toLowerCase().includes(terms.trim().toLowerCase())
+      );
+    }
+
+    return results;
   }
   
   // Regular search without author filter
