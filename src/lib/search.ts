@@ -10,9 +10,33 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
   
   // Check for author search
-  const authorMatch = query.match(/(from:|by:)(\S+)\s*(.*)/);
+  const authorMatch = query.match(/(from:|by:|author:)(\S+)\s*(.*)/);
   if (authorMatch) {
     const [_, prefix, author, terms] = authorMatch;
+    
+    // Check if author is a direct npub
+    if (author.startsWith('npub')) {
+      // Search for events by this author
+      const searchQuery = terms.trim() ? `npub:${author} ${terms}`.trim() : `npub:${author}`;
+      console.log('Searching with query:', searchQuery);
+      
+      const events = await ndk.fetchEvents({
+        kinds: [1],
+        search: searchQuery,
+        limit
+      });
+
+      const results = Array.from(events);
+      console.log('Search results:', {
+        query,
+        authorNpub: author,
+        searchQuery,
+        terms,
+        resultCount: results.length
+      });
+
+      return results;
+    }
     
     // Use vertex lookup to find the author's profile
     const profile = await lookupVertexProfile(`p:${author}`);
