@@ -129,7 +129,7 @@ export default function Home() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={isConnecting ? loadingDots : placeholder}
+              placeholder={isConnecting ? `Connecting${loadingDots}` : placeholder}
               className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
             <button

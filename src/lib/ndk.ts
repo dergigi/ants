@@ -17,8 +17,7 @@ export const getCurrentExample = () => currentSearchExample;
 
 export const connect = async () => {
   await ndk.connect();
-  // Select a random example for the placeholder
+  // Select a random example when we connect
   currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
   console.log('Connected to relays, selected example:', currentSearchExample);
-  return currentSearchExample;
 }; 
