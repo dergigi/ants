@@ -6,7 +6,7 @@ export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
 // Known npubs for specific users
 const KNOWN_NPUBS: Record<string, string> = {
-  dergigi: 'npub1dergggklka99wwrs92xn8ldenl8fl6z57y2y3lxjcupsa46l8t5qscxusaj'
+  dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
 };
 
 function getPubkey(npub: string): string | null {
