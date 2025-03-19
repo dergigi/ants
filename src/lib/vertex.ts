@@ -1,5 +1,6 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -7,6 +8,16 @@ export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 const KNOWN_NPUBS: Record<string, string> = {
   dergigi: 'npub1dergggklka99wwrs92xn8ldenl8fl6z57y2y3lxjcupsa46l8t5qscxusaj'
 };
+
+function getPubkey(npub: string): string | null {
+  try {
+    const { data } = nip19.decode(npub);
+    return data as string;
+  } catch (error) {
+    console.error('Error decoding npub:', error);
+    return null;
+  }
+}
 
 export async function lookupVertexProfile(query: string): Promise<NDKEvent | null> {
   const match = query.match(VERTEX_REGEXP);
@@ -16,9 +27,13 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   // Check known npubs first
   if (KNOWN_NPUBS[username]) {
+    const npub = KNOWN_NPUBS[username];
+    const pubkey = getPubkey(npub);
+    if (!pubkey) return null;
+
     const event = new NDKEvent(ndk);
-    event.pubkey = KNOWN_NPUBS[username];
-    event.author = new NDKUser({ pubkey: KNOWN_NPUBS[username] });
+    event.pubkey = pubkey;
+    event.author = new NDKUser({ pubkey });
     return event;
   }
   
