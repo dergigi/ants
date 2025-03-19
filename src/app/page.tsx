@@ -130,13 +130,32 @@ function SearchComponent() {
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
         <form onSubmit={handleSubmit} className="w-full">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={isConnecting ? loadingDots : placeholder}
-              className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={isConnecting ? loadingDots : placeholder}
+                className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setResults([]);
+                    // Update URL to remove the query parameter
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete('q');
+                    router.push(`?${params.toString()}`);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <button
               type="submit"
               disabled={isLoading}
