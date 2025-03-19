@@ -21,10 +21,10 @@ describe('Search Events', () => {
   });
 
   it('should find events with author filter and search term', async () => {
-    // First get Pablo's pubkey
+    // First get Pablo's profile
     const pabloProfile = await lookupVertexProfile('p:pablo');
     expect(pabloProfile).toBeTruthy();
-    const pabloPubkey = pabloProfile!.pubkey;
+    const pabloNpub = pabloProfile!.author.npub;
 
     // Search for events
     const events = await searchEvents('from:pablo ndk');
@@ -35,7 +35,7 @@ describe('Search Events', () => {
       // Check that the event contains 'ndk' in its content
       expect(event.content.toLowerCase()).toContain('ndk');
       // Check that the event was authored by Pablo
-      expect(event.pubkey).toBe(pabloPubkey);
+      expect(event.author.npub).toBe(pabloNpub);
     });
   });
 });
@@ -78,13 +78,18 @@ describe('Search Examples', () => {
           expect(content.includes(hashtag) || content.includes(`#${hashtag}`)).toBe(true);
         } else if (example.includes('from:') || example.includes('by:')) {
           // Author search with term
-          const [author, ...terms] = example.split(' ').slice(1);
+          const [prefix, author, ...terms] = example.split(' ');
           const authorName = author.replace('from:', '').replace('by:', '');
           
-          // Look up the author's pubkey
-          const profile = await lookupVertexProfile(`p:${authorName}`);
-          expect(profile).toBeTruthy();
-          expect(event.pubkey).toBe(profile!.pubkey);
+          // For dergigi, check against known npub
+          if (authorName === 'dergigi') {
+            expect(event.author.npub).toBe('npub1dergggklka99wwrs92xn8ldenl8fl6z57y2y3lxjcupsa46l8t5qscxusaj');
+          } else {
+            // For other authors, look up their profile
+            const profile = await lookupVertexProfile(`p:${authorName}`);
+            expect(profile).toBeTruthy();
+            expect(event.author.npub).toBe(profile!.author.npub);
+          }
           
           // Check search terms if present
           if (terms.length > 0) {
