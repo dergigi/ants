@@ -73,23 +73,14 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       limit
     };
 
-    // If we have additional search terms, add them to the search
+    // Add search term to the filter if present
     if (terms && terms.trim()) {
       filters.search = terms.trim();
     }
 
     console.log('Searching with filters:', filters);
     const events = await ndk.fetchEvents(filters);
-    const results = Array.from(events);
-
-    // If we have search terms, filter the results to ensure they contain the terms
-    if (terms && terms.trim()) {
-      return results.filter(event => 
-        event.content.toLowerCase().includes(terms.trim().toLowerCase())
-      );
-    }
-
-    return results;
+    return Array.from(events);
   }
   
   // Regular search without author filter
