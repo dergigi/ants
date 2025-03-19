@@ -36,6 +36,13 @@ async function queryVertexRelay(filter: Filter): Promise<Event[]> {
           reject();
         }
       });
+
+      // Add a timeout to ensure we wait long enough
+      setTimeout(() => {
+        console.log('Timeout reached, resolving with events:', events.length);
+        resolve(events);
+        sub.close();
+      }, 5000);
     });
   } catch (error) {
     console.error('Error querying vertex relay:', error);
