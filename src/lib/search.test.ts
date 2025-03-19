@@ -3,6 +3,7 @@ import { searchEvents } from './search';
 import { beforeAll, afterAll } from '@jest/globals';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile } from './vertex';
+import { searchExamples } from './examples';
 
 beforeAll(async () => {
   await connect();
@@ -58,64 +59,36 @@ describe('Regular Search', () => {
 });
 
 describe('Search Examples', () => {
-  it('should find events with "vibe coding"', async () => {
-    const events = await searchEvents('vibe coding');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      const content = event.content.toLowerCase();
-      expect(content.includes('vibe') || content.includes('coding')).toBe(true);
-    });
-  });
+  // Test each example from our shared examples list
+  searchExamples.forEach(example => {
+    it(`should find events for "${example}"`, async () => {
+      const events = await searchEvents(example);
+      expect(events.length).toBeGreaterThan(0);
 
-  it('should find events with #SovEng hashtag', async () => {
-    const events = await searchEvents('#SovEng');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      const content = event.content.toLowerCase();
-      expect(content.includes('soveng') || content.includes('#soveng')).toBe(true);
-    });
-  });
-
-  it('should find NDK-related events from pablo', async () => {
-    const events = await searchEvents('ndk from:pablo');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      expect(event.content.toLowerCase()).toContain('ndk');
-    });
-  });
-
-  it('should find events from gigi with 👀', async () => {
-    const events = await searchEvents('👀 by:gigi');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      expect(event.content).toContain('👀');
-    });
-  });
-
-  it('should find fiatjaf profile', async () => {
-    const events = await searchEvents('p:fiatjaf');
-    expect(events.length).toBeGreaterThan(0);
-    // Profile events are kind 0
-    events.forEach((event: NDKEvent) => {
-      expect(event.kind).toBe(0);
-    });
-  });
-
-  it('should find events with #PenisButter hashtag', async () => {
-    const events = await searchEvents('#PenisButter');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      const content = event.content.toLowerCase();
-      expect(content.includes('penisbutter') || content.includes('#penisbutter')).toBe(true);
-    });
-  });
-
-  it('should find GM events from dergigi', async () => {
-    const events = await searchEvents('GM from:dergigi');
-    expect(events.length).toBeGreaterThan(0);
-    events.forEach((event: NDKEvent) => {
-      const content = event.content.toLowerCase();
-      expect(content.includes('gm')).toBe(true);
+      events.forEach((event: NDKEvent) => {
+        const content = event.content.toLowerCase();
+        
+        // Handle different types of examples
+        if (example.startsWith('p:')) {
+          // Profile lookup
+          expect(event.kind).toBe(0);
+        } else if (example.includes('#')) {
+          // Hashtag search
+          const hashtag = example.split(' ')[0].toLowerCase().replace('#', '');
+          expect(content.includes(hashtag) || content.includes(`#${hashtag}`)).toBe(true);
+        } else if (example.includes('from:') || example.includes('by:')) {
+          // Author search with term
+          const terms = example.split(' ').slice(1).join(' ').toLowerCase();
+          if (terms) {
+            expect(content.includes(terms)).toBe(true);
+          }
+          // Author verification will be added when we fix the author verification system
+        } else {
+          // Regular search
+          const terms = example.toLowerCase().split(' ');
+          expect(terms.some(term => content.includes(term))).toBe(true);
+        }
+      });
     });
   });
 });

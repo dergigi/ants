@@ -1,4 +1,5 @@
 import NDK from '@nostr-dev-kit/ndk';
+import { searchExamples } from './examples';
 
 const RELAYS = [
   'wss://relay.nostr.band/',
@@ -8,14 +9,6 @@ const RELAYS = [
 export const ndk = new NDK({
   explicitRelayUrls: RELAYS
 });
-
-// Search examples that we'll randomly select from
-const searchExamples = [
-  'p:fiatjaf',
-  'vibe coding',
-  '#penisButter',
-  'from:pablo ndk'
-];
 
 // Store the selected example
 let currentSearchExample: string;
