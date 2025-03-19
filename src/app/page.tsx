@@ -15,7 +15,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
-  const [loadingDots, setLoadingDots] = useState('...');
+  const [loadingDots, setLoadingDots] = useState('');
 
   // Loading animation effect
   useEffect(() => {
@@ -24,10 +24,10 @@ export default function Home() {
     const interval = setInterval(() => {
       setLoadingDots(prev => {
         switch (prev) {
-          case '...': return '..';
-          case '..': return '.';
-          case '.': return '...';
-          default: return '...';
+          case '': return '.';
+          case '.': return '..';
+          case '..': return '...';
+          default: return '.';
         }
       });
     }, 21);
@@ -129,7 +129,7 @@ export default function Home() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={isConnecting ? `Connecting${loadingDots}` : placeholder}
+              placeholder={isConnecting ? loadingDots : placeholder}
               className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
             <button
