@@ -28,8 +28,8 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       };
 
       // If we have additional search terms, add them to the search
-      if (terms) {
-        filters.search = terms;
+      if (terms && terms.trim()) {
+        filters.search = terms.trim();
       }
 
       console.log('Searching with filters:', filters);
@@ -52,8 +52,8 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     };
 
     // If we have additional search terms, add them to the search
-    if (terms) {
-      filters.search = terms;
+    if (terms && terms.trim()) {
+      filters.search = terms.trim();
     }
 
     console.log('Searching with filters:', filters);
