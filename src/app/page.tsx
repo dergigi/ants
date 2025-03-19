@@ -5,8 +5,11 @@ import { connect, getCurrentExample } from '@/lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,23 +23,30 @@ export default function Home() {
     initializeNDK();
   }, []);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Initialize query from URL on mount
+  useEffect(() => {
+    const urlQuery = searchParams.get('q');
+    if (urlQuery) {
+      setQuery(urlQuery);
+      // Perform the search if there's a query in the URL
+      handleSearch(urlQuery);
+    }
+  }, [searchParams]);
+
+  const handleSearch = async (searchQuery: string) => {
     setIsLoading(true);
     
     try {
       // If the field is empty, use the current placeholder
-      if (!query.trim()) {
-        setQuery(placeholder);
+      if (!searchQuery.trim()) {
+        searchQuery = placeholder;
       }
       
-      const searchQuery = query.trim() || placeholder;
-      
       console.log('Search details:', {
-        inputValue: query,
+        inputValue: searchQuery,
         placeholder,
         searchQuery,
-        usingPlaceholder: !query.trim()
+        usingPlaceholder: !searchQuery.trim()
       });
       
       // Check if this is a Vertex profile lookup
@@ -53,6 +63,20 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Update URL with current query
+    const params = new URLSearchParams(searchParams.toString());
+    if (query.trim()) {
+      params.set('q', query.trim());
+    } else {
+      params.delete('q');
+    }
+    router.push(`?${params.toString()}`);
+    // Perform the search
+    handleSearch(query);
   };
 
   const formatDate = (timestamp: number) => {
@@ -73,7 +97,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-        <form onSubmit={handleSearch} className="w-full">
+        <form onSubmit={handleSubmit} className="w-full">
           <div className="flex gap-2">
             <input
               type="text"
