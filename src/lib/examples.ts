@@ -3,14 +3,14 @@ export const searchExamples = [
   'p:fiatjaf',
   'vibe coding',
   '#PenisButter',
-  'from:pablo ndk',
+  'by:pablo ndk',
   '#YESTR',
   '#YESTR by:gigi',
   '#SovEng',
   '👀 by:gigi',
-  'GM from:dergigi',
+  'GM by:dergigi',
   '.jpg by:corndalorian',
-  'GN author:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
+  'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
 ] as const;
 
 // Helper type for type safety
