@@ -1,19 +1,30 @@
 import NDK from '@nostr-dev-kit/ndk';
 
-// Initialize NDK with both relays
+const RELAYS = [
+  'wss://relay.nostr.band/',
+  'wss://relay.vertexlab.io/'
+];
+
 export const ndk = new NDK({
-  explicitRelayUrls: [
-    'wss://relay.nostr.band',  // For regular searches
-    'wss://relay.vertexlab.io' // For profile lookups
-  ]
+  explicitRelayUrls: RELAYS
 });
 
-// Connect to the relays
+// Search examples that we'll randomly select from
+const searchExamples = [
+  'p:fiatjaf',
+  'vibe coding',
+  '#penisButter',
+  'from:pablo ndk'
+];
+
+// Store the selected example
+let currentSearchExample: string;
+
+export const getCurrentExample = () => currentSearchExample;
+
 export const connect = async () => {
-  try {
-    await ndk.connect();
-    console.log('Connected to relays');
-  } catch (error) {
-    console.error('Failed to connect to relays:', error);
-  }
+  await ndk.connect();
+  // Select a random example when we connect
+  currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
+  console.log('Connected to relays, selected example:', currentSearchExample);
 }; 

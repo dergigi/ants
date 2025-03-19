@@ -28,20 +28,48 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   // If we have an author filter, look up their npub first
   let authorPubkey: string | undefined;
   if (filter.author) {
-    const profile = await lookupVertexProfile(`p:${filter.author}`);
-    if (!profile) {
+    try {
+      const profile = await lookupVertexProfile(`p:${filter.author}`);
+      if (profile) {
+        // Use the hex pubkey directly
+        authorPubkey = profile.pubkey;
+        console.log('Found author pubkey:', authorPubkey);
+      } else {
+        console.log('No profile found for author:', filter.author);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error looking up profile:', error);
       return [];
     }
-    authorPubkey = profile.pubkey;
   }
   
   // Perform the search with author filter if present
-  const events = await ndk.fetchEvents({
-    kinds: [1],
-    authors: authorPubkey ? [authorPubkey] : undefined,
-    search: filter.terms,
-    limit
-  });
-  
-  return Array.from(events);
+  try {
+    // Construct the search query in nostr.band format
+    let searchQuery = filter.terms;
+    if (authorPubkey) {
+      searchQuery = `pubkey:${authorPubkey} ${filter.terms}`.trim();
+    }
+    
+    const events = await ndk.fetchEvents({
+      kinds: [1],
+      search: searchQuery,
+      limit
+    });
+    
+    const results = Array.from(events);
+    console.log('Search results:', {
+      query,
+      authorPubkey,
+      searchQuery,
+      terms: filter.terms,
+      resultCount: results.length
+    });
+    
+    return results;
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    return [];
+  }
 } 

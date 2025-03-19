@@ -127,7 +127,7 @@ export default function Home() {
             ))}
           </div>
         )}
-      </div>
-    </main>
+        </div>
+      </main>
   );
 }
