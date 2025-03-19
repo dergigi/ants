@@ -60,24 +60,36 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Search error:', error);
-      setResults([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // If query is empty, use placeholder
+    const searchQuery = query.trim() || placeholder;
+    setQuery(searchQuery);
+    
     // Update URL with current query
     const params = new URLSearchParams(searchParams.toString());
-    if (query.trim()) {
-      params.set('q', query.trim());
+    if (searchQuery) {
+      params.set('q', searchQuery);
     } else {
       params.delete('q');
     }
     router.push(`?${params.toString()}`);
     // Perform the search
-    await handleSearch(query);
+    handleSearch(searchQuery);
+  };
+
+  const handleClear = () => {
+    setQuery('');
+    setResults([]);
+    // Update URL to remove query
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    router.push(`?${params.toString()}`);
   };
 
   const formatDate = (timestamp: number) => {
@@ -100,13 +112,24 @@ export default function Home() {
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
         <form onSubmit={handleSubmit} className="w-full">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={placeholder}
-              className="flex-1 px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={placeholder}
+                className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 focus:outline-none"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <button
               type="submit"
               disabled={isLoading}
