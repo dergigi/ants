@@ -8,7 +8,8 @@ export const searchExamples = [
   '#YESTR by:gigi',
   '#SovEng',
   '👀 by:gigi',
-  'GM from:dergigi'
+  'GM from:dergigi',
+  '.jpg by:corndalorian'
 ] as const;
 
 // Helper type for type safety
