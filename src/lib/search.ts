@@ -1,6 +1,7 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
+import { nip19 } from 'nostr-tools';
 
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
   // Check for vertex profile lookups
@@ -14,12 +15,18 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
   // Check if the query is a direct npub
   if (query.startsWith('npub')) {
-    const events = await ndk.fetchEvents({
-      kinds: [1],
-      authors: [query],
-      limit
-    });
-    return Array.from(events);
+    try {
+      const { data: pubkey } = nip19.decode(query);
+      const events = await ndk.fetchEvents({
+        kinds: [1],
+        authors: [pubkey as string],
+        limit
+      });
+      return Array.from(events);
+    } catch (error) {
+      console.error('Error decoding npub:', error);
+      return [];
+    }
   }
 
   // Check for author filter
@@ -30,20 +37,26 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
     // Check if author is a direct npub
     if (author.startsWith('npub')) {
-      const filters: NDKFilter = {
-        kinds: [1],
-        authors: [author],
-        limit
-      };
+      try {
+        const { data: pubkey } = nip19.decode(author);
+        const filters: NDKFilter = {
+          kinds: [1],
+          authors: [pubkey as string],
+          limit
+        };
 
-      // If we have additional search terms, add them to the search
-      if (terms && terms.trim()) {
-        filters.search = terms.trim();
+        // If we have additional search terms, add them to the search
+        if (terms && terms.trim()) {
+          filters.search = terms.trim();
+        }
+
+        console.log('Searching with filters:', filters);
+        const events = await ndk.fetchEvents(filters);
+        return Array.from(events);
+      } catch (error) {
+        console.error('Error decoding npub:', error);
+        return [];
       }
-
-      console.log('Searching with filters:', filters);
-      const events = await ndk.fetchEvents(filters);
-      return Array.from(events);
     }
 
     // Look up author's profile
