@@ -1,6 +1,6 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { Relay, Filter } from 'nostr-tools';
+import { Relay, Filter, Event } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -15,28 +15,21 @@ async function getVertexRelay(): Promise<Relay> {
   return vertexRelay;
 }
 
-async function queryVertexRelay(filter: Filter): Promise<NDKEvent[]> {
+async function queryVertexRelay(filter: Filter): Promise<Event[]> {
   try {
     const relay = await getVertexRelay();
     return new Promise((resolve, reject) => {
-      const events: NDKEvent[] = [];
+      const events: Event[] = [];
       const sub = relay.subscribe([filter], {
         onevent(event) {
-          const ndkEvent = new NDKEvent(ndk);
-          ndkEvent.pubkey = event.pubkey;
-          ndkEvent.content = event.content;
-          events.push(ndkEvent);
+          events.push(event);
         },
         oneose() {
           resolve(events);
           sub.close();
         },
         onclose() {
-          if (events.length === 0) {
-            reject(new Error('No events received'));
-          } else {
-            resolve(events);
-          }
+          reject();
         }
       });
     });
