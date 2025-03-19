@@ -65,6 +65,11 @@ export default function Home() {
     });
   };
 
+  const shortenNpub = (npub: string) => {
+    if (!npub) return '';
+    return `${npub.substring(0, 10)}...${npub.substring(npub.length - 3)}`;
+  };
+
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -106,7 +111,7 @@ export default function Home() {
                         <h2 className="text-xl font-bold">
                           {JSON.parse(event.content).display_name || JSON.parse(event.content).displayName || JSON.parse(event.content).name}
                         </h2>
-                        <p className="text-gray-400">{event.author.npub}</p>
+                        <p className="text-gray-400">{shortenNpub(event.author.npub)}</p>
                       </div>
                     </div>
                     {JSON.parse(event.content).about && (
@@ -118,7 +123,7 @@ export default function Home() {
                   <>
                     <p className="text-gray-100">{event.content}</p>
                     <div className="mt-2 flex justify-between text-sm text-gray-400">
-                      <span>{event.author.npub}</span>
+                      <span>{shortenNpub(event.author.npub)}</span>
                       <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
                   </>
