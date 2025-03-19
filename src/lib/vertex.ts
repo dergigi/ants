@@ -36,13 +36,6 @@ async function queryVertexRelay(filter: Filter): Promise<Event[]> {
           reject();
         }
       });
-
-      // Add a timeout to ensure we wait long enough
-      setTimeout(() => {
-        console.log('Timeout reached, resolving with events:', events.length);
-        resolve(events);
-        sub.close();
-      }, 5000);
     });
   } catch (error) {
     console.error('Error querying vertex relay:', error);
@@ -58,10 +51,10 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   console.log('Looking up profile for username:', username);
   
   try {
-    // Query the vertex relay for profile events
+    // Query the vertex relay for profile events with username as search term
     const events = await queryVertexRelay({ 
       kinds: [0],
-      limit: 100
+      search: username
     });
     
     console.log('Found events:', events.length);
@@ -91,6 +84,8 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
     const event = new NDKEvent(ndk);
     event.pubkey = profile.pubkey;
     event.author = new NDKUser({ pubkey: profile.pubkey });
+    event.content = profile.content;
+    event.kind = profile.kind;
     return event;
   } catch (error) {
     console.error('Error looking up vertex profile:', error);
