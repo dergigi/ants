@@ -67,20 +67,26 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     }
 
     // Search for events by the author
-    const filters: NDKFilter = {
-      kinds: [1],
-      authors: [profile.author.npub],
-      limit
-    };
+    try {
+      const { data: pubkey } = nip19.decode(profile.author.npub);
+      const filters: NDKFilter = {
+        kinds: [1],
+        authors: [pubkey as string],
+        limit
+      };
 
-    // If we have additional search terms, add them to the search
-    if (terms && terms.trim()) {
-      filters.search = terms.trim();
+      // If we have additional search terms, add them to the search
+      if (terms && terms.trim()) {
+        filters.search = terms.trim();
+      }
+
+      console.log('Searching with filters:', filters);
+      const events = await ndk.fetchEvents(filters);
+      return Array.from(events);
+    } catch (error) {
+      console.error('Error decoding npub:', error);
+      return [];
     }
-
-    console.log('Searching with filters:', filters);
-    const events = await ndk.fetchEvents(filters);
-    return Array.from(events);
   }
   
   // Regular search without author filter
