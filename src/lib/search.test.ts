@@ -147,6 +147,30 @@ describe('Search Events', () => {
       expect(event.content.toLowerCase()).toContain('gm');
     });
   }, 5000);
+
+  it('should handle author filter in any position', async () => {
+    const npub = 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
+    
+    // Test with author filter at the end
+    const events1 = await searchEvents('GM by:dergigi');
+    expect(events1.length).toBeGreaterThan(0);
+    events1.forEach(event => {
+      expect(event.author.npub).toBe(npub);
+      expect(event.content.toLowerCase()).toContain('gm');
+    });
+
+    // Test with author filter at the start
+    const events2 = await searchEvents('by:dergigi GM');
+    expect(events2.length).toBeGreaterThan(0);
+    events2.forEach(event => {
+      expect(event.author.npub).toBe(npub);
+      expect(event.content.toLowerCase()).toContain('gm');
+    });
+
+    // Verify both searches returned the same results
+    expect(events1.length).toBe(events2.length);
+    expect(events1.map(e => e.id).sort()).toEqual(events2.map(e => e.id).sort());
+  }, 5000);
 });
 
 describe('Regular Search', () => {

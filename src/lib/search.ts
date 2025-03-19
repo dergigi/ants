@@ -44,9 +44,11 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // Check for author filter
-  const authorMatch = query.match(/^(.*?)\s*by:(\S+)\s*$/);
+  const authorMatch = query.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
   if (authorMatch) {
-    const [, terms, author] = authorMatch;
+    const [, author] = authorMatch;
+    // Extract search terms by removing the author filter
+    const terms = query.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -74,8 +76,8 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     };
 
     // Add search term to the filter if present
-    if (terms && terms.trim()) {
-      filters.search = terms.trim();
+    if (terms) {
+      filters.search = terms;
     }
 
     console.log('Searching with filters:', filters);
