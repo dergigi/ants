@@ -17,7 +17,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     // Check if author is a direct npub
     if (author.startsWith('npub')) {
       // Search for events by this author
-      const searchQuery = terms.trim() ? `npub:${author} ${terms}`.trim() : `npub:${author}`;
+      const searchQuery = terms.trim() ? `${terms} npub:${author}`.trim() : `npub:${author}`;
       console.log('Searching with query:', searchQuery);
       
       const events = await ndk.fetchEvents({
@@ -46,7 +46,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     }
 
     // Search for events by this author
-    const searchQuery = terms.trim() ? `npub:${profile.author.npub} ${terms}`.trim() : `npub:${profile.author.npub}`;
+    const searchQuery = terms.trim() ? `${terms} npub:${profile.author.npub}`.trim() : `npub:${profile.author.npub}`;
     console.log('Searching with query:', searchQuery);
     
     const events = await ndk.fetchEvents({
