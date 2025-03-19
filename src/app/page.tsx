@@ -106,7 +106,7 @@ export default function Home() {
                         <h2 className="text-xl font-bold">
                           {JSON.parse(event.content).display_name || JSON.parse(event.content).displayName || JSON.parse(event.content).name}
                         </h2>
-                        <p className="text-gray-400">npub{event.pubkey.slice(0, 8)}...</p>
+                        <p className="text-gray-400">{event.author.npub}</p>
                       </div>
                     </div>
                     {JSON.parse(event.content).about && (
@@ -118,7 +118,7 @@ export default function Home() {
                   <>
                     <p className="text-gray-100">{event.content}</p>
                     <div className="mt-2 flex justify-between text-sm text-gray-400">
-                      <span>{event.pubkey.slice(0, 8)}...</span>
+                      <span>{event.author.npub}</span>
                       <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
                   </>
