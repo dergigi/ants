@@ -15,7 +15,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
-  const [loadingDots, setLoadingDots] = useState('');
+  const [loadingDots, setLoadingDots] = useState('...');
 
   // Loading animation effect
   useEffect(() => {
@@ -24,10 +24,10 @@ export default function Home() {
     const interval = setInterval(() => {
       setLoadingDots(prev => {
         switch (prev) {
-          case '': return '.';
-          case '.': return '..';
-          case '..': return '...';
-          default: return '.';
+          case '...': return '..';
+          case '..': return '.';
+          case '.': return '...';
+          default: return '...';
         }
       });
     }, 21);
