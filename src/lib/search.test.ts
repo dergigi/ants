@@ -111,6 +111,30 @@ describe('Search Events', () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events[0].content).toContain('GN');
   }, 5000);
+
+  it('should handle author filters with direct npub and name lookups', async () => {
+    const queries = [
+      'GM by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+      'GM by:dergigi',
+      'GM by:gigi'
+    ];
+
+    const results = await Promise.all(queries.map(q => searchEvents(q)));
+    
+    // All queries should return the same number of results
+    expect(results[0].length).toBeGreaterThan(0);
+    expect(results[0].length).toBe(results[1].length);
+    expect(results[1].length).toBe(results[2].length);
+
+    // All results should be from the same author
+    const npub = 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
+    results.forEach(resultSet => {
+      resultSet.forEach(event => {
+        expect(event.author.npub).toBe(npub);
+        expect(event.content.toLowerCase()).toContain('gm');
+      });
+    });
+  }, 5000);
 });
 
 describe('Regular Search', () => {
