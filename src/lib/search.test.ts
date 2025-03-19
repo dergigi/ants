@@ -3,7 +3,6 @@ import { searchEvents } from './search';
 import { beforeAll, afterAll } from '@jest/globals';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile } from './vertex';
-import { searchExamples } from './examples';
 
 beforeAll(async () => {
   await connect();

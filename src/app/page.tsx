@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { connect, getCurrentExample } from '@/lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 
-export default function Home() {
+function SearchComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
@@ -16,11 +17,42 @@ export default function Home() {
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [loadingDots, setLoadingDots] = useState('...');
-  const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
 
   const handleCopyNpub = async (npub: string) => {
     await navigator.clipboard.writeText(npub);
   };
+
+  const handleSearch = useCallback(async (searchQuery: string) => {
+    setIsLoading(true);
+    
+    try {
+      // If the field is empty, use the current placeholder
+      if (!searchQuery.trim()) {
+        searchQuery = placeholder;
+      }
+      
+      console.log('Search details:', {
+        inputValue: searchQuery,
+        placeholder,
+        searchQuery,
+        usingPlaceholder: !searchQuery.trim()
+      });
+      
+      // Check if this is a Vertex profile lookup
+      if (VERTEX_REGEXP.test(searchQuery)) {
+        const profile = await lookupVertexProfile(searchQuery);
+        setResults(profile ? [profile] : []);
+      } else {
+        // Regular search or author-filtered search
+        const events = await searchEvents(searchQuery);
+        setResults(events);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [placeholder]);
 
   // Loading animation effect
   useEffect(() => {
@@ -58,39 +90,7 @@ export default function Home() {
       // Perform the search if there's a query in the URL
       handleSearch(urlQuery);
     }
-  }, [searchParams]);
-
-  const handleSearch = async (searchQuery: string) => {
-    setIsLoading(true);
-    
-    try {
-      // If the field is empty, use the current placeholder
-      if (!searchQuery.trim()) {
-        searchQuery = placeholder;
-      }
-      
-      console.log('Search details:', {
-        inputValue: searchQuery,
-        placeholder,
-        searchQuery,
-        usingPlaceholder: !searchQuery.trim()
-      });
-      
-      // Check if this is a Vertex profile lookup
-      if (VERTEX_REGEXP.test(searchQuery)) {
-        const profile = await lookupVertexProfile(searchQuery);
-        setResults(profile ? [profile] : []);
-      } else {
-        // Regular search or author-filtered search
-        const events = await searchEvents(searchQuery);
-        setResults(events);
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [searchParams, handleSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,10 +156,12 @@ export default function Home() {
                   <div>
                     <div className="flex items-center gap-4">
                       {JSON.parse(event.content).picture && (
-                        <img 
+                        <Image 
                           src={JSON.parse(event.content).picture} 
                           alt="Profile" 
-                          className="w-16 h-16 rounded-full"
+                          width={64}
+                          height={64}
+                          className="rounded-full"
                         />
                       )}
                       <div>
@@ -199,5 +201,13 @@ export default function Home() {
         )}
         </div>
       </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchComponent />
+    </Suspense>
   );
 }

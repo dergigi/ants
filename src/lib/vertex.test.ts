@@ -1,4 +1,4 @@
-import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
+import { lookupVertexProfile } from './vertex';
 import { beforeAll } from '@jest/globals';
 import { connect } from './ndk';
 

@@ -4,6 +4,18 @@ import { nip19 } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
+interface VertexProfile {
+  npub: string;
+  pubkey: string;
+  display_name?: string;
+  name?: string;
+  username?: string;
+}
+
+interface VertexApiResponse {
+  profiles: VertexProfile[];
+}
+
 // Known npubs for specific users
 const KNOWN_NPUBS: Record<string, string> = {
   dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
@@ -39,14 +51,14 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   try {
     const response = await fetch(`https://api.vertex.me/v1/search/profiles?q=${username}`);
-    const data = await response.json();
+    const data = await response.json() as VertexApiResponse;
     
     if (!data.profiles || data.profiles.length === 0) {
       return null;
     }
     
     // Log all found profiles for debugging
-    console.log('Found profiles:', data.profiles.map((p: any) => ({
+    console.log('Found profiles:', data.profiles.map((p: VertexProfile) => ({
       npub: p.npub,
       displayName: p.display_name,
       name: p.name,
@@ -54,14 +66,14 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
     })));
     
     // First try exact username match
-    const exactMatch = data.profiles.find((p: any) => 
+    const exactMatch = data.profiles.find((p: VertexProfile) => 
       p.username?.toLowerCase() === username || 
       p.name?.toLowerCase() === username ||
       p.display_name?.toLowerCase() === username
     );
     
     // If no exact match, try partial match with display name
-    const partialMatch = data.profiles.find((p: any) => 
+    const partialMatch = data.profiles.find((p: VertexProfile) => 
       p.display_name?.toLowerCase().includes(username) ||
       p.name?.toLowerCase().includes(username)
     );

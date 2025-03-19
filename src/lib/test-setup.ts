@@ -1,23 +1,38 @@
+import { TextEncoder, TextDecoder } from 'util';
 import { connect, ndk } from './ndk';
-import type { NDKRelay } from '@nostr-dev-kit/ndk';
 
-declare global {
-  var ndk: {
-    pool: {
-      relays: Map<string, NDKRelay>;
-    };
-  };
+interface GlobalWithNDK {
+  TextEncoder: typeof TextEncoder;
+  TextDecoder: typeof TextDecoder;
+  ndk: typeof ndk;
 }
 
-// Make ndk available globally for tests
-global.ndk = ndk as any;
+const global = globalThis as unknown as GlobalWithNDK;
 
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder as unknown as typeof TextDecoder;
+global.ndk = ndk;
+
+// Add proper typing for the global object
+declare global {
+  interface Window {
+    TextEncoder: typeof TextEncoder;
+    TextDecoder: typeof TextDecoder;
+    ndk: typeof ndk;
+  }
+}
+
+// Connect to relays before running tests
 beforeAll(async () => {
   await connect();
-}, 5000); // 5 second timeout for initial connection
+});
 
-afterAll(async () => {
-  // Clean up connections after all tests
-  const relays = Array.from(global.ndk.pool.relays.values());
-  await Promise.all(relays.map((relay: NDKRelay) => relay.close('Test cleanup')));
+// Clean up relays after tests
+afterAll(() => {
+  if (global.ndk?.pool?.relays) {
+    const relays = Array.from(global.ndk.pool.relays.values());
+    relays.forEach((relay) => {
+      relay.disconnect();
+    });
+  }
 }); 
