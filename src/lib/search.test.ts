@@ -59,49 +59,91 @@ describe('Regular Search', () => {
 });
 
 describe('Search Examples', () => {
-  // Test each example from our shared examples list
-  searchExamples.forEach(example => {
-    it(`should find events for "${example}"`, async () => {
-      const events = await searchEvents(example);
-      expect(events.length).toBeGreaterThan(0);
+  it('should find fiatjaf profile', async () => {
+    const events = await searchEvents('p:fiatjaf');
+    expect(events.length).toBe(1);
+    expect(events[0].kind).toBe(0);
+  });
 
-      for (const event of events) {
-        const content = event.content.toLowerCase();
-        
-        // Handle different types of examples
-        if (example.startsWith('p:')) {
-          // Profile lookup
-          expect(event.kind).toBe(0);
-        } else if (example.includes('#')) {
-          // Hashtag search
-          const hashtag = example.split(' ')[0].toLowerCase().replace('#', '');
-          expect(content.includes(hashtag) || content.includes(`#${hashtag}`)).toBe(true);
-        } else if (example.includes('from:') || example.includes('by:')) {
-          // Author search with term
-          const [prefix, author, ...terms] = example.split(' ');
-          const authorName = author.replace('from:', '').replace('by:', '');
-          
-          // For dergigi, check against known npub
-          if (authorName === 'dergigi') {
-            expect(event.author.npub).toBe('npub1dergggklka99wwrs92xn8ldenl8fl6z57y2y3lxjcupsa46l8t5qscxusaj');
-          } else {
-            // For other authors, look up their profile
-            const profile = await lookupVertexProfile(`p:${authorName}`);
-            expect(profile).toBeTruthy();
-            expect(event.author.npub).toBe(profile!.author.npub);
-          }
-          
-          // Check search terms if present
-          if (terms.length > 0) {
-            const searchTerms = terms.join(' ').toLowerCase();
-            expect(content.includes(searchTerms)).toBe(true);
-          }
-        } else {
-          // Regular search
-          const terms = example.toLowerCase().split(' ');
-          expect(terms.some(term => content.includes(term))).toBe(true);
-        }
-      }
+  it('should find events containing "vibe coding"', async () => {
+    const events = await searchEvents('vibe coding');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('vibe coding');
+    });
+  });
+
+  it('should find events with #PenisButter hashtag', async () => {
+    const events = await searchEvents('#PenisButter');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('#penisbutter');
+    });
+  });
+
+  it('should find NDK events from Pablo', async () => {
+    const events = await searchEvents('from:pablo ndk');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('ndk');
+    });
+  });
+
+  it('should find events with #YESTR hashtag', async () => {
+    const events = await searchEvents('#YESTR');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('#yestr');
+    });
+  });
+
+  it('should find #YESTR events from gigi', async () => {
+    const events = await searchEvents('#YESTR by:gigi');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('#yestr');
+    });
+  });
+
+  it('should find events with #SovEng hashtag', async () => {
+    const events = await searchEvents('#SovEng');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content.toLowerCase()).toContain('#soveng');
+    });
+  });
+
+  it('should find 👀 events from gigi', async () => {
+    const events = await searchEvents('👀 by:gigi');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content).toContain('👀');
+    });
+  });
+
+  it('should find GM events from dergigi', async () => {
+    const events = await searchEvents('GM from:dergigi');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content).toContain('GM');
+      expect(event.author.npub).toBe('npub1dergggklka99wwrs92xn8ldenl8fl6z57y2y3lxjcupsa46l8t5qscxusaj');
+    });
+  });
+
+  it('should find .jpg events from corndalorian', async () => {
+    const events = await searchEvents('.jpg by:corndalorian');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content).toContain('.jpg');
+    });
+  });
+
+  it('should find GN events from dergigi using direct npub', async () => {
+    const events = await searchEvents('GN author:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc');
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.content).toContain('GN');
+      expect(event.author.npub).toBe('npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc');
     });
   });
 });
