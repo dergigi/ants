@@ -15,7 +15,14 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
-  const [loadingDots, setLoadingDots] = useState('');
+  const [loadingDots, setLoadingDots] = useState('...');
+  const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
+
+  const handleCopyNpub = async (npub: string) => {
+    await navigator.clipboard.writeText(npub);
+    setCopiedNpub(npub);
+    setTimeout(() => setCopiedNpub(null), 2000); // Reset after 2 seconds
+  };
 
   // Loading animation effect
   useEffect(() => {
@@ -161,7 +168,12 @@ export default function Home() {
                         <h2 className="text-xl font-bold">
                           {JSON.parse(event.content).display_name || JSON.parse(event.content).displayName || JSON.parse(event.content).name}
                         </h2>
-                        <p className="text-gray-400">{shortenNpub(event.author.npub)}</p>
+                        <button
+                          onClick={() => handleCopyNpub(event.author.npub)}
+                          className="text-gray-400 hover:text-gray-200 transition-colors"
+                        >
+                          {copiedNpub === event.author.npub ? 'Copied!' : shortenNpub(event.author.npub)}
+                        </button>
                       </div>
                     </div>
                     {JSON.parse(event.content).about && (
@@ -173,7 +185,12 @@ export default function Home() {
                   <>
                     <p className="text-gray-100">{event.content}</p>
                     <div className="mt-2 flex justify-between text-sm text-gray-400">
-                      <span>{shortenNpub(event.author.npub)}</span>
+                      <button
+                        onClick={() => handleCopyNpub(event.author.npub)}
+                        className="hover:text-gray-200 transition-colors"
+                      >
+                        {copiedNpub === event.author.npub ? 'Copied!' : shortenNpub(event.author.npub)}
+                      </button>
                       <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
                   </>
