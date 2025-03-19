@@ -1,6 +1,6 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
+import { nip19, Relay } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -19,11 +19,35 @@ function getPubkey(npub: string): string | null {
   }
 }
 
+// Singleton relay instance
+let vertexRelay: Relay | null = null;
+
+async function getVertexRelay(): Promise<Relay> {
+  if (!vertexRelay) {
+    vertexRelay = new Relay('wss://relay.vertexlab.io');
+    await vertexRelay.connect();
+  }
+  return vertexRelay;
+}
+
 async function queryVertexRelay(filter: { kinds: number[] }): Promise<NDKEvent[]> {
   try {
-    // Use the existing NDK instance which already has the vertex relay configured
-    const events = await ndk.fetchEvents(filter);
-    return Array.from(events);
+    const relay = await getVertexRelay();
+    return new Promise((resolve) => {
+      const events: NDKEvent[] = [];
+      const sub = relay.subscribe([filter], {
+        onevent(event) {
+          const ndkEvent = new NDKEvent(ndk);
+          ndkEvent.pubkey = event.pubkey;
+          ndkEvent.content = event.content;
+          events.push(ndkEvent);
+        },
+        oneose() {
+          resolve(events);
+          sub.close();
+        }
+      });
+    });
   } catch (error) {
     console.error('Error querying vertex relay:', error);
     return [];
