@@ -135,6 +135,18 @@ describe('Search Events', () => {
       });
     });
   }, 5000);
+
+  it('should find GM notes from a specific npub', async () => {
+    const npub = 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
+    const query = `GM by:${npub}`;
+    const events = await searchEvents(query);
+    
+    expect(events.length).toBeGreaterThan(0);
+    events.forEach(event => {
+      expect(event.author.npub).toBe(npub);
+      expect(event.content.toLowerCase()).toContain('gm');
+    });
+  }, 5000);
 });
 
 describe('Regular Search', () => {
