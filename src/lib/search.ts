@@ -44,9 +44,9 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // Check for author filter
-  const authorMatch = query.match(/(by:)(\S+)\s*(.*)/);
+  const authorMatch = query.match(/^(.*?)\s*by:(\S+)\s*$/);
   if (authorMatch) {
-    const [, , author, terms] = authorMatch;
+    const [, terms, author] = authorMatch;
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
