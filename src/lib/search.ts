@@ -22,7 +22,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     }
 
     // Search for events by this author
-    const searchQuery = terms.trim() ? `pubkey:${profile.pubkey} ${terms}`.trim() : `pubkey:${profile.pubkey}`;
+    const searchQuery = terms.trim() ? `npub:${profile.author.npub} ${terms}`.trim() : `npub:${profile.author.npub}`;
     console.log('Searching with query:', searchQuery);
     
     const events = await ndk.fetchEvents({
