@@ -18,6 +18,7 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   if (KNOWN_NPUBS[username]) {
     const event = new NDKEvent(ndk);
     event.pubkey = KNOWN_NPUBS[username];
+    event.author = new NDKUser({ pubkey: KNOWN_NPUBS[username] });
     return event;
   }
   
@@ -55,6 +56,7 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
     
     const event = new NDKEvent(ndk);
     event.pubkey = profile.pubkey;
+    event.author = new NDKUser({ pubkey: profile.pubkey });
     return event;
   } catch (error) {
     console.error('Error looking up vertex profile:', error);
