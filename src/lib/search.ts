@@ -49,38 +49,27 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     const [, , author, terms] = authorMatch;
     console.log('Found author filter:', { author, terms });
 
+    let pubkey: string | null = null;
+
     // Check if author is a direct npub
     if (isNpub(author)) {
-      const pubkey = getPubkey(author);
-      if (!pubkey) return [];
-
-      const filters: NDKFilter = {
-        kinds: [1],
-        authors: [pubkey],
-        limit
-      };
-
-      // If we have additional search terms, add them to the search
-      if (terms && terms.trim()) {
-        filters.search = terms.trim();
+      pubkey = getPubkey(author);
+    } else {
+      // Look up author's profile
+      const profile = await lookupVertexProfile(`p:${author}`);
+      if (profile) {
+        pubkey = profile.author.pubkey;
       }
-
-      console.log('Searching with filters:', filters);
-      const events = await ndk.fetchEvents(filters);
-      return Array.from(events);
     }
 
-    // Look up author's profile
-    const profile = await lookupVertexProfile(`p:${author}`);
-    if (!profile) {
-      console.log('No profile found for author:', author);
+    if (!pubkey) {
+      console.log('No valid pubkey found for author:', author);
       return [];
     }
 
-    // Search for events by the author
     const filters: NDKFilter = {
       kinds: [1],
-      authors: [profile.author.pubkey],
+      authors: [pubkey],
       limit
     };
 
