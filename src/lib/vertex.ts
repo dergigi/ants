@@ -1,12 +1,13 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { nip19, Relay } from 'nostr-tools';
+import { nip19, Relay, Filter } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
 // Known npubs for specific users
 const KNOWN_NPUBS: Record<string, string> = {
-  dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
+  dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+  fiatjaf: 'npub1jaf8rd6ckp42qvz8kuk0ajdp75yvzqumql0zdy27umfmhj5rsvqqz4c5ux'
 };
 
 function getPubkey(npub: string): string | null {
@@ -30,10 +31,10 @@ async function getVertexRelay(): Promise<Relay> {
   return vertexRelay;
 }
 
-async function queryVertexRelay(filter: { kinds: number[] }): Promise<NDKEvent[]> {
+async function queryVertexRelay(filter: Filter): Promise<NDKEvent[]> {
   try {
     const relay = await getVertexRelay();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const events: NDKEvent[] = [];
       const sub = relay.subscribe([filter], {
         onevent(event) {
@@ -45,6 +46,13 @@ async function queryVertexRelay(filter: { kinds: number[] }): Promise<NDKEvent[]
         oneose() {
           resolve(events);
           sub.close();
+        },
+        onclose() {
+          if (events.length === 0) {
+            reject(new Error('No events received'));
+          } else {
+            resolve(events);
+          }
         }
       });
     });
@@ -74,7 +82,10 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   try {
     // Query the vertex relay for profile events
-    const events = await queryVertexRelay({ kinds: [0] });
+    const events = await queryVertexRelay({ 
+      kinds: [0],
+      limit: 100
+    });
     
     // Find matching profile by username in content
     const profile = events.find(event => {
