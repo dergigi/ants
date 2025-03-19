@@ -60,12 +60,13 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Search error:', error);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Update URL with current query
     const params = new URLSearchParams(searchParams.toString());
@@ -76,7 +77,7 @@ export default function Home() {
     }
     router.push(`?${params.toString()}`);
     // Perform the search
-    handleSearch(query);
+    await handleSearch(query);
   };
 
   const formatDate = (timestamp: number) => {

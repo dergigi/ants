@@ -38,6 +38,25 @@ describe('Search Events', () => {
       expect(event.pubkey).toBe(pabloPubkey);
     });
   });
+
+  it('should find GM events from dergigi', async () => {
+    // First get dergigi's pubkey
+    const dergigiProfile = await lookupVertexProfile('p:dergigi');
+    expect(dergigiProfile).toBeTruthy();
+    const dergigiPubkey = dergigiProfile!.pubkey;
+
+    // Search for events
+    const events = await searchEvents('GM from:dergigi');
+    expect(events.length).toBeGreaterThan(0);
+    
+    // Verify each event
+    events.forEach((event: NDKEvent) => {
+      // Check that the event contains 'gm' in its content
+      expect(event.content.toLowerCase()).toContain('gm');
+      // Check that the event was authored by dergigi
+      expect(event.pubkey).toBe(dergigiPubkey);
+    });
+  });
 });
 
 describe('Regular Search', () => {

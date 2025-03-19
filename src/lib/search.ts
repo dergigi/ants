@@ -12,11 +12,11 @@ function parseSearchQuery(query: string): SearchFilter {
     terms: query
   };
 
-  // Check for from: filter
-  const fromMatch = query.match(/from:(\S+)\s*(.*)/);
-  if (fromMatch) {
-    filter.author = fromMatch[1];
-    filter.terms = fromMatch[2].trim();
+  // Check for from: or by: filter
+  const authorMatch = query.match(/(?:from:|by:)(\S+)\s*(.*)/);
+  if (authorMatch) {
+    filter.author = authorMatch[1];
+    filter.terms = authorMatch[2].trim();
   }
 
   return filter;
