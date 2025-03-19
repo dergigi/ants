@@ -1,6 +1,7 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { Relay, Filter, Event } from 'nostr-tools';
+import { Relay, Event } from 'nostr-tools';
+import { Nip07Signer } from './signer';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -15,15 +16,16 @@ async function getVertexRelay(): Promise<Relay> {
   return vertexRelay;
 }
 
-async function queryVertexRelay(filter: Filter): Promise<Event[]> {
+async function queryVertexDVM(username: string): Promise<Event[]> {
   try {
     const relay = await getVertexRelay();
     return new Promise((resolve, reject) => {
       const events: Event[] = [];
-      console.log('Subscribing to vertex relay with filter:', filter);
-      const sub = relay.subscribe([filter], {
+      
+      // Subscribe to DVM response events (kind 6315)
+      const sub = relay.subscribe([{ kinds: [6315] }], {
         onevent(event) {
-          console.log('Received event:', event);
+          console.log('Received DVM response:', event);
           events.push(event);
         },
         oneose() {
@@ -36,9 +38,27 @@ async function queryVertexRelay(filter: Filter): Promise<Event[]> {
           reject();
         }
       });
+
+      // Create and send DVM request event (kind 5315)
+      const requestEvent: Event = {
+        kind: 5315,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['param', 'search', username]],
+        content: '',
+        pubkey: '', // Will be set by signer
+        id: '', // Will be set after signing
+        sig: '' // Will be set by signer
+      };
+
+      // Sign and publish the request
+      const signer = new Nip07Signer(''); // We'll get the pubkey from the signer
+      signer.sign(requestEvent).then(sig => {
+        requestEvent.sig = sig;
+        relay.publish(requestEvent);
+      });
     });
   } catch (error) {
-    console.error('Error querying vertex relay:', error);
+    console.error('Error querying vertex DVM:', error);
     return [];
   }
 }
@@ -51,41 +71,34 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   console.log('Looking up profile for username:', username);
   
   try {
-    // Query the vertex relay for profile events
-    const events = await queryVertexRelay({ 
-      kinds: [0],
-      since: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 7 // last 7 days
-    });
+    // Query the DVM
+    const events = await queryVertexDVM(username);
     
-    console.log('Found events:', events.length);
-    
-    // Find matching profile by username in content
-    const profile = events.find(event => {
-      try {
-        const content = JSON.parse(event.content);
-        console.log('Checking content:', content);
-        return (
-          content.name?.toLowerCase() === username ||
-          content.display_name?.toLowerCase() === username ||
-          content.username?.toLowerCase() === username
-        );
-      } catch (error) {
-        console.error('Error parsing content:', error);
-        return false;
-      }
-    });
-
-    if (!profile) {
-      console.log('No matching profile found');
+    if (events.length === 0) {
+      console.log('No DVM response received');
       return null;
     }
+
+    // Parse the DVM response
+    const response = events[0];
+    const results = JSON.parse(response.content);
     
-    console.log('Found matching profile:', profile);
+    if (!results || results.length === 0) {
+      console.log('No matching profiles found');
+      return null;
+    }
+
+    // Get the highest ranked result
+    const bestMatch = results[0];
+    console.log('Found profile:', bestMatch);
+
+    // Create NDK event from the result
     const event = new NDKEvent(ndk);
-    event.pubkey = profile.pubkey;
-    event.author = new NDKUser({ pubkey: profile.pubkey });
-    event.content = profile.content;
-    event.kind = profile.kind;
+    event.pubkey = bestMatch.pubkey;
+    event.author = new NDKUser({ pubkey: bestMatch.pubkey });
+    event.kind = 0; // Profile event
+    event.content = JSON.stringify({ name: username }); // Basic profile info
+    
     return event;
   } catch (error) {
     console.error('Error looking up vertex profile:', error);
