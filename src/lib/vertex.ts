@@ -51,10 +51,10 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   console.log('Looking up profile for username:', username);
   
   try {
-    // Query the vertex relay for profile events with username as search term
+    // Query the vertex relay for profile events
     const events = await queryVertexRelay({ 
       kinds: [0],
-      search: username
+      since: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 7 // last 7 days
     });
     
     console.log('Found events:', events.length);
