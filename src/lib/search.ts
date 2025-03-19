@@ -1,4 +1,4 @@
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
 
@@ -20,13 +20,20 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
     // Check if author is a direct npub
     if (author.startsWith('npub')) {
-      const searchQuery = terms ? `npub:${author} ${terms}` : `npub:${author}`;
-      console.log('Searching with query:', searchQuery);
-      const events = await ndk.fetchEvents({
+      // For npub searches, we need to use the correct filter format
+      const filters: NDKFilter = {
         kinds: [1],
-        search: searchQuery,
+        authors: [author],
         limit
-      });
+      };
+
+      // If we have additional search terms, add them to the search
+      if (terms) {
+        filters.search = terms;
+      }
+
+      console.log('Searching with filters:', filters);
+      const events = await ndk.fetchEvents(filters);
       return Array.from(events);
     }
 
@@ -38,13 +45,19 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     }
 
     // Search for events by the author
-    const searchQuery = terms ? `npub:${profile.author.npub} ${terms}` : `npub:${profile.author.npub}`;
-    console.log('Searching with query:', searchQuery);
-    const events = await ndk.fetchEvents({
+    const filters: NDKFilter = {
       kinds: [1],
-      search: searchQuery,
+      authors: [profile.author.npub],
       limit
-    });
+    };
+
+    // If we have additional search terms, add them to the search
+    if (terms) {
+      filters.search = terms;
+    }
+
+    console.log('Searching with filters:', filters);
+    const events = await ndk.fetchEvents(filters);
     return Array.from(events);
   }
   
