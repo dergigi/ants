@@ -1,23 +1,24 @@
 import NDK from '@nostr-dev-kit/ndk';
 import { searchExamples } from './examples';
 
-const RELAYS = [
-  'wss://relay.nostr.band/',
-  'wss://relay.vertexlab.io/'
-];
-
 export const ndk = new NDK({
-  explicitRelayUrls: RELAYS
+  explicitRelayUrls: [
+    'wss://relay.nostr.band/',
+    'wss://relay.vertexlab.io/'
+  ]
 });
 
-// Store the selected example
-let currentSearchExample: string;
+export async function connect() {
+  if (!ndk.explicitRelayUrls) {
+    throw new Error('No relay URLs configured');
+  }
 
-export const getCurrentExample = () => currentSearchExample;
-
-export const connect = async () => {
   await ndk.connect();
-  // Select a random example when we connect
-  currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
-  console.log('Connected to relays, selected example:', currentSearchExample);
-}; 
+
+  // Select a random example for the placeholder
+  const randomIndex = Math.floor(Math.random() * searchExamples.length);
+  const selectedExample = searchExamples[randomIndex];
+  console.log('Connected to relays, selected example:', selectedExample);
+
+  return selectedExample;
+} 
