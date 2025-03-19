@@ -6,7 +6,8 @@ export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
 // Known npubs for specific users
 const KNOWN_NPUBS: Record<string, string> = {
-  dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
+  dergigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+  gigi: 'npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
 };
 
 function getPubkey(npub: string): string | null {
@@ -39,9 +40,36 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   try {
     const response = await fetch(`https://api.vertex.me/v1/search/profiles?q=${username}`);
+    if (!response.ok) {
+      console.error('Vertex API error:', response.status, response.statusText);
+      // If vertex API is down, check if we have a known npub
+      if (KNOWN_NPUBS[username]) {
+        const npub = KNOWN_NPUBS[username];
+        const pubkey = getPubkey(npub);
+        if (!pubkey) return null;
+
+        const event = new NDKEvent(ndk);
+        event.pubkey = pubkey;
+        event.author = new NDKUser({ pubkey });
+        return event;
+      }
+      return null;
+    }
+
     const data = await response.json();
     
     if (!data.profiles || data.profiles.length === 0) {
+      // If no profiles found, check if we have a known npub
+      if (KNOWN_NPUBS[username]) {
+        const npub = KNOWN_NPUBS[username];
+        const pubkey = getPubkey(npub);
+        if (!pubkey) return null;
+
+        const event = new NDKEvent(ndk);
+        event.pubkey = pubkey;
+        event.author = new NDKUser({ pubkey });
+        return event;
+      }
       return null;
     }
     
@@ -67,7 +95,20 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
     );
     
     const profile = exactMatch || partialMatch;
-    if (!profile) return null;
+    if (!profile) {
+      // If no profile found, check if we have a known npub
+      if (KNOWN_NPUBS[username]) {
+        const npub = KNOWN_NPUBS[username];
+        const pubkey = getPubkey(npub);
+        if (!pubkey) return null;
+
+        const event = new NDKEvent(ndk);
+        event.pubkey = pubkey;
+        event.author = new NDKUser({ pubkey });
+        return event;
+      }
+      return null;
+    }
     
     const event = new NDKEvent(ndk);
     event.pubkey = profile.pubkey;
@@ -75,6 +116,17 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
     return event;
   } catch (error) {
     console.error('Error looking up vertex profile:', error);
+    // If vertex API is down, check if we have a known npub
+    if (KNOWN_NPUBS[username]) {
+      const npub = KNOWN_NPUBS[username];
+      const pubkey = getPubkey(npub);
+      if (!pubkey) return null;
+
+      const event = new NDKEvent(ndk);
+      event.pubkey = pubkey;
+      event.author = new NDKUser({ pubkey });
+      return event;
+    }
     return null;
   }
 } 
