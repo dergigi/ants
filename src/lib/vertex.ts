@@ -1,6 +1,6 @@
 import { ndk } from './ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
+import { nip19, Relay } from 'nostr-tools';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -31,6 +31,30 @@ function getPubkey(npub: string): string | null {
   }
 }
 
+async function queryVertexRelay(filter: { kinds: number[] }): Promise<NDKEvent[]> {
+  return new Promise((resolve, reject) => {
+    const relay = new Relay('wss://relay.vertexlab.io');
+    const events: NDKEvent[] = [];
+    
+    const sub = relay.subscribe([filter], {
+      onevent(event) {
+        const ndkEvent = new NDKEvent(ndk);
+        ndkEvent.pubkey = event.pubkey;
+        ndkEvent.content = event.content;
+        events.push(ndkEvent);
+      },
+      oneose() {
+        resolve(events);
+        sub.close();
+        relay.close();
+      },
+      onclose() {
+        reject(new Error('Relay connection closed'));
+      }
+    });
+  });
+}
+
 export async function lookupVertexProfile(query: string): Promise<NDKEvent | null> {
   const match = query.match(VERTEX_REGEXP);
   if (!match) return null;
@@ -50,35 +74,23 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   }
   
   try {
-    const response = await fetch(`https://api.vertex.me/v1/search/profiles?q=${username}`);
-    const data = await response.json() as VertexApiResponse;
+    // Query the vertex relay for profile events
+    const events = await queryVertexRelay({ kinds: [0] });
     
-    if (!data.profiles || data.profiles.length === 0) {
-      return null;
-    }
-    
-    // Log all found profiles for debugging
-    console.log('Found profiles:', data.profiles.map((p: VertexProfile) => ({
-      npub: p.npub,
-      displayName: p.display_name,
-      name: p.name,
-      username: p.username
-    })));
-    
-    // First try exact username match
-    const exactMatch = data.profiles.find((p: VertexProfile) => 
-      p.username?.toLowerCase() === username || 
-      p.name?.toLowerCase() === username ||
-      p.display_name?.toLowerCase() === username
-    );
-    
-    // If no exact match, try partial match with display name
-    const partialMatch = data.profiles.find((p: VertexProfile) => 
-      p.display_name?.toLowerCase().includes(username) ||
-      p.name?.toLowerCase().includes(username)
-    );
-    
-    const profile = exactMatch || partialMatch;
+    // Find matching profile by username in content
+    const profile = events.find(event => {
+      try {
+        const content = JSON.parse(event.content);
+        return (
+          content.name?.toLowerCase() === username ||
+          content.display_name?.toLowerCase() === username ||
+          content.username?.toLowerCase() === username
+        );
+      } catch {
+        return false;
+      }
+    });
+
     if (!profile) return null;
     
     const event = new NDKEvent(ndk);
