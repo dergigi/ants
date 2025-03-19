@@ -20,8 +20,6 @@ export default function Home() {
 
   const handleCopyNpub = async (npub: string) => {
     await navigator.clipboard.writeText(npub);
-    setCopiedNpub(npub);
-    setTimeout(() => setCopiedNpub(null), 2000); // Reset after 2 seconds
   };
 
   // Loading animation effect
@@ -172,7 +170,7 @@ export default function Home() {
                           onClick={() => handleCopyNpub(event.author.npub)}
                           className="text-gray-400 hover:text-gray-200 transition-colors"
                         >
-                          {copiedNpub === event.author.npub ? 'Copied!' : shortenNpub(event.author.npub)}
+                          {shortenNpub(event.author.npub)}
                         </button>
                       </div>
                     </div>
@@ -189,7 +187,7 @@ export default function Home() {
                         onClick={() => handleCopyNpub(event.author.npub)}
                         className="hover:text-gray-200 transition-colors"
                       >
-                        {copiedNpub === event.author.npub ? 'Copied!' : shortenNpub(event.author.npub)}
+                        {shortenNpub(event.author.npub)}
                       </button>
                       <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
