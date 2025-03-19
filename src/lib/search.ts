@@ -12,6 +12,16 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     return [];
   }
 
+  // Check if the query is a direct npub
+  if (query.startsWith('npub')) {
+    const events = await ndk.fetchEvents({
+      kinds: [1],
+      authors: [query],
+      limit
+    });
+    return Array.from(events);
+  }
+
   // Check for author filter
   const authorMatch = query.match(/(by:)(\S+)\s*(.*)/);
   if (authorMatch) {
@@ -20,7 +30,6 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
     // Check if author is a direct npub
     if (author.startsWith('npub')) {
-      // For npub searches, we need to use the correct filter format
       const filters: NDKFilter = {
         kinds: [1],
         authors: [author],
