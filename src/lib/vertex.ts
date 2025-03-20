@@ -109,8 +109,9 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
               if (record.pubkey) {
                 console.log('Found valid profile record:', { 
                   pubkey: record.pubkey,
-                  name: record.name,
-                  display_name: record.display_name 
+                  name: record.name || record.username,  // Try username if name isn't available
+                  display_name: record.display_name || record.displayName,  // Try both formats
+                  nip05: record.nip05
                 });
 
                 // Create an NDKUser object right away
@@ -119,16 +120,21 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
                 });
 
                 // Set the profile metadata
-                user.profile = {
-                  name: record.name,
-                  displayName: record.display_name,
-                  image: record.picture,
-                  about: record.about,
+                const profile = {
+                  name: record.name || record.username,  // Try username if name isn't available
+                  displayName: record.display_name || record.displayName,  // Try both formats
+                  image: record.picture || record.image || record.avatar,  // Try all possible image fields
+                  about: record.about || record.description,  // Try both formats
                   nip05: record.nip05,
                   lud16: record.lud16,
                   lud06: record.lud06,
                   website: record.website
                 };
+
+                // Filter out undefined values
+                user.profile = Object.fromEntries(
+                  Object.entries(profile).filter(([, value]) => value !== undefined)
+                );
 
                 // Create a profile event
                 const profileEvent = new NDKEvent(ndk, {
@@ -146,7 +152,8 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
                 console.log('Created profile event:', { 
                   id: profileEvent.id,
                   pubkey: profileEvent.pubkey,
-                  author: profileEvent.author.pubkey 
+                  author: profileEvent.author.pubkey,
+                  profile: user.profile  // Log the profile data
                 });
 
                 resolve([profileEvent]);
