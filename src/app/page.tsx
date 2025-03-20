@@ -41,7 +41,21 @@ function SearchComponent() {
       // Check if this is a Vertex profile lookup
       if (VERTEX_REGEXP.test(searchQuery)) {
         const profile = await lookupVertexProfile(searchQuery);
-        setResults(profile ? [profile] : []);
+        if (profile) {
+          // Store the npub in local storage
+          const npub = profile.author.npub;
+          localStorage.setItem(`profile_${searchQuery}`, npub);
+          // Set results immediately to trigger UI update
+          setResults([profile]);
+          setIsLoading(false);
+          // Update URL to reflect the profile view
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('q', searchQuery);
+          router.push(`?${params.toString()}`);
+        } else {
+          setResults([]);
+          setIsLoading(false);
+        }
       } else {
         // Regular search or author-filtered search
         const events = await searchEvents(searchQuery);
@@ -49,10 +63,11 @@ function SearchComponent() {
       }
     } catch (error) {
       console.error('Search error:', error);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
-  }, [placeholder]);
+  }, [placeholder, router, searchParams]);
 
   // Loading animation effect
   useEffect(() => {
