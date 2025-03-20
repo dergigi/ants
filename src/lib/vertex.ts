@@ -1,65 +1,67 @@
 import { ndk } from './ndk';
-import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { Relay, Event } from 'nostr-tools';
-import { Nip07Signer } from './signer';
+import { NDKEvent, NDKUser, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
+import { storeProfile } from './profiles';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
-// Singleton relay instance
-let vertexRelay: Relay | null = null;
-
-async function getVertexRelay(): Promise<Relay> {
-  if (!vertexRelay) {
-    vertexRelay = new Relay('wss://relay.vertexlab.io');
-    await vertexRelay.connect();
-  }
-  return vertexRelay;
+interface VertexProfile {
+  pubkey: string;
+  name: string;
+  display_name?: string;
+  picture?: string;
+  about?: string;
+  nip05?: string;
+  lud16?: string;
+  lud06?: string;
+  website?: string;
+  banner?: string;
 }
 
-async function queryVertexDVM(username: string): Promise<Event[]> {
+async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
   try {
-    const relay = await getVertexRelay();
-    return new Promise((resolve, reject) => {
-      const events: Event[] = [];
-      
-      // Subscribe to DVM response events (kind 6315)
-      const sub = relay.subscribe([{ kinds: [6315] }], {
-        onevent(event) {
-          console.log('Received DVM response:', event);
-          events.push(event);
-        },
-        oneose() {
-          console.log('Received EOSE, found events:', events.length);
-          resolve(events);
-          sub.close();
-        },
-        onclose() {
-          console.log('Subscription closed');
-          reject();
-        }
-      });
-
-      // Create and send DVM request event (kind 5315)
-      const requestEvent: Event = {
-        kind: 5315,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [['param', 'search', username]],
-        content: '',
-        pubkey: '', // Will be set by signer
-        id: '', // Will be set after signing
-        sig: '' // Will be set by signer
-      };
-
-      // Sign and publish the request
-      const signer = new Nip07Signer(''); // We'll get the pubkey from the signer
-      signer.sign(requestEvent).then(sig => {
-        requestEvent.sig = sig;
-        relay.publish(requestEvent);
-      });
+    // Create request event
+    const req = new NDKEvent(ndk, {
+      kind: 5315,
+      tags: [["param", "search", username]]
     });
+    await req.sign();
+
+    // Set up subscription with filter based on our request
+    const sub = ndk.subscribe(
+      [{ kinds: [6315, 7000], ...req.filter() }],
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+    );
+
+    // Create response promise
+    const responsePromise = new Promise<NDKEvent[]>((resolve, reject) => {
+      sub.on('event', (event: NDKEvent) => {
+        // Check for error response
+        if (event.kind === 7000) {
+          const statusTag = event.getMatchingTags('status')?.[0];
+          const status = statusTag?.[2] ?? statusTag?.[1];
+          if (status) {
+            sub.stop();
+            reject(new Error(status));
+            return;
+          }
+        }
+
+        // Got a valid response, stop subscription and resolve
+        sub.stop();
+        resolve([event]);
+      });
+
+      // Start subscription and publish request
+      sub.start();
+      req.publish();
+    });
+
+    // Wait for response
+    const response = await responsePromise;
+    return response;
   } catch (error) {
-    console.error('Error querying vertex DVM:', error);
-    return [];
+    console.error('Error in queryVertexDVM:', error);
+    throw error;
   }
 }
 
@@ -68,40 +70,57 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   if (!match) return null;
   
   const username = match[1].toLowerCase();
-  console.log('Looking up profile for username:', username);
   
   try {
-    // Query the DVM
     const events = await queryVertexDVM(username);
     
     if (events.length === 0) {
-      console.log('No DVM response received');
       return null;
     }
 
-    // Parse the DVM response
     const response = events[0];
-    const results = JSON.parse(response.content);
+    let results: VertexProfile[];
     
-    if (!results || results.length === 0) {
-      console.log('No matching profiles found');
+    try {
+      results = JSON.parse(response.content);
+    } catch (error) {
+      console.error('Error parsing DVM response:', error);
+      return null;
+    }
+    
+    if (!Array.isArray(results) || results.length === 0) {
       return null;
     }
 
-    // Get the highest ranked result
     const bestMatch = results[0];
-    console.log('Found profile:', bestMatch);
-
-    // Create NDK event from the result
+    
+    // Create a complete profile event
     const event = new NDKEvent(ndk);
     event.pubkey = bestMatch.pubkey;
     event.author = new NDKUser({ pubkey: bestMatch.pubkey });
-    event.kind = 0; // Profile event
-    event.content = JSON.stringify({ name: username }); // Basic profile info
+    event.kind = 0;
+    event.created_at = Math.floor(Date.now() / 1000);
+    
+    // Include all profile fields from the DVM response
+    const profileContent: Record<string, string> = {};
+    if (bestMatch.name) profileContent.name = bestMatch.name;
+    if (bestMatch.display_name) profileContent.display_name = bestMatch.display_name;
+    if (bestMatch.picture) profileContent.picture = bestMatch.picture;
+    if (bestMatch.about) profileContent.about = bestMatch.about;
+    if (bestMatch.nip05) profileContent.nip05 = bestMatch.nip05;
+    if (bestMatch.lud16) profileContent.lud16 = bestMatch.lud16;
+    if (bestMatch.lud06) profileContent.lud06 = bestMatch.lud06;
+    if (bestMatch.website) profileContent.website = bestMatch.website;
+    if (bestMatch.banner) profileContent.banner = bestMatch.banner;
+    
+    event.content = JSON.stringify(profileContent);
+    
+    // Store the profile in localStorage
+    storeProfile(event);
     
     return event;
   } catch (error) {
-    console.error('Error looking up vertex profile:', error);
+    console.error('Error looking up vertex profile:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 } 

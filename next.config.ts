@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     // Exclude nostr-band-app from the build
     config.watchOptions = {
       ...config.watchOptions,
-      ignored: ['**/nostr-band-app/**', '**/npub.world/**']
+      ignored: ['**/nostr-band-app/**', '**/npub.world/**', '**/olas/**']
     };
     return config;
   }

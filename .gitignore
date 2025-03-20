@@ -3,6 +3,7 @@
 # reference projects
 /nostr-band-app
 /npub.world
+/olas
 
 # dependencies
 /node_modules

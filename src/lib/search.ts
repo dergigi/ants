@@ -2,6 +2,7 @@ import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
 import { nip19 } from 'nostr-tools';
+import { getProfile } from './profiles';
 
 function isNpub(str: string): boolean {
   return str.startsWith('npub');
@@ -23,6 +24,16 @@ function getPubkey(str: string): string | null {
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
   // Check for vertex profile lookups
   if (VERTEX_REGEXP.test(query)) {
+    const username = query.match(VERTEX_REGEXP)?.[1];
+    if (!username) return [];
+
+    // First check if we have the profile in localStorage
+    const cachedProfile = getProfile(username);
+    if (cachedProfile) {
+      return [cachedProfile];
+    }
+
+    // If not in cache, look it up via Vertex DVM
     const profile = await lookupVertexProfile(query);
     if (profile) {
       return [profile];
