@@ -1,4 +1,5 @@
 import NDK from '@nostr-dev-kit/ndk';
+import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
 import { searchExamples } from './examples';
 
 const RELAYS = [
@@ -6,8 +7,12 @@ const RELAYS = [
   'wss://relay.vertexlab.io/'
 ];
 
+const cacheAdapter = new NDKCacheAdapterDexie({ dbName: 'ants' });
+
 export const ndk = new NDK({
-  explicitRelayUrls: RELAYS
+  explicitRelayUrls: RELAYS,
+  cacheAdapter,
+  clientName: 'Ants'
 });
 
 // Store the selected example

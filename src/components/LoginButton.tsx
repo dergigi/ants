@@ -10,15 +10,17 @@ function shortenNpub(npub: string) {
 }
 
 export function LoginButton() {
-  const [pubkey, setPubkey] = useState<string | null>(null);
+  const [user, setUser] = useState<NDKUser | null>(null);
 
   const handleLogin = async () => {
-    const signer = await login();
-    if (signer) {
-      const userPubkey = await signer.user();
-      const user = new NDKUser({ pubkey: userPubkey });
-      setPubkey(user.npub);
-      console.log('Logged in successfully');
+    try {
+      const loggedInUser = await login();
+      if (loggedInUser) {
+        setUser(loggedInUser);
+        console.log('Logged in successfully');
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
     }
   };
 
@@ -27,7 +29,7 @@ export function LoginButton() {
       onClick={handleLogin}
       className="fixed top-4 right-4 text-sm text-gray-400 hover:text-gray-200 transition-colors"
     >
-      {pubkey ? shortenNpub(pubkey) : 'login'}
+      {user ? shortenNpub(user.npub) : 'login'}
     </button>
   );
 } 
