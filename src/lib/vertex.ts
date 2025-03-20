@@ -68,7 +68,7 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
         const sub = ndk.subscribe(
           [{ 
             kinds: [6315, 7000] as NDKKind[],
-            ...requestEvent.filter()  // Include the request filter
+            ...requestEvent.filter()
           }],
           { 
             closeOnEose: false,
@@ -102,71 +102,75 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
           try {
             console.log('Parsing DVM response content...');
             const records = JSON.parse(event.content);
-            console.log('Parsed records:', records);
-
-            if (Array.isArray(records) && records.length > 0) {
-              const record = records[0];
-              if (record.pubkey) {
-                console.log('Found valid profile record:', { 
-                  pubkey: record.pubkey,
-                  name: record.name || record.username,  // Try username if name isn't available
-                  display_name: record.display_name || record.displayName,  // Try both formats
-                  nip05: record.nip05
-                });
-
-                // Create an NDKUser object right away
-                const user = new NDKUser({
-                  pubkey: record.pubkey
-                });
-
-                // Set the profile metadata
-                const profile = {
-                  name: record.name || record.username,  // Try username if name isn't available
-                  displayName: record.display_name || record.displayName,  // Try both formats
-                  image: record.picture || record.image || record.avatar,  // Try all possible image fields
-                  about: record.about || record.description,  // Try both formats
-                  nip05: record.nip05,
-                  lud16: record.lud16,
-                  lud06: record.lud06,
-                  website: record.website
-                };
-
-                // Filter out undefined values
-                user.profile = Object.fromEntries(
-                  Object.entries(profile).filter(([, value]) => value !== undefined)
-                );
-
-                // Create a profile event
-                const profileEvent = new NDKEvent(ndk, {
-                  kind: 0,
-                  created_at: Math.floor(Date.now() / 1000),
-                  content: JSON.stringify(record),
-                  pubkey: record.pubkey,
-                  tags: [],
-                  id: '',
-                  sig: ''
-                });
-
-                // Set the author
-                profileEvent.author = user;
-                console.log('Created profile event:', { 
-                  id: profileEvent.id,
-                  pubkey: profileEvent.pubkey,
-                  author: profileEvent.author.pubkey,
-                  profile: user.profile  // Log the profile data
-                });
-
-                resolve([profileEvent]);
-              } else {
-                console.log('No pubkey found in record:', record);
-                reject(new Error('No pubkey in response'));
-              }
-            } else {
-              console.log('No valid records found in response');
+            if (!Array.isArray(records) || records.length === 0) {
+              console.log('No valid records found in DVM response');
               reject(new Error('No results found'));
+              return;
+            }
+
+            const bestMatch = records[0];
+            if (bestMatch.pubkey) {
+              console.log('Found valid profile record:', { 
+                pubkey: bestMatch.pubkey,
+                rank: bestMatch.rank
+              });
+
+              // Create an NDKUser object right away
+              const user = new NDKUser({
+                pubkey: bestMatch.pubkey
+              });
+              user.ndk = ndk;
+
+              // Fetch the user's profile metadata
+              user.fetchProfile()
+                .then(() => {
+                  console.log('Fetched profile:', user.profile);
+
+                  // Create a profile event
+                  const profileEvent = new NDKEvent(ndk, {
+                    kind: 0,
+                    created_at: Math.floor(Date.now() / 1000),
+                    content: JSON.stringify(user.profile || {}),
+                    pubkey: bestMatch.pubkey,
+                    tags: [],
+                    id: '',
+                    sig: ''
+                  });
+
+                  // Set the author
+                  profileEvent.author = user;
+                  console.log('Created profile event:', { 
+                    id: profileEvent.id,
+                    pubkey: profileEvent.pubkey,
+                    author: profileEvent.author.pubkey,
+                    profile: user.profile
+                  });
+
+                  resolve([profileEvent]);
+                })
+                .catch((e) => {
+                  console.warn('Could not fetch profile:', e);
+                  // Still create a profile event even if we couldn't fetch the profile
+                  const profileEvent = new NDKEvent(ndk, {
+                    kind: 0,
+                    created_at: Math.floor(Date.now() / 1000),
+                    content: JSON.stringify({}),
+                    pubkey: bestMatch.pubkey,
+                    tags: [],
+                    id: '',
+                    sig: ''
+                  });
+
+                  // Set the author
+                  profileEvent.author = user;
+                  resolve([profileEvent]);
+                });
+            } else {
+              console.log('No pubkey found in best match:', bestMatch);
+              reject(new Error('No pubkey in response'));
             }
           } catch (e) {
-            console.error('Error parsing DVM response:', e);
+            console.error('Error processing DVM response:', e);
             reject(e);
           }
         });
