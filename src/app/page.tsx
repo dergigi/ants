@@ -241,6 +241,20 @@ function SearchComponent() {
 
   // No longer showing shortened npub in UI
 
+  const extractImageUrls = (text: string): string[] => {
+    if (!text) return [];
+    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi;
+    const matches: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+      const url = m[1]
+        .replace(/[),.;]+$/, '')
+        .trim();
+      if (!matches.includes(url)) matches.push(url);
+    }
+    return matches.slice(0, 3);
+  };
+
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -309,7 +323,23 @@ function SearchComponent() {
                 ) : (
                   // Regular note
                   <>
-                    <p className="text-gray-100">{event.content}</p>
+                    <p className="text-gray-100 whitespace-pre-wrap break-words">{event.content}</p>
+                    {extractImageUrls(event.content).length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-3">
+                        {extractImageUrls(event.content).map((src) => (
+                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+                            <Image
+                              src={src}
+                              alt="linked media"
+                              width={1024}
+                              height={1024}
+                              className="h-auto w-full object-contain"
+                              unoptimized={false}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} />
