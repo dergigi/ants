@@ -279,8 +279,8 @@ function SearchComponent() {
 
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
-      <div className={`max-w-2xl mx-auto px-4 pr-16 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-        <form onSubmit={handleSubmit} className="w-full">
+      <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+        <form onSubmit={handleSubmit} className="w-full pr-16">
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
