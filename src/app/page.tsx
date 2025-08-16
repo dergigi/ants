@@ -110,6 +110,7 @@ function SearchComponent() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
+  const [needsRightPadding, setNeedsRightPadding] = useState(false);
 
   // Copying npub removed from UI in favor of profile + NIP-05 display
 
@@ -171,10 +172,38 @@ function SearchComponent() {
     }
   }, [placeholder, router, searchParams]);
 
+  // Dynamically determine if right padding is needed to avoid avatar overlap
+  useEffect(() => {
+    const computePaddingNeed = () => {
+      try {
+        const searchRow = document.getElementById('search-row');
+        const avatar = document.getElementById('header-avatar');
+        if (!searchRow || !avatar) {
+          setNeedsRightPadding(false);
+          return;
+        }
+        const rowRect = searchRow.getBoundingClientRect();
+        const avatarRect = avatar.getBoundingClientRect();
+        const overlapsVertically = avatarRect.top < rowRect.bottom && avatarRect.bottom > rowRect.top;
+        const overlapsHorizontally = avatarRect.left < rowRect.right && avatarRect.right > rowRect.left;
+        setNeedsRightPadding(overlapsVertically && overlapsHorizontally);
+      } catch {
+        // ignore
+      }
+    };
+
+    computePaddingNeed();
+    window.addEventListener('resize', computePaddingNeed);
+    const id = setInterval(computePaddingNeed, 250);
+    return () => {
+      window.removeEventListener('resize', computePaddingNeed);
+      clearInterval(id);
+    };
+  }, []);
+
   // Loading animation effect
   useEffect(() => {
     if (!isConnecting) return;
-    
     const interval = setInterval(() => {
       setLoadingDots(prev => {
         switch (prev) {
@@ -280,7 +309,11 @@ function SearchComponent() {
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-        <form onSubmit={handleSubmit} className="w-full pr-16">
+        <form
+          onSubmit={handleSubmit}
+          className={`w-full ${needsRightPadding ? 'pr-16' : ''}`}
+          id="search-row"
+        >
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input

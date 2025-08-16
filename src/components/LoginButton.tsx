@@ -79,6 +79,7 @@ export function LoginButton() {
 
   return (
     <button
+      id="header-avatar"
       onClick={user ? handleLogout : handleLogin}
       className="fixed top-4 right-4 hover:opacity-90 transition-opacity"
       aria-label={user ? 'Open profile / logout' : 'login'}
