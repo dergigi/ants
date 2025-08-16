@@ -464,7 +464,12 @@ function SearchComponent() {
                 setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
               };
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
-              const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
+              const hasExpandedParent = Boolean(parentEvent);
+              const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${
+                hasCollapsedBar || hasExpandedParent
+                  ? 'rounded-b-lg rounded-t-none border-t-0'
+                  : 'rounded-lg'
+              }`;
               return (
               <div key={event.id}>
                 {parentId && !parentEvent && (
@@ -479,7 +484,7 @@ function SearchComponent() {
                   </div>
                 )}
                 {parentEvent && (
-                  <div className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d] mb-3">
+                  <div className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-lg rounded-b-none border-b-0">
                     {renderNoteBody(parentEvent)}
                   </div>
                 )}
