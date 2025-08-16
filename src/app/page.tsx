@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { connect, getCurrentExample } from '@/lib/ndk';
+import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
@@ -131,6 +131,7 @@ function SearchComponent() {
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const [needsRightPadding, setNeedsRightPadding] = useState(false);
+  const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
 
   // Copying npub removed from UI in favor of profile + NIP-05 display
 
@@ -220,6 +221,76 @@ function SearchComponent() {
       clearInterval(id);
     };
   }, []);
+
+  function getReplyToEventId(event: NDKEvent): string | null {
+    try {
+      const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
+      if (eTags.length === 0) return null;
+      const replyTag = eTags.find((t) => t[3] === 'reply') || eTags.find((t) => t[3] === 'root') || eTags[eTags.length - 1];
+      return replyTag && replyTag[1] ? replyTag[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function fetchEventById(eventId: string): Promise<NDKEvent | null> {
+    try { await connect(); } catch {}
+    return new Promise<NDKEvent | null>((resolve) => {
+      let found: NDKEvent | null = null;
+      const sub = ndk.subscribe([{ ids: [eventId] }], { closeOnEose: true });
+      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
+      sub.on('event', (evt: NDKEvent) => { found = evt; });
+      sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
+      sub.start();
+    });
+  }
+
+  const renderNoteBody = (event: NDKEvent) => (
+    <>
+      <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
+      {extractImageUrls(event.content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractImageUrls(event.content).map((src) => (
+            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+              <Image
+                src={src}
+                alt="linked media"
+                width={1024}
+                height={1024}
+                className="h-auto w-full object-contain"
+                unoptimized
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {extractVideoUrls(event.content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractVideoUrls(event.content).map((src) => (
+            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+              <video controls playsInline className="w-full h-auto">
+                <source src={src} />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
+        <div className="flex items-center gap-2">
+          <AuthorBadge user={event.author} />
+        </div>
+        <a
+          href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+        </a>
+      </div>
+    </>
+  );
 
   // Loading animation effect
   useEffect(() => {
@@ -376,8 +447,40 @@ function SearchComponent() {
           <div className="mt-8 space-y-4">
             {results.map((event) => {
               const nevent = nip19.neventEncode({ id: event.id });
+              const parentId = getReplyToEventId(event);
+              const parent = parentId ? expandedParents[parentId] : undefined;
+              const isLoadingParent = parent === 'loading';
+              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
+              const handleToggleParent = async () => {
+                if (!parentId) return;
+                if (expandedParents[parentId]) {
+                  const updated = { ...expandedParents };
+                  delete updated[parentId];
+                  setExpandedParents(updated);
+                  return;
+                }
+                setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
+                const fetched = await fetchEventById(parentId);
+                setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
+              };
               return (
               <div key={event.id} className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d]">
+                {parentId && (
+                  <div className="-mt-1 -mx-1 mb-3">
+                    <button
+                      type="button"
+                      onClick={handleToggleParent}
+                      className="w-full text-left text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] rounded-md px-3 py-2 hover:bg-[#262626]"
+                    >
+                      {isLoadingParent ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
+                    </button>
+                    {parentEvent && (
+                      <div className="mt-3 p-3 bg-[#2a2a2a] rounded-md border border-[#3c3c3c]">
+                        {renderNoteBody(parentEvent)}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {event.kind === 0 ? (
                   // Profile metadata
                   <div>
@@ -401,48 +504,7 @@ function SearchComponent() {
                 ) : (
                   // Regular note
                   <>
-                    <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
-                    {extractImageUrls(event.content).length > 0 && (
-                      <div className="mt-3 grid grid-cols-1 gap-3">
-                        {extractImageUrls(event.content).map((src) => (
-                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                            <Image
-                              src={src}
-                              alt="linked media"
-                              width={1024}
-                              height={1024}
-                              className="h-auto w-full object-contain"
-                              unoptimized
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {extractVideoUrls(event.content).length > 0 && (
-                      <div className="mt-3 grid grid-cols-1 gap-3">
-                        {extractVideoUrls(event.content).map((src) => (
-                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                            <video controls playsInline className="w-full h-auto">
-                              <source src={src} />
-                              Your browser does not support the video tag.
-                            </video>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <AuthorBadge user={event.author} />
-                      </div>
-                      <a
-                        href={`https://njump.me/${nevent}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </a>
-                    </div>
+                    {renderNoteBody(event)}
                   </>
                 )}
               </div>
