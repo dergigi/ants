@@ -41,7 +41,21 @@ function SearchComponent() {
       // Check if this is a Vertex profile lookup
       if (VERTEX_REGEXP.test(searchQuery)) {
         const profile = await lookupVertexProfile(searchQuery);
-        setResults(profile ? [profile] : []);
+        if (profile) {
+          // Store the npub in local storage
+          const npub = profile.author.npub;
+          localStorage.setItem(`profile_${searchQuery}`, npub);
+          // Set results immediately to trigger UI update
+          setResults([profile]);
+          setIsLoading(false);
+          // Update URL to reflect the profile view
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('q', searchQuery);
+          router.push(`?${params.toString()}`);
+        } else {
+          setResults([]);
+          setIsLoading(false);
+        }
       } else {
         // Regular search or author-filtered search
         const events = await searchEvents(searchQuery);
@@ -49,10 +63,11 @@ function SearchComponent() {
       }
     } catch (error) {
       console.error('Search error:', error);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
-  }, [placeholder]);
+  }, [placeholder, router, searchParams]);
 
   // Loading animation effect
   useEffect(() => {
@@ -87,10 +102,12 @@ function SearchComponent() {
     const urlQuery = searchParams.get('q');
     if (urlQuery) {
       setQuery(urlQuery);
-      // Perform the search if there's a query in the URL
-      handleSearch(urlQuery);
+      // Only perform search if this is a direct URL access
+      if (!query) {
+        handleSearch(urlQuery);
+      }
     }
-  }, [searchParams, handleSearch]);
+  }, [searchParams, handleSearch, query]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,12 +119,14 @@ function SearchComponent() {
     const params = new URLSearchParams(searchParams.toString());
     if (searchQuery) {
       params.set('q', searchQuery);
+      router.push(`?${params.toString()}`);
+      // Perform the search
+      handleSearch(searchQuery);
     } else {
       params.delete('q');
+      router.push(`?${params.toString()}`);
+      setResults([]);
     }
-    router.push(`?${params.toString()}`);
-    // Perform the search
-    handleSearch(searchQuery);
   };
 
   const formatDate = (timestamp: number) => {
@@ -174,9 +193,9 @@ function SearchComponent() {
                   // Profile metadata
                   <div>
                     <div className="flex items-center gap-4">
-                      {JSON.parse(event.content).picture && (
+                      {event.author.profile?.image && (
                         <Image 
-                          src={JSON.parse(event.content).picture} 
+                          src={event.author.profile.image}
                           alt="Profile" 
                           width={64}
                           height={64}
@@ -185,7 +204,7 @@ function SearchComponent() {
                       )}
                       <div>
                         <h2 className="text-xl font-bold">
-                          {JSON.parse(event.content).display_name || JSON.parse(event.content).displayName || JSON.parse(event.content).name}
+                          {event.author.profile?.displayName || event.author.profile?.name}
                         </h2>
                         <button
                           onClick={() => handleCopyNpub(event.author.npub)}
@@ -195,8 +214,8 @@ function SearchComponent() {
                         </button>
                       </div>
                     </div>
-                    {JSON.parse(event.content).about && (
-                      <p className="mt-4 text-gray-300">{JSON.parse(event.content).about}</p>
+                    {event.author.profile?.about && (
+                      <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
                     )}
                   </div>
                 ) : (

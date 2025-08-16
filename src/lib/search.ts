@@ -23,6 +23,12 @@ function getPubkey(str: string): string | null {
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
   // Check for vertex profile lookups
   if (VERTEX_REGEXP.test(query)) {
+    // Check if signer is available for vertex lookups
+    if (!ndk.signer) {
+      console.warn('No signer available for vertex profile lookup, skipping');
+      return [];
+    }
+    
     const profile = await lookupVertexProfile(query);
     if (profile) {
       return [profile];
@@ -57,7 +63,12 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     if (isNpub(author)) {
       pubkey = getPubkey(author);
     } else {
-      // Look up author's profile
+      // Look up author's profile - check if signer is available
+      if (!ndk.signer) {
+        console.warn('No signer available for vertex profile lookup, skipping author lookup');
+        return [];
+      }
+      
       const profile = await lookupVertexProfile(`p:${author}`);
       if (profile) {
         pubkey = profile.author.pubkey;
