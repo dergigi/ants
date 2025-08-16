@@ -119,7 +119,7 @@ function SearchComponent() {
         handleSearch(urlQuery);
       }
     }
-  }, [searchParams, handleSearch, query]);
+  }, [searchParams, handleSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
