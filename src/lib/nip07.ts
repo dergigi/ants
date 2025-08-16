@@ -46,6 +46,9 @@ export async function login(): Promise<NDKUser | null> {
     // Set the signer on the NDK instance
     ndk.signer = signer;
     
+    // Ensure the user has the NDK instance set
+    user.ndk = ndk;
+    
     return user;
   } catch (error) {
     console.error('Error getting public key:', error);
@@ -95,6 +98,9 @@ export async function restoreLogin(): Promise<NDKUser | null> {
     
     // Set the signer on the NDK instance
     ndk.signer = signer;
+    
+    // Ensure the user has the NDK instance set
+    user.ndk = ndk;
     
     return user;
   } catch (error) {
