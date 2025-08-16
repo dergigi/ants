@@ -3,21 +3,7 @@ import { ndk } from './ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
 import { nip19 } from 'nostr-tools';
 
-// Ensures searches don't hang forever if a relay never sends EOSE
-async function fetchEventsWithTimeout(filter: NDKFilter, timeoutMs: number = 8000) : Promise<NDKEvent[]> {
-  const controller = { timer: undefined as unknown as ReturnType<typeof setTimeout> };
-  try {
-    const events = await Promise.race([
-      ndk.fetchEvents(filter),
-      new Promise<Set<NDKEvent>>((resolve) => {
-        controller.timer = setTimeout(() => resolve(new Set<NDKEvent>()), timeoutMs);
-      })
-    ]);
-    return Array.from(events as Set<NDKEvent>);
-  } finally {
-    if (controller.timer) clearTimeout(controller.timer);
-  }
-}
+
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
