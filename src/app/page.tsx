@@ -2,11 +2,103 @@
 
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { connect, getCurrentExample } from '@/lib/ndk';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+
+type Nip05CheckResult = {
+  isVerified: boolean;
+  value: string | undefined;
+};
+
+const nip05Cache = new Map<string, boolean>();
+
+async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
+  if (!nip05) return false;
+  const cacheKey = `${nip05}|${pubkeyHex}`;
+  if (nip05Cache.has(cacheKey)) return nip05Cache.get(cacheKey) as boolean;
+
+  try {
+    const [namePart, domainPartCandidate] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    const name = namePart || '_';
+    const domain = (domainPartCandidate || '').trim();
+    if (!domain) {
+      nip05Cache.set(cacheKey, false);
+      return false;
+    }
+    const url = `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`;
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      nip05Cache.set(cacheKey, false);
+      return false;
+    }
+    const data = await res.json();
+    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
+    const result = mapped === pubkeyHex.toLowerCase();
+    nip05Cache.set(cacheKey, result);
+    return result;
+  } catch {
+    nip05Cache.set(cacheKey, false);
+    return false;
+  }
+}
+
+function useNip05Status(user: NDKUser): Nip05CheckResult {
+  const [verified, setVerified] = useState(false);
+  const nip05 = user.profile?.nip05;
+  const pubkey = user.pubkey;
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const result = await verifyNip05(pubkey, nip05);
+      if (isMounted) setVerified(result);
+    })();
+    return () => { isMounted = false; };
+  }, [pubkey, nip05]);
+
+  return { isVerified: verified, value: nip05 };
+}
+
+function AuthorBadge({ user }: { user: NDKUser }) {
+  const [loaded, setLoaded] = useState(false);
+  const [name, setName] = useState('');
+  const { isVerified, value } = useNip05Status(user);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        await user.fetchProfile();
+      } catch {}
+      if (!isMounted) return;
+      const display = user.profile?.displayName || user.profile?.name || '';
+      setName(display);
+      setLoaded(true);
+    })();
+    return () => { isMounted = false; };
+  }, [user]);
+
+  const nip05Part = value ? (
+    <span className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'}`}>
+      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faTriangleExclamation} className="h-4 w-4" />
+      <span className="truncate max-w-[14rem]">{value}</span>
+    </span>
+  ) : (
+    <span className="text-gray-400">no NIP-05</span>
+  );
+
+  return (
+    <div className="flex flex-col">
+      <span className="font-medium text-gray-100 truncate max-w-[14rem]">{loaded ? (name || 'Unknown') : 'Loading...'}</span>
+      <span className="text-sm">{nip05Part}</span>
+    </div>
+  );
+}
 
 function SearchComponent() {
   const router = useRouter();
@@ -19,9 +111,7 @@ function SearchComponent() {
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
 
-  const handleCopyNpub = async (npub: string) => {
-    await navigator.clipboard.writeText(npub);
-  };
+  // Copying npub removed from UI in favor of profile + NIP-05 display
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     const localSearchId = ++currentSearchId.current;
@@ -149,10 +239,7 @@ function SearchComponent() {
     });
   };
 
-  const shortenNpub = (npub: string) => {
-    if (!npub) return '';
-    return `${npub.substring(0, 10)}...${npub.substring(npub.length - 3)}`;
-  };
+  // No longer showing shortened npub in UI
 
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
@@ -213,17 +300,7 @@ function SearchComponent() {
                           className="rounded-full"
                         />
                       )}
-                      <div>
-                        <h2 className="text-xl font-bold">
-                          {event.author.profile?.displayName || event.author.profile?.name}
-                        </h2>
-                        <button
-                          onClick={() => handleCopyNpub(event.author.npub)}
-                          className="text-gray-400 hover:text-gray-200 transition-colors"
-                        >
-                          {shortenNpub(event.author.npub)}
-                        </button>
-                      </div>
+                      <AuthorBadge user={event.author} />
                     </div>
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
@@ -233,13 +310,10 @@ function SearchComponent() {
                   // Regular note
                   <>
                     <p className="text-gray-100">{event.content}</p>
-                    <div className="mt-2 flex justify-between text-sm text-gray-400">
-                      <button
-                        onClick={() => handleCopyNpub(event.author.npub)}
-                        className="hover:text-gray-200 transition-colors"
-                      >
-                        {shortenNpub(event.author.npub)}
-                      </button>
+                    <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <AuthorBadge user={event.author} />
+                      </div>
                       <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
                     </div>
                   </>
