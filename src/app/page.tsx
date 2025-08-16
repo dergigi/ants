@@ -334,6 +334,7 @@ function SearchComponent() {
                           width={64}
                           height={64}
                           className="rounded-full"
+                          unoptimized
                         />
                       )}
                       <AuthorBadge user={event.author} />
@@ -356,7 +357,7 @@ function SearchComponent() {
                               width={1024}
                               height={1024}
                               className="h-auto w-full object-contain"
-                              unoptimized={false}
+                              unoptimized
                             />
                           </div>
                         ))}
