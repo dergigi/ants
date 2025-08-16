@@ -9,6 +9,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { nip19 } from 'nostr-tools';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -366,7 +367,9 @@ function SearchComponent() {
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
-            {results.map((event) => (
+            {results.map((event) => {
+              const nevent = nip19.neventEncode({ id: event.id });
+              return (
               <div key={event.id} className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d]">
                 {event.kind === 0 ? (
                   // Profile metadata
@@ -424,12 +427,19 @@ function SearchComponent() {
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} />
                       </div>
-                      <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
+                      <a
+                        href={`https://njump.me/${nevent}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                      </a>
                     </div>
                   </>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         )}
         </div>
