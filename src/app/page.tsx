@@ -463,27 +463,29 @@ function SearchComponent() {
                 const fetched = await fetchEventById(parentId);
                 setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
               };
+              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
+              const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
               return (
-              <div key={event.id} className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d]">
-                {parentId && (
-                  <div className="-mt-1 -mx-1 mb-3">
+              <div key={event.id}>
+                {parentId && !parentEvent && (
+                  <div className={`text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] rounded-t-lg rounded-b-none ${hasCollapsedBar ? 'border-b-0' : ''}`}>
                     <button
                       type="button"
                       onClick={handleToggleParent}
-                      className="w-full text-left text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] rounded-md px-3 py-2 hover:bg-[#262626]"
+                      className="w-full text-left px-4 py-2 hover:bg-[#262626] rounded-t-lg"
                     >
                       {isLoadingParent ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
                     </button>
-                    {parentEvent && (
-                      <div className="mt-3 p-3 bg-[#2a2a2a] rounded-md border border-[#3c3c3c]">
-                        {renderNoteBody(parentEvent)}
-                      </div>
-                    )}
+                  </div>
+                )}
+                {parentEvent && (
+                  <div className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d] mb-3">
+                    {renderNoteBody(parentEvent)}
                   </div>
                 )}
                 {event.kind === 0 ? (
                   // Profile metadata
-                  <div>
+                  <div className={noteCardClasses}>
                     <div className="flex items-center gap-4">
                       {event.author.profile?.image && (
                         <Image 
@@ -503,9 +505,9 @@ function SearchComponent() {
                   </div>
                 ) : (
                   // Regular note
-                  <>
+                  <div className={noteCardClasses}>
                     {renderNoteBody(event)}
-                  </>
+                  </div>
                 )}
               </div>
             );})}
