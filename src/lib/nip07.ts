@@ -1,6 +1,6 @@
 import { NostrEvent } from 'nostr-tools';
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk } from './ndk';
+import { ndk, connect } from './ndk';
 
 type Nip07RelayMap = { [url: string]: { read: boolean; write: boolean } };
 
@@ -34,6 +34,9 @@ export async function login(): Promise<NDKUser | null> {
   }
 
   try {
+    // Ensure NDK is connected
+    await connect();
+    
     const signer = new NDKNip07Signer();
     const user = await signer.blockUntilReady();
     
@@ -75,6 +78,9 @@ export async function restoreLogin(): Promise<NDKUser | null> {
       console.warn('NIP-07 extension not available, cannot restore login');
       return null;
     }
+
+    // Ensure NDK is connected
+    await connect();
 
     // Create a new signer and restore the connection
     const signer = new NDKNip07Signer();
