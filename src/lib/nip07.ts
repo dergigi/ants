@@ -1,35 +1,10 @@
-import { NostrEvent } from 'nostr-tools';
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connect } from './ndk';
-
-type Nip07RelayMap = { [url: string]: { read: boolean; write: boolean } };
-
-interface Nip04 {
-  encrypt(pubkey: string, plaintext: string): Promise<string>;
-  decrypt(pubkey: string, ciphertext: string): Promise<string>;
-}
-
-interface Nip44 {
-  encrypt(pubkey: string, plaintext: string): Promise<string>;
-  decrypt(pubkey: string, ciphertext: string): Promise<string>;
-}
-
-declare global {
-  interface Window {
-    nostr?: {
-      getPublicKey(): Promise<string>;
-      signEvent(event: NostrEvent): Promise<{ sig: string }>;
-      getRelays?(): Promise<Nip07RelayMap>;
-      nip04?: Nip04;
-      nip44?: Nip44;
-    };
-  }
-}
 
 const NIP07_PUBKEY_KEY = 'nip07_pubkey';
 
 export async function login(): Promise<NDKUser | null> {
-  if (!window.nostr) {
+  if (!(window as { nostr?: unknown }).nostr) {
     throw new Error('NIP-07 extension not found');
   }
 
@@ -77,7 +52,7 @@ export async function restoreLogin(): Promise<NDKUser | null> {
 
   try {
     // Check if NIP-07 extension is available
-    if (!window.nostr) {
+    if (!(window as { nostr?: unknown }).nostr) {
       console.warn('NIP-07 extension not available, cannot restore login');
       return null;
     }
