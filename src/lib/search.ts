@@ -59,12 +59,6 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
   // Check for vertex profile lookups
   if (VERTEX_REGEXP.test(query)) {
-    // Check if signer is available for vertex lookups
-    if (!ndk.signer) {
-      console.warn('No signer available for vertex profile lookup, skipping');
-      return [];
-    }
-    
     const profile = await lookupVertexProfile(query);
     if (profile) {
       return [profile];
@@ -98,12 +92,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     if (isNpub(author)) {
       pubkey = getPubkey(author);
     } else {
-      // Look up author's profile - check if signer is available
-      if (!ndk.signer) {
-        console.warn('No signer available for vertex profile lookup, skipping author lookup');
-        return [];
-      }
-      
+      // Look up author's profile via Vertex DVM (personalized when logged in, global otherwise)
       const profile = await lookupVertexProfile(`p:${author}`);
       if (profile) {
         pubkey = profile.author.pubkey;
@@ -124,6 +113,9 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     // Add search term to the filter if present
     if (terms) {
       filters.search = terms;
+      // Increase limit for filtered text searches to improve recall
+      // Many relays require higher limits to surface matching events
+      filters.limit = Math.max(limit, 200);
     }
 
     console.log('Searching with filters:', filters);
