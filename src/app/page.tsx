@@ -69,6 +69,7 @@ function AuthorBadge({ user }: { user: NDKUser }) {
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
+  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -85,10 +86,16 @@ function AuthorBadge({ user }: { user: NDKUser }) {
   }, [user]);
 
   const nip05Part = value ? (
-    <span className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'}`}>
+    <a
+      href={profileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+      title={value}
+    >
       <FontAwesomeIcon icon={isVerified ? faCircleCheck : faTriangleExclamation} className="h-4 w-4" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </span>
+    </a>
   ) : (
     <span className="text-gray-400">no NIP-05</span>
   );
@@ -97,7 +104,7 @@ function AuthorBadge({ user }: { user: NDKUser }) {
     <div className="flex items-center gap-2">
       {loaded ? (
         <a
-          href={`https://npub.world/${user.npub}`}
+          href={profileUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-gray-100 hover:underline truncate max-w-[10rem]"
