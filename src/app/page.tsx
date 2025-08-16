@@ -255,6 +255,12 @@ function SearchComponent() {
     return matches.slice(0, 3);
   };
 
+  const stripImageUrls = (text: string): string => {
+    if (!text) return '';
+    const cleaned = text.replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '');
+    return cleaned.replace(/\s{2,}/g, ' ').trim();
+  };
+
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -323,7 +329,7 @@ function SearchComponent() {
                 ) : (
                   // Regular note
                   <>
-                    <p className="text-gray-100 whitespace-pre-wrap break-words">{event.content}</p>
+                    <p className="text-gray-100 whitespace-pre-wrap break-words">{stripImageUrls(event.content)}</p>
                     {extractImageUrls(event.content).length > 0 && (
                       <div className="mt-3 grid grid-cols-1 gap-3">
                         {extractImageUrls(event.content).map((src) => (
