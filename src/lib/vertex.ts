@@ -36,18 +36,7 @@ async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number 
   });
 }
 
-interface VertexProfile {
-  pubkey: string;
-  name: string;
-  display_name?: string;
-  picture?: string;
-  about?: string;
-  nip05?: string;
-  lud16?: string;
-  lud06?: string;
-  website?: string;
-  banner?: string;
-}
+// (intentionally left without VertexProfile interface; we operate directly on events)
 
 async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
   try {
@@ -284,10 +273,13 @@ async function getDirectFollows(pubkey: string): Promise<Set<string>> {
   return follows;
 }
 
+type TagPFilter = NDKFilter & { '#p'?: string[] };
+
 async function countFollowerMentions(pubkeys: string[]): Promise<Map<string, number>> {
   if (pubkeys.length === 0) return new Map();
   const counts = new Map<string, number>();
-  const batch = await subscribeAndCollectProfiles({ kinds: [3], ['#p' as any]: pubkeys, limit: 4000 } as unknown as NDKFilter, 6000);
+  const tagFilter: TagPFilter = { kinds: [3], '#p': pubkeys, limit: 4000 };
+  const batch = await subscribeAndCollectProfiles(tagFilter, 6000);
   for (const evt of batch) {
     for (const tag of evt.tags as unknown as string[][]) {
       if (Array.isArray(tag) && tag[0] === 'p' && tag[1] && pubkeys.includes(tag[1])) {
