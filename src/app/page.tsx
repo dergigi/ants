@@ -112,12 +112,10 @@ function SearchComponent() {
   // Initialize query from URL on mount
   useEffect(() => {
     const urlQuery = searchParams.get('q');
-    if (urlQuery && urlQuery !== query) {
+    if (urlQuery) {
       setQuery(urlQuery);
-      // Only perform search if this is a direct URL access
-      if (!query) {
-        handleSearch(urlQuery);
-      }
+      // Only perform search if this is a direct URL access (no current query)
+      handleSearch(urlQuery);
     }
   }, [searchParams, handleSearch]);
 
