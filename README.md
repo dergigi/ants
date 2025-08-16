@@ -37,6 +37,20 @@ A simple search interface for Nostr events.
 - Clean, minimal interface
 - Fast search results
 
+## Ranking behavior
+
+- When you are logged in, profile lookups and author resolution use **personalizedPagerank** from your point of view (your pubkey is sent as `source`).
+- When you are not logged in, the app falls back to **globalPagerank**.
+
+This applies when resolving usernames like `by:john` or direct profile lookups like `p:john`. See the Vertex docs for details on parameters and response format: [`https://vertexlab.io/docs/services/search-profiles/`](https://vertexlab.io/docs/services/search-profiles/).
+
+### Vertex credit fallback
+
+If the Vertex DVM responds with an "insufficient credits" status, we fall back to a relay search for `kind:0` profiles matching the username and rank candidates as follows:
+
+- Logged in: prioritize profiles that you directly follow; tiebreak by prefix match and name.
+- Not logged in: sort by the number of follower references (count of `kind:3` contacts that include the candidate pubkey), then prefix match and name.
+
 ## Development
 
 ```bash
