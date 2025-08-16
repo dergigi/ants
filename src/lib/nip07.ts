@@ -61,4 +61,40 @@ export function getStoredPubkey(): string | null {
 export function logout(): void {
   localStorage.removeItem(NIP07_PUBKEY_KEY);
   ndk.signer = undefined;
+}
+
+export async function restoreLogin(): Promise<NDKUser | null> {
+  const storedPubkey = getStoredPubkey();
+  if (!storedPubkey) {
+    return null;
+  }
+
+  try {
+    // Check if NIP-07 extension is available
+    if (!window.nostr) {
+      console.warn('NIP-07 extension not available, cannot restore login');
+      return null;
+    }
+
+    // Create a new signer and restore the connection
+    const signer = new NDKNip07Signer();
+    const user = await signer.blockUntilReady();
+    
+    // Verify the pubkey matches what we stored
+    if (user.pubkey !== storedPubkey) {
+      console.warn('Stored pubkey does not match current user, logging out');
+      logout();
+      return null;
+    }
+    
+    // Set the signer on the NDK instance
+    ndk.signer = signer;
+    
+    return user;
+  } catch (error) {
+    console.error('Error restoring login:', error);
+    // If restoration fails, clear the stored data
+    logout();
+    return null;
+  }
 } 
