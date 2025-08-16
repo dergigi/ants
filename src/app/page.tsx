@@ -255,9 +255,25 @@ function SearchComponent() {
     return matches.slice(0, 3);
   };
 
-  const stripImageUrls = (text: string): string => {
+  const extractVideoUrls = (text: string): string[] => {
+    if (!text) return [];
+    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
+    const matches: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+      const url = m[1]
+        .replace(/[),.;]+$/, '')
+        .trim();
+      if (!matches.includes(url)) matches.push(url);
+    }
+    return matches.slice(0, 2);
+  };
+
+  const stripMediaUrls = (text: string): string => {
     if (!text) return '';
-    const cleaned = text.replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '');
+    const cleaned = text
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '')
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
@@ -329,7 +345,7 @@ function SearchComponent() {
                 ) : (
                   // Regular note
                   <>
-                    <p className="text-gray-100 whitespace-pre-wrap break-words">{stripImageUrls(event.content)}</p>
+                    <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
                     {extractImageUrls(event.content).length > 0 && (
                       <div className="mt-3 grid grid-cols-1 gap-3">
                         {extractImageUrls(event.content).map((src) => (
@@ -342,6 +358,18 @@ function SearchComponent() {
                               className="h-auto w-full object-contain"
                               unoptimized={false}
                             />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {extractVideoUrls(event.content).length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-3">
+                        {extractVideoUrls(event.content).map((src) => (
+                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+                            <video controls playsInline className="w-full h-auto">
+                              <source src={src} />
+                              Your browser does not support the video tag.
+                            </video>
                           </div>
                         ))}
                       </div>
