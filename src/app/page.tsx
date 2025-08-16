@@ -93,9 +93,9 @@ function AuthorBadge({ user }: { user: NDKUser }) {
   );
 
   return (
-    <div className="flex flex-col">
-      <span className="font-medium text-gray-100 truncate max-w-[14rem]">{loaded ? (name || 'Unknown') : 'Loading...'}</span>
-      <span className="text-sm">{nip05Part}</span>
+    <div className="flex items-center gap-2">
+      <span className="font-medium text-gray-100 truncate max-w-[10rem]">{loaded ? (name || 'Unknown') : 'Loading...'}</span>
+      <span className="text-sm truncate">{nip05Part}</span>
     </div>
   );
 }
