@@ -94,7 +94,19 @@ function AuthorBadge({ user }: { user: NDKUser }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="font-medium text-gray-100 truncate max-w-[10rem]">{loaded ? (name || 'Unknown') : 'Loading...'}</span>
+      {loaded ? (
+        <a
+          href={`https://npub.world/${user.npub}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-gray-100 hover:underline truncate max-w-[10rem]"
+          title={name || 'Unknown'}
+        >
+          {name || 'Unknown'}
+        </a>
+      ) : (
+        <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
+      )}
       <span className="text-sm truncate">{nip05Part}</span>
     </div>
   );
