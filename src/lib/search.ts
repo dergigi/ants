@@ -1,7 +1,37 @@
-import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
 import { nip19 } from 'nostr-tools';
+
+
+
+// Use a search-capable relay set explicitly for NIP-50 queries
+const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
+
+async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
+  return new Promise<NDKEvent[]>((resolve) => {
+    const collected: Map<string, NDKEvent> = new Map();
+
+    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, searchRelaySet);
+    const timer = setTimeout(() => {
+      try { sub.stop(); } catch {}
+      resolve(Array.from(collected.values()));
+    }, timeoutMs);
+
+    sub.on('event', (event: NDKEvent) => {
+      if (!collected.has(event.id)) {
+        collected.set(event.id, event);
+      }
+    });
+
+    sub.on('eose', () => {
+      clearTimeout(timer);
+      resolve(Array.from(collected.values()));
+    });
+
+    sub.start();
+  });
+}
 
 function isNpub(str: string): boolean {
   return str.startsWith('npub');
@@ -21,6 +51,12 @@ function getPubkey(str: string): string | null {
 }
 
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
+  // Ensure we're connected before issuing any queries
+  try {
+    await ndk.connect();
+  } catch (e) {
+    console.warn('NDK connect failed or already connected:', e);
+  }
   // Check for vertex profile lookups
   if (VERTEX_REGEXP.test(query)) {
     // Check if signer is available for vertex lookups
@@ -40,13 +76,12 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   if (isNpub(query)) {
     const pubkey = getPubkey(query);
     if (!pubkey) return [];
-    
-    const events = await ndk.fetchEvents({
+
+    return await subscribeAndCollect({
       kinds: [1],
       authors: [pubkey],
       limit
     });
-    return Array.from(events);
   }
 
   // Check for author filter
@@ -92,19 +127,16 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     }
 
     console.log('Searching with filters:', filters);
-    const events = await ndk.fetchEvents(filters);
-    return Array.from(events);
+    return await subscribeAndCollect(filters);
   }
   
   // Regular search without author filter
   try {
-    const events = await ndk.fetchEvents({
+    const results = await subscribeAndCollect({
       kinds: [1],
       search: query,
       limit
     });
-    
-    const results = Array.from(events);
     console.log('Search results:', {
       query,
       resultCount: results.length
