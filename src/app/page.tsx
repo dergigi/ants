@@ -51,7 +51,7 @@ function SearchComponent() {
           // Update URL to reflect the profile view
           const params = new URLSearchParams(searchParams.toString());
           params.set('q', searchQuery);
-          router.push(`?${params.toString()}`);
+          router.replace(`?${params.toString()}`);
         } else {
           setResults([]);
           setIsLoading(false);
@@ -100,7 +100,7 @@ function SearchComponent() {
   // Initialize query from URL on mount
   useEffect(() => {
     const urlQuery = searchParams.get('q');
-    if (urlQuery) {
+    if (urlQuery && urlQuery !== query) {
       setQuery(urlQuery);
       // Only perform search if this is a direct URL access
       if (!query) {
@@ -119,12 +119,12 @@ function SearchComponent() {
     const params = new URLSearchParams(searchParams.toString());
     if (searchQuery) {
       params.set('q', searchQuery);
-      router.push(`?${params.toString()}`);
+      router.replace(`?${params.toString()}`);
       // Perform the search
       handleSearch(searchQuery);
     } else {
       params.delete('q');
-      router.push(`?${params.toString()}`);
+      router.replace(`?${params.toString()}`);
       setResults([]);
     }
   };
@@ -166,7 +166,7 @@ function SearchComponent() {
                     // Update URL to remove the query parameter
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
-                    router.push(`?${params.toString()}`);
+                    router.replace(`?${params.toString()}`);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
                   aria-label="Clear search"
