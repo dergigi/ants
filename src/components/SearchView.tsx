@@ -142,18 +142,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const searchRowRef = useRef<HTMLFormElement | null>(null);
   const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
-  const [selectedExpanded, setSelectedExpanded] = useState<Set<string>>(new Set());
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
+
+  function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
+    if (terms.length === 0) return events;
+    const effective = active.size > 0 ? Array.from(active) : terms;
+    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
+    return events.filter((evt) => {
+      const content = evt.content || '';
+      return termRegexes.some((rx) => rx.test(content));
+    });
+  }
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
       setExpandedLabel(null);
+      setExpandedTerms([]);
+      setActiveFilters(new Set());
       return;
     }
 
     setLoading(true);
     try {
-      // compute expanded label for media flags used without additional terms
+      // compute expanded label/terms for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
       const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
       const hasGif = /(?:^|\s)has:gif(?:\s|$)/i.test(searchQuery);
@@ -175,14 +188,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const terms = (hasGif || isGif) ? ['gif'] : (hasVideo || isVideo) ? videoTerms : imageTerms;
         setExpandedLabel(terms.join(' '));
         setExpandedTerms(terms);
-        setSelectedExpanded(new Set(terms));
+        setActiveFilters(new Set(terms));
       } else {
         setExpandedLabel(null);
         setExpandedTerms([]);
-        setSelectedExpanded(new Set());
+        setActiveFilters(new Set());
       }
       const searchResults = await searchEvents(searchQuery);
-      setResults(searchResults);
+      setBaseResults(searchResults);
+      const filtered = applyClientFilters(searchResults, expandedTerms.length > 0 ? expandedTerms : [], activeFilters);
+      setResults(filtered.length > 0 ? filtered : searchResults);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -594,35 +609,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
             <span>Searching for</span>
             {expandedTerms.map((term, i) => {
-              const active = selectedExpanded.has(term);
+              const active = activeFilters.has(term);
               return (
                 <button
                   key={`${term}-${i}`}
                   type="button"
                   className={`px-1.5 py-0.5 rounded border ${active ? 'bg-[#3a3a3a] border-[#4a4a4a] text-gray-100' : 'bg-[#2d2d2d] border-[#3d3d3d] text-gray-300'} hover:bg-[#3a3a3a]`}
                   onClick={() => {
-                    const next = new Set(selectedExpanded);
+                    const next = new Set(activeFilters);
                     if (active) next.delete(term); else next.add(term);
-                    setSelectedExpanded(next);
-                    const selected = Array.from(next);
-                    const nextQuery = selected.length > 0 ? selected.join(' OR ') : expandedTerms.join(' OR ');
-                    setQuery(nextQuery);
-                    if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', nextQuery);
-                      router.replace(`?${params.toString()}`);
-                    }
-                    (async () => {
-                      setLoading(true);
-                      try {
-                        const res = await searchEvents(nextQuery);
-                        setResults(res);
-                      } catch (e) {
-                        setResults([]);
-                      } finally {
-                        setLoading(false);
-                      }
-                    })();
+                    setActiveFilters(next);
+                    const filtered = applyClientFilters(baseResults, expandedTerms, next);
+                    setResults(filtered.length > 0 ? filtered : baseResults);
                   }}
                 >
                   <span className="font-mono">{term}</span>
