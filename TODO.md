@@ -17,8 +17,8 @@
 - [x] Add shorthand to find notes that are one single image `is:image`
 - [x] Same for videos (`has:video` and `is:video`)
 - [x] Same for gifs (`has:gif` and `is:gif`)
-- [ ] Add more examples to pre-fill search field
-- [ ] Show different examples periodically for discovery
+- [x] Add more examples to pre-fill search field
+- [x] Show different examples periodically for discovery
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
 - [ ] Add support for `is:blog` aka `kind:30023`
