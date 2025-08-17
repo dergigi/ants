@@ -158,7 +158,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             <div className="absolute inset-0 overflow-hidden">
               <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
             </div>
-            <div className="absolute top-1 left-1 z-20">
+            <div className="absolute top-1 left-1 z-50">
               <div className="relative">
                 <button
                   type="button"
@@ -170,7 +170,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 </button>
                 {showPortalMenu && (
                   <div
-                    className="absolute z-50 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                    className="absolute z-[9999] mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                   >
                     <ul className="py-1 text-sm text-gray-200">
@@ -240,7 +240,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       )}
       {showBanner && !bannerUrl && (
         <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d]" style={{ height: 32 }}>
-          <div className="absolute top-1 left-1 z-20">
+          <div className="absolute top-1 left-1 z-50">
             <div className="relative">
               <button
                 type="button"
@@ -252,7 +252,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               </button>
               {showPortalMenu && (
                 <div
-                  className="absolute z-50 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                  className="absolute z-[9999] mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                 >
                   <ul className="py-1 text-sm text-gray-200">
