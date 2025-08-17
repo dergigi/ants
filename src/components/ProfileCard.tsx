@@ -288,14 +288,20 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {event.author.profile?.image && (
-            <Image
-              src={event.author.profile.image}
-              alt="Profile"
-              width={48}
-              height={48}
-              className="rounded-full w-12 h-12 object-cover"
-              unoptimized
-            />
+            <button
+              type="button"
+              onClick={() => onAuthorClick && onAuthorClick(event.author.npub)}
+              className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
+            >
+              <Image
+                src={event.author.profile.image}
+                alt="Profile"
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+                unoptimized
+              />
+            </button>
           )}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
