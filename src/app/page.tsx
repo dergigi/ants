@@ -375,23 +375,12 @@ function SearchComponent() {
       return rtf.format(-seconds, 'second');
     };
 
-    const createdLabel = createdAt ? `Created ${relative(createdAt)}.` : null;
-    const updatedLabel = updatedAt ? ` Last updated ${relative(updatedAt)}.` : null;
+    const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
+    const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
 
     return (
       <div className="mt-2 flex justify-end items-center text-sm text-gray-400 gap-2 flex-wrap">
-        {createdAt && createdEventId ? (
-          <a
-            href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-          >
-            {createdLabel}
-          </a>
-        ) : (
-          <span>Created unknown.</span>
-        )}
         {updatedAt && updatedEventId ? (
           <a
             href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`}
@@ -401,7 +390,21 @@ function SearchComponent() {
           >
             {updatedLabel}
           </a>
-        ) : null}
+        ) : (
+          <span>{updatedLabel}</span>
+        )}
+        {createdAt && createdEventId ? (
+          <a
+            href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            {sinceLabel}
+          </a>
+        ) : (
+          <span>{sinceLabel}</span>
+        )}
       </div>
     );
   }
