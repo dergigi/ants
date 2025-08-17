@@ -576,6 +576,16 @@ function SearchComponent() {
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
                     )}
+                    <div className="mt-2 flex justify-end items-center text-sm text-gray-400">
+                      <a
+                        href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                      </a>
+                    </div>
                   </div>
                 ) : (
                   // Regular note
