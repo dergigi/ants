@@ -255,7 +255,7 @@ function SearchComponent() {
 
   const renderNoteBody = (event: NDKEvent) => (
     <>
-      <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
+      <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(event.content)}</p>
       {extractImageUrls(event.content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(event.content).map((src) => (
@@ -442,9 +442,80 @@ function SearchComponent() {
   const stripMediaUrls = (text: string): string => {
     if (!text) return '';
     const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '')
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi, '');
+      // Remove complete image URLs
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+      // Remove complete video URLs
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
+      // Remove URL fragments that might remain (like ?name=file.png)
+      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
+      // Remove standalone query parameters that look like file references
+      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
+  };
+
+  const renderContentWithClickableHashtags = (content: string) => {
+    const strippedContent = stripMediaUrls(content);
+    if (!strippedContent) return null;
+
+    // Split by hashtags and emojis, then create clickable elements
+    const parts = strippedContent.split(/(#\w+)/g);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('#')) {
+        return (
+          <button
+            key={index}
+            onClick={() => {
+              const nextQuery = part;
+              setQuery(nextQuery);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set('q', nextQuery);
+              router.replace(`?${params.toString()}`);
+              handleSearch(nextQuery);
+            }}
+            className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+          >
+            {part}
+          </button>
+        );
+      }
+      
+      // Process the part to find and make emojis clickable
+      if (part && part.trim()) {
+        // Split by emoji regex and preserve the emojis
+        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
+        const emojiParts = part.split(emojiRegex);
+        const emojis = part.match(emojiRegex) || [];
+        
+        const result = [];
+        for (let i = 0; i < emojiParts.length; i++) {
+          if (emojiParts[i]) {
+            result.push(emojiParts[i]);
+          }
+          if (emojis[i]) {
+            result.push(
+              <button
+                key={`emoji-${index}-${i}`}
+                onClick={() => {
+                  const nextQuery = emojis[i];
+                  setQuery(nextQuery);
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                  handleSearch(nextQuery);
+                }}
+                className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+              >
+                {emojis[i]}
+              </button>
+            );
+          }
+        }
+        return result.length > 0 ? result : part;
+      }
+      
+      return part;
+    });
   };
 
   return (
@@ -476,7 +547,7 @@ function SearchComponent() {
                     params.delete('q');
                     router.replace(`?${params.toString()}`);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
                   aria-label="Clear search"
                 >
                   ×
