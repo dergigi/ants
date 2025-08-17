@@ -271,7 +271,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   params.set('q', nextQuery);
                   router.replace(`?${params.toString()}`);
                 }
-                handleSearch(nextQuery);
+                // Perform exact search for URLs clicked in UI
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    setResults(searchResults);
+                  } catch (error) {
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
               }}
               className="text-blue-400 hover:text-blue-300 hover:underline break-all"
               title="Search for this URL"
