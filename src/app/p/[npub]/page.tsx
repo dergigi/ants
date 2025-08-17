@@ -151,6 +151,15 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
+      {user ? (() => {
+        const bannerUrl = (user.profile as any)?.banner || (user.profile as any)?.header || (user.profile as any)?.cover;
+        return bannerUrl ? (
+          <div className="relative w-full h-48 sm:h-56 md:h-64">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerUrl})` }} />
+            <div className="absolute inset-0 bg-black/40" />
+          </div>
+        ) : null;
+      })() : null}
       <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
         {profileEvent ? (
           <ProfileCard event={profileEvent} onAuthorClick={(n) => {}} />
