@@ -292,6 +292,48 @@ function SearchComponent() {
     </>
   );
 
+  const renderParentChain = (childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+    const parentId = getReplyToEventId(childEvent);
+    if (!parentId) return null;
+    const parentState = expandedParents[parentId];
+    const isLoading = parentState === 'loading';
+    const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
+
+    const handleToggle = async () => {
+      if (expandedParents[parentId]) {
+        const updated = { ...expandedParents };
+        delete updated[parentId];
+        setExpandedParents(updated);
+        return;
+      }
+      setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
+      const fetched = await fetchEventById(parentId);
+      setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
+    };
+
+    if (!parentEvent) {
+      const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] ${
+        isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'
+      } rounded-b-none border-b-0`;
+      return (
+        <div className={barClasses}>
+          <button type="button" onClick={handleToggle} className="w-full text-left">
+            {isLoading ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {renderParentChain(parentEvent, isTop)}
+        <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
+          {renderNoteBody(parentEvent)}
+        </div>
+      </>
+    );
+  };
+
   // Loading animation effect
   useEffect(() => {
     if (!isConnecting) return;
@@ -472,22 +514,7 @@ function SearchComponent() {
               }`;
               return (
               <div key={event.id}>
-                {parentId && !parentEvent && (
-                  <div className={`text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] rounded-t-lg rounded-b-none ${hasCollapsedBar ? 'border-b-0' : ''}`}>
-                    <button
-                      type="button"
-                      onClick={handleToggleParent}
-                      className="w-full text-left px-4 py-2 hover:bg-[#262626] rounded-t-lg"
-                    >
-                      {isLoadingParent ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
-                    </button>
-                  </div>
-                )}
-                {parentEvent && (
-                  <div className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-lg rounded-b-none border-b-0">
-                    {renderNoteBody(parentEvent)}
-                  </div>
-                )}
+                {parentId && renderParentChain(event)}
                 {event.kind === 0 ? (
                   // Profile metadata
                   <div className={noteCardClasses}>
