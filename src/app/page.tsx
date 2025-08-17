@@ -65,7 +65,7 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   return { isVerified: verified, value: nip05 };
 }
 
-function AuthorBadge({ user }: { user: NDKUser }) {
+function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
@@ -103,15 +103,14 @@ function AuthorBadge({ user }: { user: NDKUser }) {
   return (
     <div className="flex items-center gap-2">
       {loaded ? (
-        <a
-          href={profileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-gray-100 hover:underline truncate max-w-[10rem]"
+        <button
+          type="button"
+          onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+          className="font-medium text-gray-100 hover:underline truncate max-w-[10rem] text-left"
           title={name || 'Unknown'}
         >
           {name || 'Unknown'}
-        </a>
+        </button>
       ) : (
         <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
       )}
@@ -245,6 +244,15 @@ function SearchComponent() {
     });
   }
 
+  const goToProfile = useCallback((npub: string) => {
+    const nextQuery = `p:${npub}`;
+    setQuery(nextQuery);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('q', nextQuery);
+    router.replace(`?${params.toString()}`);
+    handleSearch(nextQuery);
+  }, [handleSearch, router, searchParams]);
+
   const renderNoteBody = (event: NDKEvent) => (
     <>
       <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
@@ -278,7 +286,7 @@ function SearchComponent() {
       )}
       <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
         <div className="flex items-center gap-2">
-          <AuthorBadge user={event.author} />
+          <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
         </div>
         <a
           href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`}
@@ -529,7 +537,7 @@ function SearchComponent() {
                           unoptimized
                         />
                       )}
-                      <AuthorBadge user={event.author} />
+                      <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                     </div>
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
