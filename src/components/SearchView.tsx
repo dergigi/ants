@@ -9,7 +9,7 @@ import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   initialQuery?: string;
@@ -95,14 +95,17 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
       href={profileUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
-      {/* icons removed in SearchView badge to avoid duplicate imports; ProfileCard handles them */}
+      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-3 w-3" />
       <span className="truncate max-w-[14rem]">{value}</span>
     </a>
   ) : (
-    <span className="text-gray-400">no NIP-05</span>
+    <span className="inline-flex items-center gap-1 text-yellow-400">
+      <FontAwesomeIcon icon={faCircleExclamation} className="h-3 w-3" />
+      <span className="text-gray-400">no NIP-05</span>
+    </span>
   );
 
   return (
