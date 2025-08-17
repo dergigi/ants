@@ -18,8 +18,6 @@ const IMAGE_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${IMAGE_EXT_GROUP})`;
 const VIDEO_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${VIDEO_EXT_GROUP})`;
 const GIF_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${GIF_EXT_GROUP})`;
 
-const IMAGE_URL_REGEX = new RegExp(`(${IMAGE_URL_PATTERN})(?!\\w)`, 'i');
-const VIDEO_URL_REGEX = new RegExp(`(${VIDEO_URL_PATTERN})(?!\\w)`, 'i');
 const GIF_URL_REGEX = new RegExp(`(${GIF_URL_PATTERN})(?!\\w)`, 'i');
 
 const IMAGE_URL_REGEX_G = new RegExp(`${IMAGE_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
