@@ -7,6 +7,7 @@ import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import Image from 'next/image';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import SearchView from '@/components/SearchView';
 
 function useNostrUser(npub: string | undefined) {
   const [user, setUser] = useState<NDKUser | null>(null);
@@ -141,7 +142,6 @@ export default function ProfilePage() {
   const params = useParams<{ npub: string }>();
   const npub = params?.npub;
   const { user, profileEvent, pubkey } = useNostrUser(npub);
-  const { notes, loading } = useLatestNotes(pubkey, 30);
 
   const npubShort = useMemo(() => {
     if (!npub) return '';
@@ -178,28 +178,11 @@ export default function ProfilePage() {
           )}
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-sm text-gray-400">Latest notes</h2>
-          {loading && <div className="text-gray-400">Loading…</div>}
-          {!loading && notes.length === 0 && (
-            <div className="text-gray-400">No notes found.</div>
-          )}
-          {notes.map((evt) => (
-            <div key={evt.id} className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg">
-              <p className="text-gray-100 whitespace-pre-wrap break-words">{evt.content}</p>
-              <div className="mt-2 text-sm text-gray-400 flex justify-end">
-                <a
-                  href={`https://njump.me/${nip19.neventEncode({ id: evt.id })}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {evt.created_at ? new Date(evt.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown date'}
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
+        {npub ? (
+          <div className="mt-4">
+            <SearchView initialQuery={`by:${npub}`} manageUrl={false} />
+          </div>
+        ) : null}
       </div>
     </main>
   );
