@@ -495,7 +495,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
   };
 
   return (
-    <div className={`w-full ${results.length > 0 ? '' : ''}`}>
+    <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form onSubmit={handleSubmit} className={`w-full ${needsRightPadding ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
