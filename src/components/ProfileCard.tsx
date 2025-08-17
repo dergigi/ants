@@ -59,7 +59,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubk
   const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
 
   return (
-    <div className="text-xs text-gray-300 bg-[#1f1f1f] border-t border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] flex justify-end gap-2 flex-wrap">
+    <div className="text-xs text-gray-300 bg-[#1f1f1f] border-t border-[#3d3d3d] px-4 py-2 flex justify-end gap-2 flex-wrap">
       {updatedAt && updatedEventId ? (
         <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
       ) : (
