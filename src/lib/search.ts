@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
-import { lookupVertexProfile, VERTEX_REGEXP, searchProfilesFullText } from './vertex';
+import { lookupVertexProfile, searchProfilesFullText } from './vertex';
 import { nip19 } from 'nostr-tools';
 
 
@@ -57,15 +57,6 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   } catch (e) {
     console.warn('NDK connect failed or already connected:', e);
   }
-  // Check for vertex profile lookups
-  if (VERTEX_REGEXP.test(query)) {
-    const profile = await lookupVertexProfile(query);
-    if (profile) {
-      return [profile];
-    }
-    return [];
-  }
-
   // Full-text profile search `p:<term>` (not only username)
   const fullProfileMatch = query.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
