@@ -7,6 +7,8 @@ import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -184,10 +186,11 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                             href={`${p.base}${event.author.npub}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block px-3 py-2 hover:bg-[#3a3a3a]"
+                            className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                             onClick={(e) => { e.stopPropagation(); }}
                           >
-                            {p.name}
+                            <span>{p.name}</span>
+                            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                           </a>
                         </li>
                       ))}
