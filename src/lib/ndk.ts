@@ -4,7 +4,8 @@ import { searchExamples } from './examples';
 
 const RELAYS = [
   'wss://relay.nostr.band',
-  'wss://relay.vertexlab.io'
+  'wss://relay.vertexlab.io',
+  'wss://purplepag.es'
 ];
 
 const cacheAdapter = new NDKCacheAdapterDexie({ dbName: 'ants' });
