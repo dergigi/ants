@@ -152,11 +152,12 @@ export default function ProfilePage() {
   return (
     <main className="relative min-h-screen bg-[#1a1a1a] text-gray-100 overflow-hidden">
       {user ? (() => {
-        const bannerUrl = (user.profile as any)?.banner || (user.profile as any)?.header || (user.profile as any)?.cover;
+        const p = (user.profile as any) || {};
+        const bannerUrl = p.banner || p.header || p.cover || p.image || p.picture;
         return bannerUrl ? (
           <div className="pointer-events-none absolute inset-0 -z-10">
             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerUrl})` }} />
-            <div className="absolute inset-0 bg-black/60" />
+            <div className="absolute inset-0 bg-black/40" />
           </div>
         ) : null;
       })() : null}
