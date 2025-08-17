@@ -119,7 +119,7 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
       ) : (
         <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
       )}
-      <span className="text-sm truncate">{nip05Part}</span>
+      <span className="truncate">{nip05Part}</span>
     </div>
   );
 }
