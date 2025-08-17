@@ -90,7 +90,13 @@ export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent;
             className="relative w-full overflow-hidden border-b border-[#3d3d3d]"
             style={{ height: bannerExpanded ? 240 : 21 }}
           >
-            <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+            <Image
+              src={bannerUrl}
+              alt="Banner"
+              fill
+              className={`object-cover ${bannerExpanded ? '' : 'grayscale'}`}
+              unoptimized
+            />
           </div>
         </button>
       )}
