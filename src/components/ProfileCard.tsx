@@ -174,13 +174,14 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                   >
                     <ul className="py-1 text-sm text-gray-200">
-                      {[
-                        { name: 'njump.me', base: 'https://njump.me/' },
-                        { name: 'nostr.at', base: 'https://nostr.at/' },
-                        { name: 'npub.world', base: 'https://npub.world/' },
-                        { name: 'nosta.me', base: 'https://nosta.me/' },
-                        { name: 'nostr.band', base: 'https://nostr.band/' },
-                      ].map((p) => (
+                                          {[
+                      { name: 'njump.me', base: 'https://njump.me/' },
+                      { name: 'nostr.at', base: 'https://nostr.at/' },
+                      { name: 'npub.world', base: 'https://npub.world/' },
+                      { name: 'nosta.me', base: 'https://nosta.me/' },
+                      { name: 'nostr.band', base: 'https://nostr.band/' },
+                      { name: 'castr.me', base: 'https://castr.me/' },
+                    ].map((p) => (
                         <li key={p.name}>
                           <a
                             href={`${p.base}${event.author.npub}`}
@@ -261,6 +262,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                       { name: 'npub.world', base: 'https://npub.world/' },
                       { name: 'nosta.me', base: 'https://nosta.me/' },
                       { name: 'nostr.band', base: 'https://nostr.band/' },
+                      { name: 'castr.me', base: 'https://castr.me/' },
                     ].map((p) => (
                       <li key={p.name}>
                         <a
