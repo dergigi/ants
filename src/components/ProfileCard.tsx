@@ -88,7 +88,7 @@ export default function ProfileCard({ event, onAuthorClick, showBanner = false }
         >
           <div
             className="relative w-full overflow-hidden border-b border-[#3d3d3d]"
-            style={{ height: bannerExpanded ? 240 : 21 }}
+            style={{ height: bannerExpanded ? 240 : 32 }}
           >
             <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
           </div>
