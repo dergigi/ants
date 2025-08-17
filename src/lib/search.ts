@@ -47,6 +47,21 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000):
   });
 }
 
+async function searchByAnyTerms(terms: string[], limit: number): Promise<NDKEvent[]> {
+  // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
+  const seen = new Set<string>();
+  const merged: NDKEvent[] = [];
+  for (const term of terms) {
+    try {
+      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) });
+      for (const evt of res) {
+        if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+      }
+    } catch {}
+  }
+  return merged;
+}
+
 function isNpub(str: string): boolean {
   return str.startsWith('npub1') && str.length > 10;
 }
@@ -350,14 +365,19 @@ export async function searchEvents(
   
   // Regular search without author filter
   try {
-    const imgSeed = IMAGE_EXTENSIONS.join(' ');
-    const vidSeed = VIDEO_EXTENSIONS.join(' ');
-    const baseSearch = cleanedQuery || ((hasImageFlag || isImageFlag) ? imgSeed : (hasVideoFlag || isVideoFlag) ? vidSeed : (hasGifFlag || isGifFlag) ? 'gif' : undefined);
-    const results = await subscribeAndCollect({
-      kinds: [1],
-      search: options?.exact ? `"${cleanedQuery}"` : baseSearch,
-      limit
-    });
+    const imgTerms = [...IMAGE_EXTENSIONS];
+    const vidTerms = [...VIDEO_EXTENSIONS];
+
+    let results: NDKEvent[] = [];
+
+    // If no explicit query but media flags present, query per extension and OR-merge
+    if (!cleanedQuery && (hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag)) {
+      const terms: string[] = hasGifFlag || isGifFlag ? ['gif'] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
+      results = await searchByAnyTerms(terms, limit);
+    } else {
+      const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit });
+    }
     console.log('Search results:', {
       query: cleanedQuery,
       resultCount: results.length
