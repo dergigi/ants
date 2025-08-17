@@ -88,17 +88,17 @@ function getPubkey(str: string): string | null {
 
 function eventHasImage(event?: NDKEvent): boolean {
   if (!event || !event.content) return false;
-  return IMAGE_URL_REGEX.test(event.content);
+  return (event.content.match(IMAGE_URL_REGEX_G) || []).length > 0;
 }
 
 function eventHasVideo(event?: NDKEvent): boolean {
   if (!event || !event.content) return false;
-  return VIDEO_URL_REGEX.test(event.content);
+  return (event.content.match(VIDEO_URL_REGEX_G) || []).length > 0;
 }
 
 function eventHasGif(event?: NDKEvent): boolean {
   if (!event || !event.content) return false;
-  return GIF_URL_REGEX.test(event.content);
+  return (event.content.match(GIF_URL_REGEX_G) || []).length > 0;
 }
 
 function stripAllMediaUrls(text: string): string {
@@ -378,10 +378,13 @@ export async function searchEvents(
 
     let results: NDKEvent[] = [];
 
-    // If no explicit query but media flags present, query per extension and OR-merge
-    if (!cleanedQuery && (hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag)) {
+    // Seed search: if media flags present, OR-merge per extension, then post-filter to enforce AND semantics
+    const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
+    if (mediaFlagsPresent) {
       const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      results = await searchByAnyTerms(terms, limit);
+      const seedResults = await searchByAnyTerms(terms, limit);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }) : [];
+      results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
       results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit });
@@ -391,7 +394,12 @@ export async function searchEvents(
       resultCount: results.length
     });
     
-    let filtered = results;
+    // Enforce AND: must match text and contain requested media
+    let filtered = results.filter((e, idx, arr) => {
+      // dedupe by id while mapping
+      const firstIdx = arr.findIndex((x) => x.id === e.id);
+      return firstIdx === idx;
+    });
     if (hasImageFlag) filtered = filtered.filter(eventHasImage);
     if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
     if (hasGifFlag) filtered = filtered.filter(eventHasGif);
