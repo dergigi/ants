@@ -8,6 +8,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   initialQuery?: string;
@@ -286,7 +288,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 e.stopPropagation();
               }}
             >
-              <Image src="/window.svg" alt="open" width={14} height={14} />
+              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
             </a>
           </span>
         );
