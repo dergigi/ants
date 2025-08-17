@@ -73,7 +73,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubk
 }
 
 export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent; onAuthorClick?: (npub: string) => void }) {
-  const noteCardClasses = 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
+  const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   const bannerUrl = (event.author.profile as any)?.banner || (event.author.profile as any)?.cover || (event.author.profile as any)?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   return (
@@ -82,18 +82,19 @@ export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent;
         <button
           type="button"
           onClick={() => setBannerExpanded((prev) => !prev)}
-          className="block w-full mb-3 focus:outline-none"
+          className="block w-full focus:outline-none"
           aria-expanded={bannerExpanded}
           title={bannerExpanded ? 'Collapse banner' : 'Expand banner'}
         >
           <div
-            className="relative w-full overflow-hidden rounded-t-md border-b border-[#3d3d3d]"
+            className="relative w-full overflow-hidden border-b border-[#3d3d3d]"
             style={{ height: bannerExpanded ? 240 : 21 }}
           >
             <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
           </div>
         </button>
       )}
+      <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {event.author.profile?.image && (
@@ -116,6 +117,7 @@ export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent;
       </div>
       {event.author.profile?.about && <p className="mt-4 text-gray-300">{event.author.profile.about}</p>}
       <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
+      </div>
     </div>
   );
 }
