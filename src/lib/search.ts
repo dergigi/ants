@@ -129,32 +129,16 @@ export async function searchEvents(
       .slice(0, limit);
   }
 
-  // URL search support: if query is a URL, search for "host/path OR host"
-  // Skip this when exact mode is requested (e.g., URL clicked in UI)
+  // URL search: always do exact (literal) match for http(s) URLs
   try {
     const url = new URL(query);
-    if (!options?.exact && (url.protocol === 'http:' || url.protocol === 'https:')) {
-      const host = url.host;
-      const path = (url.pathname || '').replace(/^\/+/, '').replace(/\/+$/, '');
-      const terms: string[] = [];
-      if (path) terms.push(`${host}/${path}`);
-      terms.push(host);
-      const allResults: NDKEvent[] = [];
-      const seenIds = new Set<string>();
-      for (const term of terms) {
-        try {
-          const partResults = await searchEvents(term, limit, options);
-          for (const event of partResults) {
-            if (!seenIds.has(event.id)) {
-              seenIds.add(event.id);
-              allResults.push(event);
-            }
-          }
-        } catch {}
-      }
-      return allResults
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, limit);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      const results = await subscribeAndCollect({
+        kinds: [1],
+        search: `"${query}"`,
+        limit
+      });
+      return results;
     }
   } catch {}
 
