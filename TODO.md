@@ -14,3 +14,16 @@
 - [ ] Allow for full-text profile search with `p:foo`
 - [ ] Show multiple profiles if there are multiple results
 - [ ] Resolve NIP-05 correctly, e.g. `@dergigi.com`
+- [ ] Show latest notes of profile in profile view
+- [ ] Add shorthand to find notes with images `has:image`
+- [ ] Add shorthand to find notes that are one single image `is:image`
+- [ ] Same for videos (`has:video` and `is:video`)
+- [ ] Same for gifs (`has:gif` and `is:gif`)
+- [ ] Add support for `is:tweet` and `is:short`
+- [ ] Add support for `is:blog` aka `kind:30023`
+- [ ] Add domain-specific support to find specific links, e.g. `site:youtube`
+- [ ] Allow to search specific relays with `relay:nostr.einundzwanzig.space`
+- [ ] Allow to scope search to my relays only `relays:mine`
+- [ ] Allow to scope search to only my follows `scope:follows`
+- [ ] Allow to scope search to my network `scope:network` (friends-of-friends)
+- [ ] Allow to scope search to people I don't follow `scope:strangers`
