@@ -1,9 +1,10 @@
 'use client';
 
-import { login, restoreLogin, logout } from '@/lib/nip07';
+import { login, restoreLogin } from '@/lib/nip07';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 function getDisplayName(user: NDKUser): string {
   if (!user) return '';
@@ -25,6 +26,7 @@ function getDisplayName(user: NDKUser): string {
 export function LoginButton() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Restore login state on mount
   useEffect(() => {
@@ -60,10 +62,12 @@ export function LoginButton() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    setUser(null);
-    console.log('Logged out successfully');
+  const handleAvatarClick = () => {
+    if (user) {
+      router.push(`/p/${user.npub}`);
+      return;
+    }
+    void handleLogin();
   };
 
   if (isLoading) {
@@ -80,9 +84,9 @@ export function LoginButton() {
   return (
     <button
       id="header-avatar"
-      onClick={user ? handleLogout : handleLogin}
+      onClick={handleAvatarClick}
       className="fixed top-4 right-4 hover:opacity-90 transition-opacity"
-      aria-label={user ? 'Open profile / logout' : 'login'}
+      aria-label={user ? 'Open profile page' : 'login'}
     >
       {user ? (
         <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
