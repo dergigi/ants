@@ -142,6 +142,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
+  const [rotationProgress, setRotationProgress] = useState(0);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -232,13 +233,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     initializeNDK();
   }, [handleSearch, initialQuery]);
 
-  // Periodically rotate placeholder when input is empty and not loading
+  // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
-    if (query || loading) return;
-    const id = setInterval(() => {
-      setPlaceholder(getCurrentExample());
-    }, 7000);
-    return () => clearInterval(id);
+    if (query || loading) { setRotationProgress(0); return; }
+    let rafId = 0;
+    const ROTATION_MS = 7000;
+    let start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const p = Math.min(1, elapsed / ROTATION_MS);
+      setRotationProgress(p);
+      if (p >= 1) {
+        setPlaceholder(getCurrentExample());
+        start = now;
+        setRotationProgress(0);
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(rafId); };
   }, [query, loading]);
 
   // Dynamically add right padding only when the fixed header avatar overlaps the search row
@@ -616,6 +629,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               >
                 ×
               </button>
+            )}
+            {!query && !loading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5">
+                <svg viewBox="0 0 36 36" className="w-5 h-5">
+                  <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
+                  <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
+                    strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
+                </svg>
+              </div>
             )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
