@@ -593,6 +593,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
+                  setExpandedLabel(null);
+                  setExpandedTerms([]);
+                  setActiveFilters(new Set());
+                  setBaseResults([]);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
