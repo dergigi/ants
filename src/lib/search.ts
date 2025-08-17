@@ -50,6 +50,34 @@ function getPubkey(str: string): string | null {
   return str;
 }
 
+export function parseOrQuery(query: string): string[] {
+  // Split by " OR " (case insensitive) but preserve quoted strings
+  const parts: string[] = [];
+  let currentPart = '';
+  let inQuotes = false;
+  let i = 0;
+  
+  while (i < query.length) {
+    const char = query[i];
+    const nextChars = query.slice(i, i + 3).toUpperCase();
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      currentPart += char;
+    } else if (!inQuotes && nextChars === ' OR ') {
+      parts.push(currentPart.trim());
+      currentPart = '';
+      i += 3; // Skip " OR "
+    } else {
+      currentPart += char;
+    }
+    i++;
+  }
+  
+  parts.push(currentPart.trim());
+  return parts.filter(part => part.length > 0);
+}
+
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
   // Ensure we're connected before issuing any queries
   try {
@@ -57,6 +85,35 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   } catch (e) {
     console.warn('NDK connect failed or already connected:', e);
   }
+
+  // Check for OR operator
+  const orParts = parseOrQuery(query);
+  if (orParts.length > 1) {
+    console.log('Processing OR query with parts:', orParts);
+    const allResults: NDKEvent[] = [];
+    const seenIds = new Set<string>();
+    
+    // Process each part of the OR query
+    for (const part of orParts) {
+      try {
+        const partResults = await searchEvents(part, limit);
+        for (const event of partResults) {
+          if (!seenIds.has(event.id)) {
+            seenIds.add(event.id);
+            allResults.push(event);
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing OR query part "${part}":`, error);
+      }
+    }
+    
+    // Sort by creation time (newest first) and limit results
+    return allResults
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+      .slice(0, limit);
+  }
+
   // Full-text profile search `p:<term>` (not only username)
   const fullProfileMatch = query.match(/^p:(.+)$/i);
   if (fullProfileMatch) {

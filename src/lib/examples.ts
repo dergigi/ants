@@ -10,7 +10,12 @@ export const searchExamples = [
   '👀 by:gigi',
   'GM by:dergigi',
   '.jpg by:corndalorian',
-  'GN author:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
+  'GN author:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+  'bitcoin OR lightning',
+  'nostr OR nostr-tools',
+  'GM OR GN',
+  'vibe OR vibes',
+  'coding OR programming'
 ] as const;
 
 // Helper type for type safety
