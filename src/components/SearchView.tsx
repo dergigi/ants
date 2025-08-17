@@ -607,7 +607,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
         {expandedLabel && expandedTerms.length > 0 && (
           <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
-            <span>Showing</span>
             {expandedTerms.map((term, i) => {
               const active = activeFilters.has(term);
               return (
