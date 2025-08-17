@@ -120,9 +120,16 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   return (
     <div className={noteCardClasses}>
       {showBanner && bannerUrl && (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setBannerExpanded((prev) => !prev)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setBannerExpanded((prev) => !prev);
+            }
+          }}
           className="block w-full focus:outline-none"
           aria-expanded={bannerExpanded}
           title={bannerExpanded ? 'Collapse banner' : 'Expand banner'}
@@ -174,7 +181,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               </button>
             </div>
           </div>
-        </button>
+        </div>
       )}
       <div className="p-4">
       <div className="flex items-center justify-between">
