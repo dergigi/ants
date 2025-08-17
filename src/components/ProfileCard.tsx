@@ -5,10 +5,11 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { createPortal } from 'react-dom';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -104,6 +105,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const portalLinks = [
     { name: 'njump.me', base: 'https://njump.me/' },
@@ -170,36 +173,22 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             <div className="absolute top-1 left-1 z-50">
               <div className="relative">
                 <button
+                  ref={buttonRef}
                   type="button"
                   aria-label="Open portals menu"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu((v) => !v); }}
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    if (buttonRef.current) {
+                      const rect = buttonRef.current.getBoundingClientRect();
+                      setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    }
+                    setShowPortalMenu((v) => !v); 
+                  }}
                   className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
                 >
                   ⋯
                 </button>
-                {showPortalMenu && (
-                  <div
-                    className="absolute z-[9999] mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
-                  >
-                    <ul className="py-1 text-sm text-gray-200">
-                      {portalLinks.map((p) => (
-                        <li key={p.name}>
-                          <a
-                            href={`${p.base}${event.author.npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                            onClick={(e) => { e.stopPropagation(); }}
-                          >
-                            <span>{p.name}</span>
-                            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             </div>
             <div className="absolute top-1 right-1 flex gap-1">
@@ -247,34 +236,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               <button
                 type="button"
                 aria-label="Open portals menu"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu((v) => !v); }}
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation(); 
+                  if (buttonRef.current) {
+                    const rect = buttonRef.current.getBoundingClientRect();
+                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                  }
+                  setShowPortalMenu((v) => !v); 
+                }}
                 className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ⋯
               </button>
-              {showPortalMenu && (
-                <div
-                  className="absolute z-[9999] mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
-                >
-                  <ul className="py-1 text-sm text-gray-200">
-                    {portalLinks.map((p) => (
-                      <li key={p.name}>
-                        <a
-                          href={`${p.base}${event.author.npub}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                          onClick={(e) => { e.stopPropagation(); }}
-                        >
-                          <span>{p.name}</span>
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -333,6 +307,31 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
       />
+      {showPortalMenu && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
+        >
+          <ul className="py-1 text-sm text-gray-200">
+            {portalLinks.map((p) => (
+              <li key={p.name}>
+                <a
+                  href={`${p.base}${event.author.npub}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <span>{p.name}</span>
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
