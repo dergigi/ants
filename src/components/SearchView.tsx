@@ -147,8 +147,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
-    const effective = active.size > 0 ? Array.from(active) : terms;
-    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
+    if (active.size === 0) return [];
+    const effective = Array.from(active);
+    const termRegexes = effective.map((t) => new RegExp(`https?:\/\/[^\s'"<>]+?\.${t}(?:[?#][^\s]*)?`, 'i'));
     return events.filter((evt) => {
       const content = evt.content || '';
       return termRegexes.some((rx) => rx.test(content));
