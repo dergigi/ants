@@ -452,7 +452,7 @@ function SearchComponent() {
     if (!strippedContent) return null;
 
     // Split by hashtags and emojis, then create clickable elements
-    const parts = strippedContent.split(/(#\w+|[^\s#]+)/g);
+    const parts = strippedContent.split(/(#\w+)/g);
     
     return parts.map((part, index) => {
       if (part.startsWith('#')) {
@@ -474,24 +474,38 @@ function SearchComponent() {
         );
       }
       
-      // Check if the part is an emoji (single emoji character)
-      if (part && part.length === 2 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(part)) {
-        return (
-          <button
-            key={index}
-            onClick={() => {
-              const nextQuery = part;
-              setQuery(nextQuery);
-              const params = new URLSearchParams(searchParams.toString());
-              params.set('q', nextQuery);
-              router.replace(`?${params.toString()}`);
-              handleSearch(nextQuery);
-            }}
-            className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-          >
-            {part}
-          </button>
-        );
+      // Process the part to find and make emojis clickable
+      if (part && part.trim()) {
+        // Split by emoji regex and preserve the emojis
+        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
+        const emojiParts = part.split(emojiRegex);
+        const emojis = part.match(emojiRegex) || [];
+        
+        const result = [];
+        for (let i = 0; i < emojiParts.length; i++) {
+          if (emojiParts[i]) {
+            result.push(emojiParts[i]);
+          }
+          if (emojis[i]) {
+            result.push(
+              <button
+                key={`emoji-${index}-${i}`}
+                onClick={() => {
+                  const nextQuery = emojis[i];
+                  setQuery(nextQuery);
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                  handleSearch(nextQuery);
+                }}
+                className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+              >
+                {emojis[i]}
+              </button>
+            );
+          }
+        }
+        return result.length > 0 ? result : part;
       }
       
       return part;
