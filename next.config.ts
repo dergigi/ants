@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   images: {
+    unoptimized: true,
     // Allow loading images from any remote host (http and https)
     remotePatterns: [
       { protocol: 'https', hostname: '**' },

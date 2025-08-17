@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { connect, getCurrentExample } from '@/lib/ndk';
+import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
@@ -9,6 +9,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { nip19 } from 'nostr-tools';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -64,10 +65,11 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   return { isVerified: verified, value: nip05 };
 }
 
-function AuthorBadge({ user }: { user: NDKUser }) {
+function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
+  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -84,18 +86,35 @@ function AuthorBadge({ user }: { user: NDKUser }) {
   }, [user]);
 
   const nip05Part = value ? (
-    <span className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'}`}>
+    <a
+      href={profileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+      title={value}
+    >
       <FontAwesomeIcon icon={isVerified ? faCircleCheck : faTriangleExclamation} className="h-4 w-4" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </span>
+    </a>
   ) : (
     <span className="text-gray-400">no NIP-05</span>
   );
 
   return (
-    <div className="flex flex-col">
-      <span className="font-medium text-gray-100 truncate max-w-[14rem]">{loaded ? (name || 'Unknown') : 'Loading...'}</span>
-      <span className="text-sm">{nip05Part}</span>
+    <div className="flex items-center gap-2">
+      {loaded ? (
+        <button
+          type="button"
+          onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+          className="font-medium text-gray-100 hover:underline truncate max-w-[10rem] text-left"
+          title={name || 'Unknown'}
+        >
+          {name || 'Unknown'}
+        </button>
+      ) : (
+        <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
+      )}
+      <span className="text-sm truncate">{nip05Part}</span>
     </div>
   );
 }
@@ -110,6 +129,8 @@ function SearchComponent() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
+  const [needsRightPadding, setNeedsRightPadding] = useState(false);
+  const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
 
   // Copying npub removed from UI in favor of profile + NIP-05 display
 
@@ -171,10 +192,159 @@ function SearchComponent() {
     }
   }, [placeholder, router, searchParams]);
 
+  // Dynamically determine if right padding is needed to avoid avatar overlap
+  useEffect(() => {
+    const computePaddingNeed = () => {
+      try {
+        const searchRow = document.getElementById('search-row');
+        const avatar = document.getElementById('header-avatar');
+        if (!searchRow || !avatar) {
+          setNeedsRightPadding(false);
+          return;
+        }
+        const rowRect = searchRow.getBoundingClientRect();
+        const avatarRect = avatar.getBoundingClientRect();
+        const overlapsVertically = avatarRect.top < rowRect.bottom && avatarRect.bottom > rowRect.top;
+        const overlapsHorizontally = avatarRect.left < rowRect.right && avatarRect.right > rowRect.left;
+        setNeedsRightPadding(overlapsVertically && overlapsHorizontally);
+      } catch {
+        // ignore
+      }
+    };
+
+    computePaddingNeed();
+    window.addEventListener('resize', computePaddingNeed);
+    const id = setInterval(computePaddingNeed, 250);
+    return () => {
+      window.removeEventListener('resize', computePaddingNeed);
+      clearInterval(id);
+    };
+  }, []);
+
+  function getReplyToEventId(event: NDKEvent): string | null {
+    try {
+      const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
+      if (eTags.length === 0) return null;
+      const replyTag = eTags.find((t) => t[3] === 'reply') || eTags.find((t) => t[3] === 'root') || eTags[eTags.length - 1];
+      return replyTag && replyTag[1] ? replyTag[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function fetchEventById(eventId: string): Promise<NDKEvent | null> {
+    try { await connect(); } catch {}
+    return new Promise<NDKEvent | null>((resolve) => {
+      let found: NDKEvent | null = null;
+      const sub = ndk.subscribe([{ ids: [eventId] }], { closeOnEose: true });
+      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
+      sub.on('event', (evt: NDKEvent) => { found = evt; });
+      sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
+      sub.start();
+    });
+  }
+
+  const goToProfile = useCallback((npub: string) => {
+    const nextQuery = `p:${npub}`;
+    setQuery(nextQuery);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('q', nextQuery);
+    router.replace(`?${params.toString()}`);
+    handleSearch(nextQuery);
+  }, [handleSearch, router, searchParams]);
+
+  const renderNoteBody = (event: NDKEvent) => (
+    <>
+      <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
+      {extractImageUrls(event.content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractImageUrls(event.content).map((src) => (
+            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+              <Image
+                src={src}
+                alt="linked media"
+                width={1024}
+                height={1024}
+                className="h-auto w-full object-contain"
+                unoptimized
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {extractVideoUrls(event.content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractVideoUrls(event.content).map((src) => (
+            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+              <video controls playsInline className="w-full h-auto">
+                <source src={src} />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
+        <div className="flex items-center gap-2">
+          <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
+        </div>
+        <a
+          href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+        </a>
+      </div>
+    </>
+  );
+
+  const renderParentChain = (childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+    const parentId = getReplyToEventId(childEvent);
+    if (!parentId) return null;
+    const parentState = expandedParents[parentId];
+    const isLoading = parentState === 'loading';
+    const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
+
+    const handleToggle = async () => {
+      if (expandedParents[parentId]) {
+        const updated = { ...expandedParents };
+        delete updated[parentId];
+        setExpandedParents(updated);
+        return;
+      }
+      setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
+      const fetched = await fetchEventById(parentId);
+      setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || 'loading' }));
+    };
+
+    if (!parentEvent) {
+      const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] ${
+        isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'
+      } rounded-b-none border-b-0`;
+      return (
+        <div className={barClasses}>
+          <button type="button" onClick={handleToggle} className="w-full text-left">
+            {isLoading ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {renderParentChain(parentEvent, isTop)}
+        <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
+          {renderNoteBody(parentEvent)}
+        </div>
+      </>
+    );
+  };
+
   // Loading animation effect
   useEffect(() => {
     if (!isConnecting) return;
-    
     const interval = setInterval(() => {
       setLoadingDots(prev => {
         switch (prev) {
@@ -280,7 +450,11 @@ function SearchComponent() {
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className={`max-w-2xl mx-auto px-4 ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-        <form onSubmit={handleSubmit} className="w-full">
+        <form
+          onSubmit={handleSubmit}
+          className={`w-full ${needsRightPadding ? 'pr-16' : ''}`}
+          id="search-row"
+        >
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
@@ -321,11 +495,24 @@ function SearchComponent() {
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
-            {results.map((event) => (
-              <div key={event.id} className="p-4 bg-[#2d2d2d] rounded-lg border border-[#3d3d3d]">
+            {results.map((event) => {
+              const parentId = getReplyToEventId(event);
+              const parent = parentId ? expandedParents[parentId] : undefined;
+              const isLoadingParent = parent === 'loading';
+              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
+              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
+              const hasExpandedParent = Boolean(parentEvent);
+              const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${
+                hasCollapsedBar || hasExpandedParent
+                  ? 'rounded-b-lg rounded-t-none border-t-0'
+                  : 'rounded-lg'
+              }`;
+              return (
+              <div key={event.id}>
+                {parentId && renderParentChain(event)}
                 {event.kind === 0 ? (
                   // Profile metadata
-                  <div>
+                  <div className={noteCardClasses}>
                     <div className="flex items-center gap-4">
                       {event.author.profile?.image && (
                         <Image 
@@ -334,9 +521,10 @@ function SearchComponent() {
                           width={64}
                           height={64}
                           className="rounded-full"
+                          unoptimized
                         />
                       )}
-                      <AuthorBadge user={event.author} />
+                      <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                     </div>
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
@@ -344,46 +532,12 @@ function SearchComponent() {
                   </div>
                 ) : (
                   // Regular note
-                  <>
-                    <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
-                    {extractImageUrls(event.content).length > 0 && (
-                      <div className="mt-3 grid grid-cols-1 gap-3">
-                        {extractImageUrls(event.content).map((src) => (
-                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                            <Image
-                              src={src}
-                              alt="linked media"
-                              width={1024}
-                              height={1024}
-                              className="h-auto w-full object-contain"
-                              unoptimized={false}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {extractVideoUrls(event.content).length > 0 && (
-                      <div className="mt-3 grid grid-cols-1 gap-3">
-                        {extractVideoUrls(event.content).map((src) => (
-                          <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                            <video controls playsInline className="w-full h-auto">
-                              <source src={src} />
-                              Your browser does not support the video tag.
-                            </video>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <AuthorBadge user={event.author} />
-                      </div>
-                      <span>{event.created_at ? formatDate(event.created_at) : 'Unknown date'}</span>
-                    </div>
-                  </>
+                  <div className={noteCardClasses}>
+                    {renderNoteBody(event)}
+                  </div>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         )}
         </div>

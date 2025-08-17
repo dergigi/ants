@@ -18,8 +18,8 @@ A simple search interface for Nostr events.
 
 ### Combined Search
 - `GM by:dergigi` - Find "GM" messages from dergigi
-- `#YESTR by:gigi` - Find #YESTR events from gigi
-- `👀 by:gigi` - Find events with 👀 from gigi
+- `#YESTR by:dergigi` - Find #YESTR events from gigi
+- `👀 by:dergigi` - Find events with 👀 from gigi
 - `.jpg by:corndalorian` - Find .jpg events from corndalorian
 
 ### Direct NPUB Search
