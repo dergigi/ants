@@ -1,0 +1,98 @@
+'use client';
+
+import Image from 'next/image';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+import AuthorBadge from '@/components/AuthorBadge';
+import { nip19 } from 'nostr-tools';
+import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { useEffect, useState } from 'react';
+
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
+  const [createdAt, setCreatedAt] = useState<number | null>(null);
+  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const [oldest, newest] = await Promise.all([
+          getOldestProfileMetadata(pubkey),
+          getNewestProfileMetadata(pubkey)
+        ]);
+        if (!isMounted) return;
+        if (oldest) { setCreatedAt(oldest.created_at || null); setCreatedEventId(oldest.id || null); }
+        if (newest) { setUpdatedAt(newest.created_at || null); setUpdatedEventId(newest.id || null); }
+      } catch {
+        if (!isMounted) return;
+        setCreatedAt(fallbackCreatedAt || null);
+        setCreatedEventId(fallbackEventId || null);
+        setUpdatedAt(fallbackCreatedAt || null);
+        setUpdatedEventId(fallbackEventId || null);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [pubkey, fallbackEventId, fallbackCreatedAt]);
+
+  const relative = (fromTs: number) => {
+    const diffMs = Date.now() - fromTs * 1000;
+    const seconds = Math.round(diffMs / 1000);
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
+    const months = Math.round(days / 30);
+    const years = Math.round(days / 365);
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    if (Math.abs(years) >= 1) return rtf.format(-years, 'year');
+    if (Math.abs(months) >= 1) return rtf.format(-months, 'month');
+    if (Math.abs(days) >= 1) return rtf.format(-days, 'day');
+    if (Math.abs(hours) >= 1) return rtf.format(-hours, 'hour');
+    if (Math.abs(minutes) >= 1) return rtf.format(-minutes, 'minute');
+    return rtf.format(-seconds, 'second');
+  };
+
+  const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
+  const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
+
+  return (
+    <div className="mt-2 flex justify-end items-center text-sm text-gray-400 gap-2 flex-wrap">
+      {updatedAt && updatedEventId ? (
+        <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
+      ) : (
+        <span>{updatedLabel}</span>
+      )}
+      {createdAt && createdEventId ? (
+        <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
+      ) : (
+        <span>{sinceLabel}</span>
+      )}
+    </div>
+  );
+}
+
+export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent; onAuthorClick?: (npub: string) => void }) {
+  const noteCardClasses = 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
+  return (
+    <div className={noteCardClasses}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {event.author.profile?.image && (
+            <Image src={event.author.profile.image} alt="Profile" width={64} height={64} className="rounded-full" unoptimized />
+          )}
+          <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
+        </div>
+        {event.author?.npub && (
+          <a href={`/p/${event.author.npub}`} className="text-sm text-gray-400 truncate max-w-[50%] text-right hover:underline" title={event.author.npub}>
+            {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+          </a>
+        )}
+      </div>
+      {event.author.profile?.about && <p className="mt-4 text-gray-300">{event.author.profile.about}</p>}
+      <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
+    </div>
+  );
+}
+
+

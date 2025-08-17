@@ -7,8 +7,7 @@ import { searchEvents } from '@/lib/search';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 
 type Props = {
@@ -98,8 +97,7 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
       className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
       title={value}
     >
-      <FontAwesomeIcon icon={faCircleCheck} className={`h-4 w-4 ${isVerified ? '' : 'hidden'}`} />
-      <FontAwesomeIcon icon={faTriangleExclamation} className={`h-4 w-4 ${!isVerified ? '' : 'hidden'}`} />
+      {/* icons removed in SearchView badge to avoid duplicate imports; ProfileCard handles them */}
       <span className="truncate max-w-[14rem]">{value}</span>
     </a>
   ) : (
@@ -549,23 +547,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
               <div key={key}>
                 {parentId && renderParentChain(event)}
                 {event.kind === 0 ? (
-                  <div className={noteCardClasses}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        {event.author.profile?.image && (
-                          <Image src={event.author.profile.image} alt="Profile" width={64} height={64} className="rounded-full" unoptimized />
-                        )}
-                        <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
-                      </div>
-                      {event.author?.npub && (
-                        <a href={`/p/${event.author.npub}`} className="text-sm text-gray-400 truncate max-w-[50%] text-right hover:underline" title={event.author.npub}>
-                          {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
-                        </a>
-                      )}
-                    </div>
-                    {event.author.profile?.about && <p className="mt-4 text-gray-300">{event.author.profile.about}</p>}
-                    <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
-                  </div>
+                  <ProfileCard event={event} onAuthorClick={goToProfile} />
                 ) : (
                   <div className={noteCardClasses}>{renderNoteBody(event)}</div>
                 )}

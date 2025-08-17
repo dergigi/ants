@@ -8,6 +8,7 @@ import { nip19 } from 'nostr-tools';
 import Image from 'next/image';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
 import SearchView from '@/components/SearchView';
+import ProfileCard from '@/components/ProfileCard';
 
 function useNostrUser(npub: string | undefined) {
   const [user, setUser] = useState<NDKUser | null>(null);
@@ -151,32 +152,9 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
       <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
-        <div className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {user?.profile?.image && (
-                <Image src={user.profile.image} alt="Profile" width={64} height={64} className="rounded-full" unoptimized />
-              )}
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-100 truncate max-w-[16rem]">
-                  {user?.profile?.displayName || user?.profile?.name || 'Unknown'}
-                </span>
-                <span className="text-sm text-gray-400 truncate max-w-[20rem]">
-                  {user?.profile?.nip05 || 'no NIP-05'}
-                </span>
-              </div>
-            </div>
-            {npub && (
-              <span className="text-sm text-gray-400 select-text truncate max-w-[50%] text-right" title={npub}>
-                {npubShort}
-              </span>
-            )}
-          </div>
-          {pubkey ? <div className="mt-2"><RelativeProfileMeta pubkey={pubkey} /></div> : null}
-          {profileEvent?.author?.profile?.about && (
-            <p className="mt-3 text-gray-300">{profileEvent.author.profile.about}</p>
-          )}
-        </div>
+        {profileEvent ? (
+          <ProfileCard event={profileEvent} onAuthorClick={(n) => {}} />
+        ) : null}
 
         {npub ? (
           <div className="mt-4">
