@@ -184,9 +184,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       let seedTerms: string[] = [];
       let seedActive = new Set<string>();
       if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
-        const imageTerms = ['png','jpg','jpeg','gif','webp','avif','svg'];
+        const imageTerms = ['png','jpg','jpeg','gif','gifs','apng','webp','avif','svg'];
         const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
-        seedTerms = (hasGif || isGif) ? ['gif'] : (hasVideo || isVideo) ? videoTerms : imageTerms;
+        const gifTerms = ['gif','gifs','apng'];
+        seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
         seedActive = new Set(seedTerms);
         setExpandedLabel(seedTerms.join(' '));
         setExpandedTerms(seedTerms);
