@@ -23,6 +23,7 @@ export const searchExamples = [
 
   // Profile lookup / NIP-05
   'p:fiatjaf',
+  'p:hodl',
   '@dergigi.com',
 
   // Operators & media
