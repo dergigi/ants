@@ -96,7 +96,9 @@ type ProfileCardProps = {
 
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
-  const bannerUrl = (event.author.profile as any)?.banner || (event.author.profile as any)?.cover || (event.author.profile as any)?.header;
+  type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
+  const profile = event.author.profile as ProfileLike;
+  const bannerUrl = profile?.banner || profile?.cover || profile?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
@@ -263,7 +265,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         pubkey={event.author.pubkey}
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
-        lightning={(event.author.profile as any)?.lud16}
+        lightning={profile?.lud16}
       />
     </div>
   );

@@ -189,7 +189,8 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
 
             // Create profile events for up to `limit` results, preserving DVM rank order
             const top = records.slice(0, Math.max(1, limit));
-            const users = top.map((rec: any) => {
+            type DVMRecord = { pubkey?: string };
+            const users = top.map((rec: DVMRecord) => {
               const pk = rec?.pubkey as string | undefined;
               if (!pk) return null;
               const user = new NDKUser({ pubkey: pk });
@@ -486,7 +487,27 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
   const verificationLimit = Math.min(candidates.length, 50);
   const verifications: Array<Promise<boolean>> = [];
 
-  const enriched = candidates.map((evt, idx) => {
+  type EnrichedRow = {
+    event: NDKEvent;
+    pubkey: string;
+    name: string;
+    baseScore: number;
+    isFriend: boolean;
+    nip05?: string;
+    verifyPromise: Promise<boolean> | null;
+    finalScore?: number;
+    verified?: boolean;
+  };
+
+  type UserProfile = {
+    name?: string;
+    displayName?: string;
+    about?: string;
+    nip05?: string;
+    image?: string;
+  };
+
+  const enriched: EnrichedRow[] = candidates.map((evt, idx) => {
     const pubkey = evt.pubkey || evt.author?.pubkey || '';
     const { name, display, about, nip05, image } = extractProfileFields(evt);
     const nameForAuthor = display || name || '';
@@ -495,7 +516,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     if (!evt.author && pubkey) {
       const user = new NDKUser({ pubkey });
       user.ndk = ndk;
-      (user as any).profile = {
+      (user as NDKUser & { profile: UserProfile }).profile = {
         name: name,
         displayName: display,
         about,
@@ -506,7 +527,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     } else if (evt.author) {
       // Populate minimal profile if missing
       if (!evt.author.profile) {
-        (evt.author as any).profile = {
+        (evt.author as NDKUser & { profile: UserProfile }).profile = {
           name: name,
           displayName: display,
           about,
@@ -545,13 +566,13 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     let score = row.baseScore;
     if (verified) score += 100;
     if (row.isFriend) score += 50;
-    (row as any).finalScore = score;
-    (row as any).verified = verified;
+    row.finalScore = score;
+    row.verified = verified;
   }
 
   enriched.sort((a, b) => {
-    const as = (a as any).finalScore as number;
-    const bs = (b as any).finalScore as number;
+    const as = a.finalScore || 0;
+    const bs = b.finalScore || 0;
     if (as !== bs) return bs - as;
     // Tie-breakers: friend first, then name lexicographically
     if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
@@ -567,7 +588,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     if (!pk || seen.has(pk)) return;
     seen.add(pk);
     // Ensure kind is 0 and author is set
-    if (!evt.kind) (evt as any).kind = 0 as any;
+    if (!evt.kind) evt.kind = 0;
     if (!evt.author && pk) {
       const user = new NDKUser({ pubkey: pk });
       user.ndk = ndk;

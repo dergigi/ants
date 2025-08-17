@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
-import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
@@ -123,125 +122,35 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
   );
 }
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
-  const [createdAt, setCreatedAt] = useState<number | null>(null);
-  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
-  const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const [oldest, newest] = await Promise.all([
-          getOldestProfileMetadata(pubkey),
-          getNewestProfileMetadata(pubkey)
-        ]);
-        if (!isMounted) return;
-        if (oldest) {
-          setCreatedAt(oldest.created_at || null);
-          setCreatedEventId(oldest.id || null);
-        } else {
-          setCreatedAt(fallbackCreatedAt || null);
-          setCreatedEventId(fallbackEventId || null);
-        }
-        if (newest) {
-          setUpdatedAt(newest.created_at || null);
-          setUpdatedEventId(newest.id || null);
-        } else {
-          setUpdatedAt(fallbackCreatedAt || null);
-          setUpdatedEventId(fallbackEventId || null);
-        }
-      } catch {
-        if (!isMounted) return;
-        setCreatedAt(fallbackCreatedAt || null);
-        setCreatedEventId(fallbackEventId || null);
-        setUpdatedAt(fallbackCreatedAt || null);
-        setUpdatedEventId(fallbackEventId || null);
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [pubkey, fallbackCreatedAt, fallbackEventId]);
-
-  const relative = (fromTs: number) => {
-    const diffMs = Date.now() - fromTs * 1000;
-    const seconds = Math.round(diffMs / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-    const months = Math.round(days / 30);
-    const years = Math.round(days / 365);
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-    if (Math.abs(years) >= 1) return rtf.format(-years, 'year');
-    if (Math.abs(months) >= 1) return rtf.format(-months, 'month');
-    if (Math.abs(days) >= 1) return rtf.format(-days, 'day');
-    if (Math.abs(hours) >= 1) return rtf.format(-hours, 'hour');
-    if (Math.abs(minutes) >= 1) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-  };
-
-  const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-  const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
-
-  return (
-    <div className="mt-2 flex justify-end items-center text-sm text-gray-400 gap-2 flex-wrap">
-      {updatedAt && updatedEventId ? (
-        <a
-          href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          {updatedLabel}
-        </a>
-      ) : (
-        <span>{updatedLabel}</span>
-      )}
-      {createdAt && createdEventId ? (
-        <a
-          href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          {sinceLabel}
-        </a>
-      ) : (
-        <span>{sinceLabel}</span>
-      )}
-    </div>
-  );
-}
-
-export default function SearchView({ initialQuery, manageUrl = true }: Props) {
+export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
-  const [needsRightPadding, setNeedsRightPadding] = useState(false);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
 
   const handleSearch = useCallback(async (searchQuery: string) => {
-    const localSearchId = ++currentSearchId.current;
-    setIsLoading(true);
-    try {
-      if (!searchQuery.trim()) {
-        searchQuery = placeholder;
-      }
-      const events = await searchEvents(searchQuery);
-      if (localSearchId === currentSearchId.current) setResults(events);
-    } catch (e) {
-      if (localSearchId === currentSearchId.current) setResults([]);
-    } finally {
-      if (localSearchId === currentSearchId.current) setIsLoading(false);
+    if (!searchQuery.trim()) {
+      setResults([]);
+      return;
     }
-  }, [placeholder]);
+
+    setLoading(true);
+    try {
+      const searchResults = await searchEvents(searchQuery);
+      setResults(searchResults);
+    } catch (error) {
+      console.error('Search error:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isConnecting) return;
@@ -364,7 +273,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
         const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
         const emojiParts = part.split(emojiRegex);
         const emojis = part.match(emojiRegex) || [];
-        const result = [] as any[];
+        const result: (string | React.ReactNode)[] = [];
         for (let i = 0; i < emojiParts.length; i++) {
           if (emojiParts[i]) result.push(emojiParts[i]);
           if (emojis[i]) {
@@ -488,7 +397,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
 
   return (
     <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-      <form onSubmit={handleSubmit} className={`w-full ${needsRightPadding ? 'pr-16' : ''}`} id="search-row">
+      <form onSubmit={handleSubmit} className={`w-full ${manageUrl ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <input
@@ -518,8 +427,8 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
               </button>
             )}
           </div>
-          <button type="submit" disabled={isLoading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
-            {isLoading ? 'Searching...' : 'Search'}
+          <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
+            {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
       </form>
