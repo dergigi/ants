@@ -141,6 +141,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
   const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
+  const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
+  const [selectedExpanded, setSelectedExpanded] = useState<Set<string>>(new Set());
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -168,12 +170,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         .trim();
 
       if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
-        const imageSeed = 'png jpg jpeg gif webp avif svg';
-        const videoSeed = 'mp4 webm ogg ogv mov m4v';
-        const seed = (hasGif || isGif) ? 'gif' : (hasVideo || isVideo) ? videoSeed : imageSeed;
-        setExpandedLabel(seed);
+        const imageTerms = ['png','jpg','jpeg','gif','webp','avif','svg'];
+        const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
+        const terms = (hasGif || isGif) ? ['gif'] : (hasVideo || isVideo) ? videoTerms : imageTerms;
+        setExpandedLabel(terms.join(' '));
+        setExpandedTerms(terms);
+        setSelectedExpanded(new Set(terms));
       } else {
         setExpandedLabel(null);
+        setExpandedTerms([]);
+        setSelectedExpanded(new Set());
       }
       const searchResults = await searchEvents(searchQuery);
       setResults(searchResults);
@@ -584,30 +590,45 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
-        {expandedLabel && (
+        {expandedLabel && expandedTerms.length > 0 && (
           <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
             <span>Searching for</span>
-            {expandedLabel
-              .split(/\s+/)
-              .filter(Boolean)
-              .map((term, i) => (
+            {expandedTerms.map((term, i) => {
+              const active = selectedExpanded.has(term);
+              return (
                 <button
                   key={`${term}-${i}`}
                   type="button"
-                  className="px-1.5 py-0.5 rounded bg-[#2d2d2d] border border-[#3d3d3d] text-gray-200 hover:bg-[#3a3a3a]"
+                  className={`px-1.5 py-0.5 rounded border ${active ? 'bg-[#3a3a3a] border-[#4a4a4a] text-gray-100' : 'bg-[#2d2d2d] border-[#3d3d3d] text-gray-300'} hover:bg-[#3a3a3a]`}
                   onClick={() => {
-                    setQuery(term);
+                    const next = new Set(selectedExpanded);
+                    if (active) next.delete(term); else next.add(term);
+                    setSelectedExpanded(next);
+                    const selected = Array.from(next);
+                    const nextQuery = selected.length > 0 ? selected.join(' OR ') : expandedTerms.join(' OR ');
+                    setQuery(nextQuery);
                     if (manageUrl) {
                       const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', term);
+                      params.set('q', nextQuery);
                       router.replace(`?${params.toString()}`);
                     }
-                    handleSearch(term);
+                    (async () => {
+                      setLoading(true);
+                      try {
+                        const res = await searchEvents(nextQuery);
+                        setResults(res);
+                      } catch (e) {
+                        setResults([]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    })();
                   }}
                 >
                   <span className="font-mono">{term}</span>
                 </button>
-              ))}
+              );
+            })}
           </div>
         )}
       </form>
