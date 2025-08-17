@@ -8,7 +8,7 @@ import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -253,9 +253,24 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
         {event.author?.npub && (
-          <a href={`/p/${event.author.npub}`} className="text-sm text-gray-400 truncate max-w-[50%] text-right hover:underline" title={event.author.npub}>
-            {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
-          </a>
+          <div className="flex items-center gap-2 max-w-[50%] text-right text-sm text-gray-400">
+            <button
+              type="button"
+              aria-label="Copy npub"
+              title="Copy npub"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try { await navigator.clipboard.writeText(event.author.npub); } catch {}
+              }}
+              className="p-1 rounded hover:bg-[#3a3a3a]"
+            >
+              <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
+            </button>
+            <a href={`/p/${event.author.npub}`} className="truncate hover:underline" title={event.author.npub}>
+              {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+            </a>
+          </div>
         )}
       </div>
       {event.author.profile?.about && (
