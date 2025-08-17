@@ -89,7 +89,11 @@ export function parseOrQuery(query: string): string[] {
   return parts;
 }
 
-export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
+export async function searchEvents(
+  query: string,
+  limit: number = 21,
+  options?: { exact?: boolean }
+): Promise<NDKEvent[]> {
   // Ensure we're connected before issuing any queries
   try {
     await ndk.connect();
@@ -107,7 +111,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
     // Process each part of the OR query
     for (const part of orParts) {
       try {
-        const partResults = await searchEvents(part, limit);
+        const partResults = await searchEvents(part, limit, options);
         for (const event of partResults) {
           if (!seenIds.has(event.id)) {
             seenIds.add(event.id);
@@ -126,9 +130,10 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // URL search support: if query is a URL, search for "host/path OR host"
+  // Skip this when exact mode is requested (e.g., URL clicked in UI)
   try {
     const url = new URL(query);
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
+    if (!options?.exact && (url.protocol === 'http:' || url.protocol === 'https:')) {
       const host = url.host;
       const path = (url.pathname || '').replace(/^\/+/, '').replace(/\/+$/, '');
       const terms: string[] = [];
@@ -138,7 +143,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       const seenIds = new Set<string>();
       for (const term of terms) {
         try {
-          const partResults = await searchEvents(term, limit);
+          const partResults = await searchEvents(term, limit, options);
           for (const event of partResults) {
             if (!seenIds.has(event.id)) {
               seenIds.add(event.id);
@@ -253,7 +258,7 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   try {
     const results = await subscribeAndCollect({
       kinds: [1],
-      search: query,
+      search: options?.exact ? `"${query}"` : query,
       limit
     });
     console.log('Search results:', {
