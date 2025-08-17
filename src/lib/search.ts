@@ -34,7 +34,7 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000):
 }
 
 function isNpub(str: string): boolean {
-  return str.startsWith('npub');
+  return str.startsWith('npub1') && str.length > 10;
 }
 
 function getPubkey(str: string): string | null {
@@ -73,14 +73,19 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
   // Check if the query is a direct npub
   if (isNpub(query)) {
-    const pubkey = getPubkey(query);
-    if (!pubkey) return [];
+    try {
+      const pubkey = getPubkey(query);
+      if (!pubkey) return [];
 
-    return await subscribeAndCollect({
-      kinds: [1],
-      authors: [pubkey],
-      limit
-    });
+      return await subscribeAndCollect({
+        kinds: [1],
+        authors: [pubkey],
+        limit
+      });
+    } catch (error) {
+      console.error('Error processing npub query:', error);
+      return [];
+    }
   }
 
   // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
@@ -107,12 +112,21 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
 
     // Check if author is a direct npub
     if (isNpub(author)) {
-      pubkey = getPubkey(author);
+      try {
+        pubkey = getPubkey(author);
+      } catch (error) {
+        console.error('Error decoding author npub:', error);
+        pubkey = null;
+      }
     } else {
       // Look up author's profile via Vertex DVM (personalized when logged in, global otherwise)
-      const profile = await lookupVertexProfile(`p:${author}`);
-      if (profile) {
-        pubkey = profile.author.pubkey;
+      try {
+        const profile = await lookupVertexProfile(`p:${author}`);
+        if (profile) {
+          pubkey = profile.author.pubkey;
+        }
+      } catch (error) {
+        console.error('Error looking up author profile:', error);
       }
     }
 
