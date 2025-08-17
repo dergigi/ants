@@ -316,7 +316,7 @@ function SearchComponent() {
       }
       setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
       const fetched = await fetchEventById(parentId);
-      setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
+      setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || 'loading' }));
     };
 
     if (!parentEvent) {
@@ -496,23 +496,10 @@ function SearchComponent() {
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
             {results.map((event) => {
-              const nevent = nip19.neventEncode({ id: event.id });
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
               const isLoadingParent = parent === 'loading';
               const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
-              const handleToggleParent = async () => {
-                if (!parentId) return;
-                if (expandedParents[parentId]) {
-                  const updated = { ...expandedParents };
-                  delete updated[parentId];
-                  setExpandedParents(updated);
-                  return;
-                }
-                setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
-                const fetched = await fetchEventById(parentId);
-                setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || undefined } as any));
-              };
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
               const hasExpandedParent = Boolean(parentEvent);
               const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${
