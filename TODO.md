@@ -12,7 +12,7 @@
 - [x] Show latest notes of profile in profile view
 - [x] Resolve NIP-05 correctly, e.g. `@dergigi.com`
 - [x] Add support for `OR` operator
-- [ ] Add support for URL searches: `https://dergigi.com/vew` should search for `dergigi.com/vew OR dergigi.com`
+- [x] Add support for URL searches: `https://dergigi.com/vew` should search for `dergigi.com/vew OR dergigi.com`
 - [ ] Render embedded `nostr:nevent` notes properly
 - [ ] Replace embedded `npubs` with usernames
 - [ ] Ensure that navigation stack is built up correctly (so that user can navigate back)
