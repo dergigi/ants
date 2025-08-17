@@ -182,16 +182,16 @@ export async function searchEvents(
   }
 
   // Detect and strip media flags; apply post-filter later
-  const hasImageFlag = /(?:^|\s)has:image(?:\s|$)/i.test(query);
-  const hasVideoFlag = /(?:^|\s)has:video(?:\s|$)/i.test(query);
-  const hasGifFlag = /(?:^|\s)has:gif(?:\s|$)/i.test(query);
+  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(query);
+  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(query);
+  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(query);
   const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(query);
   const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(query);
   const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(query);
   const cleanedQuery = query
-    .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:images?(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:videos?(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:gifs?(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
