@@ -157,7 +157,7 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
             await Promise.allSettled(users.map((u) => u.fetchProfile()));
 
             const events: NDKEvent[] = users.map((user) => {
-              const profileEvent = new NDKEvent(ndk, {
+              const plain: Event = {
                 kind: 0,
                 created_at: Math.floor(Date.now() / 1000),
                 content: JSON.stringify(user.profile || {}),
@@ -165,7 +165,10 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
                 tags: [],
                 id: '',
                 sig: ''
-              });
+              };
+              // Deterministic id for React keys, not signed
+              plain.id = getEventHash(plain);
+              const profileEvent = new NDKEvent(ndk, plain);
               profileEvent.author = user;
               return profileEvent;
             });
