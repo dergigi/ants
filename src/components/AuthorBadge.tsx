@@ -63,7 +63,6 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
-  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
