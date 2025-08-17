@@ -232,6 +232,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     initializeNDK();
   }, [handleSearch, initialQuery]);
 
+  // Periodically rotate placeholder when input is empty and not loading
+  useEffect(() => {
+    if (query || loading) return;
+    const id = setInterval(() => {
+      setPlaceholder(getCurrentExample());
+    }, 7000);
+    return () => clearInterval(id);
+  }, [query, loading]);
+
   // Dynamically add right padding only when the fixed header avatar overlaps the search row
   useEffect(() => {
     const computeOverlap = () => {

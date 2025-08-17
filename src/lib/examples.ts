@@ -33,7 +33,12 @@ export const searchExamples = [
   'has:video',
   'is:video',
   'has:gif',
-  'is:gif'
+  'is:gif',
+  // Mixed media + text
+  'GM has:video',
+  'Bitcoin has:images',
+  'meme has:gifs',
+  'by:dergigi has:image'
 ] as const;
 
 // Helper type for type safety
