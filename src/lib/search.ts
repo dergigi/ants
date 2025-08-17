@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
-import { lookupVertexProfile, VERTEX_REGEXP } from './vertex';
+import { lookupVertexProfile, VERTEX_REGEXP, searchProfilesFullText } from './vertex';
 import { nip19 } from 'nostr-tools';
 
 
@@ -64,6 +64,20 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       return [profile];
     }
     return [];
+  }
+
+  // Full-text profile search `p:<term>` (not only username)
+  const fullProfileMatch = query.match(/^p:(.+)$/i);
+  if (fullProfileMatch) {
+    const term = (fullProfileMatch[1] || '').trim();
+    if (!term) return [];
+    try {
+      const profiles = await searchProfilesFullText(term, 21);
+      return profiles;
+    } catch (e) {
+      console.warn('Full-text profile search failed:', e);
+      return [];
+    }
   }
 
   // Check if the query is a direct npub

@@ -347,3 +347,158 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
   });
   return sortedByCount[0];
 }
+
+// Simple in-memory cache for NIP-05 verification results
+const nip05VerificationCache = new Map<string, boolean>();
+
+async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
+  if (!nip05) return false;
+  const cacheKey = `${nip05}|${pubkeyHex}`;
+  if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
+  try {
+    const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    const name = parts[0] || '_';
+    const domain = (parts[1] || '').trim();
+    if (!domain) {
+      nip05VerificationCache.set(cacheKey, false);
+      return false;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      nip05VerificationCache.set(cacheKey, false);
+      return false;
+    }
+    const data = await res.json();
+    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
+    const result = mapped === pubkeyHex.toLowerCase();
+    nip05VerificationCache.set(cacheKey, result);
+    return result;
+  } catch {
+    const cacheKey = `${nip05}|${pubkeyHex}`;
+    nip05VerificationCache.set(cacheKey, false);
+    return false;
+  }
+}
+
+function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string } {
+  try {
+    const content = JSON.parse(event.content || '{}');
+    return {
+      name: content.name,
+      display: content.display_name || content.displayName,
+      about: content.about,
+      nip05: content.nip05
+    };
+  } catch {
+    return {};
+  }
+}
+
+function computeMatchScore(termLower: string, name?: string, display?: string, about?: string): number {
+  let score = 0;
+  const n = (name || '').toLowerCase();
+  const d = (display || '').toLowerCase();
+  const a = (about || '').toLowerCase();
+  if (!termLower) return 0;
+  const exact = d === termLower || n === termLower;
+  const starts = d.startsWith(termLower) || n.startsWith(termLower);
+  const contains = d.includes(termLower) || n.includes(termLower);
+  if (exact) score += 40;
+  else if (starts) score += 30;
+  else if (contains) score += 20;
+  if (a.includes(termLower)) score += 10;
+  return score;
+}
+
+export async function searchProfilesFullText(term: string, limit: number = 50): Promise<NDKEvent[]> {
+  const query = term.trim();
+  if (!query) return [];
+
+  // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
+  const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
+  if (candidates.length === 0) return [];
+
+  const termLower = query.toLowerCase();
+  const storedPubkey = getStoredPubkey();
+  const follows: Set<string> = storedPubkey ? await getDirectFollows(storedPubkey) : new Set<string>();
+
+  // Step 2: build enriched rows with preliminary score and schedule NIP-05 verifications (limited)
+  const verificationLimit = Math.min(candidates.length, 50);
+  const verifications: Array<Promise<boolean>> = [];
+
+  const enriched = candidates.map((evt, idx) => {
+    const pubkey = evt.pubkey || evt.author?.pubkey || '';
+    const { name, display, about, nip05 } = extractProfileFields(evt);
+    const nameForAuthor = display || name || '';
+
+    // Ensure author is set for UI
+    if (!evt.author && pubkey) {
+      const user = new NDKUser({ pubkey });
+      user.ndk = ndk;
+      (user as any).profile = {
+        name: name,
+        displayName: display,
+        about,
+        nip05
+      };
+      evt.author = user;
+    } else if (evt.author) {
+      // Populate minimal profile if missing
+      if (!evt.author.profile) {
+        (evt.author as any).profile = {
+          name: name,
+          displayName: display,
+          about,
+          nip05
+        };
+      }
+    }
+
+    const baseScore = computeMatchScore(termLower, name, display, about);
+    const isFriend = storedPubkey ? follows.has(pubkey) : false;
+
+    let verifyPromise: Promise<boolean> | null = null;
+    if (idx < verificationLimit) {
+      verifyPromise = verifyNip05(pubkey, nip05);
+      verifications.push(verifyPromise);
+    }
+
+    return {
+      event: evt,
+      pubkey,
+      name: nameForAuthor,
+      baseScore,
+      isFriend,
+      nip05,
+      verifyPromise
+    };
+  });
+
+  // Step 3: await the scheduled verifications concurrently
+  await Promise.allSettled(verifications);
+
+  // Step 4: assign final score and sort
+  for (const row of enriched) {
+    const verified = row.verifyPromise ? await row.verifyPromise.catch(() => false) : false;
+    let score = row.baseScore;
+    if (verified) score += 100;
+    if (row.isFriend) score += 50;
+    (row as any).finalScore = score;
+    (row as any).verified = verified;
+  }
+
+  enriched.sort((a, b) => {
+    const as = (a as any).finalScore as number;
+    const bs = (b as any).finalScore as number;
+    if (as !== bs) return bs - as;
+    // Tie-breakers: friend first, then name lexicographically
+    if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  // Step 5: return top N events
+  return enriched.slice(0, limit).map((r) => r.event);
+}
