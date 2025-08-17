@@ -182,21 +182,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
         .trim();
 
+      // Prepare local seeds to avoid relying on async state updates
+      let seedTerms: string[] = [];
+      let seedActive = new Set<string>();
       if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
         const imageTerms = ['png','jpg','jpeg','gif','webp','avif','svg'];
         const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
-        const terms = (hasGif || isGif) ? ['gif'] : (hasVideo || isVideo) ? videoTerms : imageTerms;
-        setExpandedLabel(terms.join(' '));
-        setExpandedTerms(terms);
-        setActiveFilters(new Set(terms));
+        seedTerms = (hasGif || isGif) ? ['gif'] : (hasVideo || isVideo) ? videoTerms : imageTerms;
+        seedActive = new Set(seedTerms);
+        setExpandedLabel(seedTerms.join(' '));
+        setExpandedTerms(seedTerms);
+        setActiveFilters(seedActive);
       } else {
         setExpandedLabel(null);
         setExpandedTerms([]);
         setActiveFilters(new Set());
       }
+
       const searchResults = await searchEvents(searchQuery);
       setBaseResults(searchResults);
-      const filtered = applyClientFilters(searchResults, expandedTerms.length > 0 ? expandedTerms : [], activeFilters);
+      const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
       setResults(filtered.length > 0 ? filtered : searchResults);
     } catch (error) {
       console.error('Search error:', error);
