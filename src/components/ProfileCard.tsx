@@ -170,7 +170,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 </button>
                 {showPortalMenu && (
                   <div
-                    className="absolute z-30 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                    className="absolute z-50 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                   >
                     <ul className="py-1 text-sm text-gray-200">
@@ -252,7 +252,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               </button>
               {showPortalMenu && (
                 <div
-                  className="absolute z-30 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                  className="absolute z-50 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                 >
                   <ul className="py-1 text-sm text-gray-200">
