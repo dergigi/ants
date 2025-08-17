@@ -9,7 +9,10 @@ export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 const dvmRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.vertexlab.io'], ndk);
 
 // Fallback profile search relay set (NIP-50 capable)
-const profileSearchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
+const profileSearchRelaySet = NDKRelaySet.fromRelayUrls([
+  'wss://relay.nostr.band',
+  'wss://purplepag.es'
+], ndk);
 
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
