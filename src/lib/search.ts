@@ -51,31 +51,42 @@ function getPubkey(str: string): string | null {
 }
 
 export function parseOrQuery(query: string): string[] {
-  // Split by " OR " (case insensitive) but preserve quoted strings
+  // Split by " OR " (case-insensitive) while preserving quoted segments
   const parts: string[] = [];
   let currentPart = '';
   let inQuotes = false;
-  let i = 0;
-  
-  while (i < query.length) {
+
+  const stripOuterQuotes = (value: string): string => {
+    const trimmed = value.trim();
+    return trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  };
+
+  for (let i = 0; i < query.length; i++) {
     const char = query[i];
-    const nextChars = query.slice(i, i + 3).toUpperCase();
-    
+
     if (char === '"') {
       inQuotes = !inQuotes;
       currentPart += char;
-    } else if (!inQuotes && nextChars === ' OR ') {
-      parts.push(currentPart.trim());
-      currentPart = '';
-      i += 3; // Skip " OR "
-    } else {
-      currentPart += char;
+      continue;
     }
-    i++;
+
+    // Detect the literal sequence " OR " when not inside quotes
+    if (!inQuotes && query.substr(i, 4).toUpperCase() === ' OR ') {
+      const cleaned = stripOuterQuotes(currentPart);
+      if (cleaned) parts.push(cleaned);
+      currentPart = '';
+      i += 3; // skip the remaining characters of " OR " (loop will +1)
+      continue;
+    }
+
+    currentPart += char;
   }
-  
-  parts.push(currentPart.trim());
-  return parts.filter(part => part.length > 0);
+
+  const cleaned = stripOuterQuotes(currentPart);
+  if (cleaned) parts.push(cleaned);
+  return parts;
 }
 
 export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
