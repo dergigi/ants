@@ -1,0 +1,71 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { ndk, connect } from '@/lib/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
+import SearchView from '@/components/SearchView';
+import ProfileCard from '@/components/ProfileCard';
+
+function useNostrUser(npub: string | undefined) {
+  const [user, setUser] = useState<NDKUser | null>(null);
+  const [profileEvent, setProfileEvent] = useState<NDKEvent | null>(null);
+  const [pubkey, setPubkey] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (!npub) return;
+      try { await connect(); } catch {}
+      try {
+        const { data } = nip19.decode(npub);
+        const pk = data as string;
+        setPubkey(pk);
+        const u = new NDKUser({ pubkey: pk });
+        u.ndk = ndk;
+        try { await u.fetchProfile(); } catch {}
+        setUser(u);
+        const evt = new NDKEvent(ndk, {
+          kind: 0,
+          created_at: Math.floor(Date.now() / 1000),
+          content: JSON.stringify(u.profile || {}),
+          pubkey: pk,
+          tags: [],
+          id: '',
+          sig: ''
+        });
+        evt.author = u;
+        setProfileEvent(evt);
+      } catch {
+        setUser(null);
+        setProfileEvent(null);
+      }
+    })();
+  }, [npub]);
+
+  return { user, profileEvent, pubkey };
+}
+
+export default function ProfilePage() {
+  const params = useParams<{ npub: string }>();
+  const npub = params?.npub;
+  const { profileEvent } = useNostrUser(npub);
+
+  return (
+    <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
+      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
+        {profileEvent ? (
+          <ProfileCard event={profileEvent} onAuthorClick={() => {}} showBanner={true} />
+        ) : null}
+
+        {npub ? (
+          <div className="mt-4">
+            <SearchView initialQuery={`by:${npub}`} manageUrl={false} />
+          </div>
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+
