@@ -544,7 +544,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
-                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
                         {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
                       </a>
                     </div>
