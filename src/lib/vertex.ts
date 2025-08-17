@@ -231,7 +231,7 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
 
 export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
   try {
-    const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 4000 }, 6000);
+    const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 8000 }, 8000);
     if (!events || events.length === 0) return null;
     let oldest: NDKEvent | null = null;
     for (const e of events) {
@@ -241,6 +241,23 @@ export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: st
     }
     if (!oldest) return null;
     return { id: oldest.id, created_at: oldest.created_at as number };
+  } catch {
+    return null;
+  }
+}
+
+export async function getNewestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
+  try {
+    const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 8000 }, 8000);
+    if (!events || events.length === 0) return null;
+    let newest: NDKEvent | null = null;
+    for (const e of events) {
+      if (!newest || ((e.created_at || 0) > (newest.created_at || 0))) {
+        newest = e;
+      }
+    }
+    if (!newest) return null;
+    return { id: newest.id, created_at: newest.created_at as number };
   } catch {
     return null;
   }
