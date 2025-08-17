@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -91,7 +91,10 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       <span className="truncate max-w-[14rem]">{value}</span>
     </a>
   ) : (
-    <span className="text-gray-400">no NIP-05</span>
+    <span className="inline-flex items-center gap-1 text-yellow-400">
+      <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
+      <span className="text-gray-400">no NIP-05</span>
+    </span>
   );
 
   return (
