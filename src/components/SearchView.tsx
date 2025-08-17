@@ -487,7 +487,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <button
               key={src}
               type="button"
-              title="Search for this image filename"
+              title={getFilenameFromUrl(src)}
               className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
               onClick={() => {
                 const filename = getFilenameFromUrl(src);
