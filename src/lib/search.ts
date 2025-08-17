@@ -6,7 +6,7 @@ import { nip19 } from 'nostr-tools';
 
 
 // Centralized media extension lists (keep DRY)
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'] as const;
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
 const IMAGE_EXT_GROUP = IMAGE_EXTENSIONS.join('|');
 const VIDEO_EXT_GROUP = VIDEO_EXTENSIONS.join('|');
@@ -14,10 +14,10 @@ const IMAGE_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${IMAGE_EXT_GROUP})`;
 const VIDEO_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${VIDEO_EXT_GROUP})`;
 const IMAGE_URL_REGEX = new RegExp(`(${IMAGE_URL_PATTERN})(?!\\w)`, 'i');
 const VIDEO_URL_REGEX = new RegExp(`(${VIDEO_URL_PATTERN})(?!\\w)`, 'i');
-const GIF_URL_REGEX = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\.(?:gif)(?!\\w)`, 'i');
+const GIF_URL_REGEX = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\\.(?:gif|gifs|apng)(?!\\w)`, 'i');
 const IMAGE_URL_REGEX_G = new RegExp(`${IMAGE_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 const VIDEO_URL_REGEX_G = new RegExp(`${VIDEO_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
-const GIF_URL_REGEX_G = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\.(?:gif)(?:[?#][^\\s]*)?`, 'gi');
+const GIF_URL_REGEX_G = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\\.(?:gif|gifs|apng)(?:[?#][^\\s]*)?`, 'gi');
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
@@ -122,8 +122,9 @@ function eventIsSingleVideo(event?: NDKEvent): boolean {
 
 function eventIsSingleGif(event?: NDKEvent): boolean {
   if (!event || !event.content) return false;
+  const allImgs = event.content.match(IMAGE_URL_REGEX_G) || [];
   const gifs = event.content.match(GIF_URL_REGEX_G) || [];
-  const otherImgs = (event.content.match(IMAGE_URL_REGEX_G) || []).filter((u) => /\.((?!gif)${IMAGE_EXT_GROUP})$/i.test(u) === true);
+  const otherImgs = allImgs.filter((u) => !GIF_URL_REGEX.test(u));
   const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
   if (gifs.length !== 1 || otherImgs.length > 0 || vids.length > 0) return false;
   const remaining = stripAllMediaUrls(event.content);
