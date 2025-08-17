@@ -442,8 +442,14 @@ function SearchComponent() {
   const stripMediaUrls = (text: string): string => {
     if (!text) return '';
     const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '')
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi, '');
+      // Remove complete image URLs
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+      // Remove complete video URLs
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
+      // Remove URL fragments that might remain (like ?name=file.png)
+      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
+      // Remove standalone query parameters that look like file references
+      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
