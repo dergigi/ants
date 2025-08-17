@@ -394,9 +394,35 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(event.content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(event.content).map((src) => (
-            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+            <button
+              key={src}
+              type="button"
+              title="Search for this image URL"
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
+              onClick={() => {
+                const nextQuery = src;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    setResults(searchResults);
+                  } catch (error) {
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
+              }}
+            >
               <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
-            </div>
+            </button>
           ))}
         </div>
       )}
