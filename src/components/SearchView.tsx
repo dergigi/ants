@@ -543,7 +543,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
                 ) : (
                   <div className={noteCardClasses}>
                     {renderNoteContent(event)}
-                    <div className="mt-4 text-xs text-gray-300 bg-[#1f1f1f] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg">
+                    <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg">
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
