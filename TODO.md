@@ -13,10 +13,10 @@
 - [x] Resolve NIP-05 correctly, e.g. `@dergigi.com`
 - [x] Add support for `OR` operator
 - [x] Add support for URL searches: `https://dergigi.com/vew`
-- [ ] Add shorthand to find notes with images `has:image`
-- [ ] Add shorthand to find notes that are one single image `is:image`
-- [ ] Same for videos (`has:video` and `is:video`)
-- [ ] Same for gifs (`has:gif` and `is:gif`)
+- [x] Add shorthand to find notes with images `has:image`
+- [x] Add shorthand to find notes that are one single image `is:image`
+- [x] Same for videos (`has:video` and `is:video`)
+- [x] Same for gifs (`has:gif` and `is:gif`)
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
 - [ ] Add support for `is:blog` aka `kind:30023`
