@@ -59,7 +59,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
 
   return (
-    <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+    <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-h-[1rem]">
         {lightning ? (
           <a
@@ -72,16 +72,18 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           </a>
         ) : null}
       </div>
-      {updatedAt && updatedEventId ? (
-        <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
-      ) : (
-        <span>{updatedLabel}</span>
-      )}
-      {createdAt && createdEventId ? (
-        <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
-      ) : (
-        <span>{sinceLabel}</span>
-      )}
+      <div className="ml-auto flex items-center gap-2">
+        {updatedAt && updatedEventId ? (
+          <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
+        ) : (
+          <span>{updatedLabel}</span>
+        )}
+        {createdAt && createdEventId ? (
+          <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
+        ) : (
+          <span>{sinceLabel}</span>
+        )}
+      </div>
     </div>
   );
 }
