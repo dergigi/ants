@@ -640,7 +640,7 @@ function SearchComponent() {
               const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
               const hasExpandedParent = Boolean(parentEvent);
-              const noteCardClasses = `p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${
                 hasCollapsedBar || hasExpandedParent
                   ? 'rounded-b-lg rounded-t-none border-t-0'
                   : 'rounded-lg'
@@ -652,6 +652,11 @@ function SearchComponent() {
                 {event.kind === 0 ? (
                   // Profile metadata
                   <div className={noteCardClasses}>
+                    {event.author?.npub && (
+                      <span className="absolute top-2 right-3 text-xs text-gray-400 font-mono select-text" title={event.author.npub}>
+                        {`${event.author.npub.slice(0, 8)}…${event.author.npub.slice(-8)}`}
+                      </span>
+                    )}
                     <div className="flex items-center gap-4">
                       {event.author.profile?.image && (
                         <Image 
