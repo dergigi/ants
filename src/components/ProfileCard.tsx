@@ -5,7 +5,8 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -72,10 +73,48 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubk
   );
 }
 
-export default function ProfileCard({ event, onAuthorClick, showBanner = false }: { event: NDKEvent; onAuthorClick?: (npub: string) => void; showBanner?: boolean }) {
+type ProfileCardProps = {
+  event: NDKEvent;
+  onAuthorClick?: (npub: string) => void;
+  onHashtagClick?: (tag: string) => void;
+  showBanner?: boolean;
+};
+
+export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   const bannerUrl = (event.author.profile as any)?.banner || (event.author.profile as any)?.cover || (event.author.profile as any)?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
+  const router = useRouter();
+
+  const renderBioWithHashtags = useMemo(() => {
+    return (text?: string) => {
+      if (!text) return null;
+      const parts = text.split(/(#[A-Za-z0-9_]+)/g);
+      return parts.map((part, idx) => {
+        if (part.startsWith('#')) {
+          return (
+            <button
+              key={`bio-hashtag-${idx}`}
+              onClick={() => {
+                const tag = part;
+                if (onHashtagClick) {
+                  onHashtagClick(tag);
+                } else {
+                  const params = new URLSearchParams();
+                  params.set('q', tag);
+                  router.push(`/?${params.toString()}`);
+                }
+              }}
+              className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+            >
+              {part}
+            </button>
+          );
+        }
+        return <span key={`bio-text-${idx}`}>{part}</span>;
+      });
+    };
+  }, [onHashtagClick, router]);
   return (
     <div className={noteCardClasses}>
       {showBanner && bannerUrl && (
@@ -115,7 +154,11 @@ export default function ProfileCard({ event, onAuthorClick, showBanner = false }
           </a>
         )}
       </div>
-      {event.author.profile?.about && <p className="mt-4 text-gray-300">{event.author.profile.about}</p>}
+      {event.author.profile?.about && (
+        <p className="mt-4 text-gray-300 break-words">
+          {renderBioWithHashtags(event.author.profile.about)}
+        </p>
+      )}
       <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
       </div>
     </div>
