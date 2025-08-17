@@ -662,12 +662,13 @@ function SearchComponent() {
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
                       {event.author?.npub && (
-                        <span
-                          className="text-sm text-gray-400 select-text truncate max-w-[50%] text-right"
+                        <a
+                          href={`/p/${event.author.npub}`}
+                          className="text-sm text-gray-400 truncate max-w-[50%] text-right hover:underline"
                           title={event.author.npub}
                         >
                           {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
-                        </span>
+                        </a>
                       )}
                     </div>
                     {event.author.profile?.about && (
