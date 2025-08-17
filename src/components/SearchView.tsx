@@ -147,9 +147,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
-    if (active.size === 0) return [];
-    const effective = Array.from(active);
-    const termRegexes = effective.map((t) => new RegExp(`https?:\/\/[^\s'"<>]+?\.${t}(?:[?#][^\s]*)?`, 'i'));
+    const effective = active.size > 0 ? Array.from(active) : terms;
+    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
     return events.filter((evt) => {
       const content = evt.content || '';
       return termRegexes.some((rx) => rx.test(content));
@@ -291,7 +290,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const extractImageUrls = (text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi;
+    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
     while ((m = regex.exec(text)) !== null) {
@@ -330,10 +329,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const stripMediaUrls = (text: string): string => {
     if (!text) return '';
     const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
-      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
-      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
+      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
+      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
