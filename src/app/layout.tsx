@@ -30,7 +30,7 @@ export default function RootLayout({
         <div className="flex-1">
           {children}
         </div>
-        <footer className="text-center text-xs text-gray-400 py-6 select-none">
+        <footer className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">
           <p>
             Made with love by <a href="https://dergigi.com" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">Gigi</a> - okay... vibed with love.
           </p>
