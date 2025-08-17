@@ -130,6 +130,32 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             style={{ height: bannerExpanded ? 240 : 32 }}
           >
             <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+            <div className="absolute top-1 right-1 flex gap-1">
+              <button
+                type="button"
+                aria-label="Minimize"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
+                className="w-4 h-4 bg-[#c0c0c0] text-[#1a1a1a] border border-[#3d3d3d] rounded-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#d6d6d6]"
+              >
+                –
+              </button>
+              <button
+                type="button"
+                aria-label="Maximize"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(true); }}
+                className="w-4 h-4 bg-[#c0c0c0] text-[#1a1a1a] border border-[#3d3d3d] rounded-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#d6d6d6]"
+              >
+                ▢
+              </button>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
+                className="w-4 h-4 bg-[#c0c0c0] text-[#1a1a1a] border border-[#3d3d3d] rounded-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#d6d6d6]"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </button>
       )}
