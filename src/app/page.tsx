@@ -547,7 +547,7 @@ function SearchComponent() {
                     params.delete('q');
                     router.replace(`?${params.toString()}`);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
                   aria-label="Clear search"
                 >
                   ×
