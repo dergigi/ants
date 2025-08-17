@@ -148,11 +148,13 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           title={bannerExpanded ? 'Collapse banner' : 'Expand banner'}
         >
           <div
-            className="relative w-full overflow-hidden border-b border-[#3d3d3d]"
+            className="relative w-full border-b border-[#3d3d3d]"
             style={{ height: bannerExpanded ? 240 : 32 }}
           >
-            <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
-            <div className="absolute top-1 left-1">
+            <div className="absolute inset-0 overflow-hidden">
+              <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+            </div>
+            <div className="absolute top-1 left-1 z-20">
               <div className="relative">
                 <button
                   type="button"
@@ -164,7 +166,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 </button>
                 {showPortalMenu && (
                   <div
-                    className="absolute z-10 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                    className="absolute z-30 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
                   >
                     <ul className="py-1 text-sm text-gray-200">
