@@ -137,15 +137,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
+  const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
+      setExpandedLabel(null);
       return;
     }
 
     setLoading(true);
     try {
+      // compute expanded label (currently only for has:image with no terms)
+      const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
+      const cleaned = searchQuery.replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ').trim();
+      if (hasImage && cleaned.length === 0) {
+        setExpandedLabel('jpg png jpeg gif webp svg');
+      } else {
+        setExpandedLabel(null);
+      }
       const searchResults = await searchEvents(searchQuery);
       setResults(searchResults);
     } catch (error) {
@@ -555,6 +565,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
+        {expandedLabel && (
+          <div className="mt-1 text-xs text-gray-400">
+            Expanded search: <span className="font-mono text-gray-300">{expandedLabel}</span>
+          </div>
+        )}
       </form>
 
       {results.length > 0 && (
