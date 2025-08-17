@@ -74,7 +74,6 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
-  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -91,16 +90,15 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
   }, [user]);
 
   const nip05Part = value ? (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
       className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
       <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-3 w-3" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </a>
+    </button>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
       <FontAwesomeIcon icon={faCircleExclamation} className="h-3 w-3" />
