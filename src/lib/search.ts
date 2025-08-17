@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
-import { lookupVertexProfile, searchProfilesFullText } from './vertex';
+import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 
 
@@ -81,6 +81,18 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       authors: [pubkey],
       limit
     });
+  }
+
+  // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
+  const nip05Like = query.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+  if (nip05Like) {
+    try {
+      const pubkey = await resolveNip05ToPubkey(query);
+      if (pubkey) {
+        const profileEvt = await profileEventFromPubkey(pubkey);
+        return [profileEvt];
+      }
+    } catch {}
   }
 
   // Check for author filter
