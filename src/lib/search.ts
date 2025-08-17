@@ -6,9 +6,9 @@ import { nip19 } from 'nostr-tools';
 
 
 // Centralized media extension lists (keep DRY)
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
-const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
-const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
+export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
+export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
 const IMAGE_EXT_GROUP = IMAGE_EXTENSIONS.join('|');
 const VIDEO_EXT_GROUP = VIDEO_EXTENSIONS.join('|');
