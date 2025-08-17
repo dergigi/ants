@@ -50,6 +50,13 @@ function getPubkey(str: string): string | null {
   return str;
 }
 
+function eventHasImage(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const text = event.content;
+  const imageRegex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/i;
+  return imageRegex.test(text);
+}
+
 export function parseOrQuery(query: string): string[] {
   // Split by " OR " (case-insensitive) while preserving quoted segments
   const parts: string[] = [];
@@ -101,8 +108,12 @@ export async function searchEvents(
     console.warn('NDK connect failed or already connected:', e);
   }
 
+  // Detect and strip has:image flag; apply post-filter later
+  const hasImageFlag = /(?:^|\s)has:image(?:\s|$)/i.test(query);
+  const cleanedQuery = query.replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ').trim();
+
   // Check for OR operator
-  const orParts = parseOrQuery(query);
+  const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
     const allResults: NDKEvent[] = [];
@@ -124,26 +135,26 @@ export async function searchEvents(
     }
     
     // Sort by creation time (newest first) and limit results
-    return allResults
+    return (hasImageFlag ? allResults.filter(eventHasImage) : allResults)
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
   }
 
   // URL search: always do exact (literal) match for http(s) URLs
   try {
-    const url = new URL(query);
+    const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       const results = await subscribeAndCollect({
         kinds: [1],
-        search: `"${query}"`,
+        search: `"${cleanedQuery}"`,
         limit
       });
-      return results;
+      return hasImageFlag ? results.filter(eventHasImage).slice(0, limit) : results;
     }
   } catch {}
 
   // Full-text profile search `p:<term>` (not only username)
-  const fullProfileMatch = query.match(/^p:(.+)$/i);
+  const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
@@ -157,9 +168,9 @@ export async function searchEvents(
   }
 
   // Check if the query is a direct npub
-  if (isNpub(query)) {
+  if (isNpub(cleanedQuery)) {
     try {
-      const pubkey = getPubkey(query);
+      const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
       return await subscribeAndCollect({
@@ -174,10 +185,10 @@ export async function searchEvents(
   }
 
   // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
-  const nip05Like = query.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+  const nip05Like = cleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
   if (nip05Like) {
     try {
-      const pubkey = await resolveNip05ToPubkey(query);
+      const pubkey = await resolveNip05ToPubkey(cleanedQuery);
       if (pubkey) {
         const profileEvt = await profileEventFromPubkey(pubkey);
         return [profileEvt];
@@ -186,11 +197,11 @@ export async function searchEvents(
   }
 
   // Check for author filter
-  const authorMatch = query.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
+  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = query.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -235,22 +246,28 @@ export async function searchEvents(
     }
 
     console.log('Searching with filters:', filters);
-    return await subscribeAndCollect(filters);
+    {
+      const res = await subscribeAndCollect(filters);
+      const filtered = hasImageFlag ? res.filter(eventHasImage) : res;
+      return filtered.slice(0, limit);
+    }
   }
   
   // Regular search without author filter
   try {
+    const baseSearch = cleanedQuery || (hasImageFlag ? 'jpg png jpeg gif webp svg' : undefined);
     const results = await subscribeAndCollect({
       kinds: [1],
-      search: options?.exact ? `"${query}"` : query,
+      search: options?.exact ? `"${cleanedQuery}"` : baseSearch,
       limit
     });
     console.log('Search results:', {
-      query,
+      query: cleanedQuery,
       resultCount: results.length
     });
     
-    return results;
+    const filtered = hasImageFlag ? results.filter(eventHasImage) : results;
+    return filtered.slice(0, limit);
   } catch (error) {
     console.error('Error fetching events:', error);
     return [];
