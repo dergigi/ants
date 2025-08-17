@@ -39,7 +39,7 @@ export default function RootLayout({
             <span className="mx-2">·</span>
             <a href="https://npub.world/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">Nostr</a>
             <span className="mx-2">·</span>
-            Birthed during SEC-04
+            <a href="https://sovereignengineering.io/" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">Birthed during SEC-04</a>
           </p>
         </footer>
       </body>
