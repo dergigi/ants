@@ -38,7 +38,7 @@ async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number 
 
 // (intentionally left without VertexProfile interface; we operate directly on events)
 
-async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
+async function queryVertexDVM(username: string, limit: number = 10): Promise<NDKEvent[]> {
   try {
     console.log('Starting DVM query for username:', username);
     const storedPubkey = getStoredPubkey();
@@ -108,7 +108,7 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
         let settled = false;
 
         // Add event handlers after creating subscription
-        sub.on('event', (event: NDKEvent) => {
+        sub.on('event', async (event: NDKEvent) => {
           console.log('Received DVM event:', {
             kind: event.kind,
             id: event.id,
@@ -144,67 +144,33 @@ async function queryVertexDVM(username: string): Promise<NDKEvent[]> {
               return;
             }
 
-            const bestMatch = records[0];
-            if (bestMatch.pubkey) {
-              console.log('Found valid profile record:', { 
-                pubkey: bestMatch.pubkey,
-                rank: bestMatch.rank
-              });
-
-              // Create an NDKUser object right away
-              const user = new NDKUser({
-                pubkey: bestMatch.pubkey
-              });
+            // Create profile events for up to `limit` results, preserving DVM rank order
+            const top = records.slice(0, Math.max(1, limit));
+            const users = top.map((rec: any) => {
+              const pk = rec?.pubkey as string | undefined;
+              if (!pk) return null;
+              const user = new NDKUser({ pubkey: pk });
               user.ndk = ndk;
+              return user;
+            }).filter(Boolean) as NDKUser[];
 
-              // Fetch the user's profile metadata
-              user.fetchProfile()
-                .then(() => {
-                  console.log('Fetched profile:', user.profile);
+            await Promise.allSettled(users.map((u) => u.fetchProfile()));
 
-                  // Create a profile event
-                  const profileEvent = new NDKEvent(ndk, {
-                    kind: 0,
-                    created_at: Math.floor(Date.now() / 1000),
-                    content: JSON.stringify(user.profile || {}),
-                    pubkey: bestMatch.pubkey,
-                    tags: [],
-                    id: '',
-                    sig: ''
-                  });
+            const events: NDKEvent[] = users.map((user) => {
+              const profileEvent = new NDKEvent(ndk, {
+                kind: 0,
+                created_at: Math.floor(Date.now() / 1000),
+                content: JSON.stringify(user.profile || {}),
+                pubkey: user.pubkey,
+                tags: [],
+                id: '',
+                sig: ''
+              });
+              profileEvent.author = user;
+              return profileEvent;
+            });
 
-                  // Set the author
-                  profileEvent.author = user;
-                  console.log('Created profile event:', { 
-                    id: profileEvent.id,
-                    pubkey: profileEvent.pubkey,
-                    author: profileEvent.author.pubkey,
-                    profile: user.profile
-                  });
-
-                  resolve([profileEvent]);
-                })
-                .catch((e) => {
-                  console.warn('Could not fetch profile:', e);
-                  // Still create a profile event even if we couldn't fetch the profile
-                  const profileEvent = new NDKEvent(ndk, {
-                    kind: 0,
-                    created_at: Math.floor(Date.now() / 1000),
-                    content: JSON.stringify({}),
-                    pubkey: bestMatch.pubkey,
-                    tags: [],
-                    id: '',
-                    sig: ''
-                  });
-
-                  // Set the author
-                  profileEvent.author = user;
-                  resolve([profileEvent]);
-                });
-            } else {
-              console.log('No pubkey found in best match:', bestMatch);
-              reject(new Error('No pubkey in response'));
-            }
+            resolve(events);
           } catch (e) {
             console.error('Error processing DVM response:', e);
             reject(e);
@@ -383,14 +349,15 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   }
 }
 
-function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string } {
+function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
   try {
     const content = JSON.parse(event.content || '{}');
     return {
       name: content.name,
       display: content.display_name || content.displayName,
       about: content.about,
-      nip05: content.nip05
+      nip05: content.nip05,
+      image: content.image || content.picture
     };
   } catch {
     return {};
@@ -417,6 +384,16 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
   const query = term.trim();
   if (!query) return [];
 
+  // Step 0: try Vertex DVM for top ranked results
+  let vertexEvents: NDKEvent[] = [];
+  try {
+    vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
+  } catch (e) {
+    if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
+      console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+    }
+  }
+
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
   const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
   if (candidates.length === 0) return [];
@@ -431,7 +408,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
 
   const enriched = candidates.map((evt, idx) => {
     const pubkey = evt.pubkey || evt.author?.pubkey || '';
-    const { name, display, about, nip05 } = extractProfileFields(evt);
+    const { name, display, about, nip05, image } = extractProfileFields(evt);
     const nameForAuthor = display || name || '';
 
     // Ensure author is set for UI
@@ -442,7 +419,8 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
         name: name,
         displayName: display,
         about,
-        nip05
+        nip05,
+        image
       };
       evt.author = user;
     } else if (evt.author) {
@@ -452,7 +430,8 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
           name: name,
           displayName: display,
           about,
-          nip05
+          nip05,
+          image
         };
       }
     }
@@ -499,6 +478,26 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     return (a.name || '').localeCompare(b.name || '');
   });
 
-  // Step 5: return top N events
-  return enriched.slice(0, limit).map((r) => r.event);
+  // Step 5: prepend Vertex results, then append ranked fallback, dedup by pubkey
+  const seen = new Set<string>();
+  const ordered: NDKEvent[] = [];
+
+  const pushIfNew = (evt: NDKEvent) => {
+    const pk = evt.pubkey || evt.author?.pubkey || '';
+    if (!pk || seen.has(pk)) return;
+    seen.add(pk);
+    // Ensure kind is 0 and author is set
+    if (!evt.kind) (evt as any).kind = 0 as any;
+    if (!evt.author && pk) {
+      const user = new NDKUser({ pubkey: pk });
+      user.ndk = ndk;
+      evt.author = user;
+    }
+    ordered.push(evt);
+  };
+
+  for (const v of vertexEvents) pushIfNew(v);
+  for (const r of enriched.map((e) => e.event)) pushIfNew(r);
+
+  return ordered.slice(0, limit);
 }
