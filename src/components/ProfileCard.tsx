@@ -9,7 +9,7 @@ import { getStoredPubkey, logout } from '@/lib/nip07';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -59,7 +59,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubk
   const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
 
   return (
-    <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex justify-end gap-2 flex-wrap">
+    <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2 min-h-[1rem]">
+        {lightning ? (
+          <a
+            href={`lightning:${lightning}`}
+            className="inline-flex items-center gap-1 hover:underline"
+            title={lightning}
+          >
+            <span className="text-yellow-400">⚡</span>
+            <span className="truncate max-w-[14rem]">{lightning}</span>
+          </a>
+        ) : null}
+      </div>
       {updatedAt && updatedEventId ? (
         <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
       ) : (
@@ -210,7 +222,12 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         </p>
       )}
       </div>
-      <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
+      <ProfileCreatedAt
+        pubkey={event.author.pubkey}
+        fallbackEventId={event.id}
+        fallbackCreatedAt={event.created_at}
+        lightning={(event.author.profile as any)?.lud16}
+      />
     </div>
   );
 }
