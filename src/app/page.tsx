@@ -255,7 +255,7 @@ function SearchComponent() {
 
   const renderNoteBody = (event: NDKEvent) => (
     <>
-      <p className="text-gray-100 whitespace-pre-wrap break-words">{stripMediaUrls(event.content)}</p>
+      <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(event.content)}</p>
       {extractImageUrls(event.content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(event.content).map((src) => (
@@ -445,6 +445,36 @@ function SearchComponent() {
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi, '')
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
+  };
+
+  const renderContentWithClickableHashtags = (content: string) => {
+    const strippedContent = stripMediaUrls(content);
+    if (!strippedContent) return null;
+
+    // Split by hashtags and create clickable elements
+    const parts = strippedContent.split(/(#\w+)/g);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('#')) {
+        return (
+          <button
+            key={index}
+            onClick={() => {
+              const nextQuery = part;
+              setQuery(nextQuery);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set('q', nextQuery);
+              router.replace(`?${params.toString()}`);
+              handleSearch(nextQuery);
+            }}
+            className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+          >
+            {part}
+          </button>
+        );
+      }
+      return part;
+    });
   };
 
   return (
