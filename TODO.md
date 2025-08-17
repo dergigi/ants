@@ -17,7 +17,8 @@
 - [ ] Add shorthand to find notes that are one single image `is:image`
 - [ ] Same for videos (`has:video` and `is:video`)
 - [ ] Same for gifs (`has:gif` and `is:gif`)
-- [ ] Add support for `is:tweet` and `is:short`
+- [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
+- [ ] Hide note content if it is longer than 210 chars, adding "show more"
 - [ ] Add support for `is:blog` aka `kind:30023`
 - [ ] Add domain-specific support to find specific links, e.g. `site:youtube`
 - [ ] Render embedded `nostr:nevent` notes properly
