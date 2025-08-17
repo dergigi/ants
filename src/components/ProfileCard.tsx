@@ -237,6 +237,51 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         </div>
       )}
+      {showBanner && !bannerUrl && (
+        <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d]" style={{ height: 32 }}>
+          <div className="absolute top-1 left-1 z-20">
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Open portals menu"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu((v) => !v); }}
+                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+              >
+                ⋯
+              </button>
+              {showPortalMenu && (
+                <div
+                  className="absolute z-30 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
+                >
+                  <ul className="py-1 text-sm text-gray-200">
+                    {[
+                      { name: 'njump.me', base: 'https://njump.me/' },
+                      { name: 'nostr.at', base: 'https://nostr.at/' },
+                      { name: 'npub.world', base: 'https://npub.world/' },
+                      { name: 'nosta.me', base: 'https://nosta.me/' },
+                      { name: 'nostr.band', base: 'https://nostr.band/' },
+                    ].map((p) => (
+                      <li key={p.name}>
+                        <a
+                          href={`${p.base}${event.author.npub}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                          onClick={(e) => { e.stopPropagation(); }}
+                        >
+                          <span>{p.name}</span>
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
