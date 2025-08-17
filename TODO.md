@@ -9,3 +9,5 @@
 - [ ] Render embedded `nostr:nevent` notes properly
 - [ ] Replace embedded `npubs` with usernames
 - [ ] Ensure that navigation stack is built up correctly (so that user can navigate back)
+- [ ] Add more examples to pre-fill search field
+- [ ] Show different examples periodically for discovery
