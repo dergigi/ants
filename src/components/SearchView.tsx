@@ -151,11 +151,27 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
     setLoading(true);
     try {
-      // compute expanded label (currently only for has:image with no terms)
+      // compute expanded label for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
-      const cleaned = searchQuery.replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ').trim();
-      if (hasImage && cleaned.length === 0) {
-        setExpandedLabel('jpg png jpeg gif webp svg');
+      const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
+      const hasGif = /(?:^|\s)has:gif(?:\s|$)/i.test(searchQuery);
+      const isImage = /(?:^|\s)is:image(?:\s|$)/i.test(searchQuery);
+      const isVideo = /(?:^|\s)is:video(?:\s|$)/i.test(searchQuery);
+      const isGif = /(?:^|\s)is:gif(?:\s|$)/i.test(searchQuery);
+      const cleaned = searchQuery
+        .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
+        .trim();
+
+      if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
+        const imageSeed = 'png jpg jpeg gif webp avif svg';
+        const videoSeed = 'mp4 webm ogg ogv mov m4v';
+        const seed = (hasGif || isGif) ? 'gif' : (hasVideo || isVideo) ? videoSeed : imageSeed;
+        setExpandedLabel(seed);
       } else {
         setExpandedLabel(null);
       }
