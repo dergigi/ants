@@ -585,8 +585,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </button>
         </div>
         {expandedLabel && (
-          <div className="mt-1 text-xs text-gray-400">
-            Expanded search: <span className="font-mono text-gray-300">{expandedLabel}</span>
+          <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
+            <span>Searching for</span>
+            {expandedLabel
+              .split(/\s+/)
+              .filter(Boolean)
+              .map((term, i) => (
+                <button
+                  key={`${term}-${i}`}
+                  type="button"
+                  className="px-1.5 py-0.5 rounded bg-[#2d2d2d] border border-[#3d3d3d] text-gray-200 hover:bg-[#3a3a3a]"
+                  onClick={() => {
+                    setQuery(term);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', term);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    handleSearch(term);
+                  }}
+                >
+                  <span className="font-mono">{term}</span>
+                </button>
+              ))}
           </div>
         )}
       </form>
