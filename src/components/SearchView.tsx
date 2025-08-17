@@ -247,60 +247,108 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const renderContentWithClickableHashtags = (content: string) => {
     const strippedContent = stripMediaUrls(content);
     if (!strippedContent) return null;
-    const parts = strippedContent.split(/(#\w+)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('#')) {
-        return (
-          <button
-            key={index}
-            onClick={() => {
-              const nextQuery = part;
-              setQuery(nextQuery);
-              if (manageUrl) {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set('q', nextQuery);
-                router.replace(`?${params.toString()}`);
-              }
-              handleSearch(nextQuery);
-            }}
-            className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-          >
-            {part}
-          </button>
+
+    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+
+    const splitByUrls = strippedContent.split(urlRegex);
+    const finalNodes: (string | React.ReactNode)[] = [];
+
+    splitByUrls.forEach((segment, segIndex) => {
+      const isUrl = /^https?:\/\//i.test(segment);
+      if (isUrl) {
+        const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
+        finalNodes.push(
+          <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const nextQuery = cleanedUrl;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                handleSearch(nextQuery);
+              }}
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
+              title="Search for this URL"
+            >
+              {cleanedUrl}
+            </button>
+            <a
+              href={cleanedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open link in new tab"
+              className="opacity-80 hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <Image src="/window.svg" alt="open" width={14} height={14} />
+            </a>
+          </span>
         );
+        return;
       }
-      if (part && part.trim()) {
-        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
-        const emojiParts = part.split(emojiRegex);
-        const emojis = part.match(emojiRegex) || [];
-        const result: (string | React.ReactNode)[] = [];
-        for (let i = 0; i < emojiParts.length; i++) {
-          if (emojiParts[i]) result.push(emojiParts[i]);
-          if (emojis[i]) {
-            result.push(
-              <button
-                key={`emoji-${index}-${i}`}
-                onClick={() => {
-                  const nextQuery = emojis[i] as string;
-                  setQuery(nextQuery);
-                  if (manageUrl) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set('q', nextQuery);
-                    router.replace(`?${params.toString()}`);
-                  }
-                  handleSearch(nextQuery);
-                }}
-                className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-              >
-                {emojis[i]}
-              </button>
-            );
+
+      // For non-URL text, process hashtags and emojis
+      const parts = segment.split(/(#\w+)/g);
+      parts.forEach((part, index) => {
+        if (part.startsWith('#')) {
+          finalNodes.push(
+            <button
+              key={`hashtag-${segIndex}-${index}`}
+              onClick={() => {
+                const nextQuery = part;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                handleSearch(nextQuery);
+              }}
+              className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+            >
+              {part}
+            </button>
+          );
+        } else if (part && part.trim()) {
+          const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
+          const emojiParts = part.split(emojiRegex);
+          const emojis = part.match(emojiRegex) || [];
+          for (let i = 0; i < emojiParts.length; i++) {
+            if (emojiParts[i]) finalNodes.push(emojiParts[i]);
+            if (emojis[i]) {
+              finalNodes.push(
+                <button
+                  key={`emoji-${segIndex}-${index}-${i}`}
+                  onClick={() => {
+                    const nextQuery = emojis[i] as string;
+                    setQuery(nextQuery);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', nextQuery);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    handleSearch(nextQuery);
+                  }}
+                  className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+                >
+                  {emojis[i]}
+                </button>
+              );
+            }
           }
+        } else {
+          finalNodes.push(part);
         }
-        return result.length > 0 ? result : part;
-      }
-      return part;
+      });
     });
+
+    return finalNodes;
   };
 
   function getReplyToEventId(event: NDKEvent): string | null {
