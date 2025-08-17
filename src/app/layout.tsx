@@ -35,7 +35,7 @@ export default function RootLayout({
             Made with love by <a href="https://dergigi.com" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">Gigi</a> - okay... vibed with love.
           </p>
           <p className="mt-1">
-            <a href="https://github.com/dergigi" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://github.com/dergigi/ants/" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">GitHub</a>
             <span className="mx-2">·</span>
             <a href="https://npub.world/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc" className="underline hover:text-gray-300" target="_blank" rel="noopener noreferrer">Nostr</a>
             <span className="mx-2">·</span>
