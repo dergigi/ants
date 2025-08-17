@@ -221,13 +221,8 @@ function SearchComponent() {
   }
 
   const goToProfile = useCallback((npub: string) => {
-    const nextQuery = `p:${npub}`;
-    setQuery(nextQuery);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
-    handleSearch(nextQuery);
-  }, [handleSearch, router, searchParams]);
+    router.push(`/p/${npub}`);
+  }, [router]);
 
   const renderNoteBody = (event: NDKEvent) => (
     <>
