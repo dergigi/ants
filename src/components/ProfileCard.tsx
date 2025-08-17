@@ -5,6 +5,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { getStoredPubkey, logout } from '@/lib/nip07';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -85,6 +86,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const bannerUrl = (event.author.profile as any)?.banner || (event.author.profile as any)?.cover || (event.author.profile as any)?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
+  const isOwnProfile = (getStoredPubkey() || '') === event.author.pubkey;
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -142,7 +144,11 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               <button
                 type="button"
                 aria-label="Maximize"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(true); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (bannerUrl) window.open(bannerUrl, '_blank', 'noopener,noreferrer');
+                }}
                 className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ▢
@@ -150,8 +156,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               <button
                 type="button"
                 aria-label="Close"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!isOwnProfile) return;
+                  logout();
+                  router.push('/');
+                }}
+                disabled={!isOwnProfile}
+                className={`w-5 h-5 rounded-md border shadow-sm flex items-center justify-center text-[10px] leading-none backdrop-blur-sm focus:outline-none focus:ring-2 ${
+                  isOwnProfile
+                    ? 'bg-[#2a2a2a]/70 text-gray-200 border-[#4a4a4a]/70 hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 focus:ring-[#5a5a5a]/40'
+                    : 'bg-[#2a2a2a]/40 text-gray-500 border-[#4a4a4a]/40 cursor-not-allowed'
+                }`}
               >
                 ×
               </button>
