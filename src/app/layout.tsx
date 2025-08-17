@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LoginButton } from "@/components/LoginButton";
 import { Footer } from "@/components/Footer";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
         <div className="flex-1">
           {children}
         </div>
-        <Footer />
+        <Suspense fallback={<div className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">Loading...</div>}>
+          <Footer />
+        </Suspense>
       </body>
     </html>
   );
