@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
-import { getOldestProfileMetadata } from '@/lib/vertex';
+import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -320,46 +320,88 @@ function SearchComponent() {
 
   function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
     const [createdAt, setCreatedAt] = useState<number | null>(null);
-    const [eventId, setEventId] = useState<string | null>(null);
+    const [createdEventId, setCreatedEventId] = useState<string | null>(null);
+    const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+    const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
 
     useEffect(() => {
       let isMounted = true;
       (async () => {
         try {
-          const oldest = await getOldestProfileMetadata(pubkey);
+          const [oldest, newest] = await Promise.all([
+            getOldestProfileMetadata(pubkey),
+            getNewestProfileMetadata(pubkey)
+          ]);
           if (!isMounted) return;
           if (oldest) {
             setCreatedAt(oldest.created_at || null);
-            setEventId(oldest.id || null);
+            setCreatedEventId(oldest.id || null);
           } else {
             setCreatedAt(fallbackCreatedAt || null);
-            setEventId(fallbackEventId || null);
+            setCreatedEventId(fallbackEventId || null);
+          }
+          if (newest) {
+            setUpdatedAt(newest.created_at || null);
+            setUpdatedEventId(newest.id || null);
+          } else {
+            setUpdatedAt(fallbackCreatedAt || null);
+            setUpdatedEventId(fallbackEventId || null);
           }
         } catch {
           if (!isMounted) return;
           setCreatedAt(fallbackCreatedAt || null);
-          setEventId(fallbackEventId || null);
+          setCreatedEventId(fallbackEventId || null);
+          setUpdatedAt(fallbackCreatedAt || null);
+          setUpdatedEventId(fallbackEventId || null);
         }
       })();
       return () => { isMounted = false; };
     }, [pubkey, fallbackCreatedAt, fallbackEventId]);
 
-    if (!createdAt || !eventId) {
-      return (
-        <div className="mt-2 flex justify-end items-center text-sm text-gray-400">Unknown date</div>
-      );
-    }
+    const relative = (fromTs: number) => {
+      const diffMs = Date.now() - fromTs * 1000;
+      const seconds = Math.round(diffMs / 1000);
+      const minutes = Math.round(seconds / 60);
+      const hours = Math.round(minutes / 60);
+      const days = Math.round(hours / 24);
+      const months = Math.round(days / 30);
+      const years = Math.round(days / 365);
+      const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+      if (Math.abs(years) >= 1) return rtf.format(-years, 'year');
+      if (Math.abs(months) >= 1) return rtf.format(-months, 'month');
+      if (Math.abs(days) >= 1) return rtf.format(-days, 'day');
+      if (Math.abs(hours) >= 1) return rtf.format(-hours, 'hour');
+      if (Math.abs(minutes) >= 1) return rtf.format(-minutes, 'minute');
+      return rtf.format(-seconds, 'second');
+    };
+
+    const createdLabel = createdAt ? `Created ${relative(createdAt)}.` : null;
+    const updatedLabel = updatedAt ? ` Last updated ${relative(updatedAt)}.` : null;
 
     return (
-      <div className="mt-2 flex justify-end items-center text-sm text-gray-400">
-        <a
-          href={`https://njump.me/${nip19.neventEncode({ id: eventId })}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          {formatDate(createdAt)}
-        </a>
+      <div className="mt-2 flex justify-end items-center text-sm text-gray-400 gap-2 flex-wrap">
+        {createdAt && createdEventId ? (
+          <a
+            href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            {createdLabel}
+          </a>
+        ) : (
+          <span>Created unknown.</span>
+        )}
+        {updatedAt && updatedEventId ? (
+          <a
+            href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            {updatedLabel}
+          </a>
+        ) : null}
       </div>
     );
   }
