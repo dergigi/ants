@@ -99,6 +99,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const isOwnProfile = (getStoredPubkey() || '') === event.author.pubkey;
+  const [showPortalMenu, setShowPortalMenu] = useState(false);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -151,6 +152,46 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             style={{ height: bannerExpanded ? 240 : 32 }}
           >
             <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+            <div className="absolute top-1 left-1">
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Open portals menu"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu((v) => !v); }}
+                  className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+                >
+                  ⋯
+                </button>
+                {showPortalMenu && (
+                  <div
+                    className="absolute z-10 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
+                  >
+                    <ul className="py-1 text-sm text-gray-200">
+                      {[
+                        { name: 'njump.me', base: 'https://njump.me/' },
+                        { name: 'nostr.at', base: 'https://nostr.at/' },
+                        { name: 'npub.world', base: 'https://npub.world/' },
+                        { name: 'nosta.me', base: 'https://nosta.me/' },
+                        { name: 'nostr.band', base: 'https://nostr.band/' },
+                      ].map((p) => (
+                        <li key={p.name}>
+                          <a
+                            href={`${p.base}${event.author.npub}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block px-3 py-2 hover:bg-[#3a3a3a]"
+                            onClick={(e) => { e.stopPropagation(); }}
+                          >
+                            {p.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="absolute top-1 right-1 flex gap-1">
               <button
                 type="button"
