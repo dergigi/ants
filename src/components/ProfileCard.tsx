@@ -79,7 +79,14 @@ export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent;
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {event.author.profile?.image && (
-            <Image src={event.author.profile.image} alt="Profile" width={64} height={64} className="rounded-full" unoptimized />
+            <Image
+              src={event.author.profile.image}
+              alt="Profile"
+              width={48}
+              height={48}
+              className="rounded-full w-12 h-12 object-cover"
+              unoptimized
+            />
           )}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
