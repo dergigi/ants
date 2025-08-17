@@ -373,7 +373,7 @@ export async function searchEvents(
 
     // If no explicit query but media flags present, query per extension and OR-merge
     if (!cleanedQuery && (hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag)) {
-      const terms: string[] = hasGifFlag || isGifFlag ? ['gif'] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
+      const terms: string[] = hasGifFlag || isGifFlag ? ['gif', 'gifs', 'apng'] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
       results = await searchByAnyTerms(terms, limit);
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
