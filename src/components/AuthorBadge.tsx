@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -84,10 +84,10 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       href={profileUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
-      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faTriangleExclamation} className="h-4 w-4" />
+      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
       <span className="truncate max-w-[14rem]">{value}</span>
     </a>
   ) : (
