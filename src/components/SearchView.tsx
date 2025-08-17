@@ -135,6 +135,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
+  const [avatarOverlap, setAvatarOverlap] = useState(false);
+  const searchRowRef = useRef<HTMLFormElement | null>(null);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -175,6 +177,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     initializeNDK();
   }, [handleSearch, initialQuery]);
+
+  // Dynamically add right padding only when the fixed header avatar overlaps the search row
+  useEffect(() => {
+    const computeOverlap = () => {
+      const avatar = document.getElementById('header-avatar');
+      const row = document.getElementById('search-row');
+      if (!avatar || !row) { setAvatarOverlap(false); return; }
+      const a = avatar.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      const intersectsVertically = a.bottom > r.top && a.top < r.bottom;
+      const intersectsHorizontally = a.left < r.right && a.right > r.left;
+      setAvatarOverlap(intersectsVertically && intersectsHorizontally);
+    };
+    computeOverlap();
+    const onResize = () => computeOverlap();
+    window.addEventListener('resize', onResize);
+    const interval = setInterval(computeOverlap, 500);
+    return () => { window.removeEventListener('resize', onResize); clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (!manageUrl) return;
@@ -500,7 +521,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   return (
     <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-      <form onSubmit={handleSubmit} className={`w-full ${manageUrl ? 'pr-16' : ''}`} id="search-row">
+      <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <input
