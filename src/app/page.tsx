@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { lookupVertexProfile, VERTEX_REGEXP } from '@/lib/vertex';
 import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -542,7 +541,7 @@ function SearchComponent() {
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
-            {results.map((event) => {
+            {results.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
               const isLoadingParent = parent === 'loading';
@@ -554,8 +553,9 @@ function SearchComponent() {
                   ? 'rounded-b-lg rounded-t-none border-t-0'
                   : 'rounded-lg'
               }`;
+              const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
               return (
-              <div key={event.id}>
+              <div key={key}>
                 {parentId && renderParentChain(event)}
                 {event.kind === 0 ? (
                   // Profile metadata
