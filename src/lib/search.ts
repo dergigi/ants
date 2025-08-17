@@ -57,6 +57,56 @@ function eventHasImage(event?: NDKEvent): boolean {
   return imageRegex.test(text);
 }
 
+function eventHasVideo(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const text = event.content;
+  const videoRegex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/i;
+  return videoRegex.test(text);
+}
+
+function eventHasGif(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const text = event.content;
+  const gifRegex = /(https?:\/\/[^\s'"<>]+?\.(?:gif))(?!\w)/i;
+  return gifRegex.test(text);
+}
+
+function stripAllMediaUrls(text: string): string {
+  return text
+    .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+    .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function eventIsSingleImage(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const imgs = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#][^\s]*)?/gi) || [];
+  const vids = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:[?#][^\s]*)?/gi) || [];
+  if (imgs.length !== 1 || vids.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
+function eventIsSingleVideo(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const imgs = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#][^\s]*)?/gi) || [];
+  const vids = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:[?#][^\s]*)?/gi) || [];
+  if (vids.length !== 1 || imgs.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
+function eventIsSingleGif(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const gifs = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:gif)(?:[?#][^\s]*)?/gi) || [];
+  const otherImgs = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|webp|avif|svg)(?:[?#][^\s]*)?/gi) || [];
+  const vids = event.content.match(/https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:[?#][^\s]*)?/gi) || [];
+  if (gifs.length !== 1 || otherImgs.length > 0 || vids.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
 export function parseOrQuery(query: string): string[] {
   // Split by " OR " (case-insensitive) while preserving quoted segments
   const parts: string[] = [];
@@ -108,9 +158,21 @@ export async function searchEvents(
     console.warn('NDK connect failed or already connected:', e);
   }
 
-  // Detect and strip has:image flag; apply post-filter later
+  // Detect and strip media flags; apply post-filter later
   const hasImageFlag = /(?:^|\s)has:image(?:\s|$)/i.test(query);
-  const cleanedQuery = query.replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ').trim();
+  const hasVideoFlag = /(?:^|\s)has:video(?:\s|$)/i.test(query);
+  const hasGifFlag = /(?:^|\s)has:gif(?:\s|$)/i.test(query);
+  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(query);
+  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(query);
+  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(query);
+  const cleanedQuery = query
+    .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
+    .trim();
 
   // Check for OR operator
   const orParts = parseOrQuery(cleanedQuery);
@@ -135,7 +197,14 @@ export async function searchEvents(
     }
     
     // Sort by creation time (newest first) and limit results
-    return (hasImageFlag ? allResults.filter(eventHasImage) : allResults)
+    let merged = allResults;
+    if (hasImageFlag) merged = merged.filter(eventHasImage);
+    if (hasVideoFlag) merged = merged.filter(eventHasVideo);
+    if (hasGifFlag) merged = merged.filter(eventHasGif);
+    if (isImageFlag) merged = merged.filter(eventIsSingleImage);
+    if (isVideoFlag) merged = merged.filter(eventIsSingleVideo);
+    if (isGifFlag) merged = merged.filter(eventIsSingleGif);
+    return merged
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
   }
@@ -149,7 +218,14 @@ export async function searchEvents(
         search: `"${cleanedQuery}"`,
         limit
       });
-      return hasImageFlag ? results.filter(eventHasImage).slice(0, limit) : results;
+      let res = results;
+      if (hasImageFlag) res = res.filter(eventHasImage);
+      if (hasVideoFlag) res = res.filter(eventHasVideo);
+      if (hasGifFlag) res = res.filter(eventHasGif);
+      if (isImageFlag) res = res.filter(eventIsSingleImage);
+      if (isVideoFlag) res = res.filter(eventIsSingleVideo);
+      if (isGifFlag) res = res.filter(eventIsSingleGif);
+      return res.slice(0, limit);
     }
   } catch {}
 
@@ -245,17 +321,28 @@ export async function searchEvents(
       filters.limit = Math.max(limit, 200);
     }
 
+    // Increase limit when we post-filter for media
+    if (hasImageFlag || hasVideoFlag || hasGifFlag || isImageFlag || isVideoFlag || isGifFlag) {
+      filters.limit = Math.max(filters.limit || limit, 200);
+    }
+
     console.log('Searching with filters:', filters);
     {
       const res = await subscribeAndCollect(filters);
-      const filtered = hasImageFlag ? res.filter(eventHasImage) : res;
+      let filtered = res;
+      if (hasImageFlag) filtered = filtered.filter(eventHasImage);
+      if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
+      if (hasGifFlag) filtered = filtered.filter(eventHasGif);
+      if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
+      if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
+      if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
       return filtered.slice(0, limit);
     }
   }
   
   // Regular search without author filter
   try {
-    const baseSearch = cleanedQuery || (hasImageFlag ? 'jpg png jpeg gif webp svg' : undefined);
+    const baseSearch = cleanedQuery || ((hasImageFlag || isImageFlag) ? 'jpg png jpeg gif webp svg' : (hasVideoFlag || isVideoFlag) ? 'mp4 webm ogg ogv mov m4v' : (hasGifFlag || isGifFlag) ? 'gif' : undefined);
     const results = await subscribeAndCollect({
       kinds: [1],
       search: options?.exact ? `"${cleanedQuery}"` : baseSearch,
@@ -266,7 +353,13 @@ export async function searchEvents(
       resultCount: results.length
     });
     
-    const filtered = hasImageFlag ? results.filter(eventHasImage) : results;
+    let filtered = results;
+    if (hasImageFlag) filtered = filtered.filter(eventHasImage);
+    if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
+    if (hasGifFlag) filtered = filtered.filter(eventHasGif);
+    if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
+    if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
+    if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
     return filtered.slice(0, limit);
   } catch (error) {
     console.error('Error fetching events:', error);
