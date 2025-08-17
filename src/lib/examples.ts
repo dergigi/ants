@@ -38,7 +38,8 @@ export const searchExamples = [
   'GM has:video',
   'Bitcoin has:images',
   'meme has:gifs',
-  'by:dergigi has:image'
+  'by:dergigi has:image',
+  'by:HODL has:video'
 ] as const;
 
 // Helper type for type safety
