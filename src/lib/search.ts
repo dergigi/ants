@@ -8,16 +8,23 @@ import { nip19 } from 'nostr-tools';
 // Centralized media extension lists (keep DRY)
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
+const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
+
 const IMAGE_EXT_GROUP = IMAGE_EXTENSIONS.join('|');
 const VIDEO_EXT_GROUP = VIDEO_EXTENSIONS.join('|');
+const GIF_EXT_GROUP = GIF_EXTENSIONS.join('|');
+
 const IMAGE_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${IMAGE_EXT_GROUP})`;
 const VIDEO_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${VIDEO_EXT_GROUP})`;
+const GIF_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${GIF_EXT_GROUP})`;
+
 const IMAGE_URL_REGEX = new RegExp(`(${IMAGE_URL_PATTERN})(?!\\w)`, 'i');
 const VIDEO_URL_REGEX = new RegExp(`(${VIDEO_URL_PATTERN})(?!\\w)`, 'i');
-const GIF_URL_REGEX = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\\.(?:gif|gifs|apng)(?!\\w)`, 'i');
+const GIF_URL_REGEX = new RegExp(`(${GIF_URL_PATTERN})(?!\\w)`, 'i');
+
 const IMAGE_URL_REGEX_G = new RegExp(`${IMAGE_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 const VIDEO_URL_REGEX_G = new RegExp(`${VIDEO_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
-const GIF_URL_REGEX_G = new RegExp(`https?:\\/\\/[^\\s'\"<>]+?\\\.(?:gif|gifs|apng)(?:[?#][^\\s]*)?`, 'gi');
+const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
@@ -373,7 +380,7 @@ export async function searchEvents(
 
     // If no explicit query but media flags present, query per extension and OR-merge
     if (!cleanedQuery && (hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag)) {
-      const terms: string[] = hasGifFlag || isGifFlag ? ['gif', 'gifs', 'apng'] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
+      const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
       results = await searchByAnyTerms(terms, limit);
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
