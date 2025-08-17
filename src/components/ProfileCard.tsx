@@ -5,10 +5,11 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { createPortal } from 'react-dom';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -104,6 +105,17 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const portalLinks = [
+    { name: 'njump.me', base: 'https://njump.me/' },
+    { name: 'nostr.at', base: 'https://nostr.at/' },
+    { name: 'npub.world', base: 'https://npub.world/' },
+    { name: 'nosta.me', base: 'https://nosta.me/' },
+    { name: 'nostr.band', base: 'https://nostr.band/' },
+    { name: 'castr.me', base: 'https://castr.me/' },
+  ];
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -158,45 +170,25 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             <div className="absolute inset-0 overflow-hidden">
               <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
             </div>
-            <div className="absolute top-1 left-1 z-20">
+            <div className="absolute top-1 left-1 z-50">
               <div className="relative">
                 <button
+                  ref={buttonRef}
                   type="button"
                   aria-label="Open portals menu"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu((v) => !v); }}
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    if (buttonRef.current) {
+                      const rect = buttonRef.current.getBoundingClientRect();
+                      setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    }
+                    setShowPortalMenu((v) => !v); 
+                  }}
                   className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
                 >
                   ⋯
                 </button>
-                {showPortalMenu && (
-                  <div
-                    className="absolute z-30 mt-1 w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
-                  >
-                    <ul className="py-1 text-sm text-gray-200">
-                      {[
-                        { name: 'njump.me', base: 'https://njump.me/' },
-                        { name: 'nostr.at', base: 'https://nostr.at/' },
-                        { name: 'npub.world', base: 'https://npub.world/' },
-                        { name: 'nosta.me', base: 'https://nosta.me/' },
-                        { name: 'nostr.band', base: 'https://nostr.band/' },
-                      ].map((p) => (
-                        <li key={p.name}>
-                          <a
-                            href={`${p.base}${event.author.npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                            onClick={(e) => { e.stopPropagation(); }}
-                          >
-                            <span>{p.name}</span>
-                            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             </div>
             <div className="absolute top-1 right-1 flex gap-1">
@@ -237,25 +229,70 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         </div>
       )}
+      {showBanner && !bannerUrl && (
+        <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d]" style={{ height: 32 }}>
+          <div className="absolute top-1 left-1 z-50">
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Open portals menu"
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation(); 
+                  if (buttonRef.current) {
+                    const rect = buttonRef.current.getBoundingClientRect();
+                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                  }
+                  setShowPortalMenu((v) => !v); 
+                }}
+                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+              >
+                ⋯
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {event.author.profile?.image && (
-            <Image
-              src={event.author.profile.image}
-              alt="Profile"
-              width={48}
-              height={48}
-              className="rounded-full w-12 h-12 object-cover"
-              unoptimized
-            />
+            <button
+              type="button"
+              onClick={() => onAuthorClick && onAuthorClick(event.author.npub)}
+              className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
+            >
+              <Image
+                src={event.author.profile.image}
+                alt="Profile"
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+                unoptimized
+              />
+            </button>
           )}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
         {event.author?.npub && (
-          <a href={`/p/${event.author.npub}`} className="text-sm text-gray-400 truncate max-w-[50%] text-right hover:underline" title={event.author.npub}>
-            {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
-          </a>
+          <div className="flex items-center gap-2 max-w-[50%] text-right text-sm text-gray-400">
+            <button
+              type="button"
+              aria-label="Copy npub"
+              title="Copy npub"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try { await navigator.clipboard.writeText(event.author.npub); } catch {}
+              }}
+              className="p-1 rounded hover:bg-[#3a3a3a]"
+            >
+              <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
+            </button>
+            <a href={`/p/${event.author.npub}`} className="truncate hover:underline" title={event.author.npub}>
+              {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+            </a>
+          </div>
         )}
       </div>
       {event.author.profile?.about && (
@@ -270,6 +307,31 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
       />
+      {showPortalMenu && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
+        >
+          <ul className="py-1 text-sm text-gray-200">
+            {portalLinks.map((p) => (
+              <li key={p.name}>
+                <a
+                  href={`${p.base}${event.author.npub}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <span>{p.name}</span>
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

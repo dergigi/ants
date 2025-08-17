@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -63,7 +63,6 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
-  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -80,18 +79,20 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   }, [user]);
 
   const nip05Part = value ? (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+    <button
+      type="button"
+      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
-      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faTriangleExclamation} className="h-4 w-4" />
+      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </a>
+    </button>
   ) : (
-    <span className="text-gray-400">no NIP-05</span>
+    <span className="inline-flex items-center gap-1 text-yellow-400">
+      <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
+      <span className="text-gray-400">no NIP-05</span>
+    </span>
   );
 
   return (

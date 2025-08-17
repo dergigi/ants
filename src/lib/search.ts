@@ -5,6 +5,25 @@ import { nip19 } from 'nostr-tools';
 
 
 
+// Centralized media extension lists (keep DRY)
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
+export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
+export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
+
+const IMAGE_EXT_GROUP = IMAGE_EXTENSIONS.join('|');
+const VIDEO_EXT_GROUP = VIDEO_EXTENSIONS.join('|');
+const GIF_EXT_GROUP = GIF_EXTENSIONS.join('|');
+
+const IMAGE_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${IMAGE_EXT_GROUP})`;
+const VIDEO_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${VIDEO_EXT_GROUP})`;
+const GIF_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${GIF_EXT_GROUP})`;
+
+const GIF_URL_REGEX = new RegExp(`(${GIF_URL_PATTERN})(?!\\w)`, 'i');
+
+const IMAGE_URL_REGEX_G = new RegExp(`${IMAGE_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
+const VIDEO_URL_REGEX_G = new RegExp(`${VIDEO_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
+const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
+
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
 
@@ -33,6 +52,21 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000):
   });
 }
 
+async function searchByAnyTerms(terms: string[], limit: number): Promise<NDKEvent[]> {
+  // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
+  const seen = new Set<string>();
+  const merged: NDKEvent[] = [];
+  for (const term of terms) {
+    try {
+      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) });
+      for (const evt of res) {
+        if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+      }
+    } catch {}
+  }
+  return merged;
+}
+
 function isNpub(str: string): boolean {
   return str.startsWith('npub1') && str.length > 10;
 }
@@ -50,15 +84,182 @@ function getPubkey(str: string): string | null {
   return str;
 }
 
-export async function searchEvents(query: string, limit: number = 21): Promise<NDKEvent[]> {
+function eventHasImage(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  return (event.content.match(IMAGE_URL_REGEX_G) || []).length > 0;
+}
+
+function eventHasVideo(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  return (event.content.match(VIDEO_URL_REGEX_G) || []).length > 0;
+}
+
+function eventHasGif(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  return (event.content.match(GIF_URL_REGEX_G) || []).length > 0;
+}
+
+function stripAllMediaUrls(text: string): string {
+  return text
+    .replace(IMAGE_URL_REGEX_G, '')
+    .replace(VIDEO_URL_REGEX_G, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function eventIsSingleImage(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const imgs = event.content.match(IMAGE_URL_REGEX_G) || [];
+  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
+  if (imgs.length !== 1 || vids.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
+function eventIsSingleVideo(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const imgs = event.content.match(IMAGE_URL_REGEX_G) || [];
+  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
+  if (vids.length !== 1 || imgs.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
+function eventIsSingleGif(event?: NDKEvent): boolean {
+  if (!event || !event.content) return false;
+  const allImgs = event.content.match(IMAGE_URL_REGEX_G) || [];
+  const gifs = event.content.match(GIF_URL_REGEX_G) || [];
+  const otherImgs = allImgs.filter((u) => !GIF_URL_REGEX.test(u));
+  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
+  if (gifs.length !== 1 || otherImgs.length > 0 || vids.length > 0) return false;
+  const remaining = stripAllMediaUrls(event.content);
+  return remaining.length === 0;
+}
+
+export function parseOrQuery(query: string): string[] {
+  // Split by " OR " (case-insensitive) while preserving quoted segments
+  const parts: string[] = [];
+  let currentPart = '';
+  let inQuotes = false;
+
+  const stripOuterQuotes = (value: string): string => {
+    const trimmed = value.trim();
+    return trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  };
+
+  for (let i = 0; i < query.length; i++) {
+    const char = query[i];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      currentPart += char;
+      continue;
+    }
+
+    // Detect the literal sequence " OR " when not inside quotes
+    if (!inQuotes && query.substr(i, 4).toUpperCase() === ' OR ') {
+      const cleaned = stripOuterQuotes(currentPart);
+      if (cleaned) parts.push(cleaned);
+      currentPart = '';
+      i += 3; // skip the remaining characters of " OR " (loop will +1)
+      continue;
+    }
+
+    currentPart += char;
+  }
+
+  const cleaned = stripOuterQuotes(currentPart);
+  if (cleaned) parts.push(cleaned);
+  return parts;
+}
+
+export async function searchEvents(
+  query: string,
+  limit: number = 21,
+  options?: { exact?: boolean }
+): Promise<NDKEvent[]> {
   // Ensure we're connected before issuing any queries
   try {
     await ndk.connect();
   } catch (e) {
     console.warn('NDK connect failed or already connected:', e);
   }
+
+  // Detect and strip media flags; apply post-filter later
+  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(query);
+  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(query);
+  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(query);
+  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(query);
+  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(query);
+  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(query);
+  const cleanedQuery = query
+    .replace(/(?:^|\s)has:images?(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:videos?(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)has:gifs?(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
+    .trim();
+
+  // Check for OR operator
+  const orParts = parseOrQuery(cleanedQuery);
+  if (orParts.length > 1) {
+    console.log('Processing OR query with parts:', orParts);
+    const allResults: NDKEvent[] = [];
+    const seenIds = new Set<string>();
+    
+    // Process each part of the OR query
+    for (const part of orParts) {
+      try {
+        const partResults = await searchEvents(part, limit, options);
+        for (const event of partResults) {
+          if (!seenIds.has(event.id)) {
+            seenIds.add(event.id);
+            allResults.push(event);
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing OR query part "${part}":`, error);
+      }
+    }
+    
+    // Sort by creation time (newest first) and limit results
+    let merged = allResults;
+    if (hasImageFlag) merged = merged.filter(eventHasImage);
+    if (hasVideoFlag) merged = merged.filter(eventHasVideo);
+    if (hasGifFlag) merged = merged.filter(eventHasGif);
+    if (isImageFlag) merged = merged.filter(eventIsSingleImage);
+    if (isVideoFlag) merged = merged.filter(eventIsSingleVideo);
+    if (isGifFlag) merged = merged.filter(eventIsSingleGif);
+    return merged
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+      .slice(0, limit);
+  }
+
+  // URL search: always do exact (literal) match for http(s) URLs
+  try {
+    const url = new URL(cleanedQuery);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      const results = await subscribeAndCollect({
+        kinds: [1],
+        search: `"${cleanedQuery}"`,
+        limit
+      });
+      let res = results;
+      if (hasImageFlag) res = res.filter(eventHasImage);
+      if (hasVideoFlag) res = res.filter(eventHasVideo);
+      if (hasGifFlag) res = res.filter(eventHasGif);
+      if (isImageFlag) res = res.filter(eventIsSingleImage);
+      if (isVideoFlag) res = res.filter(eventIsSingleVideo);
+      if (isGifFlag) res = res.filter(eventIsSingleGif);
+      return res.slice(0, limit);
+    }
+  } catch {}
+
   // Full-text profile search `p:<term>` (not only username)
-  const fullProfileMatch = query.match(/^p:(.+)$/i);
+  const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
@@ -72,9 +273,9 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // Check if the query is a direct npub
-  if (isNpub(query)) {
+  if (isNpub(cleanedQuery)) {
     try {
-      const pubkey = getPubkey(query);
+      const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
       return await subscribeAndCollect({
@@ -89,10 +290,10 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
-  const nip05Like = query.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+  const nip05Like = cleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
   if (nip05Like) {
     try {
-      const pubkey = await resolveNip05ToPubkey(query);
+      const pubkey = await resolveNip05ToPubkey(cleanedQuery);
       if (pubkey) {
         const profileEvt = await profileEventFromPubkey(pubkey);
         return [profileEvt];
@@ -101,11 +302,11 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
   }
 
   // Check for author filter
-  const authorMatch = query.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
+  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = query.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -149,23 +350,61 @@ export async function searchEvents(query: string, limit: number = 21): Promise<N
       filters.limit = Math.max(limit, 200);
     }
 
+    // Increase limit when we post-filter for media
+    if (hasImageFlag || hasVideoFlag || hasGifFlag || isImageFlag || isVideoFlag || isGifFlag) {
+      filters.limit = Math.max(filters.limit || limit, 200);
+    }
+
     console.log('Searching with filters:', filters);
-    return await subscribeAndCollect(filters);
+    {
+      const res = await subscribeAndCollect(filters);
+      let filtered = res;
+      if (hasImageFlag) filtered = filtered.filter(eventHasImage);
+      if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
+      if (hasGifFlag) filtered = filtered.filter(eventHasGif);
+      if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
+      if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
+      if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
+      return filtered.slice(0, limit);
+    }
   }
   
   // Regular search without author filter
   try {
-    const results = await subscribeAndCollect({
-      kinds: [1],
-      search: query,
-      limit
-    });
+    const imgTerms = [...IMAGE_EXTENSIONS];
+    const vidTerms = [...VIDEO_EXTENSIONS];
+
+    let results: NDKEvent[] = [];
+
+    // Seed search: if media flags present, OR-merge per extension, then post-filter to enforce AND semantics
+    const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
+    if (mediaFlagsPresent) {
+      const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
+      const seedResults = await searchByAnyTerms(terms, limit);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }) : [];
+      results = [...seedResults, ...baseQueryResults];
+    } else {
+      const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit });
+    }
     console.log('Search results:', {
-      query,
+      query: cleanedQuery,
       resultCount: results.length
     });
     
-    return results;
+    // Enforce AND: must match text and contain requested media
+    let filtered = results.filter((e, idx, arr) => {
+      // dedupe by id while mapping
+      const firstIdx = arr.findIndex((x) => x.id === e.id);
+      return firstIdx === idx;
+    });
+    if (hasImageFlag) filtered = filtered.filter(eventHasImage);
+    if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
+    if (hasGifFlag) filtered = filtered.filter(eventHasGif);
+    if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
+    if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
+    if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
+    return filtered.slice(0, limit);
   } catch (error) {
     console.error('Error fetching events:', error);
     return [];

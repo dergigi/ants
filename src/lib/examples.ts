@@ -1,16 +1,46 @@
 // Search examples that we'll randomly select from and test
 export const searchExamples = [
-  'p:fiatjaf',
+  // Basic
   'vibe coding',
   '#PenisButter',
-  'by:pablo ndk',
   '#YESTR',
-  '#YESTR by:gigi',
   '#SovEng',
-  '👀 by:gigi',
+  
+  // Author
+  'by:dergigi',
+  'by:gigi',
+  'by:pablo',
+  'by:corndalorian',
+
+  // Combined
   'GM by:dergigi',
+  '#YESTR by:dergigi',
+  '👀 by:dergigi',
   '.jpg by:corndalorian',
-  'GN author:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc'
+
+  // Direct npub
+  'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+
+  // Profile lookup / NIP-05
+  'p:fiatjaf',
+  'p:hodl',
+  '@dergigi.com',
+
+  // Operators & media
+  'bitcoin OR lightning',
+  'https://dergigi.com/vew',
+  'has:image',
+  'is:image',
+  'has:video',
+  'is:video',
+  'has:gif',
+  'is:gif',
+  // Mixed media + text
+  'GM has:video',
+  'Bitcoin has:images',
+  'meme has:gifs',
+  'by:dergigi has:image',
+  'by:HODL has:video'
 ] as const;
 
 // Helper type for type safety

@@ -22,12 +22,23 @@ A simple search interface for Nostr events.
 - `👀 by:dergigi` - Find events with 👀 from gigi
 - `.jpg by:corndalorian` - Find .jpg events from corndalorian
 
+### Operators & Media
+- `bitcoin OR lightning` - Match either
+- `https://dergigi.com/vew` - Exact URL match
+- `has:image` - Notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
+- `is:image` - Notes that are just a single image
+- `has:video` - Notes with any video (mp4, webm, ogg, ogv, mov, m4v)
+- `is:video` - Notes that are just a single video
+- `has:gif` - Notes with gif/gifs/apng
+- `is:gif` - Notes that are just a single gif/apng
+
 ### Direct NPUB Search
 - `npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` - Find events by direct npub
 - `GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` - Find "GN" messages by direct npub
 
 ### Profile Lookup
 - `p:fiatjaf` - Look up a profile
+- `@dergigi.com` - Resolve NIP-05
 
 ## Features
 

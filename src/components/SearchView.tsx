@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, ndk } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   initialQuery?: string;
@@ -72,7 +74,6 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
-  const profileUrl = `https://npub.world/${user.npub}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -89,18 +90,20 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
   }, [user]);
 
   const nip05Part = value ? (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-yellow-400'} hover:underline`}
+    <button
+      type="button"
+      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
-      {/* icons removed in SearchView badge to avoid duplicate imports; ProfileCard handles them */}
+      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-3 w-3" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </a>
+    </button>
   ) : (
-    <span className="text-gray-400">no NIP-05</span>
+    <span className="inline-flex items-center gap-1 text-yellow-400">
+      <FontAwesomeIcon icon={faCircleExclamation} className="h-3 w-3" />
+      <span className="text-gray-400">no NIP-05</span>
+    </span>
   );
 
   return (
@@ -117,7 +120,7 @@ function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (
       ) : (
         <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
       )}
-      <span className="text-sm truncate">{nip05Part}</span>
+      <span className="truncate">{nip05Part}</span>
     </div>
   );
 }
@@ -133,17 +136,73 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
+  const [avatarOverlap, setAvatarOverlap] = useState(false);
+  const searchRowRef = useRef<HTMLFormElement | null>(null);
+  const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
+  const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
+  const [rotationProgress, setRotationProgress] = useState(0);
+
+  function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
+    if (terms.length === 0) return events;
+    const effective = active.size > 0 ? Array.from(active) : terms;
+    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
+    return events.filter((evt) => {
+      const content = evt.content || '';
+      return termRegexes.some((rx) => rx.test(content));
+    });
+  }
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
+      setExpandedLabel(null);
+      setExpandedTerms([]);
+      setActiveFilters(new Set());
       return;
     }
 
     setLoading(true);
     try {
+      // compute expanded label/terms for media flags used without additional terms
+      const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
+      const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
+      const hasGif = /(?:^|\s)has:gif(?:\s|$)/i.test(searchQuery);
+      const isImage = /(?:^|\s)is:image(?:\s|$)/i.test(searchQuery);
+      const isVideo = /(?:^|\s)is:video(?:\s|$)/i.test(searchQuery);
+      const isGif = /(?:^|\s)is:gif(?:\s|$)/i.test(searchQuery);
+      const cleaned = searchQuery
+        .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
+        .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
+        .trim();
+
+      // Prepare local seeds to avoid relying on async state updates
+      let seedTerms: string[] = [];
+      let seedActive = new Set<string>();
+      if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
+        const imageTerms = ['png','jpg','jpeg','gif','gifs','apng','webp','avif','svg'];
+        const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
+        const gifTerms = ['gif','gifs','apng'];
+        seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
+        seedActive = new Set(seedTerms);
+        setExpandedLabel(seedTerms.join(' '));
+        setExpandedTerms(seedTerms);
+        setActiveFilters(seedActive);
+      } else {
+        setExpandedLabel(null);
+        setExpandedTerms([]);
+        setActiveFilters(new Set());
+      }
+
       const searchResults = await searchEvents(searchQuery);
-      setResults(searchResults);
+      setBaseResults(searchResults);
+      const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
+      setResults(filtered);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -173,6 +232,46 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     initializeNDK();
   }, [handleSearch, initialQuery]);
+
+  // Rotate placeholder when idle and show a small progress indicator
+  useEffect(() => {
+    if (query || loading) { setRotationProgress(0); return; }
+    let rafId = 0;
+    const ROTATION_MS = 7000;
+    let start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const p = Math.min(1, elapsed / ROTATION_MS);
+      setRotationProgress(p);
+      if (p >= 1) {
+        setPlaceholder(nextExample());
+        start = now;
+        setRotationProgress(0);
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(rafId); };
+  }, [query, loading]);
+
+  // Dynamically add right padding only when the fixed header avatar overlaps the search row
+  useEffect(() => {
+    const computeOverlap = () => {
+      const avatar = document.getElementById('header-avatar');
+      const row = document.getElementById('search-row');
+      if (!avatar || !row) { setAvatarOverlap(false); return; }
+      const a = avatar.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      const intersectsVertically = a.bottom > r.top && a.top < r.bottom;
+      const intersectsHorizontally = a.left < r.right && a.right > r.left;
+      setAvatarOverlap(intersectsVertically && intersectsHorizontally);
+    };
+    computeOverlap();
+    const onResize = () => computeOverlap();
+    window.addEventListener('resize', onResize);
+    const interval = setInterval(computeOverlap, 500);
+    return () => { window.removeEventListener('resize', onResize); clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (!manageUrl) return;
@@ -212,7 +311,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const extractImageUrls = (text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?!\w)/gi;
+    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
     while ((m = regex.exec(text)) !== null) {
@@ -234,73 +333,147 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return matches.slice(0, 2);
   };
 
+  const getFilenameFromUrl = (url: string): string => {
+    try {
+      const u = new URL(url);
+      const pathname = u.pathname || '';
+      const last = pathname.split('/').filter(Boolean).pop() || '';
+      return last;
+    } catch {
+      // Fallback for invalid URLs in content
+      const cleaned = url.split(/[?#]/)[0];
+      const parts = cleaned.split('/');
+      return parts[parts.length - 1] || url;
+    }
+  };
+
   const stripMediaUrls = (text: string): string => {
     if (!text) return '';
     const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
-      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
-      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
+      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
+      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
   const renderContentWithClickableHashtags = (content: string) => {
     const strippedContent = stripMediaUrls(content);
     if (!strippedContent) return null;
-    const parts = strippedContent.split(/(#\w+)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('#')) {
-        return (
-          <button
-            key={index}
-            onClick={() => {
-              const nextQuery = part;
-              setQuery(nextQuery);
-              if (manageUrl) {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set('q', nextQuery);
-                router.replace(`?${params.toString()}`);
-              }
-              handleSearch(nextQuery);
-            }}
-            className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-          >
-            {part}
-          </button>
-        );
-      }
-      if (part && part.trim()) {
-        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
-        const emojiParts = part.split(emojiRegex);
-        const emojis = part.match(emojiRegex) || [];
-        const result: (string | React.ReactNode)[] = [];
-        for (let i = 0; i < emojiParts.length; i++) {
-          if (emojiParts[i]) result.push(emojiParts[i]);
-          if (emojis[i]) {
-            result.push(
-              <button
-                key={`emoji-${index}-${i}`}
-                onClick={() => {
-                  const nextQuery = emojis[i] as string;
-                  setQuery(nextQuery);
-                  if (manageUrl) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set('q', nextQuery);
-                    router.replace(`?${params.toString()}`);
+
+    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+
+    const splitByUrls = strippedContent.split(urlRegex);
+    const finalNodes: (string | React.ReactNode)[] = [];
+
+    splitByUrls.forEach((segment, segIndex) => {
+      const isUrl = /^https?:\/\//i.test(segment);
+      if (isUrl) {
+        const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
+        finalNodes.push(
+          <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const nextQuery = cleanedUrl;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                // Perform exact search for URLs clicked in UI
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    setResults(searchResults);
+                  } catch (error) {
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
                   }
-                  handleSearch(nextQuery);
-                }}
-                className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-              >
-                {emojis[i]}
-              </button>
-            );
-          }
-        }
-        return result.length > 0 ? result : part;
+                })();
+              }}
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
+              title="Search for this URL"
+            >
+              {cleanedUrl}
+            </button>
+            <a
+              href={cleanedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open link in new tab"
+              className="opacity-80 hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+            </a>
+          </span>
+        );
+        return;
       }
-      return part;
+
+      // For non-URL text, process hashtags and emojis
+      const parts = segment.split(/(#\w+)/g);
+      parts.forEach((part, index) => {
+        if (part.startsWith('#')) {
+          finalNodes.push(
+            <button
+              key={`hashtag-${segIndex}-${index}`}
+              onClick={() => {
+                const nextQuery = part;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                handleSearch(nextQuery);
+              }}
+              className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+            >
+              {part}
+            </button>
+          );
+        } else if (part && part.trim()) {
+          const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
+          const emojiParts = part.split(emojiRegex);
+          const emojis = part.match(emojiRegex) || [];
+          for (let i = 0; i < emojiParts.length; i++) {
+            if (emojiParts[i]) finalNodes.push(emojiParts[i]);
+            if (emojis[i]) {
+              finalNodes.push(
+                <button
+                  key={`emoji-${segIndex}-${index}-${i}`}
+                  onClick={() => {
+                    const nextQuery = emojis[i] as string;
+                    setQuery(nextQuery);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', nextQuery);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    handleSearch(nextQuery);
+                  }}
+                  className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+                >
+                  {emojis[i]}
+                </button>
+              );
+            }
+          }
+        } else {
+          finalNodes.push(part);
+        }
+      });
     });
+
+    return finalNodes;
   };
 
   function getReplyToEventId(event: NDKEvent): string | null {
@@ -332,9 +505,36 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(event.content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(event.content).map((src) => (
-            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+            <button
+              key={src}
+              type="button"
+              title={getFilenameFromUrl(src)}
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
+              onClick={() => {
+                const filename = getFilenameFromUrl(src);
+                const nextQuery = filename;
+                setQuery(filename);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', filename);
+                  router.replace(`?${params.toString()}`);
+                }
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    setResults(searchResults);
+                  } catch (error) {
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
+              }}
+            >
               <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -397,7 +597,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   return (
     <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
-      <form onSubmit={handleSubmit} className={`w-full ${manageUrl ? 'pr-16' : ''}`} id="search-row">
+      <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <input
@@ -414,6 +614,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
+                  setExpandedLabel(null);
+                  setExpandedTerms([]);
+                  setActiveFilters(new Set());
+                  setBaseResults([]);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
@@ -426,11 +630,43 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 ×
               </button>
             )}
+            {!query && !loading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5">
+                <svg viewBox="0 0 36 36" className="w-5 h-5">
+                  <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
+                  <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
+                    strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
+                </svg>
+              </div>
+            )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
+        {expandedLabel && expandedTerms.length > 0 && (
+          <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
+            {expandedTerms.map((term, i) => {
+              const active = activeFilters.has(term);
+              return (
+                <button
+                  key={`${term}-${i}`}
+                  type="button"
+                  className={`px-1.5 py-0.5 rounded border ${active ? 'bg-[#3a3a3a] border-[#4a4a4a] text-gray-100' : 'bg-[#2d2d2d] border-[#3d3d3d] text-gray-300'} hover:bg-[#3a3a3a]`}
+                  onClick={() => {
+                    const next = new Set(activeFilters);
+                    if (active) next.delete(term); else next.add(term);
+                    setActiveFilters(next);
+                    const filtered = applyClientFilters(baseResults, expandedTerms, next);
+                    setResults(filtered);
+                  }}
+                >
+                  <span className="font-mono">{term}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </form>
 
       {results.length > 0 && (
@@ -456,7 +692,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
-                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
                         {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
                       </a>
                     </div>
