@@ -547,7 +547,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
               <div key={key}>
                 {parentId && renderParentChain(event)}
                 {event.kind === 0 ? (
-                  <ProfileCard event={event} onAuthorClick={goToProfile} />
+                  <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
                 ) : (
                   <div className={noteCardClasses}>{renderNoteBody(event)}</div>
                 )}

@@ -72,13 +72,13 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubk
   );
 }
 
-export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent; onAuthorClick?: (npub: string) => void }) {
+export default function ProfileCard({ event, onAuthorClick, showBanner = false }: { event: NDKEvent; onAuthorClick?: (npub: string) => void; showBanner?: boolean }) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   const bannerUrl = (event.author.profile as any)?.banner || (event.author.profile as any)?.cover || (event.author.profile as any)?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   return (
     <div className={noteCardClasses}>
-      {bannerUrl && (
+      {showBanner && bannerUrl && (
         <button
           type="button"
           onClick={() => setBannerExpanded((prev) => !prev)}
@@ -90,13 +90,7 @@ export default function ProfileCard({ event, onAuthorClick }: { event: NDKEvent;
             className="relative w-full overflow-hidden border-b border-[#3d3d3d]"
             style={{ height: bannerExpanded ? 240 : 21 }}
           >
-            <Image
-              src={bannerUrl}
-              alt="Banner"
-              fill
-              className={`object-cover ${bannerExpanded ? '' : 'grayscale'}`}
-              unoptimized
-            />
+            <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
           </div>
         </button>
       )}

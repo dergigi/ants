@@ -150,20 +150,10 @@ export default function ProfilePage() {
   }, [npub]);
 
   return (
-    <main className="relative min-h-screen bg-[#1a1a1a] text-gray-100 overflow-hidden">
-      {user ? (() => {
-        const p = (user.profile as any) || {};
-        const bannerUrl = p.banner || p.header || p.cover || p.image || p.picture;
-        return bannerUrl ? (
-          <div className="pointer-events-none absolute inset-0 -z-10">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerUrl})` }} />
-            <div className="absolute inset-0 bg-black/40" />
-          </div>
-        ) : null;
-      })() : null}
-      <div className="relative z-10 max-w-2xl mx-auto px-4 pt-6 space-y-4">
+    <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
+      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
         {profileEvent ? (
-          <ProfileCard event={profileEvent} onAuthorClick={(n) => {}} />
+          <ProfileCard event={profileEvent} onAuthorClick={(n) => {}} showBanner={true} />
         ) : null}
 
         {npub ? (
