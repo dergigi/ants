@@ -417,7 +417,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
     });
   }
 
-  const renderNoteBody = (event: NDKEvent) => (
+  const renderNoteContent = (event: NDKEvent) => (
     <>
       <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(event.content)}</p>
       {extractImageUrls(event.content).length > 0 && (
@@ -441,14 +441,6 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
           ))}
         </div>
       )}
-      <div className="mt-2 flex justify-between items-center text-sm text-gray-400">
-        <div className="flex items-center gap-2">
-          <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
-        </div>
-        <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
-          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-        </a>
-      </div>
     </>
   );
 
@@ -488,7 +480,7 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
       <>
         {renderParentChain(parentEvent, isTop)}
         <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
-          {renderNoteBody(parentEvent)}
+          {renderNoteContent(parentEvent)}
         </div>
       </>
     );
@@ -549,7 +541,17 @@ export default function SearchView({ initialQuery, manageUrl = true }: Props) {
                 {event.kind === 0 ? (
                   <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
                 ) : (
-                  <div className={noteCardClasses}>{renderNoteBody(event)}</div>
+                  <div className={noteCardClasses}>
+                    {renderNoteContent(event)}
+                    <div className="mt-4 text-xs text-gray-300 bg-[#1f1f1f] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg">
+                      <div className="flex items-center gap-2">
+                        <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
+                      </div>
+                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                      </a>
+                    </div>
+                  </div>
                 )}
               </div>
             );
