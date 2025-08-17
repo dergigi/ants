@@ -17,6 +17,8 @@
 - [x] Add shorthand to find notes that are one single image `is:image`
 - [x] Same for videos (`has:video` and `is:video`)
 - [x] Same for gifs (`has:gif` and `is:gif`)
+- [ ] Add more examples to pre-fill search field
+- [ ] Show different examples periodically for discovery
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
 - [ ] Add support for `is:blog` aka `kind:30023`
@@ -24,8 +26,6 @@
 - [ ] Render embedded `nostr:nevent` notes properly
 - [ ] Replace embedded `npubs` with usernames
 - [ ] Ensure that navigation stack is built up correctly (so that user can navigate back)
-- [ ] Add more examples to pre-fill search field
-- [ ] Show different examples periodically for discovery
 - [ ] Allow to search specific relays with `relay:nostr.einundzwanzig.space`
 - [ ] Allow to scope search to my relays only `relays:mine`
 - [ ] Allow to scope search to only my follows `scope:follows`

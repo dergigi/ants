@@ -38,6 +38,7 @@ A simple search interface for Nostr events.
 
 ### Profile Lookup
 - `p:fiatjaf` - Look up a profile
+- `@dergigi.com` - Resolve NIP-05
 
 ## Features
 
