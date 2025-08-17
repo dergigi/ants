@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { connect, getCurrentExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import { getOldestProfileMetadata } from '@/lib/vertex';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -317,6 +318,52 @@ function SearchComponent() {
     );
   };
 
+  function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number }) {
+    const [createdAt, setCreatedAt] = useState<number | null>(null);
+    const [eventId, setEventId] = useState<string | null>(null);
+
+    useEffect(() => {
+      let isMounted = true;
+      (async () => {
+        try {
+          const oldest = await getOldestProfileMetadata(pubkey);
+          if (!isMounted) return;
+          if (oldest) {
+            setCreatedAt(oldest.created_at || null);
+            setEventId(oldest.id || null);
+          } else {
+            setCreatedAt(fallbackCreatedAt || null);
+            setEventId(fallbackEventId || null);
+          }
+        } catch {
+          if (!isMounted) return;
+          setCreatedAt(fallbackCreatedAt || null);
+          setEventId(fallbackEventId || null);
+        }
+      })();
+      return () => { isMounted = false; };
+    }, [pubkey, fallbackCreatedAt, fallbackEventId]);
+
+    if (!createdAt || !eventId) {
+      return (
+        <div className="mt-2 flex justify-end items-center text-sm text-gray-400">Unknown date</div>
+      );
+    }
+
+    return (
+      <div className="mt-2 flex justify-end items-center text-sm text-gray-400">
+        <a
+          href={`https://njump.me/${nip19.neventEncode({ id: eventId })}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {formatDate(createdAt)}
+        </a>
+      </div>
+    );
+  }
+
   // Loading animation effect
   useEffect(() => {
     if (!isConnecting) return;
@@ -576,16 +623,7 @@ function SearchComponent() {
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
                     )}
-                    <div className="mt-2 flex justify-end items-center text-sm text-gray-400">
-                      <a
-                        href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </a>
-                    </div>
+                    <ProfileCreatedAt pubkey={event.author.pubkey} fallbackEventId={event.id} fallbackCreatedAt={event.created_at} />
                   </div>
                 ) : (
                   // Regular note

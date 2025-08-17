@@ -229,6 +229,23 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   }
 } 
 
+export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
+  try {
+    const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 4000 }, 6000);
+    if (!events || events.length === 0) return null;
+    let oldest: NDKEvent | null = null;
+    for (const e of events) {
+      if (!oldest || ((e.created_at || Number.MAX_SAFE_INTEGER) < (oldest.created_at || Number.MAX_SAFE_INTEGER))) {
+        oldest = e;
+      }
+    }
+    if (!oldest) return null;
+    return { id: oldest.id, created_at: oldest.created_at as number };
+  } catch {
+    return null;
+  }
+}
+
 async function getDirectFollows(pubkey: string): Promise<Set<string>> {
   const events = await subscribeAndCollectProfiles({ kinds: [3], authors: [pubkey], limit: 1 });
   const follows = new Set<string>();
