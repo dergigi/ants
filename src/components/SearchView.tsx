@@ -202,7 +202,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const searchResults = await searchEvents(searchQuery);
       setBaseResults(searchResults);
       const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
-      setResults(filtered.length > 0 ? filtered : searchResults);
+      setResults(filtered);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -628,7 +628,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     if (active) next.delete(term); else next.add(term);
                     setActiveFilters(next);
                     const filtered = applyClientFilters(baseResults, expandedTerms, next);
-                    setResults(filtered.length > 0 ? filtered : baseResults);
+                    setResults(filtered);
                   }}
                 >
                   <span className="font-mono">{term}</span>
