@@ -652,23 +652,28 @@ function SearchComponent() {
                 {event.kind === 0 ? (
                   // Profile metadata
                   <div className={noteCardClasses}>
-                    {event.author?.npub && (
-                      <span className="absolute top-2 right-3 text-xs text-gray-400 font-mono select-text" title={event.author.npub}>
-                        {`${event.author.npub.slice(0, 8)}…${event.author.npub.slice(-8)}`}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-4">
-                      {event.author.profile?.image && (
-                        <Image 
-                          src={event.author.profile.image}
-                          alt="Profile" 
-                          width={64}
-                          height={64}
-                          className="rounded-full"
-                          unoptimized
-                        />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {event.author.profile?.image && (
+                          <Image 
+                            src={event.author.profile.image}
+                            alt="Profile" 
+                            width={64}
+                            height={64}
+                            className="rounded-full"
+                            unoptimized
+                          />
+                        )}
+                        <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
+                      </div>
+                      {event.author?.npub && (
+                        <span
+                          className="text-sm text-gray-400 select-text truncate max-w-[50%] text-right"
+                          title={event.author.npub}
+                        >
+                          {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+                        </span>
                       )}
-                      <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                     </div>
                     {event.author.profile?.about && (
                       <p className="mt-4 text-gray-300">{event.author.profile.about}</p>
