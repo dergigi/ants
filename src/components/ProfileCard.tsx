@@ -135,7 +135,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 type="button"
                 aria-label="Minimize"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a] text-gray-200 border border-[#4a4a4a] shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a] hover:border-[#5a5a5a] focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/50"
+                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 –
               </button>
@@ -143,7 +143,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 type="button"
                 aria-label="Maximize"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(true); }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a] text-gray-200 border border-[#4a4a4a] shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a] hover:border-[#5a5a5a] focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/50"
+                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ▢
               </button>
@@ -151,7 +151,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 type="button"
                 aria-label="Close"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a] text-gray-200 border border-[#4a4a4a] shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a] hover:border-[#5a5a5a] focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/50"
+                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ×
               </button>
