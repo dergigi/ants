@@ -21,6 +21,11 @@ let currentSearchExample: string;
 
 export const getCurrentExample = () => currentSearchExample;
 
+export const nextExample = (): string => {
+  currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
+  return currentSearchExample;
+};
+
 export const connect = async () => {
   await ndk.connect();
   // Select a random example when we connect

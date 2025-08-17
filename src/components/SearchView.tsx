@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, ndk } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -244,7 +244,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const p = Math.min(1, elapsed / ROTATION_MS);
       setRotationProgress(p);
       if (p >= 1) {
-        setPlaceholder(getCurrentExample());
+        setPlaceholder(nextExample());
         start = now;
         setRotationProgress(0);
       }
