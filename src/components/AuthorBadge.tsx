@@ -80,16 +80,15 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   }, [user]);
 
   const nip05Part = value ? (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
       className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
       title={value}
     >
       <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
       <span className="truncate max-w-[14rem]">{value}</span>
-    </a>
+    </button>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
       <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
