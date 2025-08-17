@@ -236,6 +236,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return matches.slice(0, 2);
   };
 
+  const getFilenameFromUrl = (url: string): string => {
+    try {
+      const u = new URL(url);
+      const pathname = u.pathname || '';
+      const last = pathname.split('/').filter(Boolean).pop() || '';
+      return last;
+    } catch {
+      // Fallback for invalid URLs in content
+      const cleaned = url.split(/[?#]/)[0];
+      const parts = cleaned.split('/');
+      return parts[parts.length - 1] || url;
+    }
+  };
+
   const stripMediaUrls = (text: string): string => {
     if (!text) return '';
     const cleaned = text
@@ -397,14 +411,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <button
               key={src}
               type="button"
-              title="Search for this image URL"
+              title="Search for this image filename"
               className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
               onClick={() => {
-                const nextQuery = src;
-                setQuery(nextQuery);
+                const filename = getFilenameFromUrl(src);
+                const nextQuery = filename;
+                setQuery(filename);
                 if (manageUrl) {
                   const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
+                  params.set('q', filename);
                   router.replace(`?${params.toString()}`);
                 }
                 (async () => {
