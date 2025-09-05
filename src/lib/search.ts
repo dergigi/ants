@@ -68,6 +68,20 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
+    // Debug: which relays are we querying?
+    try {
+      const relaysContainer: any = (relaySet as any).relays ?? (relaySet as any).relayUrls;
+      const relayEntries: any[] = Array.isArray(relaysContainer)
+        ? relaysContainer
+        : relaysContainer && (relaysContainer instanceof Set || relaysContainer instanceof Map)
+          ? Array.from(relaysContainer.values?.() ?? relaysContainer)
+          : [];
+      const relayUrls = relayEntries
+        .map((r: any) => r?.url || r?.relay?.url || r)
+        .filter((u: any) => typeof u === 'string');
+      console.log('Subscribing with filter on relays:', { relayUrls, filter });
+    } catch {}
+
     const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, relaySet);
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
@@ -129,7 +143,9 @@ async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
             urls.add(normalized);
           }
         }
-        resolve(Array.from(urls));
+        const arr = Array.from(urls);
+        console.log('Discovered user relays from kind 10002:', { count: arr.length, relays: arr });
+        resolve(arr);
       });
       sub.start();
     });
@@ -274,6 +290,13 @@ export async function searchEvents(
     : (relayCandidates.length > 0
       ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
       : searchRelaySet);
+  if (relayCandidates.length > 0) {
+    console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
+  } else if (!relaySetOverride) {
+    console.log('Using default search relay set (nostr.band)');
+  } else {
+    console.log('Using provided relay set override');
+  }
 
   // Detect and strip media flags; apply post-filter later
   const relayStripped = relayExtraction.cleaned;
