@@ -27,6 +27,42 @@ const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
 
+// Extract relay filters from the raw query string
+function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: string[]; useMyRelays: boolean } {
+  let cleaned = rawQuery;
+  const relayUrls: string[] = [];
+  let useMyRelays = false;
+
+  // relay:<host-or-url>
+  const relayRegex = /(?:^|\s)relay:([^\s]+)(?:\s|$)/gi;
+  cleaned = cleaned.replace(relayRegex, (_, hostOrUrl: string) => {
+    const value = (hostOrUrl || '').trim();
+    if (value) relayUrls.push(value);
+    return ' ';
+  });
+
+  // relays:mine
+  const relaysMineRegex = /(?:^|\s)relays:mine(?:\s|$)/gi;
+  if (relaysMineRegex.test(cleaned)) {
+    useMyRelays = true;
+    cleaned = cleaned.replace(relaysMineRegex, ' ');
+  }
+
+  // Normalize relay URLs
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const r of relayUrls) {
+    const hasScheme = /^wss?:\/\//i.test(r);
+    const url = hasScheme ? r : `wss://${r}`;
+    if (!seen.has(url)) {
+      seen.add(url);
+      normalized.push(url);
+    }
+  }
+
+  return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
+}
+
 async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
