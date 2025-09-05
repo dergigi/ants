@@ -264,7 +264,7 @@ export function parseOrQuery(query: string): string[] {
 
 export async function searchEvents(
   query: string,
-  limit: number = 21,
+  limit: number = 200,
   options?: { exact?: boolean },
   relaySetOverride?: NDKRelaySet
 ): Promise<NDKEvent[]> {
@@ -357,7 +357,7 @@ export async function searchEvents(
       const results = await subscribeAndCollect({
         kinds: [1],
         search: `"${cleanedQuery}"`,
-        limit
+        limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet);
       let res = results;
       if (hasImageFlag) res = res.filter(eventHasImage);
@@ -393,7 +393,7 @@ export async function searchEvents(
       return await subscribeAndCollect({
         kinds: [1],
         authors: [pubkey],
-        limit
+        limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet);
     } catch (error) {
       console.error('Error processing npub query:', error);
@@ -451,7 +451,7 @@ export async function searchEvents(
     const filters: NDKFilter = {
       kinds: [1],
       authors: [pubkey],
-      limit
+      limit: Math.max(limit, 200)
     };
 
     // Add search term to the filter if present
@@ -497,7 +497,7 @@ export async function searchEvents(
       results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit }, 8000, chosenRelaySet);
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit: Math.max(limit, 200) }, 8000, chosenRelaySet);
     }
     console.log('Search results:', {
       query: cleanedQuery,
