@@ -1,5 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
+import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 
@@ -63,11 +64,11 @@ function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: st
   return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
 }
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
+async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, searchRelaySet);
+    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, relaySet);
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -88,19 +89,53 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000):
   });
 }
 
-async function searchByAnyTerms(terms: string[], limit: number): Promise<NDKEvent[]> {
+async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet): Promise<NDKEvent[]> {
   // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
-      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) });
+      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) }, 8000, relaySet);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
     } catch {}
   }
   return merged;
+}
+
+async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
+  try {
+    const pubkey = getStoredPubkey();
+    if (!pubkey) return [];
+
+    return await new Promise<string[]>((resolve) => {
+      let latest: NDKEvent | null = null;
+      const sub = ndk.subscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
+      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve([]); }, timeoutMs);
+      sub.on('event', (e: NDKEvent) => {
+        if (!latest || ((e.created_at || 0) > (latest.created_at || 0))) {
+          latest = e;
+        }
+      });
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        if (!latest) return resolve([]);
+        const urls = new Set<string>();
+        for (const tag of latest.tags as unknown as string[][]) {
+          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+            const raw = tag[1];
+            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
+            urls.add(normalized);
+          }
+        }
+        resolve(Array.from(urls));
+      });
+      sub.start();
+    });
+  } catch {
+    return [];
+  }
 }
 
 function isNpub(str: string): boolean {
@@ -214,7 +249,8 @@ export function parseOrQuery(query: string): string[] {
 export async function searchEvents(
   query: string,
   limit: number = 21,
-  options?: { exact?: boolean }
+  options?: { exact?: boolean },
+  relaySetOverride?: NDKRelaySet
 ): Promise<NDKEvent[]> {
   // Ensure we're connected before issuing any queries
   try {
@@ -223,14 +259,31 @@ export async function searchEvents(
     console.warn('NDK connect failed or already connected:', e);
   }
 
+  // Extract relay filters and prepare relay set
+  const relayExtraction = extractRelayFilters(query);
+  const relayCandidates: string[] = [];
+  if (!relaySetOverride) {
+    if (relayExtraction.useMyRelays) {
+      const mine = await getUserRelayUrls();
+      for (const u of mine) relayCandidates.push(u);
+    }
+    for (const u of relayExtraction.relayUrls) relayCandidates.push(u);
+  }
+  const chosenRelaySet: NDKRelaySet = relaySetOverride
+    ? relaySetOverride
+    : (relayCandidates.length > 0
+      ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
+      : searchRelaySet);
+
   // Detect and strip media flags; apply post-filter later
-  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(query);
-  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(query);
-  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(query);
-  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(query);
-  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(query);
-  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(query);
-  const cleanedQuery = query
+  const relayStripped = relayExtraction.cleaned;
+  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(relayStripped);
+  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(relayStripped);
+  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(relayStripped);
+  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(relayStripped);
+  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(relayStripped);
+  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(relayStripped);
+  const cleanedQuery = relayStripped
     .replace(/(?:^|\s)has:images?(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)has:videos?(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)has:gifs?(?:\s|$)/gi, ' ')
@@ -249,7 +302,7 @@ export async function searchEvents(
     // Process each part of the OR query
     for (const part of orParts) {
       try {
-        const partResults = await searchEvents(part, limit, options);
+        const partResults = await searchEvents(part, limit, options, chosenRelaySet);
         for (const event of partResults) {
           if (!seenIds.has(event.id)) {
             seenIds.add(event.id);
@@ -282,7 +335,7 @@ export async function searchEvents(
         kinds: [1],
         search: `"${cleanedQuery}"`,
         limit
-      });
+      }, 8000, chosenRelaySet);
       let res = results;
       if (hasImageFlag) res = res.filter(eventHasImage);
       if (hasVideoFlag) res = res.filter(eventHasVideo);
@@ -318,7 +371,7 @@ export async function searchEvents(
         kinds: [1],
         authors: [pubkey],
         limit
-      });
+      }, 8000, chosenRelaySet);
     } catch (error) {
       console.error('Error processing npub query:', error);
       return [];
@@ -393,7 +446,7 @@ export async function searchEvents(
 
     console.log('Searching with filters:', filters);
     {
-      const res = await subscribeAndCollect(filters);
+      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet);
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
@@ -416,12 +469,12 @@ export async function searchEvents(
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
     if (mediaFlagsPresent) {
       const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      const seedResults = await searchByAnyTerms(terms, limit);
-      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }) : [];
+      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet) : [];
       results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit });
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit }, 8000, chosenRelaySet);
     }
     console.log('Search results:', {
       query: cleanedQuery,
