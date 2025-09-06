@@ -756,8 +756,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </div>
             )}
             {/* Connection status indicator */}
-            {!query && !loading && connectionStatus !== 'connecting' && (
-              <div className="absolute right-10 top-1/2 -translate-y-1/2 w-2 h-2">
+            {!loading && connectionStatus !== 'connecting' && (
+              <div className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 ${query ? 'right-10' : 'right-10'}`}>
                 <div className={`w-2 h-2 rounded-full ${
                   connectionStatus === 'connected' ? 'bg-green-400' : 
                   connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
