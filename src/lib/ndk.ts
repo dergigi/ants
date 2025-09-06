@@ -4,6 +4,7 @@ import { searchExamples } from './examples';
 
 const RELAYS = [
   'wss://relay.primal.net',
+  'wss://relay.snort.social',
   'wss://relay.nostr.band',
   'wss://relay.vertexlab.io',
   'wss://purplepag.es'
