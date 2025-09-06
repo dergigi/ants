@@ -40,7 +40,11 @@ export const searchExamples = [
   'Bitcoin has:images',
   'meme has:gifs',
   'by:dergigi has:image',
-  'by:HODL has:video'
+  'by:HODL has:video',
+
+  // Relay filters
+  'relay:nostr.einundzwanzig.space bitcoin',
+  'relays:mine by:dergigi'
 ] as const;
 
 // Helper type for type safety
