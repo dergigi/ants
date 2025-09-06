@@ -7,7 +7,6 @@ export const RELAYS = {
   DEFAULT: [
     'wss://relay.snort.social',
     'wss://relay.ditto.pub',
-    'wss://feeds.nostr.band/',
     'wss://search.nos.today',
     'wss://ditto.slothy.win/relay',
     'wss://ditto.nsnip.io/relay',
@@ -24,7 +23,6 @@ export const RELAYS = {
   SEARCH: [
     'wss://relay.ditto.pub',
     'wss://search.nos.today',
-    'wss://feeds.nostr.band/',
     'wss://index.hzrd149.com/'
   ],
 
