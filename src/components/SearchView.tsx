@@ -409,7 +409,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
     if (!details) return 'Connection status unknown';
     
-    const { connectedRelays, failedRelays, timeout } = details;
+    const { connectedRelays, failedRelays } = details;
     const connectedCount = connectedRelays.length;
     const failedCount = failedRelays.length;
     

@@ -1,6 +1,6 @@
 import NDK from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
-import { searchExamples, getFilteredExamples } from './examples';
+import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 

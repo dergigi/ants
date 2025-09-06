@@ -61,7 +61,7 @@ export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {
   
   // Filter out login-required examples
   return searchExamples.filter(example => 
-    !loginRequiredExamples.includes(example as any)
+    !(loginRequiredExamples as readonly string[]).includes(example)
   );
 }
 
