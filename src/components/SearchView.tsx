@@ -153,6 +153,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
   const [rotationProgress, setRotationProgress] = useState(0);
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -291,6 +292,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       } else {
         setConnectionStatus('timeout');
       }
+      // Auto-hide connection details when status changes
+      setShowConnectionDetails(false);
     };
 
     addConnectionStatusListener(handleConnectionStatusChange);
@@ -758,18 +761,82 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
             {/* Connection status indicator */}
             {!loading && connectionStatus !== 'connecting' && (
-              <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-12' : 'right-10'}`}>
+              <button
+                type="button"
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-12' : 'right-10'} touch-manipulation`}
+                onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+                title={formatConnectionTooltip(connectionDetails)}
+              >
                 <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
                   connectionStatus === 'connected' ? 'bg-green-400' : 
                   connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                }`} title={formatConnectionTooltip(connectionDetails)} />
-              </div>
+                }`} />
+              </button>
             )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
+        
+        {/* Expandable connection details for mobile */}
+        {showConnectionDetails && connectionDetails && (
+          <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-medium text-gray-200">Relay Connection Status</span>
+              <button
+                type="button"
+                onClick={() => setShowConnectionDetails(false)}
+                className="text-gray-400 hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {connectionDetails.timeout && (
+              <div className="mb-2 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded text-yellow-200">
+                ⚠️ Connection timeout (5s)
+              </div>
+            )}
+            
+            {connectionDetails.connectedRelays.length > 0 && (
+              <div className="mb-2">
+                <div className="text-green-400 font-medium mb-1">
+                  ✅ Connected ({connectionDetails.connectedRelays.length})
+                </div>
+                <div className="space-y-1">
+                  {connectionDetails.connectedRelays.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">
+                      • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {connectionDetails.failedRelays.length > 0 && (
+              <div>
+                <div className="text-red-400 font-medium mb-1">
+                  ❌ Failed ({connectionDetails.failedRelays.length})
+                </div>
+                <div className="space-y-1">
+                  {connectionDetails.failedRelays.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">
+                      • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {connectionDetails.connectedRelays.length === 0 && connectionDetails.failedRelays.length === 0 && (
+              <div className="text-gray-400">
+                No relay connection information available
+              </div>
+            )}
+          </div>
+        )}
+        
         {expandedLabel && expandedTerms.length > 0 && (
           <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
             {expandedTerms.map((term, i) => {
