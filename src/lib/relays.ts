@@ -5,14 +5,29 @@ import { ndk } from './ndk';
 export const RELAYS = {
   // Default relays for general NDK connection
   DEFAULT: [
-    'wss://relay.primal.net',
     'wss://relay.snort.social',
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://feeds.nostr.band/',
+    'wss://search.nos.today',
+    'wss://relay.nostr.band',
+    'wss://ditto.slothy.win/relay',
+    'wss://ditto.nsnip.io/relay',
+    'wss://seewaan.com/relay',
+    'wss://nostr.me/relay',
+    'wss://relay.gathr.gives/',
+    'wss://prod.mosavi.io/v1/ws',
+    'wss://cfrelay.royalgarter.workers.dev/',
+    'wss://cfrelay.puhcho.workers.dev/',
+    'wss://index.hzrd149.com/'
   ],
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://search.nos.today',
+    'wss://relay.nostr.band',
+    'wss://feeds.nostr.band/',
+    'wss://index.hzrd149.com/'
   ],
 
   // Profile search relays (NIP-50 capable)
