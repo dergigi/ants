@@ -79,10 +79,10 @@ function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: st
 }
 
 async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
-  return new Promise<NDKEvent[]>((resolve, reject) => {
+  return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
     if (abortSignal?.aborted) {
-      reject(new Error('Search aborted'));
+      resolve([]);
       return;
     }
 
@@ -113,7 +113,11 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
     const abortHandler = () => {
       try { sub.stop(); } catch {}
       clearTimeout(timer);
-      reject(new Error('Search aborted'));
+      if (abortSignal) {
+        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
+      }
+      // Resolve with whatever we have so far (partial results) instead of rejecting
+      resolve(Array.from(collected.values()));
     };
 
     if (abortSignal) {
