@@ -99,7 +99,7 @@ export function markRelayActivity(relayUrl: string): void {
   recentRelayActivity.set(relayUrl, Date.now());
 }
 
-const ACTIVITY_WINDOW_MS = 60_000; // consider relays active if they delivered events in the last 60s
+const ACTIVITY_WINDOW_MS = 15 * 60 * 1000; // consider relays active if they delivered events in the last 15min
 
 // Public helper to get recently active relay urls
 export function getRecentlyActiveRelays(windowMs: number = ACTIVITY_WINDOW_MS): string[] {

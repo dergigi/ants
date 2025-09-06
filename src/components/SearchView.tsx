@@ -840,7 +840,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               return (
                 <div className="mb-2">
                   <div className="text-green-400 font-medium mb-1">
-                    ✅ Reachable or active (60s) ({combined.length})
+                    ✅ Reachable or active (15min) ({combined.length})
                   </div>
                   <div className="space-y-1">
                     {combined.map((relay, idx) => (
