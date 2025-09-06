@@ -493,7 +493,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 (async () => {
                   setLoading(true);
                   try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
                     // Don't log aborted searches as errors
@@ -633,7 +633,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 (async () => {
                   setLoading(true);
                   try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
                     // Don't log aborted searches as errors
