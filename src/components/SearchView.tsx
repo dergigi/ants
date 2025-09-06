@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
@@ -280,6 +280,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     initializeNDK();
   }, [handleSearch, initialQuery]);
+
+  // Listen for connection status changes
+  useEffect(() => {
+    const handleConnectionStatusChange = (status: ConnectionStatus) => {
+      setConnectionDetails(status);
+      if (status.success) {
+        setConnectionStatus('connected');
+      } else {
+        setConnectionStatus('timeout');
+      }
+    };
+
+    addConnectionStatusListener(handleConnectionStatusChange);
+    
+    return () => {
+      removeConnectionStatusListener(handleConnectionStatusChange);
+    };
+  }, []);
 
   // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
