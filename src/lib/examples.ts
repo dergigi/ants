@@ -44,10 +44,8 @@ export const searchExamples = [
 
   // Relay filters
   'relay:nostr.einundzwanzig.space bitcoin',
-  'relay:pyramid.fiatjaf.com nostr',
-  'relay:wot.dergigi.com 😂',
   'relays:mine by:dergigi',
-  'touch grass relay:relay.primal.net'
+  'PV relay:relay.ditto.pub'
 ] as const;
 
 // Helper type for type safety
