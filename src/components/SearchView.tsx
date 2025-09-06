@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
@@ -154,6 +154,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -294,6 +295,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
       // Auto-hide connection details when status changes
       setShowConnectionDetails(false);
+      // Refresh recently active relays on changes
+      setRecentlyActive(getRecentlyActiveRelays());
     };
 
     addConnectionStatusListener(handleConnectionStatusChange);
@@ -302,6 +305,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       removeConnectionStatusListener(handleConnectionStatusChange);
     };
   }, []);
+
+  // Periodically refresh recently active relays while panel open
+  useEffect(() => {
+    if (!showConnectionDetails) return;
+    setRecentlyActive(getRecentlyActiveRelays());
+    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 5000);
+    return () => clearInterval(id);
+  }, [showConnectionDetails]);
+
+  function RecentlyActiveRelays() {
+    if (!recentlyActive || recentlyActive.length === 0) return null;
+    return (
+      <div className="mt-3 pt-3 border-t border-[#3d3d3d]">
+        <div className="text-gray-300 font-medium mb-1">Recently active (60s)</div>
+        <div className="space-y-1">
+          {recentlyActive.map((relay, idx) => (
+            <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
@@ -834,6 +859,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 No relay connection information available
               </div>
             )}
+
+            {/* Recently active relays (by delivered events) */}
+            <RecentlyActiveRelays />
           </div>
         )}
         

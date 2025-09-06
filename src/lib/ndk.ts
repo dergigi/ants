@@ -101,29 +101,27 @@ export function markRelayActivity(relayUrl: string): void {
 
 const ACTIVITY_WINDOW_MS = 60_000; // consider relays active if they delivered events in the last 60s
 
+// Public helper to get recently active relay urls
+export function getRecentlyActiveRelays(windowMs: number = ACTIVITY_WINDOW_MS): string[] {
+  const now = Date.now();
+  const urls: string[] = [];
+  for (const [url, ts] of recentRelayActivity.entries()) {
+    if (now - ts <= windowMs) urls.push(url);
+  }
+  // Sort for stable UI (by hostname)
+  return urls.sort((a, b) => a.localeCompare(b));
+}
+
 const checkRelayStatus = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
   const failedRelays: string[] = [];
   
-  // Check all relays that NDK is actually connected to (not just our predefined ones)
-  const allRelayUrls = new Set<string>([
-    ...(ndk.pool?.relays ? Array.from(ndk.pool.relays.keys()) : []),
-    ...Array.from(recentRelayActivity.keys())
-  ]);
+  // Check all relays that NDK currently knows about (pool relays)
+  const allRelayUrls = ndk.pool?.relays ? Array.from(ndk.pool.relays.keys()) : [];
 
-  const now = Date.now();
   for (const url of allRelayUrls) {
     try {
       const relay = ndk.pool?.relays?.get(url);
-      const lastActivity = recentRelayActivity.get(url) ?? 0;
-      const isRecentlyActive = lastActivity > 0 && (now - lastActivity) <= ACTIVITY_WINDOW_MS;
-
-      // If a relay has delivered events recently, consider it connected regardless of ws status
-      if (isRecentlyActive) {
-        connectedRelays.push(url);
-        continue;
-      }
-
       if (relay) {
         // 0 = connecting, 1 = connected, 2 = disconnected, 3 = reconnecting
         if (relay.status === 1) {
@@ -133,7 +131,7 @@ const checkRelayStatus = (): ConnectionStatus => {
         }
         // For 0/3 we neither add to failed nor connected
       } else {
-        // Only mark as failed if we know about it and it hasn't been active recently
+        // Relay not found in pool: mark as failed
         failedRelays.push(url);
       }
     } catch {
