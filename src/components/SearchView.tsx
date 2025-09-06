@@ -8,6 +8,7 @@ import { searchEvents } from '@/lib/search';
 // Type for NDKEvent with relay source
 interface NDKEventWithRelaySource extends NDKEvent {
   relaySource?: string;
+  relaySources?: string[]; // Track all relays where this event was found
 }
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -821,7 +822,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
                         </a>
-                        <RelayBadge relayUrl={(event as NDKEventWithRelaySource).relaySource} />
+                        <RelayBadge 
+                          relayUrl={(event as NDKEventWithRelaySource).relaySource}
+                          relayUrls={(event as NDKEventWithRelaySource).relaySources}
+                        />
                       </div>
                     </div>
                   </div>

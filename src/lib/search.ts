@@ -15,6 +15,7 @@ interface RelayObject {
 
 interface NDKEventWithRelaySource extends NDKEvent {
   relaySource?: string;
+  relaySources?: string[]; // Track all relays where this event was found
 }
 
 
@@ -120,11 +121,20 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
     }
 
     sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+      const relayUrl = relay?.url || 'unknown';
+      
       if (!collected.has(event.id)) {
-        // Add relay source info to the event
-        const relayUrl = relay?.url || 'unknown';
-        (event as NDKEventWithRelaySource).relaySource = relayUrl;
-        collected.set(event.id, event);
+        // First time seeing this event
+        const eventWithSource = event as NDKEventWithRelaySource;
+        eventWithSource.relaySource = relayUrl;
+        eventWithSource.relaySources = [relayUrl];
+        collected.set(event.id, eventWithSource);
+      } else {
+        // Event already exists, add this relay to the sources
+        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
+        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
+          existingEvent.relaySources.push(relayUrl);
+        }
       }
     });
 
