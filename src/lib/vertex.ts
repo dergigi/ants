@@ -1,24 +1,25 @@
 import { ndk } from './ndk';
-import { NDKEvent, NDKUser, NDKKind, NDKRelaySet, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
+import { relaySets } from './relays';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
 // Create a specific relay set for the Vertex DVM
-const dvmRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.vertexlab.io'], ndk);
+const dvmRelaySet = relaySets.vertexDvm();
 
 // Fallback profile search relay set (NIP-50 capable)
-const profileSearchRelaySet = NDKRelaySet.fromRelayUrls([
-  'wss://relay.nostr.band',
-  'wss://purplepag.es'
-], ndk);
+const profileSearchRelaySet = relaySets.profileSearch();
 
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, profileSearchRelaySet);
+    const sub = ndk.subscribe(
+      [filter],
+      { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: profileSearchRelaySet }
+    );
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -143,9 +144,9 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
           }],
           { 
             closeOnEose: false,
-            cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
-          },
-          dvmRelaySet
+            cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+            relaySet: dvmRelaySet
+          }
         );
 
         let settled = false;

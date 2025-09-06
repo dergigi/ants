@@ -40,8 +40,30 @@ export const searchExamples = [
   'Bitcoin has:images',
   'meme has:gifs',
   'by:dergigi has:image',
-  'by:HODL has:video'
+  'by:HODL has:video',
+
+  // Relay filters
+  'relay:nostr.einundzwanzig.space bitcoin',
+  'relays:mine by:dergigi',
+  'PV relay:relay.ditto.pub'
 ] as const;
+
+// Examples that require login to work properly
+const loginRequiredExamples = [
+  'relays:mine by:dergigi'
+] as const;
+
+// Get examples filtered by login status
+export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {
+  if (isLoggedIn) {
+    return searchExamples;
+  }
+  
+  // Filter out login-required examples
+  return searchExamples.filter(example => 
+    !(loginRequiredExamples as readonly string[]).includes(example)
+  );
+}
 
 // Helper type for type safety
 export type SearchExample = typeof searchExamples[number]; 

@@ -1,7 +1,22 @@
-import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
-import { ndk } from './ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
+import { ndk, connectWithTimeout, markRelayActivity } from './ndk';
+import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
+import { relaySets, RELAYS } from './relays';
+
+// Type definitions for relay objects
+interface RelayObject {
+  url?: string;
+  relay?: {
+    url?: string;
+  };
+}
+
+interface NDKEventWithRelaySource extends NDKEvent {
+  relaySource?: string;
+  relaySources?: string[]; // Track all relays where this event was found
+}
 
 
 
@@ -25,26 +40,127 @@ const VIDEO_URL_REGEX_G = new RegExp(`${VIDEO_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi
 const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 
 // Use a search-capable relay set explicitly for NIP-50 queries
-const searchRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.nostr.band'], ndk);
+const searchRelaySet = relaySets.search();
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
+// Extract relay filters from the raw query string
+function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: string[]; useMyRelays: boolean } {
+  let cleaned = rawQuery;
+  const relayUrls: string[] = [];
+  let useMyRelays = false;
+
+  // relay:<host-or-url>
+  const relayRegex = /(?:^|\s)relay:([^\s]+)(?:\s|$)/gi;
+  cleaned = cleaned.replace(relayRegex, (_, hostOrUrl: string) => {
+    const value = (hostOrUrl || '').trim();
+    if (value) relayUrls.push(value);
+    return ' ';
+  });
+
+  // relays:mine
+  const relaysMineRegex = /(?:^|\s)relays:mine(?:\s|$)/gi;
+  if (relaysMineRegex.test(cleaned)) {
+    useMyRelays = true;
+    cleaned = cleaned.replace(relaysMineRegex, ' ');
+  }
+
+  // Normalize relay URLs
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const r of relayUrls) {
+    const hasScheme = /^wss?:\/\//i.test(r);
+    const url = hasScheme ? r : `wss://${r}`;
+    if (!seen.has(url)) {
+      seen.add(url);
+      normalized.push(url);
+    }
+  }
+
+  return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
+}
+
+async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
+    // Check if already aborted
+    if (abortSignal?.aborted) {
+      resolve([]);
+      return;
+    }
+
+    // Validate filter - ensure it has at least one meaningful property
+    if (!filter || Object.keys(filter).length === 0) {
+      console.warn('Empty filter passed to subscribeAndCollect, returning empty results');
+      resolve([]);
+      return;
+    }
+
+    // Debug: log the filter being used
+    console.log('subscribeAndCollect called with filter:', filter);
+
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, searchRelaySet);
+    // Debug: which relays are we querying?
+    try {
+      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
+                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
+      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
+        ? relaysContainer
+        : relaysContainer && (relaysContainer instanceof Set || relaysContainer instanceof Map)
+          ? Array.from((relaysContainer as Set<RelayObject> | Map<string, RelayObject>).values?.() ?? relaysContainer)
+          : [];
+      const relayUrls = relayEntries
+        .map((r: RelayObject) => r?.url || r?.relay?.url || r)
+        .filter((u: unknown): u is string => typeof u === 'string');
+      console.log('Subscribing with filter on relays:', { relayUrls, filter });
+    } catch {}
+
+    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet });
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
     }, timeoutMs);
 
-    sub.on('event', (event: NDKEvent) => {
+    // Handle abort signal
+    const abortHandler = () => {
+      try { sub.stop(); } catch {}
+      clearTimeout(timer);
+      if (abortSignal) {
+        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
+      }
+      // Resolve with whatever we have so far (partial results) instead of rejecting
+      resolve(Array.from(collected.values()));
+    };
+
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', abortHandler);
+    }
+
+    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+      const relayUrl = relay?.url || 'unknown';
+      // Mark this relay as active for robust connection status
+      if (relayUrl !== 'unknown') {
+        try { markRelayActivity(relayUrl); } catch {}
+      }
+      
       if (!collected.has(event.id)) {
-        collected.set(event.id, event);
+        // First time seeing this event
+        const eventWithSource = event as NDKEventWithRelaySource;
+        eventWithSource.relaySource = relayUrl;
+        eventWithSource.relaySources = [relayUrl];
+        collected.set(event.id, eventWithSource);
+      } else {
+        // Event already exists, add this relay to the sources
+        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
+        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
+          existingEvent.relaySources.push(relayUrl);
+        }
       }
     });
 
     sub.on('eose', () => {
       clearTimeout(timer);
+      if (abortSignal) {
+        abortSignal.removeEventListener('abort', abortHandler);
+      }
       resolve(Array.from(collected.values()));
     });
 
@@ -52,19 +168,107 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000):
   });
 }
 
-async function searchByAnyTerms(terms: string[], limit: number): Promise<NDKEvent[]> {
+async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
-      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) });
+      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) }, 8000, relaySet, abortSignal);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
-    } catch {}
+    } catch (error) {
+      // Don't log aborted searches as errors
+      if (error instanceof Error && error.message === 'Search aborted') {
+        return merged; // Return what we have so far
+      }
+      // Log other errors but continue
+      console.warn('Search term failed:', term, error);
+    }
   }
   return merged;
+}
+
+async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Promise<string[]> {
+  if (!nip05) return [];
+  
+  try {
+    const [, domain] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    if (!domain) return [];
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`https://${domain}/.well-known/nostr.json`, { signal: controller.signal });
+    clearTimeout(timeout);
+    
+    if (!res.ok) return [];
+    const data = await res.json();
+    
+    // Check if this pubkey has relays listed in well-known
+    const relays = data?.relays?.[pubkey.toLowerCase()];
+    if (Array.isArray(relays) && relays.length > 0) {
+      const normalized = relays
+        .filter((r: unknown): r is string => typeof r === 'string')
+        .map((r: string) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`);
+      console.log('Discovered user relays from well-known:', { count: normalized.length, relays: normalized, domain });
+      return normalized;
+    }
+  } catch (error) {
+    console.warn('Failed to fetch relays from well-known:', error);
+  }
+  
+  return [];
+}
+
+async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
+  try {
+    const pubkey = getStoredPubkey();
+    if (!pubkey) return [];
+
+    // First try to get relays from well-known (faster, more reliable)
+    const user = new NDKUser({ pubkey });
+    user.ndk = ndk;
+    try {
+      await user.fetchProfile();
+      const wellKnownRelays = await getUserRelayUrlsFromWellKnown(pubkey, user.profile?.nip05);
+      if (wellKnownRelays.length > 0) {
+        return wellKnownRelays;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch profile for well-known relay lookup:', error);
+    }
+
+    // Fallback to NIP-65 (kind 10002) if well-known doesn't have relays
+    return await new Promise<string[]>((resolve) => {
+      let latest: NDKEvent | null = null;
+      const sub = ndk.subscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
+      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve([]); }, timeoutMs);
+      sub.on('event', (e: NDKEvent) => {
+        if (!latest || ((e.created_at || 0) > (latest.created_at || 0))) {
+          latest = e;
+        }
+      });
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        if (!latest) return resolve([]);
+        const urls = new Set<string>();
+        for (const tag of latest.tags as unknown as string[][]) {
+          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+            const raw = tag[1];
+            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
+            urls.add(normalized);
+          }
+        }
+        const arr = Array.from(urls);
+        console.log('Discovered user relays from kind 10002 (fallback):', { count: arr.length, relays: arr });
+        resolve(arr);
+      });
+      sub.start();
+    });
+  } catch {
+    return [];
+  }
 }
 
 function isNpub(str: string): boolean {
@@ -177,24 +381,61 @@ export function parseOrQuery(query: string): string[] {
 
 export async function searchEvents(
   query: string,
-  limit: number = 21,
-  options?: { exact?: boolean }
+  limit: number = 200,
+  options?: { exact?: boolean },
+  relaySetOverride?: NDKRelaySet,
+  abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
-  // Ensure we're connected before issuing any queries
+  // Check if already aborted
+  if (abortSignal?.aborted) {
+    throw new Error('Search aborted');
+  }
+
+  // Ensure we're connected before issuing any queries (with timeout)
   try {
-    await ndk.connect();
+    await connectWithTimeout(3000);
   } catch (e) {
-    console.warn('NDK connect failed or already connected:', e);
+    console.warn('NDK connect failed or timed out:', e);
+    // Continue anyway - search might still work with cached connections
+  }
+
+  // Check if aborted after connection
+  if (abortSignal?.aborted) {
+    throw new Error('Search aborted');
+  }
+
+  // Extract relay filters and prepare relay set
+  const relayExtraction = extractRelayFilters(query);
+  const relayCandidates: string[] = [];
+  if (!relaySetOverride) {
+    if (relayExtraction.useMyRelays) {
+      const mine = await getUserRelayUrls();
+      for (const u of mine) relayCandidates.push(u);
+    }
+    for (const u of relayExtraction.relayUrls) relayCandidates.push(u);
+  }
+  const chosenRelaySet: NDKRelaySet = relaySetOverride
+    ? relaySetOverride
+    : (relayCandidates.length > 0
+      ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
+      : searchRelaySet);
+  if (relayCandidates.length > 0) {
+    console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
+  } else if (!relaySetOverride) {
+    console.log('Using default search relay set:', RELAYS.SEARCH);
+  } else {
+    console.log('Using provided relay set override');
   }
 
   // Detect and strip media flags; apply post-filter later
-  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(query);
-  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(query);
-  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(query);
-  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(query);
-  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(query);
-  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(query);
-  const cleanedQuery = query
+  const relayStripped = relayExtraction.cleaned;
+  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(relayStripped);
+  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(relayStripped);
+  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(relayStripped);
+  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(relayStripped);
+  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(relayStripped);
+  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(relayStripped);
+  const cleanedQuery = relayStripped
     .replace(/(?:^|\s)has:images?(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)has:videos?(?:\s|$)/gi, ' ')
     .replace(/(?:^|\s)has:gifs?(?:\s|$)/gi, ' ')
@@ -213,7 +454,7 @@ export async function searchEvents(
     // Process each part of the OR query
     for (const part of orParts) {
       try {
-        const partResults = await searchEvents(part, limit, options);
+        const partResults = await searchEvents(part, limit, options, chosenRelaySet, abortSignal);
         for (const event of partResults) {
           if (!seenIds.has(event.id)) {
             seenIds.add(event.id);
@@ -245,8 +486,8 @@ export async function searchEvents(
       const results = await subscribeAndCollect({
         kinds: [1],
         search: `"${cleanedQuery}"`,
-        limit
-      });
+        limit: Math.max(limit, 200)
+      }, 8000, chosenRelaySet, abortSignal);
       let res = results;
       if (hasImageFlag) res = res.filter(eventHasImage);
       if (hasVideoFlag) res = res.filter(eventHasVideo);
@@ -281,8 +522,8 @@ export async function searchEvents(
       return await subscribeAndCollect({
         kinds: [1],
         authors: [pubkey],
-        limit
-      });
+        limit: Math.max(limit, 200)
+      }, 8000, chosenRelaySet, abortSignal);
     } catch (error) {
       console.error('Error processing npub query:', error);
       return [];
@@ -339,7 +580,7 @@ export async function searchEvents(
     const filters: NDKFilter = {
       kinds: [1],
       authors: [pubkey],
-      limit
+      limit: Math.max(limit, 200)
     };
 
     // Add search term to the filter if present
@@ -357,7 +598,7 @@ export async function searchEvents(
 
     console.log('Searching with filters:', filters);
     {
-      const res = await subscribeAndCollect(filters);
+      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
@@ -380,12 +621,12 @@ export async function searchEvents(
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
     if (mediaFlagsPresent) {
       const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      const seedResults = await searchByAnyTerms(terms, limit);
-      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }) : [];
+      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
       results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit });
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     }
     console.log('Search results:', {
       query: cleanedQuery,

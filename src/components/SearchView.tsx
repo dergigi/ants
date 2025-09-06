@@ -1,15 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, nextExample, ndk } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+
+// Type for NDKEvent with relay source
+interface NDKEventWithRelaySource extends NDKEvent {
+  relaySource?: string;
+  relaySources?: string[]; // Track all relays where this event was found
+}
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import RelayBadge from './RelayBadge';
 
 type Props = {
   initialQuery?: string;
@@ -133,8 +140,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [loading, setLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
+  const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
@@ -143,6 +153,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
   const [rotationProgress, setRotationProgress] = useState(0);
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  // Throttle input updates to one per animation frame to avoid excessive re-renders
+  const inputBufferRef = useRef<string>(initialQuery);
+  const rafIdRef = useRef<number | null>(null);
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    inputBufferRef.current = e.target.value;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        setQuery(inputBufferRef.current);
+      });
+    }
+  }, []);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -162,6 +186,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setActiveFilters(new Set());
       return;
     }
+
+    // Abort any ongoing search
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this search
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const searchId = ++currentSearchId.current;
 
     setLoading(true);
     try {
@@ -199,15 +233,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setActiveFilters(new Set());
       }
 
-      const searchResults = await searchEvents(searchQuery);
+      // Check if search was aborted before making the call
+      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
+        return;
+      }
+
+      const searchResults = await searchEvents(searchQuery, 200, undefined, undefined, abortController.signal);
+      
+      // Check if search was aborted after getting results
+      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
+        return;
+      }
+
       setBaseResults(searchResults);
       const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
       setResults(filtered);
     } catch (error) {
+      // Don't log aborted searches as errors
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+        return;
+      }
       console.error('Search error:', error);
       setResults([]);
     } finally {
-      setLoading(false);
+      // Only update loading state if this is still the current search
+      if (currentSearchId.current === searchId) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -222,9 +274,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   useEffect(() => {
     const initializeNDK = async () => {
       setIsConnecting(true);
-      await connect();
+      setConnectionStatus('connecting');
+      const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
       setPlaceholder(getCurrentExample());
       setIsConnecting(false);
+      setConnectionDetails(connectionResult);
+      
+      if (connectionResult.success) {
+        console.log('NDK connected successfully');
+        setConnectionStatus('connected');
+      } else {
+        console.warn('NDK connection timed out, but search will still work with available relays');
+        setConnectionStatus('timeout');
+      }
+      
       if (initialQuery) {
         setQuery(initialQuery);
         handleSearch(initialQuery);
@@ -232,6 +295,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     initializeNDK();
   }, [handleSearch, initialQuery]);
+
+  // Listen for connection status changes
+  useEffect(() => {
+    const handleConnectionStatusChange = (status: ConnectionStatus) => {
+      setConnectionDetails(status);
+      if (status.success) {
+        setConnectionStatus('connected');
+      } else {
+        setConnectionStatus('timeout');
+      }
+      // Auto-hide connection details when status changes
+      setShowConnectionDetails(false);
+      // Refresh recently active relays on changes
+      setRecentlyActive(getRecentlyActiveRelays());
+    };
+
+    addConnectionStatusListener(handleConnectionStatusChange);
+    
+    return () => {
+      removeConnectionStatusListener(handleConnectionStatusChange);
+    };
+  }, []);
+
+  // Periodically refresh recently active relays while panel open
+  useEffect(() => {
+    if (!showConnectionDetails) return;
+    setRecentlyActive(getRecentlyActiveRelays());
+    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 5000);
+    return () => clearInterval(id);
+  }, [showConnectionDetails]);
+
+  useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
+
+  // Removed separate RecentlyActiveRelays section; now merged into Reachable
 
   // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
@@ -308,6 +405,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [router]);
 
   const formatDate = (timestamp: number) => new Date(timestamp * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
+    if (!details) return 'Connection status unknown';
+    
+    const { connectedRelays, failedRelays } = details;
+    const connectedCount = connectedRelays.length;
+    const failedCount = failedRelays.length;
+    
+    let tooltip = '';
+    
+    
+    if (connectedCount > 0) {
+      tooltip += `✅ Reachable (WebSocket) ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
+      connectedRelays.forEach(relay => {
+        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
+        tooltip += `  • ${shortName}\n`;
+      });
+    }
+    
+    if (failedCount > 0) {
+      if (connectedCount > 0) tooltip += '\n';
+      tooltip += `❌ Unreachable (socket closed) ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
+      failedRelays.forEach(relay => {
+        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
+        tooltip += `  • ${shortName}\n`;
+      });
+    }
+    
+    if (connectedCount === 0 && failedCount === 0) {
+      tooltip = 'No relay connection information available';
+    }
+    
+    return tooltip.trim();
+  };
 
   const extractImageUrls = (text: string): string[] => {
     if (!text) return [];
@@ -386,9 +517,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 (async () => {
                   setLoading(true);
                   try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
+                    // Don't log aborted searches as errors
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
                     console.error('Search error:', error);
                     setResults([]);
                   } finally {
@@ -522,9 +657,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 (async () => {
                   setLoading(true);
                   try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
+                    // Don't log aborted searches as errors
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
                     console.error('Search error:', error);
                     setResults([]);
                   } finally {
@@ -603,14 +742,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={handleInputChange}
               placeholder={isConnecting ? loadingDots : placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
+              style={{ paddingRight: '3rem' }}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => {
+                  // Abort any ongoing search immediately
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                  }
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
@@ -618,6 +762,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setExpandedTerms([]);
                   setActiveFilters(new Set());
                   setBaseResults([]);
+                  setLoading(false);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
@@ -639,11 +784,111 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </svg>
               </div>
             )}
+            {/* Connection status indicator */}
+            {!loading && connectionStatus !== 'connecting' && (
+              <button
+                type="button"
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-8' : 'right-10'} touch-manipulation`}
+                onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+                title={formatConnectionTooltip(connectionDetails)}
+              >
+                <div className="relative w-3 h-3">
+                  {/* Mask to hide underlying text/underline */}
+                  <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
+                  <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
+                    connectionStatus === 'connected' ? 'bg-green-400' : 
+                    connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                  }`} />
+                </div>
+              </button>
+            )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
+        
+        {/* Expandable connection details for mobile */}
+        {showConnectionDetails && connectionDetails && (
+          <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-medium text-gray-200">Relay Connection Status</span>
+              <button
+                type="button"
+                onClick={() => setShowConnectionDetails(false)}
+                className="text-gray-400 hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            
+            {/* Reachable: union of live-connected and recently-active relays */}
+            {(() => {
+              const combined = Array.from(new Set([
+                ...connectionDetails.connectedRelays,
+                ...recentlyActive
+              ]));
+              if (combined.length === 0) return null;
+              return (
+                <div className="mb-2">
+                  <div className="text-green-400 font-medium mb-1">
+                    ✅ Reachable or active (15min) ({combined.length})
+                  </div>
+                  <div className="space-y-1">
+                    {combined.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {/* Connecting relays */}
+            {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
+              <div className="mb-2">
+                <div className="text-yellow-400 font-medium mb-1">
+                  🟡 Connecting ({connectionDetails.connectingRelays.length})
+                </div>
+                <div className="space-y-1">
+                  {connectionDetails.connectingRelays.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(() => {
+              const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
+              const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
+              if (failedFiltered.length === 0) return null;
+              return (
+                <div>
+                  <div className="text-red-400 font-medium mb-1">
+                    ❌ Failed ({failedFiltered.length})
+                  </div>
+                  <div className="space-y-1">
+                    {failedFiltered.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {(() => {
+              const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
+              const anyFailed = connectionDetails.failedRelays.length > 0;
+              return (!anyReachable && !anyFailed) ? (
+              <div className="text-gray-400">
+                No relay connection information available
+              </div>
+              ) : null;
+            })()}
+
+          </div>
+        )}
+        
         {expandedLabel && expandedTerms.length > 0 && (
           <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
             {expandedTerms.map((term, i) => {
@@ -692,9 +937,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
-                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </a>
+                        <RelayBadge 
+                          relayUrl={(event as NDKEventWithRelaySource).relaySource}
+                          relayUrls={(event as NDKEventWithRelaySource).relaySources}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

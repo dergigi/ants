@@ -113,7 +113,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
     { name: 'nostr.at', base: 'https://nostr.at/' },
     { name: 'npub.world', base: 'https://npub.world/' },
     { name: 'nosta.me', base: 'https://nosta.me/' },
-    { name: 'nostr.band', base: 'https://nostr.band/' },
     { name: 'castr.me', base: 'https://castr.me/' },
   ];
 
