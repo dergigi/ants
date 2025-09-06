@@ -116,24 +116,31 @@ const checkRelayStatus = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
   const failedRelays: string[] = [];
   
-  // Check all relays that NDK currently knows about (pool relays)
-  const allRelayUrls = ndk.pool?.relays ? Array.from(ndk.pool.relays.keys()) : [];
+  // Build a comprehensive set of relay URLs: pool-known + configured sets
+  const allRelayUrls = new Set<string>([
+    ...(ndk.pool?.relays ? Array.from(ndk.pool.relays.keys()) : []),
+    ...RELAYS.DEFAULT,
+    ...RELAYS.SEARCH,
+    ...RELAYS.PROFILE_SEARCH,
+    ...RELAYS.VERTEX_DVM
+  ]);
 
   for (const url of allRelayUrls) {
     try {
       const relay = ndk.pool?.relays?.get(url);
-      if (relay) {
-        // 0 = connecting, 1 = connected, 2 = disconnected, 3 = reconnecting
-        if (relay.status === 1) {
-          connectedRelays.push(url);
-        } else if (relay.status === 2) {
-          failedRelays.push(url);
-        }
-        // For 0/3 we neither add to failed nor connected
-      } else {
-        // Relay not found in pool: mark as failed
+      // If no relay object exists in pool, it's not connected
+      if (!relay) {
+        failedRelays.push(url);
+        continue;
+      }
+      // Consider connected only if NDK says CONNECTED and WebSocket is open
+      const wsOpen = (relay as unknown as { connectivity?: { ws?: WebSocket } })?.connectivity?.ws?.readyState === 1;
+      if (relay.status === 1 && wsOpen) {
+        connectedRelays.push(url);
+      } else if (relay.status === 2 || !wsOpen) {
         failedRelays.push(url);
       }
+      // For 0/3 (connecting/reconnecting) ignore; they will be counted on next poll
     } catch {
       failedRelays.push(url);
     }
