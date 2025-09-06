@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { connect, getCurrentExample, nextExample, ndk } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+
+// Type for NDKEvent with relay source
+interface NDKEventWithRelaySource extends NDKEvent {
+  relaySource?: string;
+}
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
@@ -739,7 +744,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
                         </a>
-                        <RelayBadge relayUrl={(event as any).relaySource} />
+                        <RelayBadge relayUrl={(event as NDKEventWithRelaySource).relaySource} />
                       </div>
                     </div>
                   </div>

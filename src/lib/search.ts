@@ -1,9 +1,21 @@
-import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets } from './relays';
+
+// Type definitions for relay objects
+interface RelayObject {
+  url?: string;
+  relay?: {
+    url?: string;
+  };
+}
+
+interface NDKEventWithRelaySource extends NDKEvent {
+  relaySource?: string;
+}
 
 
 
@@ -77,15 +89,16 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
 
     // Debug: which relays are we querying?
     try {
-      const relaysContainer: any = (relaySet as any).relays ?? (relaySet as any).relayUrls;
-      const relayEntries: any[] = Array.isArray(relaysContainer)
+      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
+                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
+      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
         ? relaysContainer
         : relaysContainer && (relaysContainer instanceof Set || relaysContainer instanceof Map)
-          ? Array.from(relaysContainer.values?.() ?? relaysContainer)
+          ? Array.from((relaysContainer as Set<RelayObject> | Map<string, RelayObject>).values?.() ?? relaysContainer)
           : [];
       const relayUrls = relayEntries
-        .map((r: any) => r?.url || r?.relay?.url || r)
-        .filter((u: any) => typeof u === 'string');
+        .map((r: RelayObject) => r?.url || r?.relay?.url || r)
+        .filter((u: unknown): u is string => typeof u === 'string');
       console.log('Subscribing with filter on relays:', { relayUrls, filter });
     } catch {}
 
@@ -106,11 +119,11 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       abortSignal.addEventListener('abort', abortHandler);
     }
 
-    sub.on('event', (event: NDKEvent, relay: any) => {
+    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       if (!collected.has(event.id)) {
         // Add relay source info to the event
-        const relayUrl = relay?.url || relay?.relay?.url || 'unknown';
-        (event as any).relaySource = relayUrl;
+        const relayUrl = relay?.url || 'unknown';
+        (event as NDKEventWithRelaySource).relaySource = relayUrl;
         collected.set(event.id, event);
       }
     });

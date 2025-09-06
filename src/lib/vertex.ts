@@ -1,5 +1,5 @@
 import { ndk } from './ndk';
-import { NDKEvent, NDKUser, NDKKind, NDKRelaySet, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
 import { relaySets } from './relays';

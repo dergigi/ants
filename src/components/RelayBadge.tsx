@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface RelayBadgeProps {
-  relayUrl: string;
+  relayUrl?: string;
   className?: string;
 }
 
