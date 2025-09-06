@@ -3,6 +3,7 @@ import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
 import { searchExamples } from './examples';
 
 const RELAYS = [
+  'wss://relay.primal.net',
   'wss://relay.nostr.band',
   'wss://relay.vertexlab.io',
   'wss://purplepag.es'

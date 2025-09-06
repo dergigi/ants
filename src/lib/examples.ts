@@ -46,7 +46,8 @@ export const searchExamples = [
   'relay:nostr.einundzwanzig.space bitcoin',
   'relay:pyramid.fiatjaf.com nostr',
   'relay:wot.dergigi.com 😂',
-  'relays:mine by:dergigi'
+  'relays:mine by:dergigi',
+  'touch grass relay:relay.primal.net'
 ] as const;
 
 // Helper type for type safety
