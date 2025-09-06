@@ -102,8 +102,16 @@ const checkRelayStatus = (): ConnectionStatus => {
     for (const url of allRelayUrls) {
       try {
         const relay = ndk.pool.relays.get(url);
-        if (relay && relay.status === 1) { // 1 = connected
-          connectedRelays.push(url);
+        if (relay) {
+          // Check different relay states
+          // 0 = connecting, 1 = connected, 2 = disconnected, 3 = reconnecting
+          if (relay.status === 1) { // Connected
+            connectedRelays.push(url);
+          } else if (relay.status === 2) { // Disconnected
+            failedRelays.push(url);
+          }
+          // For status 0 (connecting) and 3 (reconnecting), we don't count them as failed yet
+          // This gives relays time to establish connections
         } else {
           failedRelays.push(url);
         }
@@ -164,6 +172,9 @@ export const connect = async (timeoutMs: number = 5000): Promise<ConnectionStatu
       ndk.connect(),
       createTimeoutPromise(timeoutMs)
     ]);
+
+    // Give relays a moment to establish connections after ndk.connect() returns
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check which relays actually connected
     const status = checkRelayStatus();
