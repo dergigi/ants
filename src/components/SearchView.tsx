@@ -792,10 +792,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 onClick={() => setShowConnectionDetails(!showConnectionDetails)}
                 title={formatConnectionTooltip(connectionDetails)}
               >
-                <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                  connectionStatus === 'connected' ? 'bg-green-400' : 
-                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                }`} />
+                <div className="relative w-3 h-3">
+                  {/* Mask to hide underlying text/underline */}
+                  <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
+                  <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
+                    connectionStatus === 'connected' ? 'bg-green-400' : 
+                    connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                  }`} />
+                </div>
               </button>
             )}
           </div>
