@@ -86,6 +86,16 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       return;
     }
 
+    // Validate filter - ensure it has at least one meaningful property
+    if (!filter || Object.keys(filter).length === 0) {
+      console.warn('Empty filter passed to subscribeAndCollect, returning empty results');
+      resolve([]);
+      return;
+    }
+
+    // Debug: log the filter being used
+    console.log('subscribeAndCollect called with filter:', filter);
+
     const collected: Map<string, NDKEvent> = new Map();
 
     // Debug: which relays are we querying?
