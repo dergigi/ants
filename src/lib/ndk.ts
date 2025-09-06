@@ -94,8 +94,15 @@ const checkRelayStatus = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
   const failedRelays: string[] = [];
   
-  const relayUrls = [...RELAYS.DEFAULT];
-  for (const url of relayUrls) {
+  // Check all relays that NDK is actually connected to
+  const allRelayUrls = new Set([
+    ...RELAYS.DEFAULT,
+    ...RELAYS.SEARCH,
+    ...RELAYS.PROFILE_SEARCH,
+    ...RELAYS.VERTEX_DVM
+  ]);
+  
+  for (const url of allRelayUrls) {
     try {
       const relay = ndk.pool?.relays?.get(url);
       if (relay && relay.status === 1) { // 1 = connected
