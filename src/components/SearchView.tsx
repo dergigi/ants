@@ -758,8 +758,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
             {/* Connection status indicator */}
             {!loading && connectionStatus !== 'connecting' && (
-              <div className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 ${query ? 'right-10' : 'right-10'}`}>
-                <div className={`w-2 h-2 rounded-full ${
+              <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-12' : 'right-10'}`}>
+                <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
                   connectionStatus === 'connected' ? 'bg-green-400' : 
                   connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
                 }`} title={formatConnectionTooltip(connectionDetails)} />
