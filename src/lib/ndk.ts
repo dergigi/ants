@@ -37,18 +37,19 @@ const createTimeoutPromise = (timeoutMs: number): Promise<never> => {
 };
 
 // Helper function to create connection status
-const createConnectionStatus = (connectedRelays: string[], failedRelays: string[], timeout: boolean = false): ConnectionStatus => {
+const createConnectionStatus = (connectedRelays: string[], connectingRelays: string[], failedRelays: string[], timeout: boolean = false): ConnectionStatus => {
   return {
     success: connectedRelays.length > 0,
     connectedRelays,
+    connectingRelays,
     failedRelays,
     timeout
   };
 };
 
 // Helper function to finalize connection result
-const finalizeConnectionResult = (connectedRelays: string[], failedRelays: string[], timeout: boolean): ConnectionStatus => {
-  const result = createConnectionStatus(connectedRelays, failedRelays, timeout);
+const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: string[], failedRelays: string[], timeout: boolean): ConnectionStatus => {
+  const result = createConnectionStatus(connectedRelays, connectingRelays, failedRelays, timeout);
   updateConnectionStatus(result);
   startRelayMonitoring();
   return result;
@@ -65,6 +66,7 @@ export const connectWithTimeout = async (timeoutMs: number = 3000): Promise<void
 export interface ConnectionStatus {
   success: boolean;
   connectedRelays: string[];
+  connectingRelays: string[];
   failedRelays: string[];
   timeout: boolean;
 }
@@ -114,6 +116,7 @@ export function getRecentlyActiveRelays(windowMs: number = ACTIVITY_WINDOW_MS): 
 
 const checkRelayStatus = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
+  const connectingRelays: string[] = [];
   const failedRelays: string[] = [];
   
   // Build a comprehensive set of relay URLs: pool-known + configured sets
@@ -138,8 +141,10 @@ const checkRelayStatus = (): ConnectionStatus => {
         connectedRelays.push(url);
       } else if (relay.status === 2) {
         failedRelays.push(url);
+      } else if (relay.status === 0 || relay.status === 3) {
+        // 0 = connecting, 3 = reconnecting
+        connectingRelays.push(url);
       }
-      // For 0/3 (connecting/reconnecting) ignore; they will be counted on next poll
     } catch {
       failedRelays.push(url);
     }
@@ -148,6 +153,7 @@ const checkRelayStatus = (): ConnectionStatus => {
   return {
     success: connectedRelays.length > 0,
     connectedRelays,
+    connectingRelays,
     failedRelays,
     timeout: false
   };
@@ -165,13 +171,16 @@ export const startRelayMonitoring = () => {
       // Only update if status changed
       const statusChanged = 
         currentStatus.connectedRelays.length !== globalConnectionStatus.connectedRelays.length ||
+        currentStatus.connectingRelays.length !== globalConnectionStatus.connectingRelays.length ||
         currentStatus.failedRelays.length !== globalConnectionStatus.failedRelays.length ||
         currentStatus.connectedRelays.some(url => !globalConnectionStatus!.connectedRelays.includes(url)) ||
+        currentStatus.connectingRelays.some(url => !globalConnectionStatus!.connectingRelays.includes(url)) ||
         currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
       
       if (statusChanged) {
         console.log('Relay status changed:', { 
           connected: currentStatus.connectedRelays, 
+          connecting: currentStatus.connectingRelays,
           failed: currentStatus.failedRelays 
         });
         updateConnectionStatus(currentStatus);
@@ -203,9 +212,9 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Check which relays actually connected
     const status = checkRelayStatus();
     nextExample(); // Select a random example when we connect
-    console.log('Connected to relays:', { connected: status.connectedRelays, failed: status.failedRelays, example: currentSearchExample });
+    console.log('Connected to relays:', { connected: status.connectedRelays, connecting: status.connectingRelays, failed: status.failedRelays, example: currentSearchExample });
     
-    return finalizeConnectionResult(status.connectedRelays, status.failedRelays, false);
+    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false);
   } catch (error) {
     console.warn('NDK connection failed or timed out:', error);
     timeout = true;
@@ -215,6 +224,6 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     nextExample(); // Still select an example even if connection failed
     console.log('Using fallback example:', currentSearchExample);
     
-    return finalizeConnectionResult(status.connectedRelays, status.failedRelays, timeout);
+    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout);
   }
 }; 

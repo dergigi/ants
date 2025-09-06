@@ -851,6 +851,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               );
             })()}
             
+            {/* Connecting relays */}
+            {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
+              <div className="mb-2">
+                <div className="text-yellow-400 font-medium mb-1">
+                  🟡 Connecting ({connectionDetails.connectingRelays.length})
+                </div>
+                <div className="space-y-1">
+                  {connectionDetails.connectingRelays.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {(() => {
               const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
               const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
