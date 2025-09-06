@@ -748,6 +748,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               onChange={handleInputChange}
               placeholder={isConnecting ? loadingDots : placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
+              style={{ paddingRight: '3rem' }}
             />
             {query && (
               <button
@@ -790,7 +791,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             {!loading && connectionStatus !== 'connecting' && (
               <button
                 type="button"
-                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-12' : 'right-10'} touch-manipulation`}
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-8' : 'right-10'} touch-manipulation`}
                 onClick={() => setShowConnectionDetails(!showConnectionDetails)}
                 title={formatConnectionTooltip(connectionDetails)}
               >
