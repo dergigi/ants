@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { connect, getCurrentExample, nextExample, ndk } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
@@ -140,6 +140,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
+  const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -259,11 +260,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const initializeNDK = async () => {
       setIsConnecting(true);
       setConnectionStatus('connecting');
-      const connected = await connect(5000); // 5 second timeout
+      const connectionResult = await connect(5000); // 5 second timeout
       setPlaceholder(getCurrentExample());
       setIsConnecting(false);
+      setConnectionDetails(connectionResult);
       
-      if (connected) {
+      if (connectionResult.success) {
         console.log('NDK connected successfully');
         setConnectionStatus('connected');
       } else {
@@ -354,6 +356,43 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [router]);
 
   const formatDate = (timestamp: number) => new Date(timestamp * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
+    if (!details) return 'Connection status unknown';
+    
+    const { connectedRelays, failedRelays, timeout } = details;
+    const connectedCount = connectedRelays.length;
+    const failedCount = failedRelays.length;
+    
+    let tooltip = '';
+    
+    if (timeout) {
+      tooltip += '⚠️ Connection timeout (5s)\n\n';
+    }
+    
+    if (connectedCount > 0) {
+      tooltip += `✅ Connected to ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
+      connectedRelays.forEach(relay => {
+        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
+        tooltip += `  • ${shortName}\n`;
+      });
+    }
+    
+    if (failedCount > 0) {
+      if (connectedCount > 0) tooltip += '\n';
+      tooltip += `❌ Failed to connect to ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
+      failedRelays.forEach(relay => {
+        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
+        tooltip += `  • ${shortName}\n`;
+      });
+    }
+    
+    if (connectedCount === 0 && failedCount === 0) {
+      tooltip = 'No relay connection information available';
+    }
+    
+    return tooltip.trim();
+  };
 
   const extractImageUrls = (text: string): string[] => {
     if (!text) return [];
@@ -704,11 +743,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 <div className={`w-2 h-2 rounded-full ${
                   connectionStatus === 'connected' ? 'bg-green-400' : 
                   connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                }`} title={
-                  connectionStatus === 'connected' ? 'Connected to relays' :
-                  connectionStatus === 'timeout' ? 'Connection timeout - search may be limited' :
-                  'Connection status unknown'
-                } />
+                }`} title={formatConnectionTooltip(connectionDetails)} />
               </div>
             )}
           </div>
