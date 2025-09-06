@@ -263,7 +263,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const initializeNDK = async () => {
       setIsConnecting(true);
       setConnectionStatus('connecting');
-      const connectionResult = await connect(5000); // 5 second timeout
+      const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
       setPlaceholder(getCurrentExample());
       setIsConnecting(false);
       setConnectionDetails(connectionResult);

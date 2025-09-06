@@ -181,7 +181,7 @@ export const stopRelayMonitoring = () => {
   }
 };
 
-export const connect = async (timeoutMs: number = 5000): Promise<ConnectionStatus> => {
+export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatus> => {
   let timeout = false;
 
   try {
