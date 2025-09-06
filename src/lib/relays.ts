@@ -6,20 +6,16 @@ export const RELAYS = {
   // Default relays for general NDK connection
   DEFAULT: [
     'wss://relay.primal.net',
-    'wss://relay.snort.social',
-    'wss://relay.nostr.band',
-    'wss://relay.vertexlab.io',
-    'wss://purplepag.es'
+    'wss://relay.snort.social'
   ],
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://relay.nostr.band'
+    'wss://relay.primal.net'
   ],
 
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
-    'wss://relay.nostr.band',
     'wss://purplepag.es'
   ],
 
