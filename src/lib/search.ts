@@ -3,7 +3,7 @@ import { ndk } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
-import { relaySets } from './relays';
+import { relaySets, RELAYS } from './relays';
 
 // Type definitions for relay objects
 interface RelayObject {
@@ -348,7 +348,7 @@ export async function searchEvents(
   if (relayCandidates.length > 0) {
     console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
   } else if (!relaySetOverride) {
-    console.log('Using default search relay set (nostr.band)');
+    console.log('Using default search relay set:', RELAYS.SEARCH);
   } else {
     console.log('Using provided relay set override');
   }
