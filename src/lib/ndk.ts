@@ -90,34 +90,54 @@ const updateConnectionStatus = (status: ConnectionStatus) => {
   connectionStatusListeners.forEach(listener => listener(status));
 };
 
+// Track recent relay activity (last event timestamp per relay)
+const recentRelayActivity: Map<string, number> = new Map();
+
+// Public helper to record relay activity when an event is received
+export function markRelayActivity(relayUrl: string): void {
+  if (!relayUrl) return;
+  recentRelayActivity.set(relayUrl, Date.now());
+}
+
+const ACTIVITY_WINDOW_MS = 60_000; // consider relays active if they delivered events in the last 60s
+
 const checkRelayStatus = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
   const failedRelays: string[] = [];
   
   // Check all relays that NDK is actually connected to (not just our predefined ones)
-  if (ndk.pool?.relays) {
-    // Get all relay URLs that NDK knows about
-    const allRelayUrls = Array.from(ndk.pool.relays.keys());
-    
-    for (const url of allRelayUrls) {
-      try {
-        const relay = ndk.pool.relays.get(url);
-        if (relay) {
-          // Check different relay states
-          // 0 = connecting, 1 = connected, 2 = disconnected, 3 = reconnecting
-          if (relay.status === 1) { // Connected
-            connectedRelays.push(url);
-          } else if (relay.status === 2) { // Disconnected
-            failedRelays.push(url);
-          }
-          // For status 0 (connecting) and 3 (reconnecting), we don't count them as failed yet
-          // This gives relays time to establish connections
-        } else {
+  const allRelayUrls = new Set<string>([
+    ...(ndk.pool?.relays ? Array.from(ndk.pool.relays.keys()) : []),
+    ...Array.from(recentRelayActivity.keys())
+  ]);
+
+  const now = Date.now();
+  for (const url of allRelayUrls) {
+    try {
+      const relay = ndk.pool?.relays?.get(url);
+      const lastActivity = recentRelayActivity.get(url) ?? 0;
+      const isRecentlyActive = lastActivity > 0 && (now - lastActivity) <= ACTIVITY_WINDOW_MS;
+
+      // If a relay has delivered events recently, consider it connected regardless of ws status
+      if (isRecentlyActive) {
+        connectedRelays.push(url);
+        continue;
+      }
+
+      if (relay) {
+        // 0 = connecting, 1 = connected, 2 = disconnected, 3 = reconnecting
+        if (relay.status === 1) {
+          connectedRelays.push(url);
+        } else if (relay.status === 2) {
           failedRelays.push(url);
         }
-      } catch {
+        // For 0/3 we neither add to failed nor connected
+      } else {
+        // Only mark as failed if we know about it and it hasn't been active recently
         failedRelays.push(url);
       }
+    } catch {
+      failedRelays.push(url);
     }
   }
   

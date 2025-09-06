@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, connectWithTimeout } from './ndk';
+import { ndk, connectWithTimeout, markRelayActivity } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
@@ -122,6 +122,10 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
 
     sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
+      // Mark this relay as active for robust connection status
+      if (relayUrl !== 'unknown') {
+        try { markRelayActivity(relayUrl); } catch {}
+      }
       
       if (!collected.has(event.id)) {
         // First time seeing this event
