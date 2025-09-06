@@ -12,7 +12,7 @@ export const RELAYS = {
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://relay.primal.net'
+    'wss://relay.ditto.pub'
   ],
 
   // Profile search relays (NIP-50 capable)
