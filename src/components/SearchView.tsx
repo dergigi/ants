@@ -228,7 +228,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setResults(filtered);
     } catch (error) {
       // Don't log aborted searches as errors
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
         return;
       }
       console.error('Search error:', error);
@@ -419,6 +419,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
                     setResults(searchResults);
                   } catch (error) {
+                    // Don't log aborted searches as errors
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
                     console.error('Search error:', error);
                     setResults([]);
                   } finally {
@@ -555,6 +559,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true });
                     setResults(searchResults);
                   } catch (error) {
+                    // Don't log aborted searches as errors
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
                     console.error('Search error:', error);
                     setResults([]);
                   } finally {

@@ -136,7 +136,14 @@ async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRel
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
-    } catch {}
+    } catch (error) {
+      // Don't log aborted searches as errors
+      if (error instanceof Error && error.message === 'Search aborted') {
+        return merged; // Return what we have so far
+      }
+      // Log other errors but continue
+      console.warn('Search term failed:', term, error);
+    }
   }
   return merged;
 }
