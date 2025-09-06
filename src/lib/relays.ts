@@ -6,7 +6,8 @@ export const RELAYS = {
   // Default relays for general NDK connection
   DEFAULT: [
     'wss://relay.primal.net',
-    'wss://relay.snort.social'
+    'wss://relay.snort.social',
+    'wss://relay.ditto.pub'
   ],
 
   // Search-capable relays (NIP-50 support)
