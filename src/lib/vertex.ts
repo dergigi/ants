@@ -16,7 +16,10 @@ async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number 
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, profileSearchRelaySet);
+    const sub = ndk.subscribe(
+      [filter],
+      { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: profileSearchRelaySet }
+    );
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -141,9 +144,9 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
           }],
           { 
             closeOnEose: false,
-            cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
-          },
-          dvmRelaySet
+            cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+            relaySet: dvmRelaySet
+          }
         );
 
         let settled = false;
