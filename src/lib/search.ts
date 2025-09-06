@@ -102,7 +102,7 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       console.log('Subscribing with filter on relays:', { relayUrls, filter });
     } catch {}
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }, relaySet);
+    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet });
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
