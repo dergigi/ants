@@ -139,6 +139,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [loading, setLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -257,9 +258,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   useEffect(() => {
     const initializeNDK = async () => {
       setIsConnecting(true);
-      await connect();
+      setConnectionStatus('connecting');
+      const connected = await connect(5000); // 5 second timeout
       setPlaceholder(getCurrentExample());
       setIsConnecting(false);
+      
+      if (connected) {
+        console.log('NDK connected successfully');
+        setConnectionStatus('connected');
+      } else {
+        console.warn('NDK connection timed out, but search will still work with available relays');
+        setConnectionStatus('timeout');
+      }
+      
       if (initialQuery) {
         setQuery(initialQuery);
         handleSearch(initialQuery);
@@ -685,6 +696,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
                     strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
                 </svg>
+              </div>
+            )}
+            {/* Connection status indicator */}
+            {!query && !loading && connectionStatus !== 'connecting' && (
+              <div className="absolute right-10 top-1/2 -translate-y-1/2 w-2 h-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-400' : 
+                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                }`} title={
+                  connectionStatus === 'connected' ? 'Connected to relays' :
+                  connectionStatus === 'timeout' ? 'Connection timeout - search may be limited' :
+                  'Connection status unknown'
+                } />
               </div>
             )}
           </div>

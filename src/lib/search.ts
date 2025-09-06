@@ -318,11 +318,16 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
-  // Ensure we're connected before issuing any queries
+  // Ensure we're connected before issuing any queries (with timeout)
   try {
-    await ndk.connect();
+    // Attempt connection with timeout - NDK handles duplicate connections gracefully
+    await Promise.race([
+      ndk.connect(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3000))
+    ]);
   } catch (e) {
-    console.warn('NDK connect failed or already connected:', e);
+    console.warn('NDK connect failed or timed out:', e);
+    // Continue anyway - search might still work with cached connections
   }
 
   // Check if aborted after connection
