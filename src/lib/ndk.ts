@@ -1,7 +1,8 @@
 import NDK from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
-import { searchExamples } from './examples';
+import { searchExamples, getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
+import { isLoggedIn } from './nip07';
 
 const cacheAdapter = new NDKCacheAdapterDexie({ dbName: 'ants' });
 
@@ -14,10 +15,17 @@ export const ndk = new NDK({
 // Store the selected example
 let currentSearchExample: string;
 
-export const getCurrentExample = () => currentSearchExample;
+export const getCurrentExample = () => {
+  // If no example is set yet, get one now
+  if (!currentSearchExample) {
+    return nextExample();
+  }
+  return currentSearchExample;
+};
 
 export const nextExample = (): string => {
-  currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
+  const filteredExamples = getFilteredExamples(isLoggedIn());
+  currentSearchExample = filteredExamples[Math.floor(Math.random() * filteredExamples.length)];
   return currentSearchExample;
 };
 

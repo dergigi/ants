@@ -48,5 +48,22 @@ export const searchExamples = [
   'PV relay:relay.ditto.pub'
 ] as const;
 
+// Examples that require login to work properly
+const loginRequiredExamples = [
+  'relays:mine by:dergigi'
+] as const;
+
+// Get examples filtered by login status
+export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {
+  if (isLoggedIn) {
+    return searchExamples;
+  }
+  
+  // Filter out login-required examples
+  return searchExamples.filter(example => 
+    !loginRequiredExamples.includes(example as any)
+  );
+}
+
 // Helper type for type safety
 export type SearchExample = typeof searchExamples[number]; 
