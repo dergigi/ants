@@ -64,8 +64,14 @@ function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: st
   return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
 }
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet): Promise<NDKEvent[]> {
-  return new Promise<NDKEvent[]>((resolve) => {
+async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
+  return new Promise<NDKEvent[]>((resolve, reject) => {
+    // Check if already aborted
+    if (abortSignal?.aborted) {
+      reject(new Error('Search aborted'));
+      return;
+    }
+
     const collected: Map<string, NDKEvent> = new Map();
 
     // Debug: which relays are we querying?
@@ -88,6 +94,17 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       resolve(Array.from(collected.values()));
     }, timeoutMs);
 
+    // Handle abort signal
+    const abortHandler = () => {
+      try { sub.stop(); } catch {}
+      clearTimeout(timer);
+      reject(new Error('Search aborted'));
+    };
+
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', abortHandler);
+    }
+
     sub.on('event', (event: NDKEvent, relay: any) => {
       if (!collected.has(event.id)) {
         // Add relay source info to the event
@@ -99,6 +116,9 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
 
     sub.on('eose', () => {
       clearTimeout(timer);
+      if (abortSignal) {
+        abortSignal.removeEventListener('abort', abortHandler);
+      }
       resolve(Array.from(collected.values()));
     });
 
@@ -106,13 +126,13 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
   });
 }
 
-async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet): Promise<NDKEvent[]> {
+async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
-      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) }, 8000, relaySet);
+      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) }, 8000, relaySet, abortSignal);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
@@ -269,13 +289,24 @@ export async function searchEvents(
   query: string,
   limit: number = 200,
   options?: { exact?: boolean },
-  relaySetOverride?: NDKRelaySet
+  relaySetOverride?: NDKRelaySet,
+  abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
+  // Check if already aborted
+  if (abortSignal?.aborted) {
+    throw new Error('Search aborted');
+  }
+
   // Ensure we're connected before issuing any queries
   try {
     await ndk.connect();
   } catch (e) {
     console.warn('NDK connect failed or already connected:', e);
+  }
+
+  // Check if aborted after connection
+  if (abortSignal?.aborted) {
+    throw new Error('Search aborted');
   }
 
   // Extract relay filters and prepare relay set
@@ -328,7 +359,7 @@ export async function searchEvents(
     // Process each part of the OR query
     for (const part of orParts) {
       try {
-        const partResults = await searchEvents(part, limit, options, chosenRelaySet);
+        const partResults = await searchEvents(part, limit, options, chosenRelaySet, abortSignal);
         for (const event of partResults) {
           if (!seenIds.has(event.id)) {
             seenIds.add(event.id);
@@ -361,7 +392,7 @@ export async function searchEvents(
         kinds: [1],
         search: `"${cleanedQuery}"`,
         limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet);
+      }, 8000, chosenRelaySet, abortSignal);
       let res = results;
       if (hasImageFlag) res = res.filter(eventHasImage);
       if (hasVideoFlag) res = res.filter(eventHasVideo);
@@ -397,7 +428,7 @@ export async function searchEvents(
         kinds: [1],
         authors: [pubkey],
         limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet);
+      }, 8000, chosenRelaySet, abortSignal);
     } catch (error) {
       console.error('Error processing npub query:', error);
       return [];
@@ -472,7 +503,7 @@ export async function searchEvents(
 
     console.log('Searching with filters:', filters);
     {
-      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet);
+      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
@@ -495,12 +526,12 @@ export async function searchEvents(
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
     if (mediaFlagsPresent) {
       const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet);
-      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet) : [];
+      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
       results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit: Math.max(limit, 200) }, 8000, chosenRelaySet);
+      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     }
     console.log('Search results:', {
       query: cleanedQuery,

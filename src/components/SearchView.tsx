@@ -136,6 +136,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [isConnecting, setIsConnecting] = useState(true);
   const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
@@ -163,6 +164,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setActiveFilters(new Set());
       return;
     }
+
+    // Abort any ongoing search
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this search
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const searchId = ++currentSearchId.current;
 
     setLoading(true);
     try {
@@ -200,15 +211,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setActiveFilters(new Set());
       }
 
-      const searchResults = await searchEvents(searchQuery);
+      // Check if search was aborted before making the call
+      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
+        return;
+      }
+
+      const searchResults = await searchEvents(searchQuery, 200, undefined, undefined, abortController.signal);
+      
+      // Check if search was aborted after getting results
+      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
+        return;
+      }
+
       setBaseResults(searchResults);
       const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
       setResults(filtered);
     } catch (error) {
+      // Don't log aborted searches as errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Search error:', error);
       setResults([]);
     } finally {
-      setLoading(false);
+      // Only update loading state if this is still the current search
+      if (currentSearchId.current === searchId) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -612,6 +641,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               <button
                 type="button"
                 onClick={() => {
+                  // Abort any ongoing search immediately
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                  }
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
@@ -619,6 +652,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setExpandedTerms([]);
                   setActiveFilters(new Set());
                   setBaseResults([]);
+                  setLoading(false);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
