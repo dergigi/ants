@@ -328,19 +328,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
 
-  function RecentlyActiveRelays() {
-    if (!recentlyActive || recentlyActive.length === 0) return null;
-    return (
-      <div className="mt-3 pt-3 border-t border-[#3d3d3d]">
-        <div className="text-gray-300 font-medium mb-1">Recently active (60s)</div>
-        <div className="space-y-1">
-          {recentlyActive.map((relay, idx) => (
-            <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // Removed separate RecentlyActiveRelays section; now merged into Reachable
 
   // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
@@ -432,7 +420,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     
     if (connectedCount > 0) {
-      tooltip += `✅ Connected to ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
+      tooltip += `✅ Reachable (WebSocket) ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
       connectedRelays.forEach(relay => {
         const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
         tooltip += `  • ${shortName}\n`;
@@ -441,7 +429,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     
     if (failedCount > 0) {
       if (connectedCount > 0) tooltip += '\n';
-      tooltip += `❌ Failed to connect to ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
+      tooltip += `❌ Unreachable (socket closed) ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
       failedRelays.forEach(relay => {
         const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
         tooltip += `  • ${shortName}\n`;
@@ -842,44 +830,55 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </div>
             )}
             
-            {connectionDetails.connectedRelays.length > 0 && (
-              <div className="mb-2">
-                <div className="text-green-400 font-medium mb-1">
-                  ✅ Connected ({connectionDetails.connectedRelays.length})
+            {/* Reachable: union of live-connected and recently-active relays */}
+            {(() => {
+              const combined = Array.from(new Set([
+                ...connectionDetails.connectedRelays,
+                ...recentlyActive
+              ]));
+              if (combined.length === 0) return null;
+              return (
+                <div className="mb-2">
+                  <div className="text-green-400 font-medium mb-1">
+                    ✅ Reachable or active (60s) ({combined.length})
+                  </div>
+                  <div className="space-y-1">
+                    {combined.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {connectionDetails.connectedRelays.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">
-                      • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
             
-            {connectionDetails.failedRelays.length > 0 && (
-              <div>
-                <div className="text-red-400 font-medium mb-1">
-                  ❌ Failed ({connectionDetails.failedRelays.length})
+            {(() => {
+              const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
+              const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
+              if (failedFiltered.length === 0) return null;
+              return (
+                <div>
+                  <div className="text-red-400 font-medium mb-1">
+                    ❌ Failed ({failedFiltered.length})
+                  </div>
+                  <div className="space-y-1">
+                    {failedFiltered.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {connectionDetails.failedRelays.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">
-                      • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
             
-            {connectionDetails.connectedRelays.length === 0 && connectionDetails.failedRelays.length === 0 && (
+            {(() => {
+              const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
+              const anyFailed = connectionDetails.failedRelays.length > 0;
+              return (!anyReachable && !anyFailed) ? (
               <div className="text-gray-400">
                 No relay connection information available
               </div>
-            )}
+              ) : null;
+            })()}
 
-            {/* Recently active relays (by delivered events) */}
-            <RecentlyActiveRelays />
           </div>
         )}
         
