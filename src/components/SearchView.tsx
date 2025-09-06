@@ -155,6 +155,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  // Throttle input updates to one per animation frame to avoid excessive re-renders
+  const inputBufferRef = useRef<string>(initialQuery);
+  const rafIdRef = useRef<number | null>(null);
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    inputBufferRef.current = e.target.value;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        setQuery(inputBufferRef.current);
+      });
+    }
+  }, []);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -313,6 +325,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 5000);
     return () => clearInterval(id);
   }, [showConnectionDetails]);
+
+  useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
 
   function RecentlyActiveRelays() {
     if (!recentlyActive || recentlyActive.length === 0) return null;
@@ -743,7 +757,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={handleInputChange}
               placeholder={isConnecting ? loadingDots : placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             />
