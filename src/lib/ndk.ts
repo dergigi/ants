@@ -133,11 +133,10 @@ const checkRelayStatus = (): ConnectionStatus => {
         failedRelays.push(url);
         continue;
       }
-      // Consider connected only if NDK says CONNECTED and WebSocket is open
-      const wsOpen = (relay as unknown as { connectivity?: { ws?: WebSocket } })?.connectivity?.ws?.readyState === 1;
-      if (relay.status === 1 && wsOpen) {
+      // Use only NDK's status values
+      if (relay.status === 1) {
         connectedRelays.push(url);
-      } else if (relay.status === 2 || !wsOpen) {
+      } else if (relay.status === 2) {
         failedRelays.push(url);
       }
       // For 0/3 (connecting/reconnecting) ignore; they will be counted on next poll
