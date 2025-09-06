@@ -166,7 +166,7 @@ async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Pr
   if (!nip05) return [];
   
   try {
-    const [name, domain] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    const [, domain] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
     if (!domain) return [];
     
     const controller = new AbortController();
