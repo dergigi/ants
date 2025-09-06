@@ -44,6 +44,7 @@ export const searchExamples = [
 
   // Relay filters
   'relay:nostr.einundzwanzig.space bitcoin',
+  'relay:pyramid.fiatjaf.com lol',
   'relays:mine by:dergigi'
 ] as const;
 
