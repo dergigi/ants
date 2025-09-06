@@ -21,6 +21,39 @@ export const nextExample = (): string => {
   return currentSearchExample;
 };
 
+// Helper function to create timeout promise
+const createTimeoutPromise = (timeoutMs: number): Promise<never> => {
+  return new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Connection timeout')), timeoutMs);
+  });
+};
+
+// Helper function to create connection status
+const createConnectionStatus = (connectedRelays: string[], failedRelays: string[], timeout: boolean = false): ConnectionStatus => {
+  return {
+    success: connectedRelays.length > 0,
+    connectedRelays,
+    failedRelays,
+    timeout
+  };
+};
+
+// Helper function to finalize connection result
+const finalizeConnectionResult = (connectedRelays: string[], failedRelays: string[], timeout: boolean): ConnectionStatus => {
+  const result = createConnectionStatus(connectedRelays, failedRelays, timeout);
+  updateConnectionStatus(result);
+  startRelayMonitoring();
+  return result;
+};
+
+// Reusable connection function with timeout
+export const connectWithTimeout = async (timeoutMs: number = 3000): Promise<void> => {
+  await Promise.race([
+    ndk.connect(),
+    createTimeoutPromise(timeoutMs)
+  ]);
+};
+
 export interface ConnectionStatus {
   success: boolean;
   connectedRelays: string[];
@@ -110,65 +143,30 @@ export const stopRelayMonitoring = () => {
 };
 
 export const connect = async (timeoutMs: number = 5000): Promise<ConnectionStatus> => {
-  const connectedRelays: string[] = [];
-  const failedRelays: string[] = [];
   let timeout = false;
 
   try {
-    // Create a timeout promise
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout')), timeoutMs);
-    });
-
     // Race between connection and timeout
     await Promise.race([
       ndk.connect(),
-      timeoutPromise
+      createTimeoutPromise(timeoutMs)
     ]);
 
     // Check which relays actually connected
     const status = checkRelayStatus();
-    connectedRelays.push(...status.connectedRelays);
-    failedRelays.push(...status.failedRelays);
-
-    // Select a random example when we connect
-    currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
-    console.log('Connected to relays:', { connected: connectedRelays, failed: failedRelays, example: currentSearchExample });
+    nextExample(); // Select a random example when we connect
+    console.log('Connected to relays:', { connected: status.connectedRelays, failed: status.failedRelays, example: currentSearchExample });
     
-    const result = {
-      success: connectedRelays.length > 0,
-      connectedRelays,
-      failedRelays,
-      timeout: false
-    };
-    
-    updateConnectionStatus(result);
-    startRelayMonitoring(); // Start monitoring for status changes
-    
-    return result;
+    return finalizeConnectionResult(status.connectedRelays, status.failedRelays, false);
   } catch (error) {
     console.warn('NDK connection failed or timed out:', error);
     timeout = true;
     
     // Check which relays we can still access
     const status = checkRelayStatus();
-    connectedRelays.push(...status.connectedRelays);
-    failedRelays.push(...status.failedRelays);
-
-    // Still select an example even if connection failed
-    currentSearchExample = searchExamples[Math.floor(Math.random() * searchExamples.length)];
+    nextExample(); // Still select an example even if connection failed
     console.log('Using fallback example:', currentSearchExample);
     
-    const result = {
-      success: connectedRelays.length > 0,
-      connectedRelays,
-      failedRelays,
-      timeout
-    };
-    
-    updateConnectionStatus(result);
-    startRelayMonitoring(); // Start monitoring for status changes
-    
-    return result;
+    return finalizeConnectionResult(status.connectedRelays, status.failedRelays, timeout);
   }
 }; 

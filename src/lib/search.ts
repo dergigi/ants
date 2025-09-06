@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk } from './ndk';
+import { ndk, connectWithTimeout } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
@@ -365,11 +365,7 @@ export async function searchEvents(
 
   // Ensure we're connected before issuing any queries (with timeout)
   try {
-    // Attempt connection with timeout - NDK handles duplicate connections gracefully
-    await Promise.race([
-      ndk.connect(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3000))
-    ]);
+    await connectWithTimeout(3000);
   } catch (e) {
     console.warn('NDK connect failed or timed out:', e);
     // Continue anyway - search might still work with cached connections
