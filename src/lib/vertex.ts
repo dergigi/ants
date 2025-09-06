@@ -2,17 +2,15 @@ import { ndk } from './ndk';
 import { NDKEvent, NDKUser, NDKKind, NDKRelaySet, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
+import { relaySets } from './relays';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
 // Create a specific relay set for the Vertex DVM
-const dvmRelaySet = NDKRelaySet.fromRelayUrls(['wss://relay.vertexlab.io'], ndk);
+const dvmRelaySet = relaySets.vertexDvm();
 
 // Fallback profile search relay set (NIP-50 capable)
-const profileSearchRelaySet = NDKRelaySet.fromRelayUrls([
-  'wss://relay.nostr.band',
-  'wss://purplepag.es'
-], ndk);
+const profileSearchRelaySet = relaySets.profileSearch();
 
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
