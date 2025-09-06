@@ -1,4 +1,4 @@
-import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
@@ -162,11 +162,56 @@ async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRel
   return merged;
 }
 
+async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Promise<string[]> {
+  if (!nip05) return [];
+  
+  try {
+    const [name, domain] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    if (!domain) return [];
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`https://${domain}/.well-known/nostr.json`, { signal: controller.signal });
+    clearTimeout(timeout);
+    
+    if (!res.ok) return [];
+    const data = await res.json();
+    
+    // Check if this pubkey has relays listed in well-known
+    const relays = data?.relays?.[pubkey.toLowerCase()];
+    if (Array.isArray(relays) && relays.length > 0) {
+      const normalized = relays
+        .filter((r: unknown): r is string => typeof r === 'string')
+        .map((r: string) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`);
+      console.log('Discovered user relays from well-known:', { count: normalized.length, relays: normalized, domain });
+      return normalized;
+    }
+  } catch (error) {
+    console.warn('Failed to fetch relays from well-known:', error);
+  }
+  
+  return [];
+}
+
 async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
   try {
     const pubkey = getStoredPubkey();
     if (!pubkey) return [];
 
+    // First try to get relays from well-known (faster, more reliable)
+    const user = new NDKUser({ pubkey });
+    user.ndk = ndk;
+    try {
+      await user.fetchProfile();
+      const wellKnownRelays = await getUserRelayUrlsFromWellKnown(pubkey, user.profile?.nip05);
+      if (wellKnownRelays.length > 0) {
+        return wellKnownRelays;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch profile for well-known relay lookup:', error);
+    }
+
+    // Fallback to NIP-65 (kind 10002) if well-known doesn't have relays
     return await new Promise<string[]>((resolve) => {
       let latest: NDKEvent | null = null;
       const sub = ndk.subscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
@@ -188,7 +233,7 @@ async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
           }
         }
         const arr = Array.from(urls);
-        console.log('Discovered user relays from kind 10002:', { count: arr.length, relays: arr });
+        console.log('Discovered user relays from kind 10002 (fallback):', { count: arr.length, relays: arr });
         resolve(arr);
       });
       sub.start();
