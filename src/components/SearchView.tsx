@@ -415,9 +415,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     
     let tooltip = '';
     
-    if (timeout) {
-      tooltip += '⚠️ Connection timeout (5s)\n\n';
-    }
     
     if (connectedCount > 0) {
       tooltip += `✅ Reachable (WebSocket) ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
@@ -825,11 +822,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             </div>
             
-            {connectionDetails.timeout && (
-              <div className="mb-2 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded text-yellow-200">
-                ⚠️ Connection timeout (5s)
-              </div>
-            )}
             
             {/* Reachable: union of live-connected and recently-active relays */}
             {(() => {
