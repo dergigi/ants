@@ -88,8 +88,11 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       resolve(Array.from(collected.values()));
     }, timeoutMs);
 
-    sub.on('event', (event: NDKEvent) => {
+    sub.on('event', (event: NDKEvent, relay: any) => {
       if (!collected.has(event.id)) {
+        // Add relay source info to the event
+        const relayUrl = relay?.url || relay?.relay?.url || 'unknown';
+        (event as any).relaySource = relayUrl;
         collected.set(event.id, event);
       }
     });

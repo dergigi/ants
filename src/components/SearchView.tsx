@@ -10,6 +10,7 @@ import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import RelayBadge from './RelayBadge';
 
 type Props = {
   initialQuery?: string;
@@ -692,9 +693,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       <div className="flex items-center gap-2">
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
-                      <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </a>
+                        <RelayBadge relayUrl={(event as any).relaySource} />
+                      </div>
                     </div>
                   </div>
                 )}
