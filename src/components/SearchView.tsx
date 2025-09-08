@@ -811,8 +811,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         {/* Expandable connection details for mobile */}
         {showConnectionDetails && connectionDetails && (
           <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-gray-200">Relay Connection Status</span>
+            <div className="flex items-center justify-end mb-2">
               <button
                 type="button"
                 onClick={() => setShowConnectionDetails(false)}
@@ -833,7 +832,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               return (
                 <div className="mb-2">
                   <div className="text-green-400 font-medium mb-1">
-                    ✅ Reachable or active (15min) ({combined.length})
+                    ✅ Reachable or active ({combined.length})
                   </div>
                   <div className="space-y-1">
                     {combined.map((relay, idx) => (
