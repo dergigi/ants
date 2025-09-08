@@ -167,6 +167,134 @@ function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: st
   return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
 }
 
+// Streaming subscription that keeps connections open and streams results
+async function subscribeAndStream(
+  filter: NDKFilter, 
+  options: {
+    timeoutMs?: number;
+    maxResults?: number;
+    onResults?: (results: NDKEvent[], isComplete: boolean) => void;
+    relaySet?: NDKRelaySet;
+    abortSignal?: AbortSignal;
+  } = {}
+): Promise<NDKEvent[]> {
+  const { timeoutMs = 30000, maxResults = 1000, onResults, relaySet = searchRelaySet, abortSignal } = options;
+  
+  return new Promise<NDKEvent[]>((resolve) => {
+    // Check if already aborted
+    if (abortSignal?.aborted) {
+      resolve([]);
+      return;
+    }
+
+    // Validate filter
+    if (!filter || Object.keys(filter).length === 0) {
+      console.warn('Empty filter passed to subscribeAndStream, returning empty results');
+      resolve([]);
+      return;
+    }
+
+    console.log('subscribeAndStream called with filter:', filter);
+
+    const collected: Map<string, NDKEvent> = new Map();
+    let isComplete = false;
+    let lastEmitTime = 0;
+    const emitInterval = 500; // Emit results every 500ms
+
+    // Remove limit from filter for streaming - we'll handle it ourselves
+    const streamingFilter = { ...filter };
+    delete streamingFilter.limit;
+
+    const sub = ndk.subscribe([streamingFilter], { 
+      closeOnEose: false, // Keep connection open!
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
+      relaySet 
+    });
+
+    const timer = setTimeout(() => {
+      isComplete = true;
+      try { sub.stop(); } catch {}
+      // Final emit before resolving
+      if (onResults) {
+        onResults(Array.from(collected.values()), true);
+      }
+      resolve(Array.from(collected.values()));
+    }, timeoutMs);
+
+    // Handle abort signal
+    const abortHandler = () => {
+      isComplete = true;
+      try { sub.stop(); } catch {}
+      clearTimeout(timer);
+      if (abortSignal) {
+        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
+      }
+      if (onResults) {
+        onResults(Array.from(collected.values()), true);
+      }
+      resolve(Array.from(collected.values()));
+    };
+
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', abortHandler);
+    }
+
+    // Periodic emission of results
+    const emitResults = () => {
+      if (onResults && !isComplete) {
+        const now = Date.now();
+        if (now - lastEmitTime >= emitInterval) {
+          onResults(Array.from(collected.values()), false);
+          lastEmitTime = now;
+        }
+      }
+    };
+
+    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+      const relayUrl = relay?.url || 'unknown';
+      // Mark this relay as active
+      if (relayUrl !== 'unknown') {
+        try { markRelayActivity(relayUrl); } catch {}
+      }
+      
+      if (!collected.has(event.id)) {
+        const eventWithSource = event as NDKEventWithRelaySource;
+        eventWithSource.relaySource = relayUrl;
+        eventWithSource.relaySources = [relayUrl];
+        collected.set(event.id, eventWithSource);
+        
+        // Check if we've hit max results
+        if (maxResults && collected.size >= maxResults) {
+          isComplete = true;
+          try { sub.stop(); } catch {}
+          clearTimeout(timer);
+          if (onResults) {
+            onResults(Array.from(collected.values()), true);
+          }
+          resolve(Array.from(collected.values()));
+          return;
+        }
+        
+        // Emit results periodically
+        emitResults();
+      } else {
+        // Event already exists, add this relay to the sources
+        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
+        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
+          existingEvent.relaySources.push(relayUrl);
+        }
+      }
+    });
+
+    sub.on('eose', () => {
+      console.log('EOSE received, but keeping connection open for more results...');
+      // Don't close on EOSE - keep streaming!
+    });
+
+    sub.start();
+  });
+}
+
 async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
@@ -469,10 +597,19 @@ export function parseOrQuery(query: string): string[] {
   return parts;
 }
 
+// Streaming search options
+interface StreamingSearchOptions {
+  exact?: boolean;
+  streaming?: boolean;
+  maxResults?: number;
+  timeoutMs?: number;
+  onResults?: (results: NDKEvent[], isComplete: boolean) => void;
+}
+
 export async function searchEvents(
   query: string,
   limit: number = 200,
-  options?: { exact?: boolean },
+  options?: { exact?: boolean } | StreamingSearchOptions,
   relaySetOverride?: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
@@ -493,6 +630,10 @@ export async function searchEvents(
   if (abortSignal?.aborted) {
     throw new Error('Search aborted');
   }
+
+  // Check if this is a streaming search
+  const isStreaming = options && 'streaming' in options && options.streaming;
+  const streamingOptions = isStreaming ? options as StreamingSearchOptions : undefined;
 
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
@@ -578,11 +719,22 @@ export async function searchEvents(
     const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
-      const results = await subscribeAndCollect({
-        kinds: [1],
-        search: searchQuery,
-        limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet, abortSignal);
+      const results = isStreaming 
+        ? await subscribeAndStream({
+            kinds: [1],
+            search: searchQuery
+          }, {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: streamingOptions?.onResults,
+            relaySet: chosenRelaySet,
+            abortSignal
+          })
+        : await subscribeAndCollect({
+            kinds: [1],
+            search: searchQuery,
+            limit: Math.max(limit, 200)
+          }, 8000, chosenRelaySet, abortSignal);
       let res = results;
       if (hasImageFlag) res = res.filter(eventHasImage);
       if (hasVideoFlag) res = res.filter(eventHasVideo);
@@ -722,7 +874,18 @@ export async function searchEvents(
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
       const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+      results = isStreaming 
+        ? await subscribeAndStream({
+            kinds: [1],
+            search: searchQuery
+          }, {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: streamingOptions?.onResults,
+            relaySet: chosenRelaySet,
+            abortSignal
+          })
+        : await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     }
     console.log('Search results:', {
       query: cleanedQuery,
@@ -746,4 +909,25 @@ export async function searchEvents(
     console.error('Error fetching events:', error);
     return [];
   }
+}
+
+// Convenience function for streaming search
+export async function searchEventsStreaming(
+  query: string,
+  onResults: (results: NDKEvent[], isComplete: boolean) => void,
+  options: {
+    maxResults?: number;
+    timeoutMs?: number;
+    exact?: boolean;
+    relaySetOverride?: NDKRelaySet;
+    abortSignal?: AbortSignal;
+  } = {}
+): Promise<NDKEvent[]> {
+  return searchEvents(query, 1000, {
+    streaming: true,
+    onResults,
+    maxResults: options.maxResults || 1000,
+    timeoutMs: options.timeoutMs || 30000,
+    exact: options.exact
+  }, options.relaySetOverride, options.abortSignal);
 } 
