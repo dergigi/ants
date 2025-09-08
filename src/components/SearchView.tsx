@@ -155,17 +155,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
-  // Throttle input updates to one per animation frame to avoid excessive re-renders
-  const inputBufferRef = useRef<string>(initialQuery);
-  const rafIdRef = useRef<number | null>(null);
+  // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    inputBufferRef.current = e.target.value;
-    if (rafIdRef.current === null) {
-      rafIdRef.current = requestAnimationFrame(() => {
-        rafIdRef.current = null;
-        setQuery(inputBufferRef.current);
-      });
-    }
+    setQuery(e.target.value);
   }, []);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
@@ -326,7 +318,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
-  useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
 
   // Removed separate RecentlyActiveRelays section; now merged into Reachable
 

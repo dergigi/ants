@@ -754,7 +754,7 @@ export async function searchEvents(
   const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
-    const tagFilter: TagTFilter = { kinds: [1, 30023], '#t': tags, limit: Math.max(limit, 500) };
+    const tagFilter: TagTFilter = { kinds: [1], '#t': tags, limit: Math.max(limit, 500) };
 
     // Broader relay set than NIP-50 search: default + search relays
     const broadRelays = Array.from(

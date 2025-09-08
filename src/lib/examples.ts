@@ -49,15 +49,9 @@ export const searchExamples = [
 
   // NIP-50 extensions
   'bitcoin include:spam',
-  'nostr domain:nostr.com',
-  'hello language:en',
-  'amazing sentiment:positive',
   'art nsfw:false',
-  'meme nsfw:true',
-  'tools domain:dergigi.com language:en',
-  'bitcoin include:spam',
+  '#meme nsfw:true',
   'has:image nsfw:false',
-  'domain:21lessons.com sentiment:positive'
 ] as const;
 
 // Examples that require login to work properly
