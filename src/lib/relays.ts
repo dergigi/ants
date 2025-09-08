@@ -4,6 +4,36 @@ import { ndk } from './ndk';
 // Cache for NIP-50 support status
 const nip50SupportCache = new Map<string, { supported: boolean; timestamp: number }>();
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_STORAGE_KEY = 'ants_nip50_cache';
+
+// Load cache from localStorage on initialization
+function loadCacheFromStorage(): void {
+  try {
+    const stored = localStorage.getItem(CACHE_STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      for (const [url, cacheEntry] of Object.entries(data)) {
+        nip50SupportCache.set(url, cacheEntry as { supported: boolean; timestamp: number });
+      }
+      console.log(`Loaded ${nip50SupportCache.size} NIP-50 cache entries from storage`);
+    }
+  } catch (error) {
+    console.warn('Failed to load NIP-50 cache from storage:', error);
+  }
+}
+
+// Save cache to localStorage
+function saveCacheToStorage(): void {
+  try {
+    const data = Object.fromEntries(nip50SupportCache);
+    localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Failed to save NIP-50 cache to storage:', error);
+  }
+}
+
+// Initialize cache from storage
+loadCacheFromStorage();
 
 // Centralized relay configuration
 export const RELAYS = {
@@ -141,6 +171,9 @@ export async function checkNip50Support(relayUrl: string): Promise<boolean> {
     timestamp: Date.now() 
   });
   
+  // Save to localStorage
+  saveCacheToStorage();
+  
   return supported;
 }
 
@@ -177,4 +210,30 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   
   console.log('NIP-50 capable relays:', nip50Relays);
   return createRelaySet(nip50Relays);
+}
+
+// Clear NIP-50 cache (useful for debugging or forcing re-detection)
+export function clearNip50Cache(): void {
+  nip50SupportCache.clear();
+  try {
+    localStorage.removeItem(CACHE_STORAGE_KEY);
+    console.log('NIP-50 cache cleared');
+  } catch (error) {
+    console.warn('Failed to clear NIP-50 cache from storage:', error);
+  }
+}
+
+// Get cache statistics
+export function getNip50CacheStats(): { size: number; entries: Array<{ url: string; supported: boolean; age: number }> } {
+  const now = Date.now();
+  const entries = Array.from(nip50SupportCache.entries()).map(([url, entry]) => ({
+    url,
+    supported: entry.supported,
+    age: Math.round((now - entry.timestamp) / (1000 * 60 * 60)) // age in hours
+  }));
+  
+  return {
+    size: nip50SupportCache.size,
+    entries
+  };
 }
