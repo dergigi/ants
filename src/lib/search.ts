@@ -27,6 +27,9 @@ interface NDKEventWithRelaySource extends NDKEvent {
   relaySources?: string[]; // Track all relays where this event was found
 }
 
+// Extend filter type to include tag queries for "t" (hashtags)
+type TagTFilter = NDKFilter & { '#t'?: string[] };
+
 
 
 // Centralized media extension lists (keep DRY)
@@ -745,6 +748,32 @@ export async function searchEvents(
       return res.slice(0, limit);
     }
   } catch {}
+
+  // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
+  const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
+  const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
+  if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
+    const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
+    const tagFilter: TagTFilter = { kinds: [1, 30023], '#t': tags, limit: Math.max(limit, 500) };
+
+    // Broader relay set than NIP-50 search: default + search relays
+    const broadRelays = Array.from(new Set([...(RELAYS.DEFAULT as unknown as string[]), ...(RELAYS.SEARCH as unknown as string[])]));
+    const tagRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+
+    const results = isStreaming
+      ? await subscribeAndStream(tagFilter, {
+          timeoutMs: streamingOptions?.timeoutMs || 30000,
+          maxResults: streamingOptions?.maxResults || 1000,
+          onResults: streamingOptions?.onResults,
+          relaySet: tagRelaySet,
+          abortSignal
+        })
+      : await subscribeAndCollect(tagFilter, 10000, tagRelaySet, abortSignal);
+
+    return results
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+      .slice(0, limit);
+  }
 
   // Full-text profile search `p:<term>` (not only username)
   const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
