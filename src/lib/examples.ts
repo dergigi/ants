@@ -45,7 +45,21 @@ export const searchExamples = [
   // Relay filters
   'relay:nostr.einundzwanzig.space bitcoin',
   'relays:mine by:dergigi',
-  'PV relay:relay.ditto.pub'
+  'PV relay:relay.ditto.pub',
+
+  // NIP-50 extensions
+  'bitcoin include:spam',
+  'nostr domain:nostr.com',
+  'hello language:en',
+  'amazing sentiment:positive',
+  'art nsfw:false',
+  'meme nsfw:true',
+  'bitcoin domain:nostr.com language:en',
+  'GM sentiment:positive language:en',
+  'by:dergigi include:spam',
+  'bitcoin OR lightning include:spam',
+  'has:image nsfw:false',
+  'by:dergigi domain:dergigi.com sentiment:positive'
 ] as const;
 
 // Examples that require login to work properly

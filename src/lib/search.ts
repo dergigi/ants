@@ -13,6 +13,15 @@ interface RelayObject {
   };
 }
 
+// NIP-50 extension options
+interface Nip50Extensions {
+  includeSpam?: boolean;
+  domain?: string;
+  language?: string;
+  sentiment?: 'negative' | 'neutral' | 'positive';
+  nsfw?: boolean;
+}
+
 interface NDKEventWithRelaySource extends NDKEvent {
   relaySource?: string;
   relaySources?: string[]; // Track all relays where this event was found
@@ -41,6 +50,86 @@ const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = relaySets.search();
+
+// Extract NIP-50 extensions from the raw query string
+function extractNip50Extensions(rawQuery: string): { cleaned: string; extensions: Nip50Extensions } {
+  let cleaned = rawQuery;
+  const extensions: Nip50Extensions = {};
+
+  // include:spam - turn off spam filtering
+  const includeSpamRegex = /(?:^|\s)include:spam(?:\s|$)/gi;
+  if (includeSpamRegex.test(cleaned)) {
+    extensions.includeSpam = true;
+    cleaned = cleaned.replace(includeSpamRegex, ' ');
+  }
+
+  // domain:<domain> - include only events from users whose valid nip05 domain matches the domain
+  const domainRegex = /(?:^|\s)domain:([^\s]+)(?:\s|$)/gi;
+  cleaned = cleaned.replace(domainRegex, (_, domain: string) => {
+    const value = (domain || '').trim();
+    if (value) extensions.domain = value;
+    return ' ';
+  });
+
+  // language:<two letter ISO 639-1 language code> - include only events of a specified language
+  const languageRegex = /(?:^|\s)language:([a-z]{2})(?:\s|$)/gi;
+  cleaned = cleaned.replace(languageRegex, (_, lang: string) => {
+    const value = (lang || '').trim().toLowerCase();
+    if (value && value.length === 2) extensions.language = value;
+    return ' ';
+  });
+
+  // sentiment:<negative/neutral/positive> - include only events of a specific sentiment
+  const sentimentRegex = /(?:^|\s)sentiment:(negative|neutral|positive)(?:\s|$)/gi;
+  cleaned = cleaned.replace(sentimentRegex, (_, sentiment: string) => {
+    const value = (sentiment || '').trim().toLowerCase();
+    if (['negative', 'neutral', 'positive'].includes(value)) {
+      extensions.sentiment = value as 'negative' | 'neutral' | 'positive';
+    }
+    return ' ';
+  });
+
+  // nsfw:<true/false> - include or exclude nsfw events (default: true)
+  const nsfwRegex = /(?:^|\s)nsfw:(true|false)(?:\s|$)/gi;
+  cleaned = cleaned.replace(nsfwRegex, (_, nsfw: string) => {
+    const value = (nsfw || '').trim().toLowerCase();
+    if (value === 'true') extensions.nsfw = true;
+    else if (value === 'false') extensions.nsfw = false;
+    return ' ';
+  });
+
+  return { cleaned: cleaned.trim(), extensions };
+}
+
+// Build search query with NIP-50 extensions
+function buildSearchQueryWithExtensions(baseQuery: string, extensions: Nip50Extensions): string {
+  if (!baseQuery.trim()) return baseQuery;
+  
+  let searchQuery = baseQuery;
+  
+  // Add NIP-50 extensions as key:value pairs
+  if (extensions.includeSpam) {
+    searchQuery += ' include:spam';
+  }
+  
+  if (extensions.domain) {
+    searchQuery += ` domain:${extensions.domain}`;
+  }
+  
+  if (extensions.language) {
+    searchQuery += ` language:${extensions.language}`;
+  }
+  
+  if (extensions.sentiment) {
+    searchQuery += ` sentiment:${extensions.sentiment}`;
+  }
+  
+  if (extensions.nsfw !== undefined) {
+    searchQuery += ` nsfw:${extensions.nsfw}`;
+  }
+  
+  return searchQuery;
+}
 
 // Extract relay filters from the raw query string
 function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: string[]; useMyRelays: boolean } {
@@ -168,13 +257,14 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
   });
 }
 
-async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
+async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet, abortSignal?: AbortSignal, nip50Extensions?: Nip50Extensions): Promise<NDKEvent[]> {
   // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
-      const res = await subscribeAndCollect({ kinds: [1], search: term, limit: Math.max(limit, 200) }, 8000, relaySet, abortSignal);
+      const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
+      const res = await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, relaySet, abortSignal);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
@@ -404,8 +494,12 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
+  // Extract NIP-50 extensions first
+  const nip50Extraction = extractNip50Extensions(query);
+  const nip50Extensions = nip50Extraction.extensions;
+  
   // Extract relay filters and prepare relay set
-  const relayExtraction = extractRelayFilters(query);
+  const relayExtraction = extractRelayFilters(nip50Extraction.cleaned);
   const relayCandidates: string[] = [];
   if (!relaySetOverride) {
     if (relayExtraction.useMyRelays) {
@@ -483,9 +577,10 @@ export async function searchEvents(
   try {
     const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
+      const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
       const results = await subscribeAndCollect({
         kinds: [1],
-        search: `"${cleanedQuery}"`,
+        search: searchQuery,
         limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet, abortSignal);
       let res = results;
@@ -585,7 +680,7 @@ export async function searchEvents(
 
     // Add search term to the filter if present
     if (terms) {
-      filters.search = terms;
+      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
       // Increase limit for filtered text searches to improve recall
       // Many relays require higher limits to surface matching events
       filters.limit = Math.max(limit, 200);
@@ -621,12 +716,13 @@ export async function searchEvents(
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
     if (mediaFlagsPresent) {
       const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal);
-      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: cleanedQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
+      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal, nip50Extensions);
+      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(cleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
       results = [...seedResults, ...baseQueryResults];
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      results = await subscribeAndCollect({ kinds: [1], search: baseSearch, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+      const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
+      results = await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     }
     console.log('Search results:', {
       query: cleanedQuery,
