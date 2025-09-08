@@ -54,12 +54,10 @@ export const searchExamples = [
   'amazing sentiment:positive',
   'art nsfw:false',
   'meme nsfw:true',
-  'bitcoin domain:nostr.com language:en',
-  'GM sentiment:positive language:en',
-  'by:dergigi include:spam',
-  'bitcoin OR lightning include:spam',
+  'tools domain:dergigi.com language:en',
+  'bitcoin include:spam',
   'has:image nsfw:false',
-  'by:dergigi domain:dergigi.com sentiment:positive'
+  'domain:21lessons.com sentiment:positive'
 ] as const;
 
 // Examples that require login to work properly
