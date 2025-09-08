@@ -757,7 +757,9 @@ export async function searchEvents(
     const tagFilter: TagTFilter = { kinds: [1, 30023], '#t': tags, limit: Math.max(limit, 500) };
 
     // Broader relay set than NIP-50 search: default + search relays
-    const broadRelays = Array.from(new Set([...(RELAYS.DEFAULT as unknown as string[]), ...(RELAYS.SEARCH as unknown as string[])]));
+    const broadRelays = Array.from(
+      new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH].map((u) => u as string))
+    );
     const tagRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
 
     const results = isStreaming
