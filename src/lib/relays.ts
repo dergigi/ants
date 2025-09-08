@@ -1,4 +1,4 @@
-import { NDKRelaySet } from '@nostr-dev-kit/ndk';
+import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
 
 // Cache for NIP-50 support status
@@ -123,7 +123,7 @@ async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
       limit: 1 
     }], { 
       closeOnEose: true, 
-      cacheUsage: 'ONLY_RELAY' as any, 
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
       relaySet: testRelaySet 
     });
     
