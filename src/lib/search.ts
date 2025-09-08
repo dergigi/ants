@@ -3,7 +3,7 @@ import { ndk, connectWithTimeout, markRelayActivity } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
-import { relaySets, RELAYS } from './relays';
+import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 
 // Type definitions for relay objects
 interface RelayObject {
@@ -653,11 +653,11 @@ export async function searchEvents(
     ? relaySetOverride
     : (relayCandidates.length > 0
       ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
-      : searchRelaySet);
+      : await getNip50SearchRelaySet());
   if (relayCandidates.length > 0) {
     console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
   } else if (!relaySetOverride) {
-    console.log('Using default search relay set:', RELAYS.SEARCH);
+    console.log('Using NIP-50 filtered search relay set');
   } else {
     console.log('Using provided relay set override');
   }
