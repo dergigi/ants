@@ -880,10 +880,23 @@ export async function searchEvents(
     {
       let res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       // Fallback: if no results, try a broader relay set (default + search)
+      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
       if (res.length === 0) {
-        const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-        const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
         res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+      }
+      // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
+      // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
+      const termStr = terms.trim();
+      const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
+      if (res.length === 0 && termStr) {
+        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const needle = termStr.toLowerCase();
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      } else if (res.length === 0 && hasShortToken) {
+        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const needle = termStr.toLowerCase();
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
