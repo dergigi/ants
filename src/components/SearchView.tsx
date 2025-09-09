@@ -15,6 +15,7 @@ import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import emojiRegex from 'emoji-regex';
 import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
@@ -566,9 +567,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             </button>
           );
         } else if (part && part.trim()) {
-          const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
-          const emojiParts = part.split(emojiRegex);
-          const emojis = part.match(emojiRegex) || [];
+          const emojiRx = emojiRegex();
+          const emojiParts = part.split(emojiRx);
+          const emojis = part.match(emojiRx) || [];
           for (let i = 0; i < emojiParts.length; i++) {
             if (emojiParts[i]) finalNodes.push(emojiParts[i]);
             if (emojis[i]) {
