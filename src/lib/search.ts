@@ -856,6 +856,11 @@ export async function searchEvents(
       const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal, nip50Extensions);
       const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(cleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
       results = [...seedResults, ...baseQueryResults];
+      // Enforce AND: require text match when a base query exists
+      if (cleanedQuery) {
+        const needle = cleanedQuery.toLowerCase();
+        results = results.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      }
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
       const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
