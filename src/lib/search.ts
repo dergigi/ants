@@ -713,16 +713,32 @@ export async function searchEvents(
           .filter((r: unknown): r is string => typeof r === 'string')
           .map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`)
       )) : [];
-      const relaySetForId = neventRelays.length > 0
-        ? NDKRelaySet.fromRelayUrls(neventRelays, ndk)
-        : chosenRelaySet;
-      const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, relaySetForId, abortSignal);
-      return byId;
+      const setsToTry: NDKRelaySet[] = [];
+      if (neventRelays.length > 0) {
+        setsToTry.push(NDKRelaySet.fromRelayUrls(neventRelays, ndk));
+      }
+      // Try a broader default set next
+      setsToTry.push(NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk));
+      // Finally try the chosen search set
+      setsToTry.push(chosenRelaySet);
+
+      for (const rs of setsToTry) {
+        const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, rs, abortSignal);
+        if (byId.length > 0) return byId;
+      }
+      return [];
     }
     if (decoded?.type === 'note') {
       const id = decoded.data as string;
-      const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, chosenRelaySet, abortSignal);
-      return byId;
+      const setsToTry: NDKRelaySet[] = [
+        NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk),
+        chosenRelaySet
+      ];
+      for (const rs of setsToTry) {
+        const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, rs, abortSignal);
+        if (byId.length > 0) return byId;
+      }
+      return [];
     }
   } catch {}
 
