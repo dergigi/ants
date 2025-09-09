@@ -255,23 +255,39 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   const username = match[1].toLowerCase();
   
-  try {
-    const events = await queryVertexDVM(username);
-    return events[0] ?? null;
-  } catch (error) {
-    // Fallback when Vertex credits are not available
-    if ((error as Error)?.message === 'VERTEX_NO_CREDITS') {
-      try {
-        const fallback = await fallbackLookupProfile(username);
-        return fallback;
-      } catch (e) {
-        console.error('Fallback profile lookup failed:', e);
+  // Run DVM query and fallback in parallel; return the first non-null result
+  const dvmPromise: Promise<NDKEvent | null> = (async () => {
+    try {
+      const events = await queryVertexDVM(username);
+      return events[0] ?? null;
+    } catch (error) {
+      if ((error as Error)?.message === 'VERTEX_NO_CREDITS') {
         return null;
       }
+      console.warn('Vertex DVM query failed, will rely on fallback if available:', error);
+      return null;
     }
-    console.error('Error in lookupVertexProfile:', error);
+  })();
+
+  const fallbackPromise: Promise<NDKEvent | null> = fallbackLookupProfile(username).catch((e) => {
+    console.error('Fallback profile lookup failed:', e);
     return null;
-  }
+  });
+
+  // Helper to suppress null resolutions so Promise.race yields the first non-null
+  const firstNonNull = <T,>(p: Promise<T | null>) => p.then((v) => (v !== null ? v : new Promise<never>(() => {})));
+
+  try {
+    const first = await Promise.race([
+      firstNonNull(dvmPromise),
+      firstNonNull(fallbackPromise)
+    ]);
+    if (first) return first;
+  } catch {}
+
+  // If neither produced a non-null quickly, await both and return whichever is available
+  const [dvmRes, fbRes] = await Promise.all([dvmPromise, fallbackPromise]);
+  return dvmRes || fbRes;
 } 
 
 export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
