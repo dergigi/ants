@@ -834,9 +834,18 @@ export async function searchEvents(
     } else {
       // Look up author's profile via Vertex DVM (personalized when logged in, global otherwise)
       try {
-        const profile = await lookupVertexProfile(`p:${author}`);
+        let profile = await lookupVertexProfile(`p:${author}`);
+        // Fallback: try full-text profile search if DVM and fallback did not return a result
+        if (!profile) {
+          try {
+            const profiles = await searchProfilesFullText(author, 1);
+            profile = profiles[0] || null;
+          } catch (e) {
+            // ignore and keep profile null
+          }
+        }
         if (profile) {
-          pubkey = profile.author.pubkey;
+          pubkey = profile.author?.pubkey || profile.pubkey || null;
         }
       } catch (error) {
         console.error('Error looking up author profile:', error);
