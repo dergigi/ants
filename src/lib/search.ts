@@ -703,6 +703,29 @@ export async function searchEvents(
     }
   } catch {}
 
+  // nevent/note bech32: fetch by id (optionally using relays embedded in nevent)
+  try {
+    const decoded = nip19.decode(cleanedQuery);
+    if (decoded?.type === 'nevent') {
+      const data = decoded.data as { id: string; relays?: string[] };
+      const neventRelays = Array.isArray(data.relays) ? Array.from(new Set(
+        data.relays
+          .filter((r: unknown): r is string => typeof r === 'string')
+          .map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`)
+      )) : [];
+      const relaySetForId = neventRelays.length > 0
+        ? NDKRelaySet.fromRelayUrls(neventRelays, ndk)
+        : chosenRelaySet;
+      const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, relaySetForId, abortSignal);
+      return byId;
+    }
+    if (decoded?.type === 'note') {
+      const id = decoded.data as string;
+      const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, chosenRelaySet, abortSignal);
+      return byId;
+    }
+  } catch {}
+
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
   const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
   const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
