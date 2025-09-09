@@ -878,7 +878,13 @@ export async function searchEvents(
 
     console.log('Searching with filters:', filters);
     {
-      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      let res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      // Fallback: if no results, try a broader relay set (default + search)
+      if (res.length === 0) {
+        const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+        const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+        res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+      }
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
