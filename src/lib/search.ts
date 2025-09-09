@@ -775,11 +775,11 @@ export async function searchEvents(
   }
 
   // Check for author filter
-  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
+  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
