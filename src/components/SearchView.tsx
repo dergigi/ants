@@ -766,13 +766,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             )}
             {!query && !loading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5">
+              <button
+                type="button"
+                aria-label="Next example"
+                title="Show next example"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 cursor-pointer"
+                onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); }}
+              >
                 <svg viewBox="0 0 36 36" className="w-5 h-5">
                   <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
                   <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
                     strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
                 </svg>
-              </div>
+              </button>
             )}
             {/* Connection status indicator */}
             {!loading && connectionStatus !== 'connecting' && (
