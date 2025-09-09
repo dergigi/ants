@@ -778,7 +778,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             {!loading && connectionStatus !== 'connecting' && (
               <button
                 type="button"
-                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-8' : 'right-10'} touch-manipulation`}
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-12' : 'right-14'} touch-manipulation`}
                 onClick={() => setShowConnectionDetails(!showConnectionDetails)}
                 title={formatConnectionTooltip(connectionDetails)}
               >
