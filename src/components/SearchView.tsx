@@ -933,9 +933,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
                       <div className="flex items-center gap-2">
-                        <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                        </a>
+                        </button>
                         {/* Relay indicator removed */}
                       </div>
                     </div>
