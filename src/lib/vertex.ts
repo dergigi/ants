@@ -354,11 +354,31 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
   }
 
   const lower = username.toLowerCase();
+
+  // Helper: ensure the returned event has an author with pubkey set
+  const ensureAuthor = (evt: NDKEvent): NDKEvent => {
+    const pk = evt.pubkey || evt.author?.pubkey;
+    if (pk && !evt.author) {
+      const user = new NDKUser({ pubkey: pk });
+      user.ndk = ndk;
+      // Optionally attach minimal profile fields for better UI
+      const fields = extractProfileFields(evt);
+      (user as NDKUser & { profile?: unknown }).profile = {
+        name: fields.name,
+        displayName: fields.display,
+        about: fields.about,
+        nip05: fields.nip05,
+        image: fields.image
+      } as unknown;
+      evt.author = user;
+    }
+    return evt;
+  };
   const exact = profiles.find((e) => {
     const n = extractNames(e);
     return (n.display || n.name || '').toLowerCase() === lower;
   });
-  if (exact) return exact;
+  if (exact) return ensureAuthor(exact);
 
   const storedPubkey = getStoredPubkey();
   if (storedPubkey) {
@@ -375,7 +395,7 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
       if (ap !== bp) return ap - bp;
       return an.localeCompare(bn);
     });
-    return sorted[0];
+    return ensureAuthor(sorted[0]);
   }
 
   // Not logged in: sort by follower count across relays
@@ -393,7 +413,7 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
     if (ap !== bp) return ap - bp;
     return an.localeCompare(bn);
   });
-  return sortedByCount[0];
+  return ensureAuthor(sortedByCount[0]);
 }
 
 // Simple in-memory cache for NIP-05 verification results
