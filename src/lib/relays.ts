@@ -46,9 +46,7 @@ export const RELAYS = {
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://relay.ditto.pub',
-    'wss://search.nos.today',
-    'wss://index.hzrd149.com/'
+    'wss://search.nos.today'
   ],
 
   // Profile search relays (NIP-50 capable)
@@ -201,15 +199,8 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
-  // Start with known NIP-50 relays
-  const knownNip50Relays = [...RELAYS.SEARCH];
-  
-  // Add default relays and check them
-  const allRelays = [...new Set([...knownNip50Relays, ...RELAYS.DEFAULT])];
-  const nip50Relays = await filterNip50Relays(allRelays);
-  
-  console.log('NIP-50 capable relays:', nip50Relays);
-  return createRelaySet(nip50Relays);
+  // Always use a single, stable search relay to reduce flakiness
+  return createRelaySet([...RELAYS.SEARCH]);
 }
 
 // Clear NIP-50 cache (useful for debugging or forcing re-detection)
