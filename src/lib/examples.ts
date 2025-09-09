@@ -42,10 +42,7 @@ export const searchExamples = [
   'by:dergigi has:image',
   'by:HODL has:video',
 
-  // Relay filters
-  'relay:nostr.einundzwanzig.space bitcoin',
-  'relays:mine by:dergigi',
-  'PV relay:relay.ditto.pub',
+  // Relay filters (removed)
 
   // NIP-50 extensions
   'bitcoin include:spam',
@@ -55,9 +52,7 @@ export const searchExamples = [
 ] as const;
 
 // Examples that require login to work properly
-const loginRequiredExamples = [
-  'relays:mine by:dergigi'
-] as const;
+const loginRequiredExamples = [] as const;
 
 // Get examples filtered by login status
 export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {

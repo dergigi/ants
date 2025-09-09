@@ -134,40 +134,12 @@ function buildSearchQueryWithExtensions(baseQuery: string, extensions: Nip50Exte
   return searchQuery;
 }
 
-// Extract relay filters from the raw query string
-function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: string[]; useMyRelays: boolean } {
-  let cleaned = rawQuery;
-  const relayUrls: string[] = [];
-  let useMyRelays = false;
-
-  // relay:<host-or-url>
-  const relayRegex = /(?:^|\s)relay:([^\s]+)(?:\s|$)/gi;
-  cleaned = cleaned.replace(relayRegex, (_, hostOrUrl: string) => {
-    const value = (hostOrUrl || '').trim();
-    if (value) relayUrls.push(value);
-    return ' ';
-  });
-
-  // relays:mine
-  const relaysMineRegex = /(?:^|\s)relays:mine(?:\s|$)/gi;
-  if (relaysMineRegex.test(cleaned)) {
-    useMyRelays = true;
-    cleaned = cleaned.replace(relaysMineRegex, ' ');
-  }
-
-  // Normalize relay URLs
-  const normalized: string[] = [];
-  const seen = new Set<string>();
-  for (const r of relayUrls) {
-    const hasScheme = /^wss?:\/\//i.test(r);
-    const url = hasScheme ? r : `wss://${r}`;
-    if (!seen.has(url)) {
-      seen.add(url);
-      normalized.push(url);
-    }
-  }
-
-  return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
+// Strip legacy relay filters from query (relay:..., relays:mine)
+function stripRelayFilters(rawQuery: string): string {
+  return rawQuery
+    .replace(/(?:^|\s)relay:[^\s]+(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)relays:mine(?:\s|$)/gi, ' ')
+    .trim();
 }
 
 // Streaming subscription that keeps connections open and streams results
@@ -642,31 +614,13 @@ export async function searchEvents(
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
   
-  // Extract relay filters and prepare relay set
-  const relayExtraction = extractRelayFilters(nip50Extraction.cleaned);
-  const relayCandidates: string[] = [];
-  if (!relaySetOverride) {
-    if (relayExtraction.useMyRelays) {
-      const mine = await getUserRelayUrls();
-      for (const u of mine) relayCandidates.push(u);
-    }
-    for (const u of relayExtraction.relayUrls) relayCandidates.push(u);
-  }
+  // Remove legacy relay filters and choose the default search relay set
   const chosenRelaySet: NDKRelaySet = relaySetOverride
     ? relaySetOverride
-    : (relayCandidates.length > 0
-      ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
-      : await getNip50SearchRelaySet());
-  if (relayCandidates.length > 0) {
-    console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
-  } else if (!relaySetOverride) {
-    console.log('Using NIP-50 filtered search relay set');
-  } else {
-    console.log('Using provided relay set override');
-  }
+    : await getNip50SearchRelaySet();
 
   // Detect and strip media flags; apply post-filter later
-  const relayStripped = relayExtraction.cleaned;
+  const relayStripped = stripRelayFilters(nip50Extraction.cleaned);
   const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(relayStripped);
   const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(relayStripped);
   const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(relayStripped);
