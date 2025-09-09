@@ -514,7 +514,10 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
 
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
   const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
-  if (candidates.length === 0) return [];
+  // If the NIP-50 relay returns nothing but DVM returned results, use DVM results directly
+  if (candidates.length === 0) {
+    return vertexEvents.slice(0, limit);
+  }
 
   const termLower = query.toLowerCase();
   const storedPubkey = getStoredPubkey();
