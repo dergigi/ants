@@ -22,7 +22,6 @@ export const searchExamples = [
   '.jpg by:corndalorian',
   'site:github by:fiatjaf',
   'by:dergigi site:yt',
-  'site:idnes.cz bitcoin',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
