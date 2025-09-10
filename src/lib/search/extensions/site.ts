@@ -1,12 +1,5 @@
 import type { QueryExtension, QueryExtensionResult } from './types';
-
-const YOUTUBE_HOSTS = [
-  'youtube.com',
-  'youtu.be',
-  'm.youtube.com',
-  'www.youtube.com',
-  'youtube-nocookie.com'
-];
+import { SITE_HOSTS } from './site-hosts';
 
 function buildHostRegex(hosts: string[]): RegExp {
   // Match any URL containing one of the hosts
@@ -17,11 +10,8 @@ function buildHostRegex(hosts: string[]): RegExp {
 function parseSiteToken(raw: string): string[] {
   const token = raw.trim().toLowerCase();
   if (!token) return [];
-  // Known aliases
-  if (token === 'yt' || token === 'youtube' || token.includes('youtube')) {
-    return [...YOUTUBE_HOSTS];
-  }
-  // If a full domain provided, just use it
+  // Check mapping by key; fall back to raw domain
+  if (SITE_HOSTS[token]) return [...SITE_HOSTS[token]];
   return [token];
 }
 
@@ -36,7 +26,11 @@ export const siteExtension: QueryExtension = {
     while ((m = regex.exec(query)) !== null) {
       const token = (m[1] || '').trim();
       if (!token) continue;
-      seeds = seeds.concat(parseSiteToken(token));
+      // Support comma-separated list in a single modifier
+      const parts = token.split(',').map((p) => p.trim()).filter(Boolean);
+      for (const p of parts) {
+        seeds = seeds.concat(parseSiteToken(p));
+      }
     }
     if (seeds.length > 0) {
       cleaned = cleaned.replace(regex, ' ').replace(/\s{2,}/g, ' ').trim();
