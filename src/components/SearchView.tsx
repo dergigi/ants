@@ -484,7 +484,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nprofileRegex = /(nostr:nprofile1[0-9a-z]+)(?!\w)/gi;
+    const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -545,8 +545,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      // For non-URL text, process inline nprofile tokens first, then hashtags and emojis
-      const nprofileSplit = segment.split(nprofileRegex);
+      // For non-URL text, process inline nprofile/npub tokens first, then hashtags and emojis
+      const nprofileSplit = segment.split(nostrIdentityRegex);
 
       // Inline component to resolve nprofile to a username
       function InlineNprofile({ token }: { token: string }) {
@@ -560,8 +560,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const m = token.match(/^(nostr:nprofile1[0-9a-z]+)([),.;]*)$/i);
               const core = (m ? m[1] : token).replace(/^nostr:/i, '');
               const { type, data } = nip19.decode(core);
-              if (type !== 'nprofile') return;
-              const pubkey = (data as { pubkey: string }).pubkey;
+              let pubkey: string | undefined;
+              if (type === 'nprofile') pubkey = (data as { pubkey: string }).pubkey;
+              else if (type === 'npub') pubkey = data as string;
+              else return;
               const user = new NDKUser({ pubkey });
               user.ndk = ndk;
               try { await user.fetchProfile(); } catch {}
@@ -594,9 +596,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
 
       nprofileSplit.forEach((chunk, chunkIdx) => {
-        const isNprofileToken = /^nostr:nprofile1[0-9a-z]+[),.;]*$/i.test(chunk);
-        if (isNprofileToken) {
-          const m = chunk.match(/^(nostr:nprofile1[0-9a-z]+)([),.;]*)$/i);
+        const isNostrIdentityToken = /^nostr:(?:nprofile1|npub1)[0-9a-z]+[),.;]*$/i.test(chunk);
+        if (isNostrIdentityToken) {
+          const m = chunk.match(/^(nostr:(?:nprofile1|npub1)[0-9a-z]+)([),.;]*)$/i);
           const coreToken = m ? m[1] : chunk;
           const trailing = (m && m[2]) || '';
           finalNodes.push(
