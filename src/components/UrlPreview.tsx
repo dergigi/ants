@@ -76,7 +76,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
   const favicon = data.favicon;
 
   return (
-    <div className={className || 'relative'}>
+    <div className={`relative group ${className || ''}`}>
       <a
         href={data.url}
         target="_blank"
@@ -112,7 +112,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
       {onSearch ? (
         <button
           type="button"
-          className="absolute top-1.5 right-1.5 z-10 text-gray-300 hover:text-gray-100 bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-[#3d3d3d] rounded p-1"
+          className="absolute top-1.5 right-1.5 z-10 p-0.5 text-gray-400 hover:text-gray-200 bg-transparent border-0 opacity-60 group-hover:opacity-100 transition-opacity"
           title="Search for this URL"
           onClick={(e) => {
             e.preventDefault();
@@ -120,7 +120,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
             onSearch(data.url || url);
           }}
         >
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
         </button>
       ) : null}
     </div>
