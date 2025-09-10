@@ -16,6 +16,7 @@ export const searchExamples = [
   'GM by:dergigi',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
+  'NIP-EE by:jeffg',
   '.jpg by:corndalorian',
 
   // Direct npub
