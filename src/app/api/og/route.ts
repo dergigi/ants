@@ -56,6 +56,69 @@ function resolveUrlMaybe(base: URL, value?: string | null): string | undefined {
   }
 }
 
+function getYouTubeIdFromUrl(urlString: string): string | null {
+  try {
+    const u = new URL(urlString);
+    const host = u.hostname.toLowerCase();
+    if (host === 'youtu.be') {
+      const id = u.pathname.split('/').filter(Boolean)[0] || '';
+      return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
+    }
+    if (host.endsWith('youtube.com')) {
+      // /watch?v=, /shorts/<id>, /embed/<id>
+      if (u.searchParams.get('v')) {
+        const id = u.searchParams.get('v') || '';
+        return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
+      }
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.length >= 2 && (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'watch')) {
+        const id = parts[1];
+        return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchYouTubeOg(url: string): Promise<OgResult> {
+  const id = getYouTubeIdFromUrl(url);
+  const siteName = 'YouTube';
+  // Try oEmbed first for title/author/thumbnail
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const res = await fetch(oembedUrl, { cache: 'no-store' } as RequestInit);
+    if (res.ok) {
+      const data = (await res.json()) as {
+        title?: string;
+        author_name?: string;
+        thumbnail_url?: string;
+      };
+      const title = data.title;
+      const image = data.thumbnail_url || (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined);
+      const description = data.author_name ? `by ${data.author_name}` : undefined;
+      const favicon = 'https://www.youtube.com/s/desktop/fe2f7fc1/img/favicon_144x144.png';
+      return { url, title, description, image, siteName, type: 'video', favicon };
+    }
+  } catch {
+    // ignore and fall back
+  }
+
+  // Fallback: construct minimal preview if ID known
+  if (id) {
+    return {
+      url,
+      title: 'YouTube',
+      image: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      siteName,
+      type: 'video',
+      favicon: 'https://www.youtube.com/s/desktop/fe2f7fc1/img/favicon_144x144.png',
+    };
+  }
+  throw new Error('YouTube metadata unavailable');
+}
+
 async function fetchOgData(url: string): Promise<OgResult> {
   const ogData = await fetch(url);
   const urlObj = new URL(url);
@@ -103,7 +166,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await fetchOgData(u.toString());
+    let data: OgResult;
+    const host = u.hostname.toLowerCase();
+    if (host === 'youtu.be' || host.endsWith('youtube.com')) {
+      try {
+        data = await fetchYouTubeOg(u.toString());
+      } catch {
+        data = await fetchOgData(u.toString());
+      }
+    } else {
+      data = await fetchOgData(u.toString());
+    }
     // Short cache headers (10 minutes) to reduce repeated fetches
     const res = NextResponse.json(data, { status: 200 });
     res.headers.set('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400');
