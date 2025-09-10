@@ -552,7 +552,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
         if (loading) {
           return (
-            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1">Loading quote…</span>
+            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1">Loading note...</span>
           );
         }
         if (error || !embedded) {
