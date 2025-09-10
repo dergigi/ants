@@ -385,8 +385,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
+  const stripPreviewUrls = (text: string): string => {
+    if (!text) return '';
+    const nonMediaUrls = extractNonMediaUrls(text);
+    let cleaned = text;
+    nonMediaUrls.forEach(url => {
+      // Escape special regex characters in the URL
+      const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
+      cleaned = cleaned.replace(regex, '');
+    });
+    return cleaned.replace(/\s{2,}/g, ' ').trim();
+  };
+
   const renderContentWithClickableHashtags = (content: string, options?: { disableNevent?: boolean }) => {
-    const strippedContent = stripMediaUrls(content);
+    const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
