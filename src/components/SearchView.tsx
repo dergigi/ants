@@ -371,7 +371,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return tooltip.trim();
   };
 
-  const extractImageUrls = (text: string): string[] => {
+  const extractImageUrls = useCallback((text: string): string[] => {
     if (!text) return [];
     const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
@@ -381,9 +381,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (!matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 3);
-  };
+  }, []);
 
-  const extractVideoUrls = (text: string): string[] => {
+  const extractVideoUrls = useCallback((text: string): string[] => {
     if (!text) return [];
     const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
     const matches: string[] = [];
@@ -393,7 +393,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (!matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 2);
-  };
+  }, []);
 
   const extractNonMediaUrls = (text: string): string[] => {
     if (!text) return [];
@@ -425,7 +425,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   };
 
-  const stripMediaUrls = (text: string): string => {
+  const stripMediaUrls = useCallback((text: string): string => {
     if (!text) return '';
     const cleaned = text
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
@@ -433,9 +433,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
       .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
-  };
+  }, []);
 
-  const stripPreviewUrls = (text: string): string => {
+  const stripPreviewUrls = useCallback((text: string): string => {
     if (!text) return '';
     let cleaned = text;
     successfulPreviews.forEach(url => {
@@ -444,9 +444,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       cleaned = cleaned.replace(regex, '');
     });
     return cleaned.replace(/\s{2,}/g, ' ').trim();
-  };
+  }, [successfulPreviews]);
 
-  const renderContentWithClickableHashtags = (content: string, options?: { disableNevent?: boolean }) => {
+  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
@@ -763,9 +763,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  };
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile]);
 
-  function getReplyToEventId(event: NDKEvent): string | null {
+  const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
       if (eTags.length === 0) return null;
@@ -774,9 +774,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     } catch {
       return null;
     }
-  }
+  }, []);
 
-  async function fetchEventById(eventId: string): Promise<NDKEvent | null> {
+  const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
     try { await connect(); } catch {}
     return new Promise<NDKEvent | null>((resolve) => {
       let found: NDKEvent | null = null;
@@ -786,9 +786,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
       sub.start();
     });
-  }
+  }, []);
 
-  const renderNoteMedia = (content: string) => (
+  const renderNoteMedia = useCallback((content: string) => (
     <>
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
@@ -884,9 +884,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  );
+  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router]);
 
-  const renderParentChain = (childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+  const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
     if (!parentId) return null;
     const parentState = expandedParents[parentId];
@@ -934,7 +934,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       </>
     );
-  };
+  }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
     <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -1182,7 +1182,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null
-      ), [results, expandedParents, manageUrl, searchParams])}
+      ), [results, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
     </div>
   );
 }

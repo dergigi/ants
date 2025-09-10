@@ -38,19 +38,6 @@ export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'w
 export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
 export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
-const IMAGE_EXT_GROUP = IMAGE_EXTENSIONS.join('|');
-const VIDEO_EXT_GROUP = VIDEO_EXTENSIONS.join('|');
-const GIF_EXT_GROUP = GIF_EXTENSIONS.join('|');
-
-const IMAGE_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${IMAGE_EXT_GROUP})`;
-const VIDEO_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${VIDEO_EXT_GROUP})`;
-const GIF_URL_PATTERN = `https?:\\/\\/[^\\s'\"<>]+?\\.(?:${GIF_EXT_GROUP})`;
-
-const GIF_URL_REGEX = new RegExp(`(${GIF_URL_PATTERN})(?!\\w)`, 'i');
-
-const IMAGE_URL_REGEX_G = new RegExp(`${IMAGE_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
-const VIDEO_URL_REGEX_G = new RegExp(`${VIDEO_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
-const GIF_URL_REGEX_G = new RegExp(`${GIF_URL_PATTERN}(?:[?#][^\\s]*)?`, 'gi');
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = relaySets.search();
@@ -496,57 +483,8 @@ function getPubkey(str: string): string | null {
   return str;
 }
 
-function eventHasImage(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  return (event.content.match(IMAGE_URL_REGEX_G) || []).length > 0;
-}
 
-function eventHasVideo(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  return (event.content.match(VIDEO_URL_REGEX_G) || []).length > 0;
-}
 
-function eventHasGif(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  return (event.content.match(GIF_URL_REGEX_G) || []).length > 0;
-}
-
-function stripAllMediaUrls(text: string): string {
-  return text
-    .replace(IMAGE_URL_REGEX_G, '')
-    .replace(VIDEO_URL_REGEX_G, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-function eventIsSingleImage(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  const imgs = event.content.match(IMAGE_URL_REGEX_G) || [];
-  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
-  if (imgs.length !== 1 || vids.length > 0) return false;
-  const remaining = stripAllMediaUrls(event.content);
-  return remaining.length === 0;
-}
-
-function eventIsSingleVideo(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  const imgs = event.content.match(IMAGE_URL_REGEX_G) || [];
-  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
-  if (vids.length !== 1 || imgs.length > 0) return false;
-  const remaining = stripAllMediaUrls(event.content);
-  return remaining.length === 0;
-}
-
-function eventIsSingleGif(event?: NDKEvent): boolean {
-  if (!event || !event.content) return false;
-  const allImgs = event.content.match(IMAGE_URL_REGEX_G) || [];
-  const gifs = event.content.match(GIF_URL_REGEX_G) || [];
-  const otherImgs = allImgs.filter((u) => !GIF_URL_REGEX.test(u));
-  const vids = event.content.match(VIDEO_URL_REGEX_G) || [];
-  if (gifs.length !== 1 || otherImgs.length > 0 || vids.length > 0) return false;
-  const remaining = stripAllMediaUrls(event.content);
-  return remaining.length === 0;
-}
 
 export function parseOrQuery(query: string): string[] {
   // Split by " OR " (case-insensitive) while preserving quoted segments
@@ -637,7 +575,6 @@ export async function searchEvents(
   // Strip legacy relay filters but keep the rest of the query intact; any replacements
   // are applied earlier at the UI layer via the simple preprocessor.
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
-  const extensionSeeds: string[] = [];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
@@ -722,7 +659,7 @@ export async function searchEvents(
     }
     
     // Sort by creation time (newest first) and limit results
-    let merged = allResults;
+    const merged = allResults;
     return merged
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
@@ -749,7 +686,7 @@ export async function searchEvents(
             search: searchQuery,
             limit: Math.max(limit, 200)
           }, 8000, chosenRelaySet, abortSignal);
-      let res = results;
+      const res = results;
       return res.slice(0, limit);
     }
   } catch {}
@@ -860,7 +797,7 @@ export async function searchEvents(
   const nip05Like = extCleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
   if (nip05Like) {
     try {
-      const pubkey = await resolveNip05ToPubkey(cleanedQuery);
+      const pubkey = await resolveNip05ToPubkey(extCleanedQuery);
       if (pubkey) {
         const profileEvt = await profileEventFromPubkey(pubkey);
         return [profileEvt];
@@ -975,7 +912,7 @@ export async function searchEvents(
       for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
       mergedResults = Array.from(dedupe.values());
       // Do not enforce additional client-side text match; rely on relay-side search
-      let filtered = mergedResults;
+      const filtered = mergedResults;
       
       return filtered.slice(0, limit);
     }
@@ -1004,7 +941,7 @@ export async function searchEvents(
     });
     
     // Enforce AND: must match text and contain requested media
-    let filtered = results.filter((e, idx, arr) => {
+    const filtered = results.filter((e, idx, arr) => {
       // dedupe by id while mapping
       const firstIdx = arr.findIndex((x) => x.id === e.id);
       return firstIdx === idx;
