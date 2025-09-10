@@ -553,7 +553,6 @@ export function parseOrQuery(query: string): string[] {
   const parts: string[] = [];
   let currentPart = '';
   let inQuotes = false;
-  let parenDepth = 0;
 
   const stripOuterQuotes = (value: string): string => {
     const trimmed = value.trim();
@@ -571,17 +570,8 @@ export function parseOrQuery(query: string): string[] {
       continue;
     }
 
-    // Track parentheses to avoid splitting inside expanded lists like (a OR b)
-    if (!inQuotes) {
-      if (char === '(') {
-        parenDepth++;
-      } else if (char === ')') {
-        if (parenDepth > 0) parenDepth--;
-      }
-    }
-
     // Detect the literal sequence " OR " when not inside quotes
-    if (!inQuotes && parenDepth === 0 && query.substr(i, 4).toUpperCase() === ' OR ') {
+    if (!inQuotes && query.substr(i, 4).toUpperCase() === ' OR ') {
       const cleaned = stripOuterQuotes(currentPart);
       if (cleaned) parts.push(cleaned);
       currentPart = '';
@@ -883,6 +873,24 @@ export async function searchEvents(
     {
       // Fetch by base terms if any, restricted to author
       let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+
+      // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
+      const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
+      const seedTerms: string[] = [];
+      for (const m of seedMatches) {
+        const inner = (m[1] || '').trim();
+        if (!inner) continue;
+        inner.split(/\s+OR\s+/i).forEach((t) => {
+          const token = t.trim();
+          if (token) seedTerms.push(token);
+        });
+      }
+      if (seedTerms.length > 0) {
+        try {
+          const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] });
+          res = [...res, ...seeded];
+        } catch {}
+      }
       // Fallback: if no results, try a broader relay set (default + search)
       const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
       const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
