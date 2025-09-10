@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
-import { explainQuery } from '@/lib/search/translate';
+import { applySimpleReplacements } from '@/lib/search/replacements';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -127,7 +127,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const searchResults = await searchEvents(searchQuery, 200, undefined, undefined, abortController.signal);
+      const expanded = await applySimpleReplacements(searchQuery);
+      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -293,7 +294,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     let cancelled = false;
     (async () => {
       try {
-        const t = await explainQuery(query);
+        const t = await applySimpleReplacements(query);
         if (!cancelled) setTranslation(t);
       } catch {
         if (!cancelled) setTranslation('');

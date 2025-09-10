@@ -12,6 +12,7 @@ Notes:
 image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
 video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 gif   => (.gif OR .gifs OR .apng)
+quote => nostr:nevent
 ```
 
 ### `has:`
