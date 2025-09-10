@@ -414,6 +414,7 @@ async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Pr
   return [];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
   try {
     const pubkey = getStoredPubkey();
@@ -778,8 +779,8 @@ export async function searchEvents(
     try {
       const profiles = await searchProfilesFullText(term, 21);
       return profiles;
-    } catch (e) {
-      console.warn('Full-text profile search failed:', e);
+    } catch (error) {
+      console.warn('Full-text profile search failed:', error);
       return [];
     }
   }
@@ -840,7 +841,7 @@ export async function searchEvents(
           try {
             const profiles = await searchProfilesFullText(author, 1);
             profile = profiles[0] || null;
-          } catch (e) {
+          } catch {
             // ignore and keep profile null
           }
         }

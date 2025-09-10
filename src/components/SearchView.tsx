@@ -5,11 +5,6 @@ import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConn
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
-// Type for NDKEvent with relay source
-interface NDKEventWithRelaySource extends NDKEvent {
-  relaySource?: string;
-  relaySources?: string[]; // Track all relays where this event was found
-}
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
@@ -484,6 +479,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+    const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -544,58 +540,126 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      // For non-URL text, process hashtags and emojis
-      const parts = segment.split(/(#\w+)/g);
-      parts.forEach((part, index) => {
-        if (part.startsWith('#')) {
-          finalNodes.push(
-            <button
-              key={`hashtag-${segIndex}-${index}`}
-              onClick={() => {
-                const nextQuery = part;
-                setQuery(nextQuery);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
-                }
-                handleSearch(nextQuery);
-              }}
-              className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-            >
-              {part}
-            </button>
-          );
-        } else if (part && part.trim()) {
-          const emojiRx = emojiRegex();
-          const emojiParts = part.split(emojiRx);
-          const emojis = part.match(emojiRx) || [];
-          for (let i = 0; i < emojiParts.length; i++) {
-            if (emojiParts[i]) finalNodes.push(emojiParts[i]);
-            if (emojis[i]) {
-              finalNodes.push(
-                <button
-                  key={`emoji-${segIndex}-${index}-${i}`}
-                  onClick={() => {
-                    const nextQuery = emojis[i] as string;
-                    setQuery(nextQuery);
-                    if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', nextQuery);
-                      router.replace(`?${params.toString()}`);
-                    }
-                    handleSearch(nextQuery);
-                  }}
-                  className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-                >
-                  {emojis[i]}
-                </button>
-              );
+      // For non-URL text, process inline nprofile/npub tokens first, then hashtags and emojis
+      const nprofileSplit = segment.split(nostrIdentityRegex);
+
+      // Inline component to resolve nprofile to a username
+      function InlineNprofile({ token }: { token: string }) {
+        const [label, setLabel] = useState<string>('');
+        const [npub, setNpub] = useState<string>('');
+
+        useEffect(() => {
+          let isMounted = true;
+          (async () => {
+            try {
+              const m = token.match(/^(nostr:nprofile1[0-9a-z]+)([),.;]*)$/i);
+              const core = (m ? m[1] : token).replace(/^nostr:/i, '');
+              const { type, data } = nip19.decode(core);
+              let pubkey: string | undefined;
+              if (type === 'nprofile') pubkey = (data as { pubkey: string }).pubkey;
+              else if (type === 'npub') pubkey = data as string;
+              else return;
+              const user = new NDKUser({ pubkey });
+              user.ndk = ndk;
+              try { await user.fetchProfile(); } catch {}
+              if (!isMounted) return;
+              type UserProfileLike = { display?: string; displayName?: string; name?: string } | undefined;
+              const profile = user.profile as UserProfileLike;
+              const display = profile?.displayName || profile?.display || profile?.name || '';
+              const npubVal = nip19.npubEncode(pubkey);
+              setNpub(npubVal);
+              setLabel(display || `npub:${npubVal.slice(0, 8)}…${npubVal.slice(-4)}`);
+            } catch {
+              if (!isMounted) return;
+              setLabel(token);
             }
-          }
-        } else {
-          finalNodes.push(part);
+          })();
+          return () => { isMounted = false; };
+        }, [token]);
+
+        return (
+          <button
+            type="button"
+            className="text-blue-400 hover:text-blue-300 hover:underline inline"
+            title={token}
+            onClick={() => {
+              if (!npub) return;
+              goToProfile(npub);
+            }}
+          >
+            {label || token}
+          </button>
+        );
+      }
+
+      nprofileSplit.forEach((chunk, chunkIdx) => {
+        const isNostrIdentityToken = /^nostr:(?:nprofile1|npub1)[0-9a-z]+[),.;]*$/i.test(chunk);
+        if (isNostrIdentityToken) {
+          const m = chunk.match(/^(nostr:(?:nprofile1|npub1)[0-9a-z]+)([),.;]*)$/i);
+          const coreToken = m ? m[1] : chunk;
+          const trailing = (m && m[2]) || '';
+          finalNodes.push(
+            <span key={`nprofile-${segIndex}-${chunkIdx}`} className="inline">
+              <InlineNprofile token={coreToken} />
+              {trailing}
+            </span>
+          );
+          return;
         }
+
+        // Now process hashtags and emojis within the non-nprofile chunk
+        const parts = chunk.split(/(#\w+)/g);
+        parts.forEach((part, index) => {
+          if (part.startsWith('#')) {
+            finalNodes.push(
+              <button
+                key={`hashtag-${segIndex}-${chunkIdx}-${index}`}
+                onClick={() => {
+                  const nextQuery = part;
+                  setQuery(nextQuery);
+                  if (manageUrl) {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set('q', nextQuery);
+                    router.replace(`?${params.toString()}`);
+                  }
+                  handleSearch(nextQuery);
+                }}
+                className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+              >
+                {part}
+              </button>
+            );
+          } else if (part && part.trim()) {
+            const emojiRx = emojiRegex();
+            const emojiParts = part.split(emojiRx);
+            const emojis = part.match(emojiRx) || [];
+            for (let i = 0; i < emojiParts.length; i++) {
+              if (emojiParts[i]) finalNodes.push(emojiParts[i]);
+              if (emojis[i]) {
+                finalNodes.push(
+                  <button
+                    key={`emoji-${segIndex}-${chunkIdx}-${index}-${i}`}
+                    onClick={() => {
+                      const nextQuery = emojis[i] as string;
+                      setQuery(nextQuery);
+                      if (manageUrl) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('q', nextQuery);
+                        router.replace(`?${params.toString()}`);
+                      }
+                      handleSearch(nextQuery);
+                    }}
+                    className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+                  >
+                    {emojis[i]}
+                  </button>
+                );
+              }
+            }
+          } else {
+            finalNodes.push(part);
+          }
+        });
       });
     });
 
