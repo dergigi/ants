@@ -800,7 +800,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractNonMediaUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractNonMediaUrls(content).map((u) => (
-            <UrlPreview key={u} url={u} />
+            <UrlPreview
+              key={u}
+              url={u}
+              onSearch={(targetUrl) => {
+                const nextQuery = targetUrl;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                    setResults(searchResults);
+                  } catch (error) {
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
+              }}
+            />
           ))}
         </div>
       )}

@@ -2,6 +2,8 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 type OgData = {
   url: string;
@@ -16,9 +18,10 @@ type OgData = {
 type Props = {
   url: string;
   className?: string;
+  onSearch?: (url: string) => void;
 };
 
-export default function UrlPreview({ url, className }: Props) {
+export default function UrlPreview({ url, className, onSearch }: Props) {
   const [data, setData] = useState<OgData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -63,38 +66,54 @@ export default function UrlPreview({ url, className }: Props) {
   const favicon = data.favicon;
 
   return (
-    <a
-      href={data.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={
-        className ||
-        'block rounded-md border border-[#3d3d3d] bg-[#1f1f1f] overflow-hidden hover:border-[#4a4a4a] transition-colors'
-      }
-    >
-      <div className="flex gap-3 p-3">
-        {image ? (
-          <div className="relative flex-shrink-0 w-24 h-24 bg-[#2a2a2a] border border-[#3d3d3d] rounded overflow-hidden">
-            {/* next/image remote allowed in next.config.ts */}
-            <Image src={image} alt={title} fill sizes="96px" className="object-cover" unoptimized />
-          </div>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-sm text-gray-300 mb-1">
-            {favicon ? (
-              <Image src={favicon} alt="favicon" width={16} height={16} className="inline-block" unoptimized />
-            ) : null}
-            <span className="truncate opacity-80">{data.siteName || originHostname}</span>
-          </div>
-          <div className="text-gray-100 font-medium truncate mb-1">{title}</div>
-          {description ? (
-            <div className="text-gray-300 text-sm line-clamp-2 break-words">
-              {description}
+    <div className={className || 'relative'}>
+      <a
+        href={data.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={
+          className ||
+          'block rounded-md border border-[#3d3d3d] bg-[#1f1f1f] overflow-hidden hover:border-[#4a4a4a] transition-colors'
+        }
+      >
+        <div className="flex gap-3 p-3">
+          {image ? (
+            <div className="relative flex-shrink-0 w-24 h-24 bg-[#2a2a2a] border border-[#3d3d3d] rounded overflow-hidden">
+              {/* next/image remote allowed in next.config.ts */}
+              <Image src={image} alt={title} fill sizes="96px" className="object-cover" unoptimized />
             </div>
           ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-sm text-gray-300 mb-1">
+              {favicon ? (
+                <Image src={favicon} alt="favicon" width={16} height={16} className="inline-block" unoptimized />
+              ) : null}
+              <span className="truncate opacity-80">{data.siteName || originHostname}</span>
+            </div>
+            <div className="text-gray-100 font-medium truncate mb-1">{title}</div>
+            {description ? (
+              <div className="text-gray-300 text-sm line-clamp-2 break-words">
+                {description}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
-    </a>
+      </a>
+      {onSearch ? (
+        <button
+          type="button"
+          className="absolute top-1.5 right-1.5 z-10 text-gray-300 hover:text-gray-100 bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-[#3d3d3d] rounded p-1"
+          title="Search for this URL"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onSearch(data.url || url);
+          }}
+        >
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
