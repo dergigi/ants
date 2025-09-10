@@ -603,11 +603,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             const coreToken2 = m2 ? m2[1] : sub;
             const trailing2 = (m2 && m2[2]) || '';
             finalNodes.push(
-              <span key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="inline">
+              <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
                 <InlineNevent token={coreToken2} />
-                {trailing2}
-              </span>
+              </div>
             );
+            if (trailing2) finalNodes.push(trailing2);
             return;
           }
 
@@ -790,7 +790,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             event={parentEvent}
             onAuthorClick={goToProfile}
             renderContent={(text) => (
-              <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</p>
+              <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
             )}
             mediaRenderer={renderNoteMedia}
             className="p-0 border-0 bg-transparent"
@@ -1006,7 +1006,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     event={event}
                     onAuthorClick={goToProfile}
                     renderContent={(text) => (
-                      <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</p>
+                      <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
                     )}
                     mediaRenderer={renderNoteMedia}
                     footerRight={(
