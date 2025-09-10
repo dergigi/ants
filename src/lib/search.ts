@@ -876,23 +876,22 @@ export async function searchEvents(
       // Fallback: if no results, try a broader relay set (default + search)
       const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
       const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-      if (baseTermResults.length === 0) {
-        baseTermResults = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+      if (res.length === 0) {
+        res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
       }
       // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
       // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
       const termStr = terms.trim();
       const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
-      if (baseTermResults.length === 0 && termStr) {
+      if (res.length === 0 && termStr) {
         const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
-        baseTermResults = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-      } else if (baseTermResults.length === 0 && hasShortToken) {
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      } else if (res.length === 0 && hasShortToken) {
         const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
-        baseTermResults = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
-      // Merge seed and base results (OR), then enforce AND semantics if both exist
       let mergedResults: NDKEvent[] = res;
       // Dedupe
       const dedupe = new Map<string, NDKEvent>();
