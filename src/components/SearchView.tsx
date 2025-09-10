@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import EventCard from '@/components/EventCard';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -474,12 +475,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
-  const renderContentWithClickableHashtags = (content: string) => {
+  const renderContentWithClickableHashtags = (content: string, options?: { disableNevent?: boolean }) => {
     const strippedContent = stripMediaUrls(content);
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
+    const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -540,7 +542,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      // For non-URL text, process inline nprofile/npub tokens first, then hashtags and emojis
+      // For non-URL text, process inline nprofile/npub tokens first, then nevent (unless disabled), then hashtags and emojis
       const nprofileSplit = segment.split(nostrIdentityRegex);
 
       // Inline component to resolve nprofile to a username
@@ -592,6 +594,98 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         );
       }
 
+      // Inline component to render an embedded/quoted nevent
+      function InlineNevent({ token }: { token: string }) {
+        const [embedded, setEmbedded] = useState<NDKEvent | null>(null);
+        const [loading, setLoading] = useState<boolean>(true);
+        const [error, setError] = useState<string | null>(null);
+
+        useEffect(() => {
+          let isMounted = true;
+          (async () => {
+            try {
+              const m = token.match(/^(nostr:nevent1[0-9a-z]+)([),.;]*)$/i);
+              const core = (m ? m[1] : token).replace(/^nostr:/i, '');
+              const decoded = nip19.decode(core);
+              if (decoded?.type !== 'nevent') {
+                throw new Error('Not nevent');
+              }
+              const data = decoded.data as { id: string; relays?: string[] };
+              const id = data.id;
+              const relays = Array.isArray(data.relays) ? data.relays.filter((r) => typeof r === 'string') : [];
+              // Prefer hinted relays if present
+              let found: NDKEvent | null = null;
+              if (relays.length > 0) {
+                try {
+                  const relaySet = NDKRelaySet.fromRelayUrls(
+                    Array.from(new Set(relays.map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`))),
+                    ndk
+                  );
+                  await new Promise<void>((resolve) => {
+                    const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
+                    const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 5000);
+                    sub.on('event', (evt: NDKEvent) => { found = evt; });
+                    sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
+                    sub.start();
+                  });
+                } catch {}
+              }
+              // Fallback: try without relay hints if not found
+              if (!found) {
+                await new Promise<void>((resolve) => {
+                  const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true });
+                  const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 8000);
+                  sub.on('event', (evt: NDKEvent) => { found = evt; });
+                  sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
+                  sub.start();
+                });
+              }
+
+              if (!isMounted) return;
+              if (found) {
+                setEmbedded(found);
+              } else {
+                setError('Not found');
+              }
+            } catch (e) {
+              if (!isMounted) return;
+              setError('Invalid nevent');
+            } finally {
+              if (isMounted) setLoading(false);
+            }
+          })();
+          return () => { isMounted = false; };
+        }, [token]);
+
+        if (loading) {
+          return (
+            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1">Loading quote…</span>
+          );
+        }
+        if (error || !embedded) {
+          return (
+            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1" title={token}>Quoted note unavailable</span>
+          );
+        }
+
+        const created = embedded.created_at ? new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        return (
+          <div className="w-full">
+            <div className="text-xs text-gray-400 mb-1">Quoted note{created ? ` · ${created}` : ''}</div>
+            <EventCard
+              event={embedded}
+              onAuthorClick={goToProfile}
+              renderContent={(text) => (
+                <div className="text-gray-100 whitespace-pre-wrap break-words">
+                  {renderContentWithClickableHashtags(text, { disableNevent: true })}
+                </div>
+              )}
+              variant="inline"
+            />
+          </div>
+        );
+      }
+
       nprofileSplit.forEach((chunk, chunkIdx) => {
         const isNostrIdentityToken = /^nostr:(?:nprofile1|npub1)[0-9a-z]+[),.;]*$/i.test(chunk);
         if (isNostrIdentityToken) {
@@ -607,58 +701,76 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           return;
         }
 
-        // Now process hashtags and emojis within the non-nprofile chunk
-        const parts = chunk.split(/(#\w+)/g);
-        parts.forEach((part, index) => {
-          if (part.startsWith('#')) {
+        // Now split this chunk for nevent tokens if enabled
+        const neventSplit = (options?.disableNevent ? [chunk] : chunk.split(nostrEventRegex));
+        neventSplit.forEach((sub, subIdx) => {
+          const isNostrEventToken = /^nostr:nevent1[0-9a-z]+[),.;]*$/i.test(sub);
+          if (!options?.disableNevent && isNostrEventToken) {
+            const m2 = sub.match(/^(nostr:nevent1[0-9a-z]+)([),.;]*)$/i);
+            const coreToken2 = m2 ? m2[1] : sub;
+            const trailing2 = (m2 && m2[2]) || '';
             finalNodes.push(
-              <button
-                key={`hashtag-${segIndex}-${chunkIdx}-${index}`}
-                onClick={() => {
-                  const nextQuery = part;
-                  setQuery(nextQuery);
-                  if (manageUrl) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set('q', nextQuery);
-                    router.replace(`?${params.toString()}`);
-                  }
-                  handleSearch(nextQuery);
-                }}
-                className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-              >
-                {part}
-              </button>
+              <span key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="inline">
+                <InlineNevent token={coreToken2} />
+                {trailing2}
+              </span>
             );
-          } else if (part && part.trim()) {
-            const emojiRx = emojiRegex();
-            const emojiParts = part.split(emojiRx);
-            const emojis = part.match(emojiRx) || [];
-            for (let i = 0; i < emojiParts.length; i++) {
-              if (emojiParts[i]) finalNodes.push(emojiParts[i]);
-              if (emojis[i]) {
-                finalNodes.push(
-                  <button
-                    key={`emoji-${segIndex}-${chunkIdx}-${index}-${i}`}
-                    onClick={() => {
-                      const nextQuery = emojis[i] as string;
-                      setQuery(nextQuery);
-                      if (manageUrl) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set('q', nextQuery);
-                        router.replace(`?${params.toString()}`);
-                      }
-                      handleSearch(nextQuery);
-                    }}
-                    className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-                  >
-                    {emojis[i]}
-                  </button>
-                );
-              }
-            }
-          } else {
-            finalNodes.push(part);
+            return;
           }
+
+          // Process hashtags and emojis within the remaining non-nevent text
+          const parts = sub.split(/(#\w+)/g);
+          parts.forEach((part, index) => {
+            if (part.startsWith('#')) {
+              finalNodes.push(
+                <button
+                  key={`hashtag-${segIndex}-${chunkIdx}-${subIdx}-${index}`}
+                  onClick={() => {
+                    const nextQuery = part;
+                    setQuery(nextQuery);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', nextQuery);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    handleSearch(nextQuery);
+                  }}
+                  className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                >
+                  {part}
+                </button>
+              );
+            } else if (part && part.trim()) {
+              const emojiRx = emojiRegex();
+              const emojiParts = part.split(emojiRx);
+              const emojis = part.match(emojiRx) || [];
+              for (let i = 0; i < emojiParts.length; i++) {
+                if (emojiParts[i]) finalNodes.push(emojiParts[i]);
+                if (emojis[i]) {
+                  finalNodes.push(
+                    <button
+                      key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
+                      onClick={() => {
+                        const nextQuery = emojis[i] as string;
+                        setQuery(nextQuery);
+                        if (manageUrl) {
+                          const params = new URLSearchParams(searchParams.toString());
+                          params.set('q', nextQuery);
+                          router.replace(`?${params.toString()}`);
+                        }
+                        handleSearch(nextQuery);
+                      }}
+                      className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+                    >
+                      {emojis[i]}
+                    </button>
+                  );
+                }
+              }
+            } else {
+              finalNodes.push(part);
+            }
+          });
         });
       });
     });
@@ -689,12 +801,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
   }
 
-  const renderNoteContent = (event: NDKEvent) => (
+  const renderNoteMedia = (content: string) => (
     <>
-      <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(event.content)}</p>
-      {extractImageUrls(event.content).length > 0 && (
+      {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrls(event.content).map((src) => (
+          {extractImageUrls(content).map((src) => (
             <button
               key={src}
               type="button"
@@ -715,7 +826,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
-                    // Don't log aborted searches as errors
                     if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
                       return;
                     }
@@ -732,9 +842,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           ))}
         </div>
       )}
-      {extractVideoUrls(event.content).length > 0 && (
+      {extractVideoUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrls(event.content).map((src) => (
+          {extractVideoUrls(content).map((src) => (
             <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
                 <source src={src} />
@@ -783,7 +893,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       <>
         {renderParentChain(parentEvent, isTop)}
         <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
-          {renderNoteContent(parentEvent)}
+          <EventCard
+            event={parentEvent}
+            onAuthorClick={goToProfile}
+            renderContent={(text) => (
+              <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</p>
+            )}
+            mediaRenderer={renderNoteMedia}
+            className="p-0 border-0 bg-transparent"
+          />
         </div>
       </>
     );
@@ -991,37 +1109,37 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 {event.kind === 0 ? (
                   <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
                 ) : (
-                  <div className={noteCardClasses}>
-                    {renderNoteContent(event)}
-                    <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg">
-                      <div className="flex items-center gap-2">
-                        <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
-                              }
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                        </button>
-                        {/* Relay indicator removed */}
-                      </div>
-                    </div>
-                  </div>
+                  <EventCard
+                    event={event}
+                    onAuthorClick={goToProfile}
+                    renderContent={(text) => (
+                      <p className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</p>
+                    )}
+                    mediaRenderer={renderNoteMedia}
+                    footerRight={(
+                      <button
+                        type="button"
+                        className="text-xs hover:underline"
+                        title="Search this nevent"
+                        onClick={() => {
+                          try {
+                            const nevent = nip19.neventEncode({ id: event.id });
+                            const q = nevent;
+                            setQuery(q);
+                            if (manageUrl) {
+                              const params = new URLSearchParams(searchParams.toString());
+                              params.set('q', q);
+                              router.replace(`?${params.toString()}`);
+                            }
+                            handleSearch(q);
+                          } catch {}
+                        }}
+                      >
+                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                      </button>
+                    )}
+                    className={noteCardClasses}
+                  />
                 )}
               </div>
             );
