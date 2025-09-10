@@ -15,8 +15,8 @@ import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import emojiRegex from 'emoji-regex';
 import { faArrowUpRightFromSquare, faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
-import RelayBadge from './RelayBadge';
 
 type Props = {
   initialQuery?: string;
@@ -567,9 +567,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             </button>
           );
         } else if (part && part.trim()) {
-          const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu;
-          const emojiParts = part.split(emojiRegex);
-          const emojis = part.match(emojiRegex) || [];
+          const emojiRx = emojiRegex();
+          const emojiParts = part.split(emojiRx);
+          const emojis = part.match(emojiRx) || [];
           for (let i = 0; i < emojiParts.length; i++) {
             if (emojiParts[i]) finalNodes.push(emojiParts[i]);
             if (emojis[i]) {
@@ -767,19 +767,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             )}
             {!query && !loading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5">
+              <button
+                type="button"
+                aria-label="Next example"
+                title="Show next example"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 cursor-pointer"
+                onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); }}
+              >
                 <svg viewBox="0 0 36 36" className="w-5 h-5">
                   <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
                   <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
                     strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
                 </svg>
-              </div>
+              </button>
             )}
             {/* Connection status indicator */}
             {!loading && connectionStatus !== 'connecting' && (
               <button
                 type="button"
-                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 ${query ? 'right-8' : 'right-10'} touch-manipulation`}
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
                 onClick={() => setShowConnectionDetails(!showConnectionDetails)}
                 title={formatConnectionTooltip(connectionDetails)}
               >
@@ -928,13 +934,27 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         <AuthorBadge user={event.author} onAuthorClick={goToProfile} />
                       </div>
                       <div className="flex items-center gap-2">
-                        <a href={`https://njump.me/${nip19.neventEncode({ id: event.id })}`} target="_blank" rel="noopener noreferrer" className="text-xs hover:underline">
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                        </a>
-                        <RelayBadge 
-                          relayUrl={(event as NDKEventWithRelaySource).relaySource}
-                          relayUrls={(event as NDKEventWithRelaySource).relaySources}
-                        />
+                        </button>
+                        {/* Relay indicator removed */}
                       </div>
                     </div>
                   </div>

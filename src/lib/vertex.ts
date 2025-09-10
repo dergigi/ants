@@ -1,5 +1,5 @@
 import { ndk } from './ndk';
-import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
 import { relaySets } from './relays';
@@ -255,23 +255,39 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   
   const username = match[1].toLowerCase();
   
-  try {
-    const events = await queryVertexDVM(username);
-    return events[0] ?? null;
-  } catch (error) {
-    // Fallback when Vertex credits are not available
-    if ((error as Error)?.message === 'VERTEX_NO_CREDITS') {
-      try {
-        const fallback = await fallbackLookupProfile(username);
-        return fallback;
-      } catch (e) {
-        console.error('Fallback profile lookup failed:', e);
+  // Run DVM query and fallback in parallel; return the first non-null result
+  const dvmPromise: Promise<NDKEvent | null> = (async () => {
+    try {
+      const events = await queryVertexDVM(username);
+      return events[0] ?? null;
+    } catch (error) {
+      if ((error as Error)?.message === 'VERTEX_NO_CREDITS') {
         return null;
       }
+      console.warn('Vertex DVM query failed, will rely on fallback if available:', error);
+      return null;
     }
-    console.error('Error in lookupVertexProfile:', error);
+  })();
+
+  const fallbackPromise: Promise<NDKEvent | null> = fallbackLookupProfile(username).catch((e) => {
+    console.error('Fallback profile lookup failed:', e);
     return null;
-  }
+  });
+
+  // Helper to suppress null resolutions so Promise.race yields the first non-null
+  const firstNonNull = <T,>(p: Promise<T | null>) => p.then((v) => (v !== null ? v : new Promise<never>(() => {})));
+
+  try {
+    const first = await Promise.race([
+      firstNonNull(dvmPromise),
+      firstNonNull(fallbackPromise)
+    ]);
+    if (first) return first;
+  } catch {}
+
+  // If neither produced a non-null quickly, await both and return whichever is available
+  const [dvmRes, fbRes] = await Promise.all([dvmPromise, fallbackPromise]);
+  return dvmRes || fbRes;
 } 
 
 export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
@@ -354,11 +370,31 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
   }
 
   const lower = username.toLowerCase();
+
+  // Helper: ensure the returned event has an author with pubkey set
+  const ensureAuthor = (evt: NDKEvent): NDKEvent => {
+    const pk = evt.pubkey || evt.author?.pubkey;
+    if (pk && !evt.author) {
+      const user = new NDKUser({ pubkey: pk });
+      user.ndk = ndk;
+      // Optionally attach minimal profile fields for better UI
+      const fields = extractProfileFields(evt);
+      (user as NDKUser & { profile?: NDKUserProfile | undefined }).profile = {
+        name: fields.name,
+        displayName: fields.display,
+        about: fields.about,
+        nip05: fields.nip05,
+        image: fields.image
+      } as NDKUserProfile;
+      evt.author = user;
+    }
+    return evt;
+  };
   const exact = profiles.find((e) => {
     const n = extractNames(e);
     return (n.display || n.name || '').toLowerCase() === lower;
   });
-  if (exact) return exact;
+  if (exact) return ensureAuthor(exact);
 
   const storedPubkey = getStoredPubkey();
   if (storedPubkey) {
@@ -375,7 +411,7 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
       if (ap !== bp) return ap - bp;
       return an.localeCompare(bn);
     });
-    return sorted[0];
+    return ensureAuthor(sorted[0]);
   }
 
   // Not logged in: sort by follower count across relays
@@ -393,7 +429,7 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
     if (ap !== bp) return ap - bp;
     return an.localeCompare(bn);
   });
-  return sortedByCount[0];
+  return ensureAuthor(sortedByCount[0]);
 }
 
 // Simple in-memory cache for NIP-05 verification results
@@ -478,7 +514,10 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
 
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
   const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
-  if (candidates.length === 0) return [];
+  // If the NIP-50 relay returns nothing but DVM returned results, use DVM results directly
+  if (candidates.length === 0) {
+    return vertexEvents.slice(0, limit);
+  }
 
   const termLower = query.toLowerCase();
   const storedPubkey = getStoredPubkey();

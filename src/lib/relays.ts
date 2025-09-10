@@ -6,8 +6,14 @@ const nip50SupportCache = new Map<string, { supported: boolean; timestamp: numbe
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CACHE_STORAGE_KEY = 'ants_nip50_cache';
 
-// Load cache from localStorage on initialization
+// Utility: check if running in a browser environment
+function hasLocalStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+// Load cache from localStorage on initialization (browser only)
 function loadCacheFromStorage(): void {
+  if (!hasLocalStorage()) return;
   try {
     const stored = localStorage.getItem(CACHE_STORAGE_KEY);
     if (stored) {
@@ -22,8 +28,9 @@ function loadCacheFromStorage(): void {
   }
 }
 
-// Save cache to localStorage
+// Save cache to localStorage (browser only)
 function saveCacheToStorage(): void {
+  if (!hasLocalStorage()) return;
   try {
     const data = Object.fromEntries(nip50SupportCache);
     localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(data));
@@ -32,8 +39,10 @@ function saveCacheToStorage(): void {
   }
 }
 
-// Initialize cache from storage
-loadCacheFromStorage();
+// Initialize cache from storage (browser only)
+if (hasLocalStorage()) {
+  loadCacheFromStorage();
+}
 
 // Centralized relay configuration
 export const RELAYS = {
@@ -46,14 +55,13 @@ export const RELAYS = {
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://relay.ditto.pub',
-    'wss://search.nos.today',
-    'wss://index.hzrd149.com/'
+    'wss://search.nos.today'
   ],
 
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
-    'wss://purplepag.es'
+    'wss://purplepag.es',
+    'wss://search.nos.today'
   ],
 
   // Vertex DVM relay
@@ -201,22 +209,17 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
-  // Start with known NIP-50 relays
-  const knownNip50Relays = [...RELAYS.SEARCH];
-  
-  // Add default relays and check them
-  const allRelays = [...new Set([...knownNip50Relays, ...RELAYS.DEFAULT])];
-  const nip50Relays = await filterNip50Relays(allRelays);
-  
-  console.log('NIP-50 capable relays:', nip50Relays);
-  return createRelaySet(nip50Relays);
+  // Always use a single, stable search relay to reduce flakiness
+  return createRelaySet([...RELAYS.SEARCH]);
 }
 
 // Clear NIP-50 cache (useful for debugging or forcing re-detection)
 export function clearNip50Cache(): void {
   nip50SupportCache.clear();
   try {
-    localStorage.removeItem(CACHE_STORAGE_KEY);
+    if (hasLocalStorage()) {
+      localStorage.removeItem(CACHE_STORAGE_KEY);
+    }
     console.log('NIP-50 cache cleared');
   } catch (error) {
     console.warn('Failed to clear NIP-50 cache from storage:', error);

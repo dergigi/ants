@@ -134,40 +134,12 @@ function buildSearchQueryWithExtensions(baseQuery: string, extensions: Nip50Exte
   return searchQuery;
 }
 
-// Extract relay filters from the raw query string
-function extractRelayFilters(rawQuery: string): { cleaned: string; relayUrls: string[]; useMyRelays: boolean } {
-  let cleaned = rawQuery;
-  const relayUrls: string[] = [];
-  let useMyRelays = false;
-
-  // relay:<host-or-url>
-  const relayRegex = /(?:^|\s)relay:([^\s]+)(?:\s|$)/gi;
-  cleaned = cleaned.replace(relayRegex, (_, hostOrUrl: string) => {
-    const value = (hostOrUrl || '').trim();
-    if (value) relayUrls.push(value);
-    return ' ';
-  });
-
-  // relays:mine
-  const relaysMineRegex = /(?:^|\s)relays:mine(?:\s|$)/gi;
-  if (relaysMineRegex.test(cleaned)) {
-    useMyRelays = true;
-    cleaned = cleaned.replace(relaysMineRegex, ' ');
-  }
-
-  // Normalize relay URLs
-  const normalized: string[] = [];
-  const seen = new Set<string>();
-  for (const r of relayUrls) {
-    const hasScheme = /^wss?:\/\//i.test(r);
-    const url = hasScheme ? r : `wss://${r}`;
-    if (!seen.has(url)) {
-      seen.add(url);
-      normalized.push(url);
-    }
-  }
-
-  return { cleaned: cleaned.trim(), relayUrls: normalized, useMyRelays };
+// Strip legacy relay filters from query (relay:..., relays:mine)
+function stripRelayFilters(rawQuery: string): string {
+  return rawQuery
+    .replace(/(?:^|\s)relay:[^\s]+(?:\s|$)/gi, ' ')
+    .replace(/(?:^|\s)relays:mine(?:\s|$)/gi, ' ')
+    .trim();
 }
 
 // Streaming subscription that keeps connections open and streams results
@@ -642,31 +614,13 @@ export async function searchEvents(
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
   
-  // Extract relay filters and prepare relay set
-  const relayExtraction = extractRelayFilters(nip50Extraction.cleaned);
-  const relayCandidates: string[] = [];
-  if (!relaySetOverride) {
-    if (relayExtraction.useMyRelays) {
-      const mine = await getUserRelayUrls();
-      for (const u of mine) relayCandidates.push(u);
-    }
-    for (const u of relayExtraction.relayUrls) relayCandidates.push(u);
-  }
+  // Remove legacy relay filters and choose the default search relay set
   const chosenRelaySet: NDKRelaySet = relaySetOverride
     ? relaySetOverride
-    : (relayCandidates.length > 0
-      ? NDKRelaySet.fromRelayUrls(Array.from(new Set(relayCandidates)), ndk)
-      : await getNip50SearchRelaySet());
-  if (relayCandidates.length > 0) {
-    console.log('Using relay candidates for search:', Array.from(new Set(relayCandidates)));
-  } else if (!relaySetOverride) {
-    console.log('Using NIP-50 filtered search relay set');
-  } else {
-    console.log('Using provided relay set override');
-  }
+    : await getNip50SearchRelaySet();
 
   // Detect and strip media flags; apply post-filter later
-  const relayStripped = relayExtraction.cleaned;
+  const relayStripped = stripRelayFilters(nip50Extraction.cleaned);
   const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(relayStripped);
   const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(relayStripped);
   const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(relayStripped);
@@ -749,6 +703,45 @@ export async function searchEvents(
     }
   } catch {}
 
+  // nevent/note bech32: fetch by id (optionally using relays embedded in nevent)
+  try {
+    const decoded = nip19.decode(cleanedQuery);
+    if (decoded?.type === 'nevent') {
+      const data = decoded.data as { id: string; relays?: string[] };
+      const neventRelays = Array.isArray(data.relays) ? Array.from(new Set(
+        data.relays
+          .filter((r: unknown): r is string => typeof r === 'string')
+          .map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`)
+      )) : [];
+      const setsToTry: NDKRelaySet[] = [];
+      if (neventRelays.length > 0) {
+        setsToTry.push(NDKRelaySet.fromRelayUrls(neventRelays, ndk));
+      }
+      // Try a broader default set next
+      setsToTry.push(NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk));
+      // Finally try the chosen search set
+      setsToTry.push(chosenRelaySet);
+
+      for (const rs of setsToTry) {
+        const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, rs, abortSignal);
+        if (byId.length > 0) return byId;
+      }
+      return [];
+    }
+    if (decoded?.type === 'note') {
+      const id = decoded.data as string;
+      const setsToTry: NDKRelaySet[] = [
+        NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk),
+        chosenRelaySet
+      ];
+      for (const rs of setsToTry) {
+        const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, rs, abortSignal);
+        if (byId.length > 0) return byId;
+      }
+      return [];
+    }
+  } catch {}
+
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
   const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
   const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
@@ -821,11 +814,11 @@ export async function searchEvents(
   }
 
   // Check for author filter
-  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/);
+  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -841,9 +834,18 @@ export async function searchEvents(
     } else {
       // Look up author's profile via Vertex DVM (personalized when logged in, global otherwise)
       try {
-        const profile = await lookupVertexProfile(`p:${author}`);
+        let profile = await lookupVertexProfile(`p:${author}`);
+        // Fallback: try full-text profile search if DVM and fallback did not return a result
+        if (!profile) {
+          try {
+            const profiles = await searchProfilesFullText(author, 1);
+            profile = profiles[0] || null;
+          } catch (e) {
+            // ignore and keep profile null
+          }
+        }
         if (profile) {
-          pubkey = profile.author.pubkey;
+          pubkey = profile.author?.pubkey || profile.pubkey || null;
         }
       } catch (error) {
         console.error('Error looking up author profile:', error);
@@ -876,7 +878,26 @@ export async function searchEvents(
 
     console.log('Searching with filters:', filters);
     {
-      const res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      let res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      // Fallback: if no results, try a broader relay set (default + search)
+      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+      if (res.length === 0) {
+        res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+      }
+      // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
+      // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
+      const termStr = terms.trim();
+      const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
+      if (res.length === 0 && termStr) {
+        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const needle = termStr.toLowerCase();
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      } else if (res.length === 0 && hasShortToken) {
+        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const needle = termStr.toLowerCase();
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      }
       let filtered = res;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
@@ -902,6 +923,11 @@ export async function searchEvents(
       const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal, nip50Extensions);
       const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(cleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
       results = [...seedResults, ...baseQueryResults];
+      // Enforce AND: require text match when a base query exists
+      if (cleanedQuery) {
+        const needle = cleanedQuery.toLowerCase();
+        results = results.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      }
     } else {
       const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
       const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
