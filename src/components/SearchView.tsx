@@ -13,7 +13,7 @@ import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   initialQuery?: string;
@@ -414,8 +414,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
+            <a
+              href={cleanedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
+              onClick={(e) => { e.stopPropagation(); }}
+              title={cleanedUrl}
+            >
+              {cleanedUrl}
+            </a>
             <button
               type="button"
+              title="Search for this URL"
+              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
               onClick={() => {
                 const nextQuery = cleanedUrl;
                 setQuery(nextQuery);
@@ -424,14 +436,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   params.set('q', nextQuery);
                   router.replace(`?${params.toString()}`);
                 }
-                // Perform exact search for URLs clicked in UI
                 (async () => {
                   setLoading(true);
                   try {
                     const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
-                    // Don't log aborted searches as errors
                     if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
                       return;
                     }
@@ -442,23 +452,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 })();
               }}
-              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
-              title="Search for this URL"
             >
-              {cleanedUrl}
+              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
             </button>
-            <a
-              href={cleanedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open link in new tab"
-              className="opacity-80 hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-            </a>
           </span>
         );
         return;
