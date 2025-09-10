@@ -640,6 +640,65 @@ export async function searchEvents(
   const extensionSeeds: string[] = [];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
+  // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
+  const earlyAuthorMatch = extCleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+  if (earlyAuthorMatch) {
+    const [, author] = earlyAuthorMatch;
+    const terms = extCleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    console.log('Found author filter (early):', { author, terms });
+
+    let pubkey: string | null = null;
+    if (isNpub(author)) {
+      try { pubkey = getPubkey(author); } catch { pubkey = null; }
+    } else {
+      try {
+        let profile = await lookupVertexProfile(`p:${author}`);
+        if (!profile) {
+          try { const profiles = await searchProfilesFullText(author, 1); profile = profiles[0] || null; } catch {}
+        }
+        if (profile) pubkey = profile.author?.pubkey || profile.pubkey || null;
+      } catch {}
+    }
+
+    if (!pubkey) {
+      console.log('No valid pubkey found for author:', author);
+      return [];
+    }
+
+    const filters: NDKFilter = { kinds: [1], authors: [pubkey], limit: Math.max(limit, 200) };
+    if (terms) filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+
+    console.log('Searching with filters (early author):', filters);
+    let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
+    const seedTerms: string[] = [];
+    for (const m of seedMatches) {
+      const inner = (m[1] || '').trim();
+      if (!inner) continue;
+      inner.split(/\s+OR\s+/i).forEach((t) => { const token = t.trim(); if (token) seedTerms.push(token); });
+    }
+    if (seedTerms.length > 0) {
+      try { const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] }); res = [...res, ...seeded]; } catch {}
+    }
+    const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+    const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+    if (res.length === 0) { res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal); }
+    const termStr = terms.trim();
+    const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
+    if (res.length === 0 && termStr) {
+      const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const needle = termStr.toLowerCase();
+      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+    } else if (res.length === 0 && hasShortToken) {
+      const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const needle = termStr.toLowerCase();
+      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+    }
+    const dedupe = new Map<string, NDKEvent>();
+    for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+    return Array.from(dedupe.values()).slice(0, limit);
+  }
+
   // Check for OR operator
   const orParts = parseOrQuery(extCleanedQuery);
   if (orParts.length > 1) {
