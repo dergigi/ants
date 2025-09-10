@@ -4,6 +4,7 @@ import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
+import { applyQueryExtensions } from './search/extensions';
 
 // Type definitions for relay objects
 interface RelayObject {
@@ -360,14 +361,27 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
   });
 }
 
-async function searchByAnyTerms(terms: string[], limit: number, relaySet: NDKRelaySet, abortSignal?: AbortSignal, nip50Extensions?: Nip50Extensions): Promise<NDKEvent[]> {
+async function searchByAnyTerms(
+  terms: string[],
+  limit: number,
+  relaySet: NDKRelaySet,
+  abortSignal?: AbortSignal,
+  nip50Extensions?: Nip50Extensions,
+  baseFilter?: Partial<NDKFilter>
+): Promise<NDKEvent[]> {
   // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
       const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
-      const res = await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, relaySet, abortSignal);
+      const filter: NDKFilter = {
+        kinds: [1],
+        ...(baseFilter || {}),
+        search: searchQuery,
+        limit: Math.max(limit, 200)
+      };
+      const res = await subscribeAndCollect(filter, 8000, relaySet, abortSignal);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
@@ -637,8 +651,11 @@ export async function searchEvents(
     .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
     .trim();
 
+  // Apply modular query extensions (e.g., site:youtube)
+  const { query: extCleanedQuery, seeds: extensionSeeds, filters: extensionFilters } = applyQueryExtensions(cleanedQuery);
+
   // Check for OR operator
-  const orParts = parseOrQuery(cleanedQuery);
+  const orParts = parseOrQuery(extCleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
     const allResults: NDKEvent[] = [];
@@ -667,6 +684,9 @@ export async function searchEvents(
     if (isImageFlag) merged = merged.filter(eventIsSingleImage);
     if (isVideoFlag) merged = merged.filter(eventIsSingleVideo);
     if (isGifFlag) merged = merged.filter(eventIsSingleGif);
+    if (extensionFilters.length > 0) {
+      merged = merged.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+    }
     return merged
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
@@ -674,9 +694,9 @@ export async function searchEvents(
 
   // URL search: always do exact (literal) match for http(s) URLs
   try {
-    const url = new URL(cleanedQuery);
+    const url = new URL(extCleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
+      const searchQuery = buildSearchQueryWithExtensions(`"${extCleanedQuery}"`, nip50Extensions);
       const results = isStreaming 
         ? await subscribeAndStream({
             kinds: [1],
@@ -700,13 +720,16 @@ export async function searchEvents(
       if (isImageFlag) res = res.filter(eventIsSingleImage);
       if (isVideoFlag) res = res.filter(eventIsSingleVideo);
       if (isGifFlag) res = res.filter(eventIsSingleGif);
+      if (extensionFilters.length > 0) {
+        res = res.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+      }
       return res.slice(0, limit);
     }
   } catch {}
 
   // nevent/note bech32: fetch by id (optionally using relays embedded in nevent)
   try {
-    const decoded = nip19.decode(cleanedQuery);
+    const decoded = nip19.decode(extCleanedQuery);
     if (decoded?.type === 'nevent') {
       const data = decoded.data as { id: string; relays?: string[] };
       const neventRelays = Array.isArray(data.relays) ? Array.from(new Set(
@@ -744,8 +767,8 @@ export async function searchEvents(
   } catch {}
 
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
-  const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
-  const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
+  const hashtagMatches = extCleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
+  const nonHashtagRemainder = extCleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
     const tagFilter: TagTFilter = { kinds: [1], '#t': tags, limit: Math.max(limit, 500) };
@@ -766,13 +789,17 @@ export async function searchEvents(
         })
       : await subscribeAndCollect(tagFilter, 10000, tagRelaySet, abortSignal);
 
-    return results
+    let final = results;
+    if (extensionFilters.length > 0) {
+      final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+    }
+    return final
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
   }
 
   // Full-text profile search `p:<term>` (not only username)
-  const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
+  const fullProfileMatch = extCleanedQuery.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
@@ -786,9 +813,9 @@ export async function searchEvents(
   }
 
   // Check if the query is a direct npub
-  if (isNpub(cleanedQuery)) {
+  if (isNpub(extCleanedQuery)) {
     try {
-      const pubkey = getPubkey(cleanedQuery);
+      const pubkey = getPubkey(extCleanedQuery);
       if (!pubkey) return [];
 
       return await subscribeAndCollect({
@@ -803,7 +830,7 @@ export async function searchEvents(
   }
 
   // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
-  const nip05Like = cleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+  const nip05Like = extCleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
   if (nip05Like) {
     try {
       const pubkey = await resolveNip05ToPubkey(cleanedQuery);
@@ -815,11 +842,11 @@ export async function searchEvents(
   }
 
   // Check for author filter
-  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+  const authorMatch = extCleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    const terms = extCleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -873,39 +900,59 @@ export async function searchEvents(
     }
 
     // Increase limit when we post-filter for media
-    if (hasImageFlag || hasVideoFlag || hasGifFlag || isImageFlag || isVideoFlag || isGifFlag) {
+    if (hasImageFlag || hasVideoFlag || hasGifFlag || isImageFlag || isVideoFlag || isGifFlag || extensionFilters.length > 0 || (extensionSeeds.length > 0)) {
       filters.limit = Math.max(filters.limit || limit, 200);
     }
 
     console.log('Searching with filters:', filters);
     {
-      let res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      let res: NDKEvent[] = [];
+      // If we have extension seeds (e.g., site:), run a seeded OR search restricted to author
+      if (extensionSeeds.length > 0) {
+        const seedResults = await searchByAnyTerms(extensionSeeds, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] });
+        res = seedResults;
+      }
+      // Also fetch by base terms if any, restricted to author
+      let baseTermResults: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       // Fallback: if no results, try a broader relay set (default + search)
       const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
       const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-      if (res.length === 0) {
-        res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+      if (baseTermResults.length === 0) {
+        baseTermResults = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
       }
       // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
       // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
       const termStr = terms.trim();
       const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
-      if (res.length === 0 && termStr) {
+      if (baseTermResults.length === 0 && termStr) {
         const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
-        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-      } else if (res.length === 0 && hasShortToken) {
+        baseTermResults = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      } else if (baseTermResults.length === 0 && hasShortToken) {
         const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
-        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+        baseTermResults = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
-      let filtered = res;
+      // Merge seed and base results (OR), then enforce AND semantics if both exist
+      let mergedResults: NDKEvent[] = [...res, ...baseTermResults];
+      // Dedupe
+      const dedupe = new Map<string, NDKEvent>();
+      for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+      mergedResults = Array.from(dedupe.values());
+      if (terms) {
+        const needle = terms.toLowerCase();
+        mergedResults = mergedResults.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      }
+      let filtered = mergedResults;
       if (hasImageFlag) filtered = filtered.filter(eventHasImage);
       if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
       if (hasGifFlag) filtered = filtered.filter(eventHasGif);
       if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
       if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
       if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
+      if (extensionFilters.length > 0) {
+        filtered = filtered.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+      }
       return filtered.slice(0, limit);
     }
   }
@@ -917,20 +964,27 @@ export async function searchEvents(
 
     let results: NDKEvent[] = [];
 
-    // Seed search: if media flags present, OR-merge per extension, then post-filter to enforce AND semantics
+    // Determine if we must run a seeded search (media flags or extension seeds)
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
-    if (mediaFlagsPresent) {
-      const terms: string[] = hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms;
-      const seedResults = await searchByAnyTerms(terms, limit, chosenRelaySet, abortSignal, nip50Extensions);
-      const baseQueryResults = cleanedQuery ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(cleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal) : [];
+    if (mediaFlagsPresent || extensionSeeds.length > 0) {
+      const terms: string[] = mediaFlagsPresent
+        ? (hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms)
+        : [];
+      const seedSearchTerms = [...terms, ...extensionSeeds];
+      const seedResults = seedSearchTerms.length > 0
+        ? await searchByAnyTerms(seedSearchTerms, limit, chosenRelaySet, abortSignal, nip50Extensions)
+        : [];
+      const baseQueryResults = extCleanedQuery
+        ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(extCleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal)
+        : [];
       results = [...seedResults, ...baseQueryResults];
       // Enforce AND: require text match when a base query exists
-      if (cleanedQuery) {
-        const needle = cleanedQuery.toLowerCase();
+      if (extCleanedQuery) {
+        const needle = extCleanedQuery.toLowerCase();
         results = results.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
     } else {
-      const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
+      const baseSearch = options?.exact ? `"${extCleanedQuery}"` : extCleanedQuery || undefined;
       const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
       results = isStreaming 
         ? await subscribeAndStream({
@@ -946,7 +1000,7 @@ export async function searchEvents(
         : await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     }
     console.log('Search results:', {
-      query: cleanedQuery,
+      query: extCleanedQuery,
       resultCount: results.length
     });
     
@@ -962,6 +1016,9 @@ export async function searchEvents(
     if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
     if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
     if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
+    if (extensionFilters.length > 0) {
+      filtered = filtered.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+    }
     return filtered.slice(0, limit);
   } catch (error) {
     console.error('Error fetching events:', error);
