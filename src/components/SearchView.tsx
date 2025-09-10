@@ -8,6 +8,7 @@ import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
+import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -342,6 +343,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (!matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 2);
+  };
+
+  const extractNonMediaUrls = (text: string): string[] => {
+    if (!text) return [];
+    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+    const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
+    const videoExt = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
+    const urls: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = urlRegex.exec(text)) !== null) {
+      const raw = m[1].replace(/[),.;]+$/, '').trim();
+      if (!imageExt.test(raw) && !videoExt.test(raw) && !urls.includes(raw)) {
+        urls.push(raw);
+      }
+    }
+    return urls.slice(0, 2);
   };
 
   const getFilenameFromUrl = (url: string): string => {
@@ -764,6 +781,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 Your browser does not support the video tag.
               </video>
             </div>
+          ))}
+        </div>
+      )}
+      {extractNonMediaUrls(content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractNonMediaUrls(content).map((u) => (
+            <UrlPreview key={u} url={u} />
           ))}
         </div>
       )}
