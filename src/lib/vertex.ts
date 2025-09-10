@@ -1,5 +1,5 @@
 import { ndk } from './ndk';
-import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
 import { relaySets } from './relays';
@@ -379,13 +379,13 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
       user.ndk = ndk;
       // Optionally attach minimal profile fields for better UI
       const fields = extractProfileFields(evt);
-      (user as NDKUser & { profile?: unknown }).profile = {
+      (user as NDKUser & { profile?: NDKUserProfile | undefined }).profile = {
         name: fields.name,
         displayName: fields.display,
         about: fields.about,
         nip05: fields.nip05,
         image: fields.image
-      } as unknown;
+      } as NDKUserProfile;
       evt.author = user;
     }
     return evt;
