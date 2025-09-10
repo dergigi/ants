@@ -8,11 +8,12 @@ import { searchEvents } from '@/lib/search';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
+import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   initialQuery?: string;
@@ -44,6 +45,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -344,6 +346,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return matches.slice(0, 2);
   };
 
+  const extractNonMediaUrls = (text: string): string[] => {
+    if (!text) return [];
+    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+    const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
+    const videoExt = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
+    const urls: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = urlRegex.exec(text)) !== null) {
+      const raw = m[1].replace(/[),.;]+$/, '').trim();
+      if (!imageExt.test(raw) && !videoExt.test(raw) && !urls.includes(raw)) {
+        urls.push(raw);
+      }
+    }
+    return urls.slice(0, 2);
+  };
+
   const getFilenameFromUrl = (url: string): string => {
     try {
       const u = new URL(url);
@@ -368,8 +386,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   };
 
+  const stripPreviewUrls = (text: string): string => {
+    if (!text) return '';
+    let cleaned = text;
+    successfulPreviews.forEach(url => {
+      const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
+      cleaned = cleaned.replace(regex, '');
+    });
+    return cleaned.replace(/\s{2,}/g, ' ').trim();
+  };
+
   const renderContentWithClickableHashtags = (content: string, options?: { disableNevent?: boolean }) => {
-    const strippedContent = stripMediaUrls(content);
+    const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
@@ -385,8 +414,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
+            <a
+              href={cleanedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
+              onClick={(e) => { e.stopPropagation(); }}
+              title={cleanedUrl}
+            >
+              {cleanedUrl}
+            </a>
             <button
               type="button"
+              title="Search for this URL"
+              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
               onClick={() => {
                 const nextQuery = cleanedUrl;
                 setQuery(nextQuery);
@@ -395,14 +436,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   params.set('q', nextQuery);
                   router.replace(`?${params.toString()}`);
                 }
-                // Perform exact search for URLs clicked in UI
                 (async () => {
                   setLoading(true);
                   try {
                     const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
                     setResults(searchResults);
                   } catch (error) {
-                    // Don't log aborted searches as errors
                     if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
                       return;
                     }
@@ -413,23 +452,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 })();
               }}
-              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
-              title="Search for this URL"
             >
-              {cleanedUrl}
+              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
             </button>
-            <a
-              href={cleanedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open link in new tab"
-              className="opacity-80 hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-            </a>
           </span>
         );
         return;
@@ -764,6 +789,48 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 Your browser does not support the video tag.
               </video>
             </div>
+          ))}
+        </div>
+      )}
+      {extractNonMediaUrls(content).length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {extractNonMediaUrls(content).map((u) => (
+            <UrlPreview
+              key={u}
+              url={u}
+              onLoaded={(loadedUrl) => {
+                setSuccessfulPreviews((prev) => {
+                  if (prev.has(loadedUrl)) return prev;
+                  const next = new Set(prev);
+                  next.add(loadedUrl);
+                  return next;
+                });
+              }}
+              onSearch={(targetUrl) => {
+                const nextQuery = targetUrl;
+                setQuery(nextQuery);
+                if (manageUrl) {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set('q', nextQuery);
+                  router.replace(`?${params.toString()}`);
+                }
+                (async () => {
+                  setLoading(true);
+                  try {
+                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                    setResults(searchResults);
+                  } catch (error) {
+                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                      return;
+                    }
+                    console.error('Search error:', error);
+                    setResults([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
+              }}
+            />
           ))}
         </div>
       )}
