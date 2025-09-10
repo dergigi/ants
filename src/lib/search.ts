@@ -5,6 +5,7 @@ import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, prof
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 import { applyQueryExtensions } from './search/extensions';
+import { getMediaExtsSync } from './search/dsl';
 
 // Type definitions for relay objects
 interface RelayObject {
@@ -959,8 +960,9 @@ export async function searchEvents(
   
   // Regular search without author filter
   try {
-    const imgTerms = [...IMAGE_EXTENSIONS];
-    const vidTerms = [...VIDEO_EXTENSIONS];
+    const { imageExts, videoExts, gifExts } = getMediaExtsSync();
+    const imgTerms = [...imageExts];
+    const vidTerms = [...videoExts];
 
     let results: NDKEvent[] = [];
 
@@ -968,7 +970,7 @@ export async function searchEvents(
     const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
     if (mediaFlagsPresent || extensionSeeds.length > 0) {
       const terms: string[] = mediaFlagsPresent
-        ? (hasGifFlag || isGifFlag ? [...GIF_EXTENSIONS] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms)
+        ? (hasGifFlag || isGifFlag ? [...gifExts] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms)
         : [];
       const seedSearchTerms = [...terms, ...extensionSeeds];
       const seedResults = seedSearchTerms.length > 0

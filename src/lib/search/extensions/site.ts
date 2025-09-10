@@ -1,5 +1,5 @@
 import type { QueryExtension, QueryExtensionResult } from './types';
-import { SITE_HOSTS } from './site-hosts';
+import { getSiteHostsSync } from '../dsl';
 
 function buildHostRegex(hosts: string[]): RegExp {
   // Match any URL containing one of the hosts
@@ -11,7 +11,8 @@ function parseSiteToken(raw: string): string[] {
   const token = raw.trim().toLowerCase();
   if (!token) return [];
   // Check mapping by key; fall back to raw domain
-  if (SITE_HOSTS[token]) return [...SITE_HOSTS[token]];
+  const map = getSiteHostsSync();
+  if (map[token]) return [...map[token]];
   return [token];
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import { explainQuery } from '@/lib/search/translate';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -23,6 +24,10 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
+  // Preload DSL mappings on mount for deterministic behavior
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { preloadDsl } = require('../lib/search/dsl');
+  try { preloadDsl(); } catch {}
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
@@ -46,6 +51,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
+  const [translation, setTranslation] = useState<string>('');
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -281,6 +287,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       else setResults([]);
     }
   };
+
+  // Live translation preview (debounced by React render cadence)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const t = await explainQuery(query);
+        if (!cancelled) setTranslation(t);
+      } catch {
+        if (!cancelled) setTranslation('');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [query]);
 
   const goToProfile = useCallback((npub: string) => {
     router.push(`/p/${npub}`);
@@ -967,6 +987,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </button>
         </div>
         
+        {translation && (
+          <div className="mt-1 text-[11px] text-gray-400 font-mono break-words">
+            {translation}
+          </div>
+        )}
+
         {/* Expandable connection details for mobile */}
         {showConnectionDetails && connectionDetails && (
           <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">

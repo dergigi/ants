@@ -75,6 +75,10 @@ npm run dev
 npm test
 ```
 
+### Search modifiers
+
+See `SEARCH_MODIFIERS.md` for the full list of supported modifiers (e.g., `site:yt`, `by:<author>`, media flags, NIP-50 options) and how to extend them.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
