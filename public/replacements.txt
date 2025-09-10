@@ -34,6 +34,7 @@ is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif O
 is:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 is:gif => (.gif OR .gifs OR .apng)
 is:quote => nostr:nevent
+is:mention => (nostr:npub OR nostr:nprofile)
 
 # --- HAS ---
 has:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)

@@ -4,7 +4,6 @@ import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
-import { applyQueryExtensions } from './search/extensions';
 import { getMediaExtsSync } from './search/dsl';
 
 // Type definitions for relay objects
@@ -635,25 +634,11 @@ export async function searchEvents(
     ? relaySetOverride
     : await getNip50SearchRelaySet();
 
-  // Detect and strip media flags; apply post-filter later
-  const relayStripped = stripRelayFilters(nip50Extraction.cleaned);
-  const hasImageFlag = /(?:^|\s)has:images?(?:\s|$)/i.test(relayStripped);
-  const hasVideoFlag = /(?:^|\s)has:videos?(?:\s|$)/i.test(relayStripped);
-  const hasGifFlag = /(?:^|\s)has:gifs?(?:\s|$)/i.test(relayStripped);
-  const isImageFlag = /(?:^|\s)is:image(?:\s|$)/i.test(relayStripped);
-  const isVideoFlag = /(?:^|\s)is:video(?:\s|$)/i.test(relayStripped);
-  const isGifFlag = /(?:^|\s)is:gif(?:\s|$)/i.test(relayStripped);
-  const cleanedQuery = relayStripped
-    .replace(/(?:^|\s)has:images?(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)has:videos?(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)has:gifs?(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
-    .trim();
-
-  // Apply modular query extensions (e.g., site:youtube)
-  const { query: extCleanedQuery, seeds: extensionSeeds, filters: extensionFilters } = applyQueryExtensions(cleanedQuery);
+  // Strip legacy relay filters but keep the rest of the query intact; any replacements
+  // are applied earlier at the UI layer via the simple preprocessor.
+  const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
+  const extensionSeeds: string[] = [];
+  const extensionFilters: Array<(content: string) => boolean> = [];
 
   // Check for OR operator
   const orParts = parseOrQuery(extCleanedQuery);
@@ -679,15 +664,6 @@ export async function searchEvents(
     
     // Sort by creation time (newest first) and limit results
     let merged = allResults;
-    if (hasImageFlag) merged = merged.filter(eventHasImage);
-    if (hasVideoFlag) merged = merged.filter(eventHasVideo);
-    if (hasGifFlag) merged = merged.filter(eventHasGif);
-    if (isImageFlag) merged = merged.filter(eventIsSingleImage);
-    if (isVideoFlag) merged = merged.filter(eventIsSingleVideo);
-    if (isGifFlag) merged = merged.filter(eventIsSingleGif);
-    if (extensionFilters.length > 0) {
-      merged = merged.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-    }
     return merged
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
@@ -715,15 +691,6 @@ export async function searchEvents(
             limit: Math.max(limit, 200)
           }, 8000, chosenRelaySet, abortSignal);
       let res = results;
-      if (hasImageFlag) res = res.filter(eventHasImage);
-      if (hasVideoFlag) res = res.filter(eventHasVideo);
-      if (hasGifFlag) res = res.filter(eventHasGif);
-      if (isImageFlag) res = res.filter(eventIsSingleImage);
-      if (isVideoFlag) res = res.filter(eventIsSingleVideo);
-      if (isGifFlag) res = res.filter(eventIsSingleGif);
-      if (extensionFilters.length > 0) {
-        res = res.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-      }
       return res.slice(0, limit);
     }
   } catch {}
@@ -900,21 +867,12 @@ export async function searchEvents(
       filters.limit = Math.max(limit, 200);
     }
 
-    // Increase limit when we post-filter for media
-    if (hasImageFlag || hasVideoFlag || hasGifFlag || isImageFlag || isVideoFlag || isGifFlag || extensionFilters.length > 0 || (extensionSeeds.length > 0)) {
-      filters.limit = Math.max(filters.limit || limit, 200);
-    }
+    // No additional post-filtering; use default limits
 
     console.log('Searching with filters:', filters);
     {
-      let res: NDKEvent[] = [];
-      // If we have extension seeds (e.g., site:), run a seeded OR search restricted to author
-      if (extensionSeeds.length > 0) {
-        const seedResults = await searchByAnyTerms(extensionSeeds, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] });
-        res = seedResults;
-      }
-      // Also fetch by base terms if any, restricted to author
-      let baseTermResults: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      // Fetch by base terms if any, restricted to author
+      let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       // Fallback: if no results, try a broader relay set (default + search)
       const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
       const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
@@ -935,7 +893,7 @@ export async function searchEvents(
         baseTermResults = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
       // Merge seed and base results (OR), then enforce AND semantics if both exist
-      let mergedResults: NDKEvent[] = [...res, ...baseTermResults];
+      let mergedResults: NDKEvent[] = res;
       // Dedupe
       const dedupe = new Map<string, NDKEvent>();
       for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
@@ -945,62 +903,28 @@ export async function searchEvents(
         mergedResults = mergedResults.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
       let filtered = mergedResults;
-      if (hasImageFlag) filtered = filtered.filter(eventHasImage);
-      if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
-      if (hasGifFlag) filtered = filtered.filter(eventHasGif);
-      if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
-      if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
-      if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
-      if (extensionFilters.length > 0) {
-        filtered = filtered.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-      }
+      
       return filtered.slice(0, limit);
     }
   }
   
   // Regular search without author filter
   try {
-    const { imageExts, videoExts, gifExts } = getMediaExtsSync();
-    const imgTerms = [...imageExts];
-    const vidTerms = [...videoExts];
-
     let results: NDKEvent[] = [];
-
-    // Determine if we must run a seeded search (media flags or extension seeds)
-    const mediaFlagsPresent = hasImageFlag || isImageFlag || hasVideoFlag || isVideoFlag || hasGifFlag || isGifFlag;
-    if (mediaFlagsPresent || extensionSeeds.length > 0) {
-      const terms: string[] = mediaFlagsPresent
-        ? (hasGifFlag || isGifFlag ? [...gifExts] : (hasVideoFlag || isVideoFlag) ? vidTerms : imgTerms)
-        : [];
-      const seedSearchTerms = [...terms, ...extensionSeeds];
-      const seedResults = seedSearchTerms.length > 0
-        ? await searchByAnyTerms(seedSearchTerms, limit, chosenRelaySet, abortSignal, nip50Extensions)
-        : [];
-      const baseQueryResults = extCleanedQuery
-        ? await subscribeAndCollect({ kinds: [1], search: buildSearchQueryWithExtensions(extCleanedQuery, nip50Extensions), limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal)
-        : [];
-      results = [...seedResults, ...baseQueryResults];
-      // Enforce AND: require text match when a base query exists
-      if (extCleanedQuery) {
-        const needle = extCleanedQuery.toLowerCase();
-        results = results.filter((e) => (e.content || '').toLowerCase().includes(needle));
-      }
-    } else {
-      const baseSearch = options?.exact ? `"${extCleanedQuery}"` : extCleanedQuery || undefined;
-      const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
-      results = isStreaming 
-        ? await subscribeAndStream({
-            kinds: [1],
-            search: searchQuery
-          }, {
-            timeoutMs: streamingOptions?.timeoutMs || 30000,
-            maxResults: streamingOptions?.maxResults || 1000,
-            onResults: streamingOptions?.onResults,
-            relaySet: chosenRelaySet,
-            abortSignal
-          })
-        : await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
-    }
+    const baseSearch = options?.exact ? `"${extCleanedQuery}"` : extCleanedQuery || undefined;
+    const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
+    results = isStreaming 
+      ? await subscribeAndStream({
+          kinds: [1],
+          search: searchQuery
+        }, {
+          timeoutMs: streamingOptions?.timeoutMs || 30000,
+          maxResults: streamingOptions?.maxResults || 1000,
+          onResults: streamingOptions?.onResults,
+          relaySet: chosenRelaySet,
+          abortSignal
+        })
+      : await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     console.log('Search results:', {
       query: extCleanedQuery,
       resultCount: results.length
@@ -1012,15 +936,7 @@ export async function searchEvents(
       const firstIdx = arr.findIndex((x) => x.id === e.id);
       return firstIdx === idx;
     });
-    if (hasImageFlag) filtered = filtered.filter(eventHasImage);
-    if (hasVideoFlag) filtered = filtered.filter(eventHasVideo);
-    if (hasGifFlag) filtered = filtered.filter(eventHasGif);
-    if (isImageFlag) filtered = filtered.filter(eventIsSingleImage);
-    if (isVideoFlag) filtered = filtered.filter(eventIsSingleVideo);
-    if (isGifFlag) filtered = filtered.filter(eventIsSingleGif);
-    if (extensionFilters.length > 0) {
-      filtered = filtered.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-    }
+    
     return filtered.slice(0, limit);
   } catch (error) {
     console.error('Error fetching events:', error);
