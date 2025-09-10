@@ -24,10 +24,6 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
-  // Preload DSL mappings on mount for deterministic behavior
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { preloadDsl } = require('../lib/search/dsl');
-  try { preloadDsl(); } catch {}
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
