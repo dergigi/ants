@@ -33,14 +33,11 @@ site:quora => (quora.com OR www.quora.com OR m.quora.com)
 is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
 is:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 is:gif => (.gif OR .gifs OR .apng)
-# Custom
-is:quote => (nevent)
+is:quote => nostr:nevent
 
 # --- HAS ---
 has:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
 has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 has:gif => (.gif OR .gifs OR .apng)
-# Custom
-has:mp3 => (.mp3 OR .mp4)
 
 
