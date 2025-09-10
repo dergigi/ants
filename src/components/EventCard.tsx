@@ -31,11 +31,11 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       <div className={contentClasses}>{renderContent(event.content || '')}</div>
       {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
       {showFooter && (
-        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d]' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg'}>
+        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg'}>
           <div className="flex items-center gap-2">
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
           </div>
-          {variant !== 'inline' ? (
+          {footerRight ? (
             <div className="flex items-center gap-2">{footerRight}</div>
           ) : null}
         </div>

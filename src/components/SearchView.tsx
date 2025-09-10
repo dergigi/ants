@@ -561,10 +561,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           );
         }
 
-        const created = embedded.created_at ? new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
         return (
           <div className="w-full">
-            <div className="text-xs text-gray-400 mb-1">Quoted note{created ? ` · ${created}` : ''}</div>
             <EventCard
               event={embedded}
               onAuthorClick={goToProfile}
@@ -574,6 +572,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </div>
               )}
               variant="inline"
+              footerRight={embedded.created_at ? (
+                <span className="opacity-80">{new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              ) : null}
             />
           </div>
         );
