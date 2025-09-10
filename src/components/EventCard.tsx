@@ -2,7 +2,6 @@
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
-import Image from 'next/image';
 
 type Props = {
   event: NDKEvent;
@@ -15,29 +14,7 @@ type Props = {
   showFooter?: boolean;
 };
 
-function extractImageUrls(text: string): string[] {
-  if (!text) return [];
-  const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
-  const matches: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(text)) !== null) {
-    const url = m[1].replace(/[),.;]+$/, '').trim();
-    if (!matches.includes(url)) matches.push(url);
-  }
-  return matches.slice(0, 3);
-}
-
-function extractVideoUrls(text: string): string[] {
-  if (!text) return [];
-  const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
-  const matches: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(text)) !== null) {
-    const url = m[1].replace(/[),.;]+$/, '').trim();
-    if (!matches.includes(url)) matches.push(url);
-  }
-  return matches.slice(0, 2);
-}
+// No local media helpers; media should be rendered by the provided mediaRenderer prop to keep this component generic.
 
 export default function EventCard({ event, onAuthorClick, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
   const baseContainerClasses = variant === 'inline'
