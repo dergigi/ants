@@ -4,7 +4,7 @@ import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
-import { getMediaExtsSync } from './search/dsl';
+// legacy import removed
 
 // Type definitions for relay objects
 interface RelayObject {
