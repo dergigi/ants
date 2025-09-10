@@ -19,13 +19,15 @@ type Props = {
   url: string;
   className?: string;
   onSearch?: (url: string) => void;
+  onLoaded?: (url: string) => void;
 };
 
-export default function UrlPreview({ url, className, onSearch }: Props) {
+export default function UrlPreview({ url, className, onSearch, onLoaded }: Props) {
   const [data, setData] = useState<OgData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const mountedRef = useRef(true);
+  const notifiedLoadedRef = useRef(false);
 
   const originHostname = useMemo(() => {
     try { return new URL(url).hostname; } catch { return ''; }
@@ -56,6 +58,14 @@ export default function UrlPreview({ url, className, onSearch }: Props) {
     })();
     return () => { mountedRef.current = false; ac.abort(); };
   }, [url]);
+
+  // Notify parent once after successful load
+  useEffect(() => {
+    if (!notifiedLoadedRef.current && data && !error && onLoaded) {
+      notifiedLoadedRef.current = true;
+      onLoaded(data.url || url);
+    }
+  }, [data, error, onLoaded, url]);
 
   if (loading) return null;
   if (error || !data) return null;

@@ -45,6 +45,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -387,10 +388,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const stripPreviewUrls = (text: string): string => {
     if (!text) return '';
-    const nonMediaUrls = extractNonMediaUrls(text);
     let cleaned = text;
-    nonMediaUrls.forEach(url => {
-      // Escape special regex characters in the URL
+    successfulPreviews.forEach(url => {
       const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
       cleaned = cleaned.replace(regex, '');
@@ -803,6 +802,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <UrlPreview
               key={u}
               url={u}
+              onLoaded={(loadedUrl) => {
+                setSuccessfulPreviews((prev) => {
+                  if (prev.has(loadedUrl)) return prev;
+                  const next = new Set(prev);
+                  next.add(loadedUrl);
+                  return next;
+                });
+              }}
               onSearch={(targetUrl) => {
                 const nextQuery = targetUrl;
                 setQuery(nextQuery);
