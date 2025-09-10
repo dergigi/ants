@@ -41,11 +41,12 @@ export default function UrlPreview({ url, className }: Props) {
         if (!res.ok) throw new Error(`${res.status}`);
         const json = (await res.json()) as OgData | { error: string };
         if (!mountedRef.current) return;
-        if ((json as any).error) throw new Error((json as any).error);
+        if ('error' in json) throw new Error(json.error);
         setData(json as OgData);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!mountedRef.current) return;
-        setError(e?.message || 'Failed');
+        const errorMessage = e instanceof Error ? e.message : 'Failed';
+        setError(errorMessage);
       } finally {
         if (mountedRef.current) setLoading(false);
       }

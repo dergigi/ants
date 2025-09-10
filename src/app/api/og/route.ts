@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as cheerio from 'cheerio';
+import { fetch } from 'fetch-opengraph';
 import { isIP } from 'net';
 
-// Runtime hint: nodejs for network and cheerio
+// Runtime hint: nodejs for network requests
 export const runtime = 'nodejs';
 
 type OgResult = {
@@ -56,84 +56,29 @@ function resolveUrlMaybe(base: URL, value?: string | null): string | undefined {
   }
 }
 
-async function fetchHtmlWithLimit(url: string, timeoutMs: number, maxBytes: number): Promise<string> {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: ac.signal,
-      headers: {
-        'user-agent': 'ants-og-fetcher/1.0 (+https://ants.dergigi.com)'
-      },
-      redirect: 'follow',
-      cache: 'no-store'
-    } as RequestInit);
-    if (!res.ok) {
-      throw new Error(`Upstream status ${res.status}`);
-    }
-    const contentType = res.headers.get('content-type') || '';
-    if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) {
-      throw new Error('Unsupported content-type');
-    }
-    const finalUrl = res.url || url;
-    try {
-      const finalU = new URL(finalUrl);
-      if (isBlockedHostname(finalU.hostname)) throw new Error('Blocked host');
-      // If direct IP, block private ranges
-      if (isIP(finalU.hostname)) {
-        if (isPrivateIp(finalU.hostname)) throw new Error('Blocked IP');
-      }
-    } catch {
-      throw new Error('Invalid redirect');
-    }
-    // Stream read up to maxBytes
-    const reader = res.body?.getReader();
-    if (!reader) return '';
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      received += value.byteLength;
-      if (received > maxBytes) {
-        chunks.push(value.slice(0, Math.max(0, maxBytes - (received - value.byteLength))));
-        break;
-      }
-      chunks.push(value);
-    }
-    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-    return buf.toString('utf8');
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-function extractOg(url: URL, html: string): OgResult {
-  const $ = cheerio.load(html);
-  const get = (sel: string) => $(sel).attr('content') || $(sel).attr('value') || undefined;
-
-  const ogTitle = get('meta[property="og:title"]') || get('meta[name="og:title"]');
-  const ogDescription = get('meta[property="og:description"]') || get('meta[name="og:description"]');
-  const ogImage = get('meta[property="og:image"]') || get('meta[name="og:image"]');
-  const ogSite = get('meta[property="og:site_name"]') || get('meta[name="og:site_name"]');
-  const ogType = get('meta[property="og:type"]') || get('meta[name="og:type"]');
-
-  const twTitle = get('meta[name="twitter:title"]');
-  const twDescription = get('meta[name="twitter:description"]');
-  const twImage = get('meta[name="twitter:image"]') || get('meta[name="twitter:image:src"]');
-
-  const title = ogTitle || twTitle || $('title').first().text() || undefined;
-  const description = ogDescription || twDescription || $('meta[name="description"]').attr('content') || undefined;
-  const image = resolveUrlMaybe(url, ogImage || twImage || undefined);
-  const siteName = ogSite || new URL(url.origin).hostname;
-  const type = ogType;
-
-  // Favicon detection
-  let faviconHref = $('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').attr('href') || undefined;
-  const favicon = resolveUrlMaybe(url, faviconHref) || resolveUrlMaybe(url, '/favicon.ico');
-
-  return { url: url.toString(), title, description, image, siteName, type, favicon };
+async function fetchOgData(url: string): Promise<OgResult> {
+  const ogData = await fetch(url);
+  const urlObj = new URL(url);
+  
+  // Extract data from fetch-opengraph response
+  const title = ogData['og:title'] || ogData['twitter:title'] || ogData.title || undefined;
+  const description = ogData['og:description'] || ogData['twitter:description'] || ogData.description || undefined;
+  const image = ogData['og:image'] || ogData['twitter:image:src'] || ogData.image || undefined;
+  const siteName = ogData['og:site_name'] || urlObj.hostname;
+  const type = ogData['og:type'] || undefined;
+  
+  // Try to get favicon from the original URL
+  const favicon = resolveUrlMaybe(urlObj, '/favicon.ico');
+  
+  return {
+    url: ogData.url || url,
+    title,
+    description,
+    image,
+    siteName,
+    type,
+    favicon
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -158,14 +103,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const html = await fetchHtmlWithLimit(u.toString(), 8000, 512 * 1024);
-    const data = extractOg(u, html);
+    const data = await fetchOgData(u.toString());
     // Short cache headers (10 minutes) to reduce repeated fetches
     const res = NextResponse.json(data, { status: 200 });
     res.headers.set('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400');
     return res;
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Fetch failed' }, { status: 502 });
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : 'Fetch failed';
+    return NextResponse.json({ error: errorMessage }, { status: 502 });
   }
 }
 

@@ -15,7 +15,7 @@
     "@fortawesome/react-fontawesome": "^0.2.3",
     "@nostr-dev-kit/ndk": "^2.14.33",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.5.15",
-    "cheerio": "^1.0.0-rc.12",
+    "fetch-opengraph": "^1.0.36",
     "next": "^15.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
