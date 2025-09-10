@@ -573,7 +573,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               )}
               variant="inline"
               footerRight={embedded.created_at ? (
-                <span className="opacity-80">{new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                <button
+                  type="button"
+                  className="text-xs hover:underline opacity-80"
+                  title="Search this nevent"
+                  onClick={() => {
+                    try {
+                      const nevent = nip19.neventEncode({ id: embedded.id });
+                      const q = nevent;
+                      setQuery(q);
+                      if (manageUrl) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('q', q);
+                        router.replace(`?${params.toString()}`);
+                      }
+                      handleSearch(q);
+                    } catch {}
+                  }}
+                >
+                  {new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </button>
               ) : null}
             />
           </div>
