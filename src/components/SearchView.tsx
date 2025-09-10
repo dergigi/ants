@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
@@ -291,7 +292,36 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const id = setTimeout(() => {
       (async () => {
         try {
-          const t = await applySimpleReplacements(query);
+          let t = await applySimpleReplacements(query);
+          // If by:<author> is present, resolve to npub and append to preview
+          const byMatch = query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+          if (byMatch) {
+            const author = (byMatch[1] || '').trim();
+            if (author) {
+              let resolvedNpub: string | null = null;
+              try {
+                if (/^npub1[0-9a-z]+$/i.test(author)) {
+                  resolvedNpub = author;
+                } else {
+                  // Try Vertex profile lookup first
+                  let profile = await lookupVertexProfile(`p:${author}`);
+                  if (!profile) {
+                    try {
+                      const profiles = await searchProfilesFullText(author, 1);
+                      profile = profiles[0] || null;
+                    } catch {}
+                  }
+                  const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+                  if (pubkey) {
+                    try { resolvedNpub = nip19.npubEncode(pubkey); } catch {}
+                  }
+                }
+              } catch {}
+              if (resolvedNpub) {
+                t = t ? `${t} • by:${author} => ${resolvedNpub}` : `by:${author} => ${resolvedNpub}`;
+              }
+            }
+          }
           if (!cancelled) setTranslation(t);
         } catch {
           if (!cancelled) setTranslation('');
