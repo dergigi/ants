@@ -22,6 +22,7 @@ export const searchExamples = [
   '.jpg by:corndalorian',
   'site:github by:fiatjaf',
   'by:dergigi site:yt',
+  '#news site:odysee.com',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
