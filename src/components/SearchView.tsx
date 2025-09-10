@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -285,18 +285,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   };
 
-  // Live translation preview (debounced by React render cadence)
+  // Live translation preview (debounced)
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const t = await applySimpleReplacements(query);
-        if (!cancelled) setTranslation(t);
-      } catch {
-        if (!cancelled) setTranslation('');
-      }
-    })();
-    return () => { cancelled = true; };
+    const id = setTimeout(() => {
+      (async () => {
+        try {
+          const t = await applySimpleReplacements(query);
+          if (!cancelled) setTranslation(t);
+        } catch {
+          if (!cancelled) setTranslation('');
+        }
+      })();
+    }, 120);
+    return () => { cancelled = true; clearTimeout(id); };
   }, [query]);
 
   const goToProfile = useCallback((npub: string) => {
@@ -1095,60 +1097,62 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {results.length > 0 && (
-        <div className="mt-8 space-y-4">
-          {results.map((event, idx) => {
-            const parentId = getReplyToEventId(event);
-            const parent = parentId ? expandedParents[parentId] : undefined;
-            const isLoadingParent = parent === 'loading';
-            const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
-            const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
-            const hasExpandedParent = Boolean(parentEvent);
-            const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
-            const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
-            return (
-              <div key={key}>
-                {parentId && renderParentChain(event)}
-                {event.kind === 0 ? (
-                  <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
-                ) : (
-                  <EventCard
-                    event={event}
-                    onAuthorClick={goToProfile}
-                    renderContent={(text) => (
-                      <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
-                    )}
-                    mediaRenderer={renderNoteMedia}
-                    footerRight={(
-                      <button
-                        type="button"
-                        className="text-xs hover:underline"
-                        title="Search this nevent"
-                        onClick={() => {
-                          try {
-                            const nevent = nip19.neventEncode({ id: event.id });
-                            const q = nevent;
-                            setQuery(q);
-                            if (manageUrl) {
-                              const params = new URLSearchParams(searchParams.toString());
-                              params.set('q', q);
-                              router.replace(`?${params.toString()}`);
-                            }
-                            handleSearch(q);
-                          } catch {}
-                        }}
-                      >
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </button>
-                    )}
-                    className={noteCardClasses}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {useMemo(() => (
+        results.length > 0 ? (
+          <div className="mt-8 space-y-4">
+            {results.map((event, idx) => {
+              const parentId = getReplyToEventId(event);
+              const parent = parentId ? expandedParents[parentId] : undefined;
+              const isLoadingParent = parent === 'loading';
+              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
+              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
+              const hasExpandedParent = Boolean(parentEvent);
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
+              const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
+              return (
+                <div key={key}>
+                  {parentId && renderParentChain(event)}
+                  {event.kind === 0 ? (
+                    <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
+                  ) : (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={(text) => (
+                        <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+                      )}
+                      mediaRenderer={renderNoteMedia}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : null
+      ), [results, expandedParents, manageUrl, searchParams])}
     </div>
   );
 }
