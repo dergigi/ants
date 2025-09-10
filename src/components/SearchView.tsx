@@ -5,11 +5,6 @@ import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConn
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 
-// Type for NDKEvent with relay source
-interface NDKEventWithRelaySource extends NDKEvent {
-  relaySource?: string;
-  relaySources?: string[]; // Track all relays where this event was found
-}
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileCard from '@/components/ProfileCard';
@@ -568,7 +563,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               user.ndk = ndk;
               try { await user.fetchProfile(); } catch {}
               if (!isMounted) return;
-              const display = user.profile?.displayName || (user.profile as any)?.display || user.profile?.name || '';
+              type UserProfileLike = { display?: string; displayName?: string; name?: string } | undefined;
+              const profile = user.profile as UserProfileLike;
+              const display = profile?.displayName || profile?.display || profile?.name || '';
               const npubVal = nip19.npubEncode(pubkey);
               setNpub(npubVal);
               setLabel(display || `npub:${npubVal.slice(0, 8)}…${npubVal.slice(-4)}`);
