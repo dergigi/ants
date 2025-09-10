@@ -294,7 +294,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         try {
           let t = await applySimpleReplacements(query);
           // If by:<author> is present, resolve to npub and append to preview
-          const byMatch = query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+          const byMatch = query.trim().match(/^by:(\S+)$/i) || query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
           if (byMatch) {
             const author = (byMatch[1] || '').trim();
             if (author) {

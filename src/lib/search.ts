@@ -553,6 +553,7 @@ export function parseOrQuery(query: string): string[] {
   const parts: string[] = [];
   let currentPart = '';
   let inQuotes = false;
+  let parenDepth = 0;
 
   const stripOuterQuotes = (value: string): string => {
     const trimmed = value.trim();
@@ -570,8 +571,17 @@ export function parseOrQuery(query: string): string[] {
       continue;
     }
 
+    // Track parentheses to avoid splitting inside expanded lists like (a OR b)
+    if (!inQuotes) {
+      if (char === '(') {
+        parenDepth++;
+      } else if (char === ')') {
+        if (parenDepth > 0) parenDepth--;
+      }
+    }
+
     // Detect the literal sequence " OR " when not inside quotes
-    if (!inQuotes && query.substr(i, 4).toUpperCase() === ' OR ') {
+    if (!inQuotes && parenDepth === 0 && query.substr(i, 4).toUpperCase() === ' OR ') {
       const cleaned = stripOuterQuotes(currentPart);
       if (cleaned) parts.push(cleaned);
       currentPart = '';
@@ -897,10 +907,7 @@ export async function searchEvents(
       const dedupe = new Map<string, NDKEvent>();
       for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
       mergedResults = Array.from(dedupe.values());
-      if (terms) {
-        const needle = terms.toLowerCase();
-        mergedResults = mergedResults.filter((e) => (e.content || '').toLowerCase().includes(needle));
-      }
+      // Do not enforce additional client-side text match; rely on relay-side search
       let filtered = mergedResults;
       
       return filtered.slice(0, limit);
