@@ -73,7 +73,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
   const title = data.title || originHostname;
   const description = data.description || '';
   const image = data.image;
-  const favicon = data.favicon;
+  // Favicon intentionally not shown
 
   return (
     <div className={`relative group ${className || ''}`}>
@@ -94,10 +94,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
             </div>
           ) : null}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-sm text-gray-300 mb-1">
-              {favicon ? (
-                <Image src={favicon} alt="favicon" width={16} height={16} className="inline-block" unoptimized />
-              ) : null}
+            <div className="flex items-center text-sm text-gray-300 mb-1">
               <span className="truncate opacity-80">{data.siteName || originHostname}</span>
             </div>
             <div className="text-gray-100 font-medium truncate mb-1">{title}</div>
