@@ -47,14 +47,14 @@ export const searchExamples = [
   'meme has:gif',
   'by:dergigi has:image',
   'by:HODL has:video',
+  'Gregzaj1-ln_strike.gif',
+  'giphy.gif',
+  'by:gregzaj has:gif',
 
   // Relay filters (removed)
 
   // NIP-50 extensions
   'bitcoin include:spam',
-  'art nsfw:false',
-  '#meme nsfw:true',
-  'has:image nsfw:false',
 ] as const;
 
 // Examples that require login to work properly
