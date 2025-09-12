@@ -38,6 +38,14 @@ export function Footer() {
     router.replace(`?${params.toString()}`);
   };
 
+  const handleVertexClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const nextQuery = 'p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz';
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('q', nextQuery);
+    router.replace(`?${params.toString()}`);
+  };
+
   const handleGigiClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const nextQuery = 'dergigi.com';
@@ -59,6 +67,8 @@ export function Footer() {
         <a href="#" onClick={handleSec04Click} className="underline hover:text-gray-300">Birthed during SEC-04</a>
         <span className="mx-2">·</span>
         <a href="#" onClick={handleSec05Click} className="underline hover:text-gray-300">Refined during SEC-05</a>
+        <span className="mx-2">·</span>
+        Using <a href="#" onClick={handleVertexClick} className="underline hover:text-gray-300">Vertex</a> DVM
       </p>
     </footer>
   );
