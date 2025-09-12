@@ -301,6 +301,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               let resolvedNpub: string | null = null;
               try {
                 if (/^npub1[0-9a-z]+$/i.test(author)) {
+                  // Author is already an npub, no need to show substitution
                   resolvedNpub = author;
                 } else {
                   // Try Vertex profile lookup first
@@ -317,7 +318,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 }
               } catch {}
-              if (resolvedNpub) {
+              // Only show substitution if author is NOT already an npub
+              if (resolvedNpub && !/^npub1[0-9a-z]+$/i.test(author)) {
                 t = t ? `${t} • by:${author} => ${resolvedNpub}` : `by:${author} => ${resolvedNpub}`;
               }
             }
