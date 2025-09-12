@@ -1,4 +1,4 @@
-import { ndk, safePublish, safeSubscribe, isValidFilter } from './ndk';
+import { ndk, safePublish, safeSubscribe } from './ndk';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';

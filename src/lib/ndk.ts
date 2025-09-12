@@ -1,4 +1,4 @@
-import NDK from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription } from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
 import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
@@ -233,7 +233,7 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
  * @param filter - The filter to validate
  * @returns true if filter is valid, false otherwise
  */
-export const isValidFilter = (filter: any): boolean => {
+export const isValidFilter = (filter: NDKFilter): boolean => {
   if (!filter || typeof filter !== 'object') {
     return false;
   }
@@ -241,7 +241,7 @@ export const isValidFilter = (filter: any): boolean => {
   // Check if filter has at least one meaningful property
   const meaningfulKeys = ['kinds', 'authors', 'ids', 'search', '#t', '#e', '#p', 'since', 'until', 'limit'];
   return meaningfulKeys.some(key => {
-    const value = filter[key];
+    const value = (filter as Record<string, unknown>)[key];
     if (value === undefined || value === null) return false;
     if (Array.isArray(value)) return value.length > 0;
     if (typeof value === 'string') return value.trim().length > 0;
@@ -256,7 +256,7 @@ export const isValidFilter = (filter: any): boolean => {
  * @param options - Subscription options
  * @returns NDK subscription or null if filters are invalid
  */
-export const safeSubscribe = (filters: any[], options: any = {}) => {
+export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unknown> = {}): NDKSubscription | null => {
   // Validate all filters
   const validFilters = filters.filter(isValidFilter);
   
@@ -299,7 +299,7 @@ export const safeSubscribe = (filters: any[], options: any = {}) => {
  * }
  * ```
  */
-export const safePublish = async (event: any, relaySet?: any): Promise<boolean> => {
+export const safePublish = async (event: NDKEvent, relaySet?: NDKRelaySet): Promise<boolean> => {
   try {
     if (relaySet) {
       await event.publish(relaySet);
