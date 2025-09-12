@@ -677,7 +677,12 @@ export async function searchEvents(
           }
         }
       } catch (error) {
-        console.error(`Error processing OR query part "${part}":`, error);
+        // Suppress abort errors so they don't bubble to UI as console errors
+        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+          // No-op: benign abort during OR processing
+        } else {
+          console.error(`Error processing OR query part "${part}":`, error);
+        }
       }
     }
     
@@ -972,6 +977,10 @@ export async function searchEvents(
     
     return filtered.slice(0, limit);
   } catch (error) {
+    // Treat aborted searches as benign; return empty without logging an error
+    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+      return [];
+    }
     console.error('Error fetching events:', error);
     return [];
   }
