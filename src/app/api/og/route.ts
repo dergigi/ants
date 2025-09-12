@@ -98,7 +98,7 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
       const title = data.title;
       const image = data.thumbnail_url || (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined);
       const description = data.author_name ? `by ${data.author_name}` : undefined;
-      const favicon = 'https://www.youtube.com/s/desktop/fe2f7fc1/img/favicon_144x144.png';
+      const favicon = 'https://icons.duckduckgo.com/ip3/youtube.com.ico';
       return { url, title, description, image, siteName, type: 'video', favicon };
     }
   } catch {
@@ -113,7 +113,7 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
       image: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
       siteName,
       type: 'video',
-      favicon: 'https://www.youtube.com/s/desktop/fe2f7fc1/img/favicon_144x144.png',
+      favicon: 'https://icons.duckduckgo.com/ip3/youtube.com.ico',
     };
   }
   throw new Error('YouTube metadata unavailable');
