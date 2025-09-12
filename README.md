@@ -1,4 +1,4 @@
-# Nostr Search
+# ants - advanced nostr text search
 
 A simple search interface for Nostr events.
 
