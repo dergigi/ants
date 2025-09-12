@@ -135,13 +135,41 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const expanded = await applySimpleReplacements(searchQuery);
-      
-      // Author resolution is complete, switch to searching
-      if (needsAuthorResolution) {
+      // Pre-resolve by:<author> to npub (if needed) BEFORE searching
+      let effectiveQuery = searchQuery;
+      if (needsAuthorResolution && byMatch) {
+        const author = (byMatch[1] || '').trim();
+        let resolvedNpub: string | null = null;
+        try {
+          if (/^npub1[0-9a-z]+$/i.test(author)) {
+            resolvedNpub = author;
+          } else {
+            let profile = await lookupVertexProfile(`p:${author}`);
+            if (!profile) {
+              try {
+                const profiles = await searchProfilesFullText(author, 1);
+                profile = profiles[0] || null;
+              } catch {}
+            }
+            const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+            if (pubkey) {
+              try { resolvedNpub = nip19.npubEncode(pubkey); } catch {}
+            }
+          }
+        } catch {}
+        // If we couldn't resolve, stop early with empty results
+        if (!resolvedNpub) {
+          setResolvingAuthor(false);
+          setResults([]);
+          return;
+        }
+        // Replace only the matched by: token with the resolved npub
+        effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
+        // Resolution complete; now proceed to searching
         setResolvingAuthor(false);
       }
-      
+
+      const expanded = await applySimpleReplacements(effectiveQuery);
       const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
