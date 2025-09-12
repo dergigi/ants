@@ -30,6 +30,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
@@ -70,6 +71,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setExpandedLabel(null);
       setExpandedTerms([]);
       setActiveFilters(new Set());
+      setResolvingAuthor(false);
       return;
     }
 
@@ -84,6 +86,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const searchId = ++currentSearchId.current;
 
     setLoading(true);
+    
+    // Check if we need to resolve an author first
+    const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+    const needsAuthorResolution = byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]);
+    
+    if (needsAuthorResolution) {
+      setResolvingAuthor(true);
+    }
+    
     try {
       // compute expanded label/terms for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
@@ -125,6 +136,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
 
       const expanded = await applySimpleReplacements(searchQuery);
+      
+      // Author resolution is complete, switch to searching
+      if (needsAuthorResolution) {
+        setResolvingAuthor(false);
+      }
+      
       const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
@@ -146,6 +163,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
         setLoading(false);
+        setResolvingAuthor(false);
       }
     }
   }, []);
@@ -967,6 +985,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setActiveFilters(new Set());
                   setBaseResults([]);
                   setLoading(false);
+                  setResolvingAuthor(false);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
@@ -1014,7 +1033,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
-            {loading ? 'Searching...' : 'Search'}
+            {loading ? (resolvingAuthor ? 'Resolving...' : 'Searching...') : 'Search'}
           </button>
         </div>
         
