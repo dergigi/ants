@@ -5,6 +5,8 @@ import { LoginButton } from "@/components/LoginButton";
 import { Footer } from "@/components/Footer";
 import { Suspense } from "react";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://search.dergigi.com";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -18,9 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ants",
   description: "advanced nostr text search",
-  metadataBase: new URL("https://search.dergigi.com"),
+  metadataBase: new URL(siteUrl),
   openGraph: {
-    url: "https://search.dergigi.com/",
+    url: siteUrl,
     type: "website",
     title: "ants",
     description: "advanced nostr text search",
