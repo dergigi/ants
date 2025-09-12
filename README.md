@@ -113,7 +113,7 @@ See `SEARCH_MODIFIERS.md` for the full list of supported modifiers (e.g., `site:
 
 ### Search substitutions
 
-All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
+All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](public/replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
 
 ## License
 
