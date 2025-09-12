@@ -31,22 +31,50 @@ A simple search interface for Nostr events.
 - `is:video` - Notes that are just a single video
 - `has:gif` - Notes with gif/gifs/apng
 - `is:gif` - Notes that are just a single gif/apng
+- `is:quote` - Notes that quote other nostr events
+- `is:mention` - Notes that mention other nostr profiles
+
+### Site-specific Search
+- `site:yt` - Find posts with YouTube links
+- `site:gh` - Find posts with GitHub links
+- `site:twitter` or `site:x` - Find posts with Twitter/X links
+- `site:reddit` - Find posts with Reddit links
+- `site:yt,gh` - Find posts with YouTube OR GitHub links
+
+### NIP-50 Extensions
+- `include:spam` - Disable spam filtering
+- `domain:example.com` - Only events from users with NIP-05 domain
+- `language:en` - Filter by ISO 639-1 language code
+- `sentiment:positive` - Filter by sentiment (negative/neutral/positive)
+- `nsfw:false` - Exclude NSFW events
 
 ### Direct NPUB Search
 - `npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` - Find events by direct npub
 - `GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` - Find "GN" messages by direct npub
 
+### Bech32 Identifiers
+- `nevent1...` - Fetch specific event by nevent identifier
+- `note1...` - Fetch specific event by note identifier
+
 ### Profile Lookup
-- `p:fiatjaf` - Look up a profile
+- `p:fiatjaf` - Look up a profile (full-text search across name, display name, about)
 - `@dergigi.com` - Resolve NIP-05
+- `/p/npub1...` - Direct profile page URL
 
 ## Features
 
 - Search for nostr posts (kind 1)
 - Profile lookups via vertex.im (e.g. `p:fiatjaf`)
+- Full-text profile search across names and bios
+- Profile pages with latest notes (`/p/npub1...`)
 - Random search examples for inspiration
 - Clean, minimal interface
 - Fast search results
+- NIP-50 search extensions support
+- Site-specific search with aliases
+- Media type filtering (images, videos, gifs)
+- Boolean OR operator support
+- URL and bech32 identifier resolution
 
 ## Live Instances
 
