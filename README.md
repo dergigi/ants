@@ -107,10 +107,6 @@ npm run dev
 npm test
 ```
 
-### Search modifiers
-
-See `SEARCH_MODIFIERS.md` for the full list of supported modifiers (e.g., `site:yt`, `by:<author>`, media flags, NIP-50 options) and how to extend them.
-
 ### Search substitutions
 
 All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](public/replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
