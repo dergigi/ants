@@ -144,17 +144,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           if (/^npub1[0-9a-z]+$/i.test(author)) {
             resolvedNpub = author;
           } else {
-            let profile = await lookupVertexProfile(`p:${author}`);
-            if (!profile) {
+            // Try to resolve via Vertex DVM with a hard timeout, falling back to simple profile search
+            const resolveWithFallback = async (): Promise<string | null> => {
               try {
-                const profiles = await searchProfilesFullText(author, 1);
-                profile = profiles[0] || null;
-              } catch {}
-            }
-            const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-            if (pubkey) {
-              try { resolvedNpub = nip19.npubEncode(pubkey); } catch {}
-            }
+                let profile = await lookupVertexProfile(`p:${author}`);
+                if (!profile) {
+                  try {
+                    const profiles = await searchProfilesFullText(author, 1);
+                    profile = profiles[0] || null;
+                  } catch {}
+                }
+                const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+                if (!pubkey) return null;
+                try { return nip19.npubEncode(pubkey); } catch { return null; }
+              } catch {
+                return null;
+              }
+            };
+            const TIMEOUT_MS = 2500;
+            const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
+            resolvedNpub = (await Promise.race([resolveWithFallback(), timed])) as string | null;
           }
         } catch {}
         // If we resolved successfully, replace only the matched by: token with the resolved npub.
