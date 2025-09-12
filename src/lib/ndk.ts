@@ -229,6 +229,55 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
 };
 
 /**
+ * Validate NDK filter to prevent empty filter errors
+ * @param filter - The filter to validate
+ * @returns true if filter is valid, false otherwise
+ */
+export const isValidFilter = (filter: any): boolean => {
+  if (!filter || typeof filter !== 'object') {
+    return false;
+  }
+  
+  // Check if filter has at least one meaningful property
+  const meaningfulKeys = ['kinds', 'authors', 'ids', 'search', '#t', '#e', '#p', 'since', 'until', 'limit'];
+  return meaningfulKeys.some(key => {
+    const value = filter[key];
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number') return value > 0;
+    return true;
+  });
+};
+
+/**
+ * Safely subscribe with NDK with proper filter validation
+ * @param filters - Array of filters to validate and subscribe with
+ * @param options - Subscription options
+ * @returns NDK subscription or null if filters are invalid
+ */
+export const safeSubscribe = (filters: any[], options: any = {}) => {
+  // Validate all filters
+  const validFilters = filters.filter(isValidFilter);
+  
+  if (validFilters.length === 0) {
+    console.warn('No valid filters provided to safeSubscribe, skipping subscription');
+    return null;
+  }
+  
+  if (validFilters.length !== filters.length) {
+    console.warn(`Filtered out ${filters.length - validFilters.length} invalid filters`);
+  }
+  
+  try {
+    return ndk.subscribe(validFilters, options);
+  } catch (error) {
+    console.error('Failed to create NDK subscription:', error);
+    return null;
+  }
+};
+
+/**
  * Safely publish an NDK event with proper error handling
  * 
  * This utility function catches common NDK publishing errors like:

@@ -1,5 +1,5 @@
 import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
-import { ndk } from './ndk';
+import { ndk, safeSubscribe } from './ndk';
 
 // Cache for NIP-50 support status
 const nip50SupportCache = new Map<string, { supported: boolean; timestamp: number }>();
@@ -126,15 +126,20 @@ async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
     const testRelaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndk);
     let hasResponse = false;
     
-    const sub = ndk.subscribe([{ 
+    const sub = safeSubscribe([{ 
       kinds: [1], 
       search: 'test', 
-      limit: 1 
+      limit: 1
     }], { 
       closeOnEose: true, 
-      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet: testRelaySet 
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+      relaySet: testRelaySet
     });
+    
+    if (!sub) {
+      resolve(false);
+      return;
+    }
     
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}

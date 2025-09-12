@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -609,7 +609,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     ndk
                   );
                   await new Promise<void>((resolve) => {
-                    const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
+                    const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
+                    if (!sub) {
+                      resolve();
+                      return;
+                    }
                     const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 5000);
                     sub.on('event', (evt: NDKEvent) => { found = evt; });
                     sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
@@ -620,7 +624,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               // Fallback: try without relay hints if not found
               if (!found) {
                 await new Promise<void>((resolve) => {
-                  const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true });
+                  const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true });
+                  if (!sub) {
+                    resolve();
+                    return;
+                  }
                   const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 8000);
                   sub.on('event', (evt: NDKEvent) => { found = evt; });
                   sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
@@ -800,7 +808,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     try { await connect(); } catch {}
     return new Promise<NDKEvent | null>((resolve) => {
       let found: NDKEvent | null = null;
-      const sub = ndk.subscribe([{ ids: [eventId] }], { closeOnEose: true });
+      const sub = safeSubscribe([{ ids: [eventId] }], { closeOnEose: true });
+      if (!sub) {
+        resolve(null);
+        return;
+      }
       const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
       sub.on('event', (evt: NDKEvent) => { found = evt; });
       sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
