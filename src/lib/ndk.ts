@@ -226,4 +226,50 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout);
   }
+};
+
+/**
+ * Safely publish an NDK event with proper error handling
+ * 
+ * This utility function catches common NDK publishing errors like:
+ * - "Not enough relays received the event (0 published, 1 required)"
+ * - Relay connection issues
+ * - Other publish failures
+ * 
+ * @param event - The NDK event to publish
+ * @param relaySet - Optional relay set to use for publishing
+ * @returns Promise that resolves to true if published successfully, false otherwise
+ * 
+ * @example
+ * ```typescript
+ * const success = await safePublish(myEvent);
+ * if (success) {
+ *   console.log('Event published successfully');
+ * } else {
+ *   console.log('Event publish failed, but app continues');
+ * }
+ * ```
+ */
+export const safePublish = async (event: any, relaySet?: any): Promise<boolean> => {
+  try {
+    if (relaySet) {
+      await event.publish(relaySet);
+    } else {
+      await event.publish();
+    }
+    return true;
+  } catch (error) {
+    console.warn('Failed to publish event:', error);
+    
+    // Log specific error types for debugging
+    if (error instanceof Error) {
+      if (error.message.includes('Not enough relays received the event')) {
+        console.warn('Publish failed: No relays available or responding');
+      } else if (error.message.includes('relay')) {
+        console.warn('Publish failed: Relay connection issue');
+      }
+    }
+    
+    return false;
+  }
 }; 

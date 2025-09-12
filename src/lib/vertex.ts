@@ -1,4 +1,4 @@
-import { ndk } from './ndk';
+import { ndk, safePublish } from './ndk';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
@@ -225,15 +225,19 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
           }
         });
 
-        sub.on('eose', () => {
+        sub.on('eose', async () => {
           console.log('Got EOSE, publishing DVM request...');
           // Publish the request to the DVM relay set after we get EOSE
-          requestEvent.publish(dvmRelaySet);
-          console.log('Published DVM request:', { 
-            id: requestEvent.id,
-            kind: requestEvent.kind,
-            tags: requestEvent.tags 
-          });
+          const published = await safePublish(requestEvent, dvmRelaySet);
+          if (published) {
+            console.log('Published DVM request:', { 
+              id: requestEvent.id,
+              kind: requestEvent.kind,
+              tags: requestEvent.tags 
+            });
+          } else {
+            console.warn('DVM request publish failed, but continuing with subscription...');
+          }
         });
         
         console.log('Starting DVM subscription...');
