@@ -32,3 +32,4 @@
 - [ ] Allow to scope search to people I don't follow `scope:strangers`
 - [ ] Make up a kind for the stuff that is in `replacements.txt` & fetch it from nostr
 - [ ] Build a little tool that allows users to create new replacements
+- [ ] Explain that users need Vertex credits for the username lookup to work properly
