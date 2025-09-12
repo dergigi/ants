@@ -157,15 +157,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             }
           }
         } catch {}
-        // If we couldn't resolve, stop early with empty results
-        if (!resolvedNpub) {
-          setResolvingAuthor(false);
-          setResults([]);
-          return;
+        // If we resolved successfully, replace only the matched by: token with the resolved npub.
+        // If resolution failed, proceed without modifying the query; the backend search will fallback.
+        if (resolvedNpub) {
+          effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
         }
-        // Replace only the matched by: token with the resolved npub
-        effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
-        // Resolution complete; now proceed to searching
+        // Resolution phase complete (either way)
         setResolvingAuthor(false);
       }
 
