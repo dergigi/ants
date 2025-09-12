@@ -19,16 +19,18 @@
 - [x] Same for gifs (`has:gif` and `is:gif`)
 - [x] Add more examples to pre-fill search field
 - [x] Show different examples periodically for discovery
-- [ ] Update UI immediatly after any search is triggered
+- [ ] Update UI with placeholders immediatly after any search is triggered
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
 - [ ] Add support for `is:blog` aka `kind:30023`
-- [ ] Add domain-specific support to find specific links, e.g. `site:youtube`
-- [ ] Render embedded `nostr:nevent` notes properly
-- [ ] Replace embedded `npubs` with usernames
+- [x] Add domain-specific support to find specific links, e.g. `site:youtube`
+- [x] Render embedded `nostr:nevent` notes properly
+- [x] Replace embedded `npubs` with usernames
 - [ ] Ensure that navigation stack is built up correctly (so that user can navigate back)
-- [ ] Allow to search specific relays with `relay:nostr.einundzwanzig.space`
-- [ ] Allow to scope search to my relays only `relays:mine`
 - [ ] Allow to scope search to only my follows `scope:follows`
 - [ ] Allow to scope search to my network `scope:network` (friends-of-friends)
 - [ ] Allow to scope search to people I don't follow `scope:strangers`
+- [ ] Make up a kind for the stuff that is in `replacements.txt` & fetch it from nostr
+- [ ] Build a little tool that allows users to create new replacements
+- [ ] Explain that users need Vertex credits for the username lookup to work properly
+- [ ] Fix the one weird profile-specific search UI bug
