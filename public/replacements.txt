@@ -1,0 +1,44 @@
+# Simple string replacements for search preprocessor
+# Format:
+#   kind:key => expansion
+# - kind is one of: site, is, has
+# - key is a token without spaces (comma-separated in query supported for site only)
+# - expansion is plain text; use parentheses and OR as needed
+# Examples:
+# site:yt => (youtube.com OR youtu.be OR m.youtube.com OR www.youtube.com OR youtube-nocookie.com)
+# is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
+# has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
+
+# --- SITE ALIASES ---
+site:youtube => (youtube.com OR youtu.be OR m.youtube.com OR www.youtube.com OR youtube-nocookie.com)
+site:yt => (youtube.com OR youtu.be OR m.youtube.com OR www.youtube.com OR youtube-nocookie.com)
+site:reddit => (reddit.com OR www.reddit.com OR old.reddit.com OR new.reddit.com OR m.reddit.com OR reddit.co)
+site:twitter => (twitter.com OR www.twitter.com OR m.twitter.com OR x.com OR t.co)
+site:x => (twitter.com OR www.twitter.com OR m.twitter.com OR x.com OR t.co)
+site:wikipedia => (wikipedia.org OR en.wikipedia.org OR www.wikipedia.org OR m.wikipedia.org)
+site:wiki => (wikipedia.org OR en.wikipedia.org OR www.wikipedia.org OR m.wikipedia.org)
+site:facebook => (facebook.com OR www.facebook.com OR m.facebook.com OR fb.com)
+site:fb => (facebook.com OR www.facebook.com OR m.facebook.com OR fb.com)
+site:instagram => (instagram.com OR www.instagram.com OR m.instagram.com)
+site:ig => (instagram.com OR www.instagram.com OR m.instagram.com)
+site:linkedin => (linkedin.com OR www.linkedin.com OR m.linkedin.com OR lnkd.in)
+site:pinterest => (pinterest.com OR www.pinterest.com OR m.pinterest.com)
+site:tumblr => (tumblr.com OR www.tumblr.com OR m.tumblr.com)
+site:flickr => (flickr.com OR www.flickr.com OR m.flickr.com)
+site:github => (github.com OR www.github.com OR gist.github.com)
+site:gh => (github.com OR www.github.com OR gist.github.com)
+site:quora => (quora.com OR www.quora.com OR m.quora.com)
+
+# --- IS ---
+is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
+is:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
+is:gif => (.gif OR .gifs OR .apng)
+is:quote => nostr:nevent
+is:mention => (nostr:npub OR nostr:nprofile)
+
+# --- HAS ---
+has:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
+has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
+has:gif => (.gif OR .gifs OR .apng)
+
+

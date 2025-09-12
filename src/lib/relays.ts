@@ -55,7 +55,8 @@ export const RELAYS = {
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
-    'wss://search.nos.today'
+    'wss://search.nos.today',
+    'wss://relay.nostr.band'
   ],
 
   // Profile search relays (NIP-50 capable)

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import { applySimpleReplacements } from '@/lib/search/replacements';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -46,6 +48,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
+  const [translation, setTranslation] = useState<string>('');
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -121,7 +124,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const searchResults = await searchEvents(searchQuery, 200, undefined, undefined, abortController.signal);
+      const expanded = await applySimpleReplacements(searchQuery);
+      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -282,6 +286,51 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   };
 
+  // Live translation preview (debounced)
+  useEffect(() => {
+    let cancelled = false;
+    const id = setTimeout(() => {
+      (async () => {
+        try {
+          let t = await applySimpleReplacements(query);
+          // If by:<author> is present, resolve to npub and append to preview
+          const byMatch = query.trim().match(/^by:(\S+)$/i) || query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+          if (byMatch) {
+            const author = (byMatch[1] || '').trim();
+            if (author) {
+              let resolvedNpub: string | null = null;
+              try {
+                if (/^npub1[0-9a-z]+$/i.test(author)) {
+                  resolvedNpub = author;
+                } else {
+                  // Try Vertex profile lookup first
+                  let profile = await lookupVertexProfile(`p:${author}`);
+                  if (!profile) {
+                    try {
+                      const profiles = await searchProfilesFullText(author, 1);
+                      profile = profiles[0] || null;
+                    } catch {}
+                  }
+                  const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+                  if (pubkey) {
+                    try { resolvedNpub = nip19.npubEncode(pubkey); } catch {}
+                  }
+                }
+              } catch {}
+              if (resolvedNpub) {
+                t = t ? `${t} • by:${author} => ${resolvedNpub}` : `by:${author} => ${resolvedNpub}`;
+              }
+            }
+          }
+          if (!cancelled) setTranslation(t);
+        } catch {
+          if (!cancelled) setTranslation('');
+        }
+      })();
+    }, 120);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [query]);
+
   const goToProfile = useCallback((npub: string) => {
     router.push(`/p/${npub}`);
   }, [router]);
@@ -322,7 +371,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return tooltip.trim();
   };
 
-  const extractImageUrls = (text: string): string[] => {
+  const extractImageUrls = useCallback((text: string): string[] => {
     if (!text) return [];
     const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
@@ -332,9 +381,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (!matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 3);
-  };
+  }, []);
 
-  const extractVideoUrls = (text: string): string[] => {
+  const extractVideoUrls = useCallback((text: string): string[] => {
     if (!text) return [];
     const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
     const matches: string[] = [];
@@ -344,7 +393,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (!matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 2);
-  };
+  }, []);
 
   const extractNonMediaUrls = (text: string): string[] => {
     if (!text) return [];
@@ -376,7 +425,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   };
 
-  const stripMediaUrls = (text: string): string => {
+  const stripMediaUrls = useCallback((text: string): string => {
     if (!text) return '';
     const cleaned = text
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
@@ -384,9 +433,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
       .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
     return cleaned.replace(/\s{2,}/g, ' ').trim();
-  };
+  }, []);
 
-  const stripPreviewUrls = (text: string): string => {
+  const stripPreviewUrls = useCallback((text: string): string => {
     if (!text) return '';
     let cleaned = text;
     successfulPreviews.forEach(url => {
@@ -395,9 +444,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       cleaned = cleaned.replace(regex, '');
     });
     return cleaned.replace(/\s{2,}/g, ' ').trim();
-  };
+  }, [successfulPreviews]);
 
-  const renderContentWithClickableHashtags = (content: string, options?: { disableNevent?: boolean }) => {
+  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
@@ -714,9 +763,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  };
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile]);
 
-  function getReplyToEventId(event: NDKEvent): string | null {
+  const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
       if (eTags.length === 0) return null;
@@ -725,9 +774,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     } catch {
       return null;
     }
-  }
+  }, []);
 
-  async function fetchEventById(eventId: string): Promise<NDKEvent | null> {
+  const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
     try { await connect(); } catch {}
     return new Promise<NDKEvent | null>((resolve) => {
       let found: NDKEvent | null = null;
@@ -737,9 +786,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
       sub.start();
     });
-  }
+  }, []);
 
-  const renderNoteMedia = (content: string) => (
+  const renderNoteMedia = useCallback((content: string) => (
     <>
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
@@ -835,9 +884,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  );
+  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router]);
 
-  const renderParentChain = (childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+  const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
     if (!parentId) return null;
     const parentState = expandedParents[parentId];
@@ -885,7 +934,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       </>
     );
-  };
+  }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
     <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
@@ -967,6 +1016,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </button>
         </div>
         
+        {translation && (
+          <div className="mt-1 text-[11px] text-gray-400 font-mono break-words">
+            {translation}
+          </div>
+        )}
+
         {/* Expandable connection details for mobile */}
         {showConnectionDetails && connectionDetails && (
           <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
@@ -1072,60 +1127,62 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {results.length > 0 && (
-        <div className="mt-8 space-y-4">
-          {results.map((event, idx) => {
-            const parentId = getReplyToEventId(event);
-            const parent = parentId ? expandedParents[parentId] : undefined;
-            const isLoadingParent = parent === 'loading';
-            const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
-            const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
-            const hasExpandedParent = Boolean(parentEvent);
-            const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
-            const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
-            return (
-              <div key={key}>
-                {parentId && renderParentChain(event)}
-                {event.kind === 0 ? (
-                  <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
-                ) : (
-                  <EventCard
-                    event={event}
-                    onAuthorClick={goToProfile}
-                    renderContent={(text) => (
-                      <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
-                    )}
-                    mediaRenderer={renderNoteMedia}
-                    footerRight={(
-                      <button
-                        type="button"
-                        className="text-xs hover:underline"
-                        title="Search this nevent"
-                        onClick={() => {
-                          try {
-                            const nevent = nip19.neventEncode({ id: event.id });
-                            const q = nevent;
-                            setQuery(q);
-                            if (manageUrl) {
-                              const params = new URLSearchParams(searchParams.toString());
-                              params.set('q', q);
-                              router.replace(`?${params.toString()}`);
-                            }
-                            handleSearch(q);
-                          } catch {}
-                        }}
-                      >
-                        {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                      </button>
-                    )}
-                    className={noteCardClasses}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {useMemo(() => (
+        results.length > 0 ? (
+          <div className="mt-8 space-y-4">
+            {results.map((event, idx) => {
+              const parentId = getReplyToEventId(event);
+              const parent = parentId ? expandedParents[parentId] : undefined;
+              const isLoadingParent = parent === 'loading';
+              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
+              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
+              const hasExpandedParent = Boolean(parentEvent);
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
+              const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
+              return (
+                <div key={key}>
+                  {parentId && renderParentChain(event)}
+                  {event.kind === 0 ? (
+                    <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
+                  ) : (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={(text) => (
+                        <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+                      )}
+                      mediaRenderer={renderNoteMedia}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : null
+      ), [results, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
     </div>
   );
 }
