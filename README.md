@@ -105,6 +105,16 @@ npm install
 npm run dev
 ```
 
+### Configuration
+
+Set the public site URL (used for Open Graph/Twitter metadata) via environment variable:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://search.dergigi.com
+```
+
+You can place this in a local `.env` file.
+
 ### Search substitutions
 
 All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](public/replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
