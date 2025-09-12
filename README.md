@@ -46,7 +46,6 @@ A simple search interface for Nostr events.
 - [`domain:example.com`](https://search.dergigi.com/?q=domain%3Aexample.com) - Only events from users with NIP-05 domain
 - [`language:en`](https://search.dergigi.com/?q=language%3Aen) - Filter by ISO 639-1 language code
 - [`sentiment:positive`](https://search.dergigi.com/?q=sentiment%3Apositive) - Filter by sentiment (negative/neutral/positive)
-- [`nsfw:false`](https://search.dergigi.com/?q=nsfw%3Afalse) - Exclude NSFW events
 
 ### Direct NPUB Search
 - [`npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - Find events by direct npub
