@@ -1078,7 +1078,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
         
         {translation && (
-          <div className="mt-1 text-[11px] text-gray-400 font-mono break-words">
+          <div className="mt-1 pl-4 text-[11px] text-gray-400 font-mono break-words">
             {translation}
           </div>
         )}
