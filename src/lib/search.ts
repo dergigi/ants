@@ -191,10 +191,11 @@ async function subscribeAndStream(
       isComplete = true;
       try { sub.stop(); } catch {}
       // Final emit before resolving
+      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
       if (onResults) {
-        onResults(Array.from(collected.values()), true);
+        onResults(sortedResults, true);
       }
-      resolve(Array.from(collected.values()));
+      resolve(sortedResults);
     }, timeoutMs);
 
     // Handle abort signal
@@ -205,10 +206,11 @@ async function subscribeAndStream(
       if (abortSignal) {
         try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
       }
+      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
       if (onResults) {
-        onResults(Array.from(collected.values()), true);
+        onResults(sortedResults, true);
       }
-      resolve(Array.from(collected.values()));
+      resolve(sortedResults);
     };
 
     if (abortSignal) {
@@ -220,7 +222,8 @@ async function subscribeAndStream(
       if (onResults && !isComplete) {
         const now = Date.now();
         if (now - lastEmitTime >= emitInterval) {
-          onResults(Array.from(collected.values()), false);
+          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          onResults(sortedResults, false);
           lastEmitTime = now;
         }
       }
@@ -244,10 +247,11 @@ async function subscribeAndStream(
           isComplete = true;
           try { sub.stop(); } catch {}
           clearTimeout(timer);
+          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
           if (onResults) {
-            onResults(Array.from(collected.values()), true);
+            onResults(sortedResults, true);
           }
-          resolve(Array.from(collected.values()));
+          resolve(sortedResults);
           return;
         }
         
