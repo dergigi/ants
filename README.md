@@ -48,6 +48,10 @@ A simple search interface for Nostr events.
 - Clean, minimal interface
 - Fast search results
 
+## Live Instances
+
+- https://search.dergigi.com/
+
 ## Ranking behavior
 
 - When you are logged in, profile lookups and author resolution use **personalizedPagerank** from your point of view (your pubkey is sent as `source`).

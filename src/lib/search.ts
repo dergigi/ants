@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, connectWithTimeout, markRelayActivity } from './ndk';
+import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
 import { nip19 } from 'nostr-tools';
@@ -151,8 +151,8 @@ async function subscribeAndStream(
     }
 
     // Validate filter
-    if (!filter || Object.keys(filter).length === 0) {
-      console.warn('Empty filter passed to subscribeAndStream, returning empty results');
+    if (!isValidFilter(filter)) {
+      console.warn('Invalid filter passed to subscribeAndStream, returning empty results');
       resolve([]);
       return;
     }
@@ -168,20 +168,34 @@ async function subscribeAndStream(
     const streamingFilter = { ...filter };
     delete streamingFilter.limit;
 
-    const sub = ndk.subscribe([streamingFilter], { 
+    // Validate the streaming filter after modification
+    if (!isValidFilter(streamingFilter)) {
+      console.warn('Streaming filter became invalid after removing limit, returning empty results');
+      resolve([]);
+      return;
+    }
+
+    const sub = safeSubscribe([streamingFilter], { 
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
       relaySet 
     });
 
+    if (!sub) {
+      console.warn('Failed to create subscription in subscribeAndStream');
+      resolve([]);
+      return;
+    }
+
     const timer = setTimeout(() => {
       isComplete = true;
       try { sub.stop(); } catch {}
       // Final emit before resolving
+      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
       if (onResults) {
-        onResults(Array.from(collected.values()), true);
+        onResults(sortedResults, true);
       }
-      resolve(Array.from(collected.values()));
+      resolve(sortedResults);
     }, timeoutMs);
 
     // Handle abort signal
@@ -192,10 +206,11 @@ async function subscribeAndStream(
       if (abortSignal) {
         try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
       }
+      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
       if (onResults) {
-        onResults(Array.from(collected.values()), true);
+        onResults(sortedResults, true);
       }
-      resolve(Array.from(collected.values()));
+      resolve(sortedResults);
     };
 
     if (abortSignal) {
@@ -207,7 +222,8 @@ async function subscribeAndStream(
       if (onResults && !isComplete) {
         const now = Date.now();
         if (now - lastEmitTime >= emitInterval) {
-          onResults(Array.from(collected.values()), false);
+          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          onResults(sortedResults, false);
           lastEmitTime = now;
         }
       }
@@ -231,10 +247,11 @@ async function subscribeAndStream(
           isComplete = true;
           try { sub.stop(); } catch {}
           clearTimeout(timer);
+          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
           if (onResults) {
-            onResults(Array.from(collected.values()), true);
+            onResults(sortedResults, true);
           }
-          resolve(Array.from(collected.values()));
+          resolve(sortedResults);
           return;
         }
         
@@ -267,8 +284,8 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
     }
 
     // Validate filter - ensure it has at least one meaningful property
-    if (!filter || Object.keys(filter).length === 0) {
-      console.warn('Empty filter passed to subscribeAndCollect, returning empty results');
+    if (!isValidFilter(filter)) {
+      console.warn('Invalid filter passed to subscribeAndCollect, returning empty results');
       resolve([]);
       return;
     }
@@ -293,7 +310,13 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       console.log('Subscribing with filter on relays:', { relayUrls, filter });
     } catch {}
 
-    const sub = ndk.subscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet });
+    const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet });
+    
+    if (!sub) {
+      console.warn('Failed to create subscription in subscribeAndCollect');
+      resolve([]);
+      return;
+    }
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -437,7 +460,11 @@ async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
     // Fallback to NIP-65 (kind 10002) if well-known doesn't have relays
     return await new Promise<string[]>((resolve) => {
       let latest: NDKEvent | null = null;
-      const sub = ndk.subscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
+      const sub = safeSubscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
+      if (!sub) {
+        resolve([]);
+        return;
+      }
       const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve([]); }, timeoutMs);
       sub.on('event', (e: NDKEvent) => {
         if (!latest || ((e.created_at || 0) > (latest.created_at || 0))) {
@@ -654,7 +681,12 @@ export async function searchEvents(
           }
         }
       } catch (error) {
-        console.error(`Error processing OR query part "${part}":`, error);
+        // Suppress abort errors so they don't bubble to UI as console errors
+        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+          // No-op: benign abort during OR processing
+        } else {
+          console.error(`Error processing OR query part "${part}":`, error);
+        }
       }
     }
     
@@ -949,6 +981,10 @@ export async function searchEvents(
     
     return filtered.slice(0, limit);
   } catch (error) {
+    // Treat aborted searches as benign; return empty without logging an error
+    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+      return [];
+    }
     console.error('Error fetching events:', error);
     return [];
   }

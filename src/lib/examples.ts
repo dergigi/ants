@@ -43,8 +43,8 @@ export const searchExamples = [
   'is:gif',
   // Mixed media + text
   'GM has:video',
-  'Bitcoin has:images',
-  'meme has:gifs',
+  'Bitcoin has:image',
+  'meme has:gif',
   'by:dergigi has:image',
   'by:HODL has:video',
 

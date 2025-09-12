@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -30,6 +30,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('');
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
@@ -70,6 +71,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setExpandedLabel(null);
       setExpandedTerms([]);
       setActiveFilters(new Set());
+      setResolvingAuthor(false);
       return;
     }
 
@@ -84,6 +86,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const searchId = ++currentSearchId.current;
 
     setLoading(true);
+    
+    // Check if we need to resolve an author first
+    const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+    const needsAuthorResolution = byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]);
+    
+    if (needsAuthorResolution) {
+      setResolvingAuthor(true);
+    }
+    
     try {
       // compute expanded label/terms for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
@@ -124,7 +135,47 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const expanded = await applySimpleReplacements(searchQuery);
+      // Pre-resolve by:<author> to npub (if needed) BEFORE searching
+      let effectiveQuery = searchQuery;
+      if (needsAuthorResolution && byMatch) {
+        const author = (byMatch[1] || '').trim();
+        let resolvedNpub: string | null = null;
+        try {
+          if (/^npub1[0-9a-z]+$/i.test(author)) {
+            resolvedNpub = author;
+          } else {
+            // Try to resolve via Vertex DVM with a hard timeout, falling back to simple profile search
+            const resolveWithFallback = async (): Promise<string | null> => {
+              try {
+                let profile = await lookupVertexProfile(`p:${author}`);
+                if (!profile) {
+                  try {
+                    const profiles = await searchProfilesFullText(author, 1);
+                    profile = profiles[0] || null;
+                  } catch {}
+                }
+                const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+                if (!pubkey) return null;
+                try { return nip19.npubEncode(pubkey); } catch { return null; }
+              } catch {
+                return null;
+              }
+            };
+            const TIMEOUT_MS = 2500;
+            const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
+            resolvedNpub = (await Promise.race([resolveWithFallback(), timed])) as string | null;
+          }
+        } catch {}
+        // If we resolved successfully, replace only the matched by: token with the resolved npub.
+        // If resolution failed, proceed without modifying the query; the backend search will fallback.
+        if (resolvedNpub) {
+          effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
+        }
+        // Resolution phase complete (either way)
+        setResolvingAuthor(false);
+      }
+
+      const expanded = await applySimpleReplacements(effectiveQuery);
       const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
@@ -146,6 +197,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
         setLoading(false);
+        setResolvingAuthor(false);
       }
     }
   }, []);
@@ -301,6 +353,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               let resolvedNpub: string | null = null;
               try {
                 if (/^npub1[0-9a-z]+$/i.test(author)) {
+                  // Author is already an npub, no need to show substitution
                   resolvedNpub = author;
                 } else {
                   // Try Vertex profile lookup first
@@ -317,7 +370,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 }
               } catch {}
-              if (resolvedNpub) {
+              // Only show substitution if author is NOT already an npub
+              if (resolvedNpub && !/^npub1[0-9a-z]+$/i.test(author)) {
                 t = t ? `${t} • by:${author} => ${resolvedNpub}` : `by:${author} => ${resolvedNpub}`;
               }
             }
@@ -589,7 +643,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     ndk
                   );
                   await new Promise<void>((resolve) => {
-                    const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
+                    const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
+                    if (!sub) {
+                      resolve();
+                      return;
+                    }
                     const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 5000);
                     sub.on('event', (evt: NDKEvent) => { found = evt; });
                     sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
@@ -600,7 +658,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               // Fallback: try without relay hints if not found
               if (!found) {
                 await new Promise<void>((resolve) => {
-                  const sub = ndk.subscribe([{ ids: [id] }], { closeOnEose: true });
+                  const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true });
+                  if (!sub) {
+                    resolve();
+                    return;
+                  }
                   const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 8000);
                   sub.on('event', (evt: NDKEvent) => { found = evt; });
                   sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
@@ -780,7 +842,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     try { await connect(); } catch {}
     return new Promise<NDKEvent | null>((resolve) => {
       let found: NDKEvent | null = null;
-      const sub = ndk.subscribe([{ ids: [eventId] }], { closeOnEose: true });
+      const sub = safeSubscribe([{ ids: [eventId] }], { closeOnEose: true });
+      if (!sub) {
+        resolve(null);
+        return;
+      }
       const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
       sub.on('event', (evt: NDKEvent) => { found = evt; });
       sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
@@ -965,6 +1031,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setActiveFilters(new Set());
                   setBaseResults([]);
                   setLoading(false);
+                  setResolvingAuthor(false);
                   if (manageUrl) {
                     const params = new URLSearchParams(searchParams.toString());
                     params.delete('q');
@@ -1012,12 +1079,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
-            {loading ? 'Searching...' : 'Search'}
+            {loading ? (resolvingAuthor ? 'Resolving...' : 'Searching...') : 'Search'}
           </button>
         </div>
         
         {translation && (
-          <div className="mt-1 text-[11px] text-gray-400 font-mono break-words">
+          <div className="mt-1 pl-4 text-[11px] text-gray-400 font-mono break-words">
             {translation}
           </div>
         )}

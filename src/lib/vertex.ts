@@ -1,4 +1,4 @@
-import { ndk } from './ndk';
+import { ndk, safePublish, safeSubscribe } from './ndk';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
@@ -16,10 +16,16 @@ async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number 
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = ndk.subscribe(
+    const sub = safeSubscribe(
       [filter],
       { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: profileSearchRelaySet }
     );
+    
+    if (!sub) {
+      console.warn('Failed to create profile search subscription');
+      resolve([]);
+      return;
+    }
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -137,17 +143,25 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
     return new Promise<NDKEvent[]>((resolve, reject) => {
       try {
         console.log('Setting up DVM subscription...');
-        const sub = ndk.subscribe(
-          [{ 
-            kinds: [6315, 7000] as NDKKind[],
-            ...requestEvent.filter()
-          }],
+        const dvmFilter = { 
+          kinds: [6315, 7000] as NDKKind[],
+          ...requestEvent.filter()
+        };
+        
+        const sub = safeSubscribe(
+          [dvmFilter],
           { 
             closeOnEose: false,
             cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
             relaySet: dvmRelaySet
           }
         );
+        
+        if (!sub) {
+          console.warn('Failed to create DVM subscription');
+          reject(new Error('Failed to create DVM subscription'));
+          return;
+        }
 
         let settled = false;
 
@@ -225,15 +239,19 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
           }
         });
 
-        sub.on('eose', () => {
+        sub.on('eose', async () => {
           console.log('Got EOSE, publishing DVM request...');
           // Publish the request to the DVM relay set after we get EOSE
-          requestEvent.publish(dvmRelaySet);
-          console.log('Published DVM request:', { 
-            id: requestEvent.id,
-            kind: requestEvent.kind,
-            tags: requestEvent.tags 
-          });
+          const published = await safePublish(requestEvent, dvmRelaySet);
+          if (published) {
+            console.log('Published DVM request:', { 
+              id: requestEvent.id,
+              kind: requestEvent.kind,
+              tags: requestEvent.tags 
+            });
+          } else {
+            console.warn('DVM request publish failed, but continuing with subscription...');
+          }
         });
         
         console.log('Starting DVM subscription...');
