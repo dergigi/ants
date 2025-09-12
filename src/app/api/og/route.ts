@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetch } from 'fetch-opengraph';
+import { fetch as fetchOpengraph } from 'fetch-opengraph';
 import { isIP } from 'net';
 
 // Runtime hint: nodejs for network requests
@@ -88,7 +88,7 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
   // Try oEmbed first for title/author/thumbnail
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await fetch(oembedUrl, { cache: 'no-store' } as RequestInit);
+    const res = await globalThis.fetch(oembedUrl, { cache: 'no-store' });
     if (res.ok) {
       const data = (await res.json()) as {
         title?: string;
@@ -119,8 +119,32 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
   throw new Error('YouTube metadata unavailable');
 }
 
+async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
+  // Try common favicon locations first with a lightweight HEAD request
+  const candidatePaths = [
+    '/favicon.ico',
+    '/favicon.png',
+    '/favicon-32x32.png',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    '/icons/icon-192x192.png',
+  ];
+  for (const path of candidatePaths) {
+    const href = resolveUrlMaybe(urlObj, path);
+    if (!href) continue;
+    try {
+      const head = await globalThis.fetch(href, { method: 'HEAD', cache: 'no-store' });
+      if (head.ok) return href;
+    } catch {
+      // ignore and try next
+    }
+  }
+  // Fallback to a reliable favicon service
+  return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
+}
+
 async function fetchOgData(url: string): Promise<OgResult> {
-  const ogData = await fetch(url);
+  const ogData = await fetchOpengraph(url);
   const urlObj = new URL(url);
   
   // Extract data from fetch-opengraph response
@@ -130,8 +154,8 @@ async function fetchOgData(url: string): Promise<OgResult> {
   const siteName = ogData['og:site_name'] || urlObj.hostname;
   const type = ogData['og:type'] || undefined;
   
-  // Try to get favicon from the original URL
-  const favicon = resolveUrlMaybe(urlObj, '/favicon.ico');
+  // Resolve favicon with fallbacks
+  const favicon = await resolveFavicon(urlObj);
   
   return {
     url: ogData.url || url,
