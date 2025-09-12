@@ -30,6 +30,14 @@ export function Footer() {
     router.replace(`?${params.toString()}`);
   };
 
+  const handleSec05Click = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const nextQuery = 'SEC-05 #SovEng';
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('q', nextQuery);
+    router.replace(`?${params.toString()}`);
+  };
+
   const handleGigiClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const nextQuery = 'dergigi.com';
@@ -49,6 +57,8 @@ export function Footer() {
         <a href="#" onClick={handleNostrClick} className="underline hover:text-gray-300">Nostr</a>
         <span className="mx-2">·</span>
         <a href="#" onClick={handleSec04Click} className="underline hover:text-gray-300">Birthed during SEC-04</a>
+        <span className="mx-2">·</span>
+        <a href="#" onClick={handleSec05Click} className="underline hover:text-gray-300">Refined during SEC-05</a>
       </p>
     </footer>
   );
