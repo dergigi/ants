@@ -47,6 +47,9 @@ export const searchExamples = [
   'meme has:gif',
   'by:dergigi has:image',
   'by:HODL has:video',
+  'Gregzaj1-ln_strike.gif',
+  'giphy.gif',
+  'by:gregzaj has:gif',
 
   // Relay filters (removed)
 
