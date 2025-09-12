@@ -18,6 +18,27 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ants",
   description: "advanced nostr text search",
+  metadataBase: new URL("https://search.dergigi.com"),
+  openGraph: {
+    url: "https://search.dergigi.com/",
+    type: "website",
+    title: "ants",
+    description: "advanced nostr text search",
+    images: [
+      {
+        url: "/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "ants logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ants",
+    description: "advanced nostr text search",
+    images: ["/android-chrome-512x512.png"],
+  },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
