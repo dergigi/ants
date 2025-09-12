@@ -30,3 +30,5 @@
 - [ ] Allow to scope search to only my follows `scope:follows`
 - [ ] Allow to scope search to my network `scope:network` (friends-of-friends)
 - [ ] Allow to scope search to people I don't follow `scope:strangers`
+- [ ] Make up a kind for the stuff that is in `replacements.txt` & fetch it from nostr
+- [ ] Build a little tool that allows users to create new replacements
