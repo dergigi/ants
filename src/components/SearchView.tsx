@@ -16,6 +16,7 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 
 type Props = {
   initialQuery?: string;
@@ -1284,7 +1285,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       renderContent={() => (
                         <div>
                           <div className="mb-2 text-xs text-gray-400">Rendering raw event (kind {event.kind}).</div>
-                          <pre className="text-xs text-gray-100 whitespace-pre-wrap break-words overflow-x-auto">{JSON.stringify(toPlainEvent(event), null, 2)}</pre>
+                          <Highlight
+                            code={JSON.stringify(toPlainEvent(event), null, 2)}
+                            language="json"
+                            theme={themes.dracula}
+                          >
+                            {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                              <pre className={`${className} text-xs overflow-x-auto`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
+                                {tokens.map((line, i: number) => (
+                                  <div key={i} {...getLineProps({ line })}>
+                                    {line.map((token, key: number) => (
+                                      <span key={key} {...getTokenProps({ token })} />
+                                    ))}
+                                  </div>
+                                ))}
+                              </pre>
+                            )}
+                          </Highlight>
                         </div>
                       )}
                       className={noteCardClasses}
