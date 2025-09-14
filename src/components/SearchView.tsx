@@ -1288,10 +1288,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           <Highlight
                             code={JSON.stringify(toPlainEvent(event), null, 2)}
                             language="json"
-                            theme={themes.dracula}
+                            theme={themes.nightOwl}
                           >
                             {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                              <pre className={`${className} text-xs overflow-x-auto`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
+                              <pre className={`${className} text-xs overflow-x-auto rounded-md p-3`} style={{ ...style, whiteSpace: 'pre' }}>
                                 {tokens.map((line, i: number) => (
                                   <div key={i} {...getLineProps({ line })}>
                                     {line.map((token, key: number) => (
