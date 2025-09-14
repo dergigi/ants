@@ -130,6 +130,26 @@ function stripRelayFilters(rawQuery: string): string {
     .trim();
 }
 
+// Extract kind filter(s) from query string: supports comma-separated numbers
+function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: number[] } {
+  let cleaned = rawQuery;
+  const kinds: number[] = [];
+  const kindRegex = /(?:^|\s)kind:([0-9,\s]+)(?=\s|$)/gi;
+  cleaned = cleaned.replace(kindRegex, (_, list: string) => {
+    (list || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((token) => {
+        const num = parseInt(token, 10);
+        if (!Number.isNaN(num)) kinds.push(num);
+      });
+    return ' ';
+  });
+  const uniqueKinds = Array.from(new Set(kinds));
+  return { cleaned: cleaned.trim(), kinds: uniqueKinds.length ? uniqueKinds : undefined };
+}
+
 // Streaming subscription that keeps connections open and streams results
 async function subscribeAndStream(
   filter: NDKFilter, 
@@ -602,13 +622,19 @@ export async function searchEvents(
   // Strip legacy relay filters but keep the rest of the query intact; any replacements
   // are applied earlier at the UI layer via the simple preprocessor.
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
+  // Extract kind filters and default to [1] when not provided
+  const kindExtraction = extractKindFilter(extCleanedQuery);
+  const cleanedQuery = kindExtraction.cleaned;
+  const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
+    ? kindExtraction.kinds
+    : [1];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
-  const earlyAuthorMatch = extCleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+  const earlyAuthorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (earlyAuthorMatch) {
     const [, author] = earlyAuthorMatch;
-    const terms = extCleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
     console.log('Found author filter (early):', { author, terms });
 
     let pubkey: string | null = null;
@@ -629,7 +655,7 @@ export async function searchEvents(
       return [];
     }
 
-    const filters: NDKFilter = { kinds: [1], authors: [pubkey], limit: Math.max(limit, 200) };
+    const filters: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) };
     if (terms) filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
 
     console.log('Searching with filters (early author):', filters);
@@ -642,7 +668,7 @@ export async function searchEvents(
       inner.split(/\s+OR\s+/i).forEach((t) => { const token = t.trim(); if (token) seedTerms.push(token); });
     }
     if (seedTerms.length > 0) {
-      try { const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] }); res = [...res, ...seeded]; } catch {}
+      try { const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey], kinds: effectiveKinds }); res = [...res, ...seeded]; } catch {}
     }
     const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
     const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
@@ -650,11 +676,11 @@ export async function searchEvents(
     const termStr = terms.trim();
     const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
     if (res.length === 0 && termStr) {
-      const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
       const needle = termStr.toLowerCase();
       res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
     } else if (res.length === 0 && hasShortToken) {
-      const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
       const needle = termStr.toLowerCase();
       res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
     }
@@ -664,7 +690,7 @@ export async function searchEvents(
   }
 
   // Check for OR operator
-  const orParts = parseOrQuery(extCleanedQuery);
+  const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
     const allResults: NDKEvent[] = [];
@@ -699,12 +725,12 @@ export async function searchEvents(
 
   // URL search: always do exact (literal) match for http(s) URLs
   try {
-    const url = new URL(extCleanedQuery);
+    const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      const searchQuery = buildSearchQueryWithExtensions(`"${extCleanedQuery}"`, nip50Extensions);
+      const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
       const results = isStreaming 
         ? await subscribeAndStream({
-            kinds: [1],
+            kinds: effectiveKinds,
             search: searchQuery
           }, {
             timeoutMs: streamingOptions?.timeoutMs || 30000,
@@ -714,7 +740,7 @@ export async function searchEvents(
             abortSignal
           })
         : await subscribeAndCollect({
-            kinds: [1],
+            kinds: effectiveKinds,
             search: searchQuery,
             limit: Math.max(limit, 200)
           }, 8000, chosenRelaySet, abortSignal);
@@ -763,11 +789,11 @@ export async function searchEvents(
   } catch {}
 
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
-  const hashtagMatches = extCleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
-  const nonHashtagRemainder = extCleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
+  const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
+  const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
-    const tagFilter: TagTFilter = { kinds: [1], '#t': tags, limit: Math.max(limit, 500) };
+    const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
 
     // Broader relay set than NIP-50 search: default + search relays
     const broadRelays = Array.from(
@@ -795,7 +821,7 @@ export async function searchEvents(
   }
 
   // Full-text profile search `p:<term>` (not only username)
-  const fullProfileMatch = extCleanedQuery.match(/^p:(.+)$/i);
+  const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
@@ -809,13 +835,13 @@ export async function searchEvents(
   }
 
   // Check if the query is a direct npub
-  if (isNpub(extCleanedQuery)) {
+  if (isNpub(cleanedQuery)) {
     try {
-      const pubkey = getPubkey(extCleanedQuery);
+      const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
       return await subscribeAndCollect({
-        kinds: [1],
+        kinds: effectiveKinds,
         authors: [pubkey],
         limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet, abortSignal);
@@ -826,10 +852,10 @@ export async function searchEvents(
   }
 
   // NIP-05 resolution: '@name@domain' or 'domain.tld' or '@domain.tld'
-  const nip05Like = extCleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+  const nip05Like = cleanedQuery.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
   if (nip05Like) {
     try {
-      const pubkey = await resolveNip05ToPubkey(extCleanedQuery);
+      const pubkey = await resolveNip05ToPubkey(cleanedQuery);
       if (pubkey) {
         const profileEvt = await profileEventFromPubkey(pubkey);
         return [profileEvt];
@@ -838,11 +864,11 @@ export async function searchEvents(
   }
 
   // Check for author filter
-  const authorMatch = extCleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
+  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (authorMatch) {
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
-    const terms = extCleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
@@ -882,7 +908,7 @@ export async function searchEvents(
     }
 
     const filters: NDKFilter = {
-      kinds: [1],
+      kinds: effectiveKinds,
       authors: [pubkey],
       limit: Math.max(limit, 200)
     };
@@ -915,7 +941,7 @@ export async function searchEvents(
       }
       if (seedTerms.length > 0) {
         try {
-          const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey] });
+          const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey], kinds: effectiveKinds });
           res = [...res, ...seeded];
         } catch {}
       }
@@ -930,11 +956,11 @@ export async function searchEvents(
       const termStr = terms.trim();
       const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
       if (res.length === 0 && termStr) {
-        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       } else if (res.length === 0 && hasShortToken) {
-        const authorOnly = await subscribeAndCollect({ kinds: [1], authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
@@ -953,11 +979,11 @@ export async function searchEvents(
   // Regular search without author filter
   try {
     let results: NDKEvent[] = [];
-    const baseSearch = options?.exact ? `"${extCleanedQuery}"` : extCleanedQuery || undefined;
+    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
     const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
     results = isStreaming 
       ? await subscribeAndStream({
-          kinds: [1],
+          kinds: effectiveKinds,
           search: searchQuery
         }, {
           timeoutMs: streamingOptions?.timeoutMs || 30000,
@@ -966,9 +992,9 @@ export async function searchEvents(
           relaySet: chosenRelaySet,
           abortSignal
         })
-      : await subscribeAndCollect({ kinds: [1], search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+      : await subscribeAndCollect({ kinds: effectiveKinds, search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
     console.log('Search results:', {
-      query: extCleanedQuery,
+      query: cleanedQuery,
       resultCount: results.length
     });
     
