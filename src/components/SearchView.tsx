@@ -10,6 +10,7 @@ import { applySimpleReplacements } from '@/lib/search/replacements';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
+import FileCard from '@/components/FileCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
@@ -1211,6 +1212,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   {parentId && renderParentChain(event)}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
+                  ) : event.kind === 1063 ? (
+                    <FileCard event={event} onAuthorClick={goToProfile} className={noteCardClasses} />
                   ) : (
                     <EventCard
                       event={event}
