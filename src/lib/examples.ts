@@ -54,7 +54,7 @@ export const searchExamples = [
   // Kinds filter examples
   'is:muted by:fiatjaf',
   'is:zap by:marty',
-  'is:bookmark by:pablo',
+  'is:bookmark by:hzrd',
   'is:file',
 
   // Relay filters (removed)
