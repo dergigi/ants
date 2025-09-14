@@ -41,4 +41,15 @@ has:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif 
 has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 has:gif => (.gif OR .gifs OR .apng)
 
-
+# --- KINDS ---
+is:repost => kind:6
+is:reaction => kind:7
+is:picture => kind:20
+is:file => kind:1063
+is:patch => kind:1617
+is:issue => kind:1621
+is:report => kind:1984
+is:zap => kind:9735
+is:muted => kind:10000
+is:pin => kind:10001
+is:bookmark => kind:10003

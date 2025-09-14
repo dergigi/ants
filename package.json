@@ -17,6 +17,7 @@
     "@nostr-dev-kit/ndk-cache-dexie": "^2.5.15",
     "fetch-opengraph": "^1.0.36",
     "next": "^15.4.6",
+    "prism-react-renderer": "2.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
