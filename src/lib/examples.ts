@@ -51,6 +51,12 @@ export const searchExamples = [
   'giphy.gif',
   'by:gregzaj has:gif',
 
+  // Kinds filter examples
+  'is:muted by:fiatjaf',
+  'is:zap by:marty',
+  'is:bookmark by:hzrd',
+  'is:file',
+
   // Relay filters (removed)
 
   // NIP-50 extensions
