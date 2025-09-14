@@ -1278,14 +1278,39 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       className={noteCardClasses}
                     />
                   ) : (
-                    <div className={`relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`}>
-                      <div className="mb-2 text-xs text-gray-400">
-                        Rendering raw event (kind {event.kind}).
-                      </div>
-                      <pre className="text-xs text-gray-100 whitespace-pre-wrap break-words overflow-x-auto">
-{JSON.stringify(toPlainEvent(event), null, 2)}
-                      </pre>
-                    </div>
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={() => (
+                        <div>
+                          <div className="mb-2 text-xs text-gray-400">Rendering raw event (kind {event.kind}).</div>
+                          <pre className="text-xs text-gray-100 whitespace-pre-wrap break-words overflow-x-auto">{JSON.stringify(toPlainEvent(event), null, 2)}</pre>
+                        </div>
+                      )}
+                      className={noteCardClasses}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                    />
                   )}
                 </div>
               );
