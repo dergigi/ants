@@ -838,6 +838,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   }, []);
 
+  // Safely convert NDKEvent (which may contain circular refs) to a plain JSON-serializable object
+  const toPlainEvent = useCallback((evt: NDKEvent): Record<string, unknown> => {
+    try {
+      const hasRaw = typeof (evt as unknown as { rawEvent?: () => unknown }).rawEvent === 'function';
+      const base = hasRaw
+        ? (evt as unknown as { rawEvent: () => Record<string, unknown> }).rawEvent()
+        : {
+            id: evt.id,
+            kind: evt.kind,
+            created_at: evt.created_at,
+            pubkey: evt.pubkey,
+            content: evt.content,
+            tags: evt.tags,
+            sig: evt.sig
+          };
+      const extra: Record<string, unknown> = {};
+      const maybeRelaySource = (evt as unknown as { relaySource?: string }).relaySource;
+      const maybeRelaySources = (evt as unknown as { relaySources?: string[] }).relaySources;
+      if (typeof maybeRelaySource === 'string') extra.relaySource = maybeRelaySource;
+      if (Array.isArray(maybeRelaySources)) extra.relaySources = maybeRelaySources;
+      return { ...base, ...extra };
+    } catch {
+      return {
+        id: evt.id,
+        kind: evt.kind,
+        created_at: evt.created_at,
+        pubkey: evt.pubkey,
+        content: evt.content,
+        tags: evt.tags,
+        sig: evt.sig
+      };
+    }
+  }, []);
+
   const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
     try { await connect(); } catch {}
     return new Promise<NDKEvent | null>((resolve) => {
@@ -1249,7 +1283,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         Rendering raw event (kind {event.kind}).
                       </div>
                       <pre className="text-xs text-gray-100 whitespace-pre-wrap break-words overflow-x-auto">
-{JSON.stringify(event, null, 2)}
+{JSON.stringify(toPlainEvent(event), null, 2)}
                       </pre>
                     </div>
                   )}
