@@ -10,7 +10,6 @@ import { applySimpleReplacements } from '@/lib/search/replacements';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
-import FileCard from '@/components/FileCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import { nip19 } from 'nostr-tools';
@@ -1212,9 +1211,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   {parentId && renderParentChain(event)}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
-                  ) : event.kind === 1063 ? (
-                    <FileCard event={event} onAuthorClick={goToProfile} className={noteCardClasses} />
-                  ) : (
+                  ) : event.kind === 1 ? (
                     <EventCard
                       event={event}
                       onAuthorClick={goToProfile}
@@ -1246,6 +1243,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       )}
                       className={noteCardClasses}
                     />
+                  ) : (
+                    <div className={`relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`}>
+                      <div className="mb-2 text-xs text-gray-400">
+                        Rendering raw event (kind {event.kind}).
+                      </div>
+                      <pre className="text-xs text-gray-100 whitespace-pre-wrap break-words overflow-x-auto">
+{JSON.stringify(event, null, 2)}
+                      </pre>
+                    </div>
                   )}
                 </div>
               );
