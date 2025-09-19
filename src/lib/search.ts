@@ -28,6 +28,11 @@ interface NDKEventWithRelaySource extends NDKEvent {
   relaySources?: string[]; // Track all relays where this event was found
 }
 
+// Ensure newest-first ordering by created_at
+function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
+  return [...events].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+}
+
 // Extend filter type to include tag queries for "t" (hashtags)
 type TagTFilter = NDKFilter & { '#t'?: string[] };
 
@@ -732,7 +737,7 @@ export async function searchEvents(
     }
     const dedupe = new Map<string, NDKEvent>();
     for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-    return Array.from(dedupe.values()).slice(0, limit);
+    return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
   }
 
   // First, expand any parenthesized OR seeds by distributing surrounding terms
@@ -814,7 +819,7 @@ export async function searchEvents(
             limit: Math.max(limit, 200)
           }, 8000, chosenRelaySet, abortSignal);
       const res = results;
-      return res.slice(0, limit);
+      return sortEventsNewestFirst(res).slice(0, limit);
     }
   } catch {}
 
@@ -909,11 +914,12 @@ export async function searchEvents(
       const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
-      return await subscribeAndCollect({
+      const res = await subscribeAndCollect({
         kinds: effectiveKinds,
         authors: [pubkey],
         limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet, abortSignal);
+      return sortEventsNewestFirst(res).slice(0, limit);
     } catch (error) {
       console.error('Error processing npub query:', error);
       return [];
@@ -1059,7 +1065,7 @@ export async function searchEvents(
       // Do not enforce additional client-side text match; rely on relay-side search
       const filtered = mergedResults;
       
-      return filtered.slice(0, limit);
+      return sortEventsNewestFirst(filtered).slice(0, limit);
     }
   }
   
@@ -1092,7 +1098,7 @@ export async function searchEvents(
       return firstIdx === idx;
     });
     
-    return filtered.slice(0, limit);
+    return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
     // Treat aborted searches as benign; return empty without logging an error
     if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
