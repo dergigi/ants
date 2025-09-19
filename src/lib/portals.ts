@@ -10,6 +10,7 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'npub.world', base: 'https://npub.world/' },
   { name: 'nosta.me', base: 'https://nosta.me/' },
   { name: 'castr.me', base: 'https://castr.me/' },
+  { name: 'zaplife.lol', base: 'https://zaplife.lol/p/' },
 ] as const;
 
 export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
