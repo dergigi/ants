@@ -14,6 +14,7 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nosta.me', base: 'https://nosta.me/' },
   { name: 'castr.me', base: 'https://castr.me/' },
   { name: 'zaplife.lol', base: 'https://zaplife.lol/p/' },
+  { name: 'nostx.io', base: 'https://nostx.io/' },
 ] as const;
 
 export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
@@ -22,6 +23,7 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
   { name: 'nostr.band', base: 'https://nostr.band/' },
+  { name: 'nostx.io', base: 'https://nostx.io/' },
 ];
 
 export type ExplorerItem = { name: string; href: string };
