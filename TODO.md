@@ -19,6 +19,7 @@
 - [x] Same for gifs (`has:gif` and `is:gif`)
 - [x] Add more examples to pre-fill search field
 - [x] Show different examples periodically for discovery
+- [ ] Fix "OR" logic
 - [ ] Update UI with placeholders immediatly after any search is triggered
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
