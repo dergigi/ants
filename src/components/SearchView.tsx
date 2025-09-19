@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
-import { searchEvents } from '@/lib/search';
+import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -345,8 +345,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const id = setTimeout(() => {
       (async () => {
         try {
-          let t = await applySimpleReplacements(query);
-          // If by:<author> is present, resolve to npub and append to preview
+          // 1) Resolve by:<author> to npub (if needed)
+          let withResolvedBy = query;
           const byMatch = query.trim().match(/^by:(\S+)$/i) || query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
           if (byMatch) {
             const author = (byMatch[1] || '').trim();
@@ -354,10 +354,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               let resolvedNpub: string | null = null;
               try {
                 if (/^npub1[0-9a-z]+$/i.test(author)) {
-                  // Author is already an npub, no need to show substitution
                   resolvedNpub = author;
                 } else {
-                  // Try Vertex profile lookup first
                   let profile = await lookupVertexProfile(`p:${author}`);
                   if (!profile) {
                     try {
@@ -371,13 +369,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 }
               } catch {}
-              // Only show substitution if author is NOT already an npub
-              if (resolvedNpub && !/^npub1[0-9a-z]+$/i.test(author)) {
-                t = t ? `${t} • by:${author} => ${resolvedNpub}` : `by:${author} => ${resolvedNpub}`;
+              if (resolvedNpub) {
+                withResolvedBy = withResolvedBy.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
               }
             }
           }
-          if (!cancelled) setTranslation(t);
+
+          // 2) Apply simple replacements
+          const afterReplacements = await applySimpleReplacements(withResolvedBy);
+
+          // 3) Recursive OR substitution (distribute parentheses)
+          const distributed = expandParenthesizedOr(afterReplacements);
+
+          // 4) Split into multiple queries if top-level OR exists
+          const finalQueriesSet = new Set<string>();
+          for (const q of distributed) {
+            const parts = parseOrQuery(q);
+            if (parts.length > 1) {
+              parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+            } else {
+              const s = q.trim(); if (s) finalQueriesSet.add(s);
+            }
+          }
+          const finalQueries = Array.from(finalQueriesSet);
+
+          // Format compact preview
+          const preview = finalQueries.length > 0 ? finalQueries.join(' • ') : afterReplacements;
+          if (!cancelled) setTranslation(preview);
         } catch {
           if (!cancelled) setTranslation('');
         }
