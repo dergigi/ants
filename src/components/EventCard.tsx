@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { EVENT_EXPLORERS } from '@/lib/portals';
+import { createEventExplorerItems } from '@/lib/portals';
 
 type Props = {
   event: NDKEvent;
@@ -94,23 +94,24 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             onClick={(e) => { e.stopPropagation(); }}
           >
             <ul className="py-1 text-sm text-gray-200">
-              {EVENT_EXPLORERS.map((p) => {
+              {(() => {
                 const nevent = nip19.neventEncode({ id: event.id });
-                return (
-                  <li key={p.name}>
+                const items = createEventExplorerItems(nevent);
+                return items.map((item) => (
+                  <li key={item.name}>
                     <a
-                      href={`${p.base}${nevent}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={item.href}
+                      target={item.href.startsWith('http') ? '_blank' : undefined}
+                      rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                       className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                       onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                     >
-                      <span>{p.name}</span>
+                      <span>{item.name}</span>
                       <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                     </a>
                   </li>
-                );
-              })}
+                ));
+              })()}
             </ul>
           </div>
         </>,

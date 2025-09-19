@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
-import { PROFILE_EXPLORERS } from '@/lib/portals';
+import { createProfileExplorerItems } from '@/lib/portals';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -20,6 +20,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
   const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
+  const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
 
   useEffect(() => {
     let isMounted = true;
@@ -128,16 +129,16 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             onClick={(e) => { e.stopPropagation(); }}
           >
             <ul className="py-1 text-sm text-gray-200">
-              {PROFILE_EXPLORERS.map((p) => (
-                <li key={p.name}>
+              {bottomItems.map((item) => (
+                <li key={item.name}>
                   <a
-                    href={`${p.base}${npub}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                     className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                     onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
                   >
-                    <span>{p.name}</span>
+                    <span>{item.name}</span>
                     <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                   </a>
                 </li>
@@ -169,7 +170,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const portalLinks = PROFILE_EXPLORERS;
+  const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub), [event.author.npub]);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -363,28 +364,34 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         npub={event.author.npub}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
-        <div
-          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-          style={{ top: menuPosition.top, left: menuPosition.left }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
-        >
-          <ul className="py-1 text-sm text-gray-200">
-            {portalLinks.map((p) => (
-              <li key={p.name}>
-                <a
-                  href={`${p.base}${event.author.npub}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                  onClick={(e) => { e.stopPropagation(); }}
-                >
-                  <span>{p.name}</span>
-                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>,
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
+          />
+          <div
+            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <ul className="py-1 text-sm text-gray-200">
+              {portalItems.map((item) => (
+                <li key={item.name}>
+                  <a
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                  >
+                    <span>{item.name}</span>
+                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>,
         document.body
       )}
     </div>

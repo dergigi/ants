@@ -19,4 +19,18 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'habla.news', base: 'https://habla.news/' },
 ];
 
+export type ExplorerItem = { name: string; href: string };
+
+export function createProfileExplorerItems(npub: string): readonly ExplorerItem[] {
+  const items: ExplorerItem[] = PROFILE_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${npub}` }));
+  items.push({ name: 'Native App', href: `nostr:${npub}` });
+  return items;
+}
+
+export function createEventExplorerItems(nevent: string): readonly ExplorerItem[] {
+  const items: ExplorerItem[] = EVENT_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${nevent}` }));
+  items.push({ name: 'Native App', href: `nostr:${nevent}` });
+  return items;
+}
+
 
