@@ -60,6 +60,8 @@ export const searchExamples = [
   'is:zap by:marty',
   'is:bookmark by:hzrd',
   'is:file',
+  'is:repost by:dor',
+  'is:muted by:carvalho',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
