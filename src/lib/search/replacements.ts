@@ -55,4 +55,11 @@ export async function applySimpleReplacements(input: string): Promise<string> {
   return q.replace(/\s{2,}/g, ' ').trim();
 }
 
+export async function getIsKindTokens(): Promise<string[]> {
+  const rules = await loadRules();
+  return rules
+    .filter((r) => r.kind === 'is')
+    .map((r) => `is:${r.key}`);
+}
+
 

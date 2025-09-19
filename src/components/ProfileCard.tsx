@@ -11,6 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
+import { getIsKindTokens } from '@/lib/search/replacements';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -170,7 +171,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub, event.author.pubkey), [event.author.npub, event.author.pubkey]);
+  const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const tokens = await getIsKindTokens();
+        if (!cancelled) setQuickSearchItems(tokens);
+      } catch {
+        if (!cancelled) setQuickSearchItems([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -375,18 +388,21 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             onClick={(e) => { e.stopPropagation(); }}
           >
             <ul className="py-1 text-sm text-gray-200">
-              {portalItems.map((item) => (
-                <li key={item.name}>
-                  <a
-                    href={item.href}
-                    target={item.href.startsWith('http') ? '_blank' : undefined}
-                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                    onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+              {quickSearchItems.map((token) => (
+                <li key={token}>
+                  <button
+                    type="button"
+                    className="block w-full text-left px-3 py-2 hover:bg-[#3a3a3a]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const params = new URLSearchParams();
+                      params.set('q', `${token} by:${event.author.npub}`);
+                      router.push(`/?${params.toString()}`);
+                      setShowPortalMenu(false);
+                    }}
                   >
-                    <span>{item.name}</span>
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                  </a>
+                    {token}
+                  </button>
                 </li>
               ))}
             </ul>
