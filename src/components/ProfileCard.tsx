@@ -11,6 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
+import { getIsKindTokens } from '@/lib/search/replacements';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -171,19 +172,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub, event.author.pubkey), [event.author.npub, event.author.pubkey]);
-  const quickSearchItems = useMemo(() => [
-    'is:repost',
-    'is:reaction',
-    'is:picture',
-    'is:file',
-    'is:patch',
-    'is:issue',
-    'is:report',
-    'is:zap',
-    'is:muted',
-    'is:pin',
-    'is:bookmark'
-  ], []);
+  const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const tokens = await getIsKindTokens();
+        if (!cancelled) setQuickSearchItems(tokens);
+      } catch {
+        if (!cancelled) setQuickSearchItems([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
