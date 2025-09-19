@@ -757,12 +757,10 @@ export async function searchEvents(
       const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
       const needle = termStr.toLowerCase();
       res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-    }
-    // For short tokens (e.g., GM/GN), some relays may return noisy results.
-    // Apply client-side content filter regardless of non-empty results.
-    if (hasShortToken && termStr) {
+    } else if (res.length === 0 && hasShortToken) {
+      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
       const needle = termStr.toLowerCase();
-      res = res.filter((e) => (e.content || '').toLowerCase().includes(needle));
+      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
     }
     const dedupe = new Map<string, NDKEvent>();
     for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
@@ -1060,10 +1058,10 @@ export async function searchEvents(
         const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-      }
-      if (hasShortToken && termStr) {
+      } else if (res.length === 0 && hasShortToken) {
+        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
-        res = res.filter((e) => (e.content || '').toLowerCase().includes(needle));
+        res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
       let mergedResults: NDKEvent[] = res;
       // Dedupe
