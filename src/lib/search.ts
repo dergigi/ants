@@ -572,6 +572,35 @@ export function parseOrQuery(query: string): string[] {
   return parts;
 }
 
+// Expand queries with parenthesized OR blocks by distributing surrounding terms.
+// Example: "GM (.mp4 OR .jpg)" -> ["GM .mp4", "GM .jpg"]
+export function expandParenthesizedOr(query: string): string[] {
+  const normalize = (s: string) => s.replace(/\s{2,}/g, ' ').trim();
+  const unique = (arr: string[]) => Array.from(new Set(arr.map(normalize)));
+
+  const rx = /\(([^()]*?\s+OR\s+[^()]*?)\)/i; // innermost () that contains an OR
+  const work = normalize(query);
+  const m = work.match(rx);
+  if (!m) return [work];
+
+  const start = m.index || 0;
+  const end = start + m[0].length;
+  const before = work.slice(0, start);
+  const inner = m[1];
+  const after = work.slice(end);
+
+  // Split inner by OR (case-insensitive), keep tokens as-is
+  const alts = inner.split(/\s+OR\s+/i).map((s) => s.trim()).filter(Boolean);
+  const expanded: string[] = [];
+  for (const alt of alts) {
+    const next = normalize(`${before}${alt}${after}`);
+    for (const ex of expandParenthesizedOr(next)) {
+      expanded.push(ex);
+    }
+  }
+  return unique(expanded);
+}
+
 // Streaming search options
 interface StreamingSearchOptions {
   exact?: boolean;
