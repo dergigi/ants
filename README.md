@@ -64,6 +64,8 @@ A simple search interface for Nostr events.
 - [`is:zap by:marty`](https://search.dergigi.com/?q=is%3Azap%20by%3Amarty) - Zaps by marty
 - [`is:bookmark by:hzrd`](https://search.dergigi.com/?q=is%3Abookmark%20by%3Ahzrd) - Bookmarks by hzrd
 - [`is:file`](https://search.dergigi.com/?q=is%3Afile) - File notes
+- [`is:repost by:dor`](https://search.dergigi.com/?q=is%3Arepost%20by%3Ador) - Reposts by dor
+- [`is:muted by:carvalho`](https://search.dergigi.com/?q=is%3Amuted%20by%3Acarvalho) - Muted lists by carvalho
 
 ### Multiple Authors
 
