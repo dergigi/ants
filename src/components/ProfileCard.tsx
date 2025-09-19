@@ -12,11 +12,14 @@ import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-ic
 import { createPortal } from 'react-dom';
 import { PROFILE_EXPLORERS } from '@/lib/portals';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
+  const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
+  const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
+  const bottomButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,7 +89,58 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{sinceLabel}</span>
         )}
+        <button
+          ref={bottomButtonRef}
+          type="button"
+          aria-label="Open in portals"
+          title="Open in portals"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (bottomButtonRef.current) {
+              const rect = bottomButtonRef.current.getBoundingClientRect();
+              setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
+            }
+            setShowPortalMenuBottom((v) => !v);
+          }}
+          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+        >
+          ⋯
+        </button>
+        <a
+          href={`nostr:${npub}`}
+          title="Open in native client"
+          className="text-gray-400 hover:text-gray-200"
+          onClick={(e) => { e.stopPropagation(); }}
+        >
+          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+        </a>
       </div>
+      {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+          style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenuBottom(false); }}
+        >
+          <ul className="py-1 text-sm text-gray-200">
+            {PROFILE_EXPLORERS.map((p) => (
+              <li key={p.name}>
+                <a
+                  href={`${p.base}${npub}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <span>{p.name}</span>
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -300,6 +354,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
+        npub={event.author.npub}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <div
