@@ -64,7 +64,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       }
                       setShowPortalMenu((v) => !v);
                     }}
-                    className="w-5 h-5 rounded-md bg-[#2a2a2a] text-gray-200 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
                   >
                     ⋯
                   </button>
