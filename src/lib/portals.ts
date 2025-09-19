@@ -1,3 +1,4 @@
+import { nip19 } from 'nostr-tools';
 export type ExplorerLink = {
   name: string;
   base: string;
@@ -22,14 +23,28 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
 
 export type ExplorerItem = { name: string; href: string };
 
-export function createProfileExplorerItems(npub: string): readonly ExplorerItem[] {
+export function createProfileExplorerItems(npub: string, pubkey?: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = PROFILE_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${npub}` }));
-  items.push({ name: 'Native App', href: `nostr:${npub}` });
+  let nprofile: string | null = null;
+  if (pubkey) {
+    try {
+      nprofile = nip19.nprofileEncode({ pubkey });
+    } catch {
+      nprofile = null;
+    }
+  }
+  if (nprofile) {
+    items.push({ name: 'Web Client', href: `web+nostr:${nprofile}` });
+  } else {
+    items.push({ name: 'Web Client', href: `web+nostr:${npub}` });
+  }
+  items.push({ name: 'Native App', href: `nostr:${nprofile || npub}` });
   return items;
 }
 
 export function createEventExplorerItems(nevent: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = EVENT_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${nevent}` }));
+  items.push({ name: 'Web Client', href: `web+nostr:${nevent}` });
   items.push({ name: 'Native App', href: `nostr:${nevent}` });
   return items;
 }

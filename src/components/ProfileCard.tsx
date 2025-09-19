@@ -170,7 +170,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub), [event.author.npub]);
+  const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub, event.author.pubkey), [event.author.npub, event.author.pubkey]);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
