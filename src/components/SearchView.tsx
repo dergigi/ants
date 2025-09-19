@@ -345,45 +345,55 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const id = setTimeout(() => {
       (async () => {
         try {
-          // 1) Resolve by:<author> to npub (if needed)
-          let withResolvedBy = query;
-          const byMatch = query.trim().match(/^by:(\S+)$/i) || query.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-          if (byMatch) {
-            const author = (byMatch[1] || '').trim();
-            if (author) {
-              let resolvedNpub: string | null = null;
+          // 1) Apply simple replacements first
+          const afterReplacements = await applySimpleReplacements(query);
+
+          // 2) Recursive OR substitution (distribute parentheses)
+          const distributed = expandParenthesizedOr(afterReplacements);
+
+          // Helper: resolve all by:<author> tokens within a single query string
+          const resolveByTokensInQuery = async (q: string): Promise<string> => {
+            const rx = /(^|\s)by:(\S+)/gi;
+            let result = '';
+            let lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = rx.exec(q)) !== null) {
+              const full = m[0];
+              const pre = m[1] || '';
+              const raw = m[2] || '';
+              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+              const core = (match && match[1]) || raw;
+              const suffix = (match && match[2]) || '';
+              let replacement = core;
               try {
-                if (/^npub1[0-9a-z]+$/i.test(author)) {
-                  resolvedNpub = author;
-                } else {
-                  let profile = await lookupVertexProfile(`p:${author}`);
+                if (!/^npub1[0-9a-z]+$/i.test(core)) {
+                  let profile = await lookupVertexProfile(`p:${core}`);
                   if (!profile) {
                     try {
-                      const profiles = await searchProfilesFullText(author, 1);
+                      const profiles = await searchProfilesFullText(core, 1);
                       profile = profiles[0] || null;
                     } catch {}
                   }
                   const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
                   if (pubkey) {
-                    try { resolvedNpub = nip19.npubEncode(pubkey); } catch {}
+                    try { replacement = nip19.npubEncode(pubkey); } catch {}
                   }
                 }
               } catch {}
-              if (resolvedNpub) {
-                withResolvedBy = withResolvedBy.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
-              }
+              result += q.slice(lastIndex, m.index);
+              result += `${pre}by:${replacement}${suffix}`;
+              lastIndex = m.index + full.length;
             }
-          }
+            result += q.slice(lastIndex);
+            return result;
+          };
 
-          // 2) Apply simple replacements
-          const afterReplacements = await applySimpleReplacements(withResolvedBy);
-
-          // 3) Recursive OR substitution (distribute parentheses)
-          const distributed = expandParenthesizedOr(afterReplacements);
+          // 3) Resolve authors inside each distributed branch
+          const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
 
           // 4) Split into multiple queries if top-level OR exists
           const finalQueriesSet = new Set<string>();
-          for (const q of distributed) {
+          for (const q of resolvedDistributed) {
             const parts = parseOrQuery(q);
             if (parts.length > 1) {
               parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
