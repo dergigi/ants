@@ -5,24 +5,32 @@ A simple search interface for Nostr events.
 ## Search Examples
 
 ### Basic Search
+
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - Find events containing "vibe coding"
 - [`#PenisButter`](https://search.dergigi.com/?q=%23PenisButter) - Find events with specific hashtag
 - [`#YESTR`](https://search.dergigi.com/?q=%23YESTR) - Find events with specific hashtag
 - [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - Find events with specific hashtag
 
 ### Author Search
+
 - [`by:dergigi`](https://search.dergigi.com/?q=by%3Adergigi) - Find events from dergigi
 - [`by:gigi`](https://search.dergigi.com/?q=by%3Agigi) - Find events from gigi
 - [`by:pablo`](https://search.dergigi.com/?q=by%3Apablo) - Find events from pablo
 - [`by:corndalorian`](https://search.dergigi.com/?q=by%3Acorndalorian) - Find events from corndalorian
 
 ### Combined Search
+
 - [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - Find "GM" messages from dergigi
 - [`#YESTR by:dergigi`](https://search.dergigi.com/?q=%23YESTR%20by%3Adergigi) - Find #YESTR events from gigi
 - [`👀 by:dergigi`](https://search.dergigi.com/?q=%F0%9F%91%80%20by%3Adergigi) - Find events with 👀 from gigi
 - [`.jpg by:corndalorian`](https://search.dergigi.com/?q=.jpg%20by%3Acorndalorian) - Find .jpg events from corndalorian
+- [`GM fiat by:fiatjaf`](https://search.dergigi.com/?q=GM%20fiat%20by%3Afiatjaf) - Find posts containing "GM fiat" from fiatjaf
+- [`site:github by:fiatjaf`](https://search.dergigi.com/?q=site%3Agithub%20by%3Afiatjaf) - GitHub links from fiatjaf
+- [`by:dergigi site:yt`](https://search.dergigi.com/?q=by%3Adergigi%20site%3Ayt) - YouTube links from dergigi
+- [`#news site:rumble.com`](https://search.dergigi.com/?q=%23news%20site%3Arumble.com) - #news posts linking to rumble.com
 
 ### Operators & Media
+
 - [`bitcoin OR lightning`](https://search.dergigi.com/?q=bitcoin%20OR%20lightning) - Match either
 - [`https://dergigi.com/vew`](https://search.dergigi.com/?q=https%3A//dergigi.com/vew) - Exact URL match
 - [`has:image`](https://search.dergigi.com/?q=has%3Aimage) - Notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
@@ -33,8 +41,10 @@ A simple search interface for Nostr events.
 - [`is:gif`](https://search.dergigi.com/?q=is%3Agif) - Notes that are just a single gif/apng
 - [`is:quote`](https://search.dergigi.com/?q=is%3Aquote) - Notes that quote other nostr events
 - [`is:mention`](https://search.dergigi.com/?q=is%3Amention) - Notes that mention other nostr profiles
+- [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - Boolean OR plus media filter scoped to author
 
 ### Site-specific Search
+
 - [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - Find posts with YouTube links
 - [`site:gh`](https://search.dergigi.com/?q=site%3Agh) - Find posts with GitHub links
 - [`site:twitter`](https://search.dergigi.com/?q=site%3Atwitter) or [`site:x`](https://search.dergigi.com/?q=site%3Ax) - Find posts with Twitter/X links
@@ -42,20 +52,38 @@ A simple search interface for Nostr events.
 - [`site:yt,gh`](https://search.dergigi.com/?q=site%3Ayt%2Cgh) - Find posts with YouTube OR GitHub links
 
 ### NIP-50 Extensions
+
 - [`include:spam`](https://search.dergigi.com/?q=include%3Aspam) - Disable spam filtering
 - [`domain:example.com`](https://search.dergigi.com/?q=domain%3Aexample.com) - Only events from users with NIP-05 domain
 - [`language:en`](https://search.dergigi.com/?q=language%3Aen) - Filter by ISO 639-1 language code
 - [`sentiment:positive`](https://search.dergigi.com/?q=sentiment%3Apositive) - Filter by sentiment (negative/neutral/positive)
 
+### Kinds Filter
+
+- [`is:muted by:fiatjaf`](https://search.dergigi.com/?q=is%3Amuted%20by%3Afiatjaf) - Muted lists by fiatjaf
+- [`is:zap by:marty`](https://search.dergigi.com/?q=is%3Azap%20by%3Amarty) - Zaps by marty
+- [`is:bookmark by:hzrd`](https://search.dergigi.com/?q=is%3Abookmark%20by%3Ahzrd) - Bookmarks by hzrd
+- [`is:file`](https://search.dergigi.com/?q=is%3Afile) - File notes
+- [`is:repost by:dor`](https://search.dergigi.com/?q=is%3Arepost%20by%3Ador) - Reposts by dor
+- [`is:muted by:carvalho`](https://search.dergigi.com/?q=is%3Amuted%20by%3Acarvalho) - Muted lists by carvalho
+
+### Multiple Authors
+
+- [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - Search across multiple authors
+- [`(by:gregzaj OR by:yellow) is:gif`](https://search.dergigi.com/?q=%28by%3Agregzaj%20OR%20by%3Ayellow%29%20is%3Agif) - Multiple authors with media type
+
 ### Direct NPUB Search
+
 - [`npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - Find events by direct npub
 - [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - Find "GN" messages by direct npub
 
 ### Bech32 Identifiers
+
 - [`nevent1...`](https://search.dergigi.com/?q=nevent1...) - Fetch specific event by nevent identifier
 - [`note1...`](https://search.dergigi.com/?q=note1...) - Fetch specific event by note identifier
 
 ### Profile Lookup
+
 - [`p:fiatjaf`](https://search.dergigi.com/?q=p%3Afiatjaf) - Look up a profile (full-text search across name, display name, about)
 - [`@dergigi.com`](https://search.dergigi.com/?q=%40dergigi.com) - Resolve NIP-05
 - [`/p/npub1...`](https://search.dergigi.com/?q=/p/npub1...) - Direct profile page URL
@@ -77,7 +105,7 @@ A simple search interface for Nostr events.
 
 ## Live Instances
 
-- https://search.dergigi.com/
+- [search.dergigi.com](https://search.dergigi.com/)
 
 ## Ranking behavior
 

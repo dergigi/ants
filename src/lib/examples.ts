@@ -16,6 +16,7 @@ export const searchExamples = [
 
   // Combined
   'GM by:dergigi',
+  'GM fiat by:fiatjaf',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
   'NIP-EE by:jeffg',
@@ -42,6 +43,7 @@ export const searchExamples = [
   'is:video',
   'has:gif',
   'is:gif',
+
   // Mixed media + text
   'GM has:video',
   'Bitcoin has:image',
@@ -51,14 +53,19 @@ export const searchExamples = [
   'Gregzaj1-ln_strike.gif',
   'giphy.gif',
   'by:gregzaj has:gif',
+  '(GM OR GN) by:dergigi has:image',
 
   // Kinds filter examples
   'is:muted by:fiatjaf',
   'is:zap by:marty',
   'is:bookmark by:hzrd',
   'is:file',
+  'is:repost by:dor',
+  'is:muted by:carvalho',
 
-  // Relay filters (removed)
+  // Multiple Authors
+  'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
+  '(by:gregzaj OR by:yellow) is:gif',
 
   // NIP-50 extensions
   'bitcoin include:spam',

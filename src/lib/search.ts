@@ -28,6 +28,11 @@ interface NDKEventWithRelaySource extends NDKEvent {
   relaySources?: string[]; // Track all relays where this event was found
 }
 
+// Ensure newest-first ordering by created_at
+function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
+  return [...events].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+}
+
 // Extend filter type to include tag queries for "t" (hashtags)
 type TagTFilter = NDKFilter & { '#t'?: string[] };
 
@@ -41,6 +46,8 @@ export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = relaySets.search();
+
+// (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
 
 // Extract NIP-50 extensions from the raw query string
 function extractNip50Extensions(rawQuery: string): { cleaned: string; extensions: Nip50Extensions } {
@@ -572,6 +579,53 @@ export function parseOrQuery(query: string): string[] {
   return parts;
 }
 
+// Expand queries with parenthesized OR blocks by distributing surrounding terms.
+// Example: "GM (.mp4 OR .jpg)" -> ["GM .mp4", "GM .jpg"]
+export function expandParenthesizedOr(query: string): string[] {
+  const normalize = (s: string) => s.replace(/\s{2,}/g, ' ').trim();
+  const needsSpace = (leftLast: string | undefined, rightFirst: string | undefined): boolean => {
+    if (!leftLast || !rightFirst) return false;
+    if (/\s/.test(leftLast)) return false; // already spaced
+    if (/\s/.test(rightFirst)) return false; // already spaced
+    // If right begins with a dot or alphanumeric, and left ends with alphanumeric or ':' (e.g., by:npub)
+    // insert a space to avoid unintended token merge like "GM.png".
+    const leftWordy = /[A-Za-z0-9:_]$/.test(leftLast);
+    const rightWordyOrDot = /^[A-Za-z0-9.]/.test(rightFirst);
+    return leftWordy && rightWordyOrDot;
+  };
+  const smartJoin = (a: string, b: string): string => {
+    if (!a) return b;
+    if (!b) return a;
+    const leftLast = a[a.length - 1];
+    const rightFirst = b[0];
+    return needsSpace(leftLast, rightFirst) ? `${a} ${b}` : `${a}${b}`;
+  };
+  const unique = (arr: string[]) => Array.from(new Set(arr.map(normalize)));
+
+  const rx = /\(([^()]*?\s+OR\s+[^()]*?)\)/i; // innermost () that contains an OR
+  const work = normalize(query);
+  const m = work.match(rx);
+  if (!m) return [work];
+
+  const start = m.index || 0;
+  const end = start + m[0].length;
+  const before = work.slice(0, start);
+  const inner = m[1];
+  const after = work.slice(end);
+
+  // Split inner by OR (case-insensitive), keep tokens as-is
+  const alts = inner.split(/\s+OR\s+/i).map((s) => s.trim()).filter(Boolean);
+  const expanded: string[] = [];
+  for (const alt of alts) {
+    const joined = smartJoin(before, alt);
+    const next = normalize(smartJoin(joined, after));
+    for (const ex of expandParenthesizedOr(next)) {
+      expanded.push(ex);
+    }
+  }
+  return unique(expanded);
+}
+
 // Streaming search options
 interface StreamingSearchOptions {
   exact?: boolean;
@@ -630,6 +684,31 @@ export async function searchEvents(
     : [1];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
+  // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
+  // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
+  {
+    const expandedSeeds = expandParenthesizedOr(cleanedQuery);
+    if (expandedSeeds.length > 1) {
+      const merged: NDKEvent[] = [];
+      const seen = new Set<string>();
+      for (const seed of expandedSeeds) {
+        try {
+          const partResults = await searchEvents(seed, limit, options, chosenRelaySet, abortSignal);
+          for (const evt of partResults) {
+            if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+          }
+        } catch (error) {
+          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+            // no-op
+          } else {
+            console.warn('Expanded seed failed:', seed, error);
+          }
+        }
+      }
+      return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+    }
+  }
+
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
   const earlyAuthorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (earlyAuthorMatch) {
@@ -655,11 +734,28 @@ export async function searchEvents(
       return [];
     }
 
+    // Expand parenthesized OR seeds inside remaining terms
+    const seedExpansions = terms ? expandParenthesizedOr(terms) : [terms];
     const filters: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) };
-    if (terms) filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+    if (terms && seedExpansions.length === 1) {
+      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+    }
 
     console.log('Searching with filters (early author):', filters);
-    let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    let res: NDKEvent[] = [];
+    if (terms && seedExpansions.length > 1) {
+      // Run each expansion and merge
+      const seen = new Set<string>();
+      for (const seed of seedExpansions) {
+        try {
+          const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+          const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+          for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+        } catch {}
+      }
+    } else {
+      res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    }
     const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
     const seedTerms: string[] = [];
     for (const m of seedMatches) {
@@ -686,10 +782,12 @@ export async function searchEvents(
     }
     const dedupe = new Map<string, NDKEvent>();
     for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-    return Array.from(dedupe.values()).slice(0, limit);
+    return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
   }
 
-  // Check for OR operator
+  // (Already expanded above)
+
+  // Check for top-level OR operator (outside parentheses)
   const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
@@ -745,7 +843,7 @@ export async function searchEvents(
             limit: Math.max(limit, 200)
           }, 8000, chosenRelaySet, abortSignal);
       const res = results;
-      return res.slice(0, limit);
+      return sortEventsNewestFirst(res).slice(0, limit);
     }
   } catch {}
 
@@ -840,11 +938,12 @@ export async function searchEvents(
       const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
-      return await subscribeAndCollect({
+      const res = await subscribeAndCollect({
         kinds: effectiveKinds,
         authors: [pubkey],
         limit: Math.max(limit, 200)
       }, 8000, chosenRelaySet, abortSignal);
+      return sortEventsNewestFirst(res).slice(0, limit);
     } catch (error) {
       console.error('Error processing npub query:', error);
       return [];
@@ -915,10 +1014,11 @@ export async function searchEvents(
 
     // Add search term to the filter if present
     if (terms) {
-      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
-      // Increase limit for filtered text searches to improve recall
-      // Many relays require higher limits to surface matching events
-      filters.limit = Math.max(limit, 200);
+      const seedExpansions2 = expandParenthesizedOr(terms);
+      if (seedExpansions2.length === 1) {
+        filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+        filters.limit = Math.max(limit, 200);
+      }
     }
 
     // No additional post-filtering; use default limits
@@ -926,7 +1026,24 @@ export async function searchEvents(
     console.log('Searching with filters:', filters);
     {
       // Fetch by base terms if any, restricted to author
-      let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      let res: NDKEvent[] = [];
+      if (terms) {
+        const seedExpansions3 = expandParenthesizedOr(terms);
+        if (seedExpansions3.length > 1) {
+          const seen = new Set<string>();
+          for (const seed of seedExpansions3) {
+            try {
+              const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+              const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+              for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+            } catch {}
+          }
+        } else {
+          res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+        }
+      } else {
+        res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      }
 
       // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
       const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
@@ -972,7 +1089,7 @@ export async function searchEvents(
       // Do not enforce additional client-side text match; rely on relay-side search
       const filtered = mergedResults;
       
-      return filtered.slice(0, limit);
+      return sortEventsNewestFirst(filtered).slice(0, limit);
     }
   }
   
@@ -1005,7 +1122,7 @@ export async function searchEvents(
       return firstIdx === idx;
     });
     
-    return filtered.slice(0, limit);
+    return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
     // Treat aborted searches as benign; return empty without logging an error
     if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
