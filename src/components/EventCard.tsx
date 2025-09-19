@@ -50,14 +50,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               {footerRight}
               {event?.id ? (
                 <>
-                  <a
-                    href={`nostr:${nip19.neventEncode({ id: event.id })}`}
-                    title="Open in native client"
-                    className="text-gray-400 hover:text-gray-200"
-                    onClick={(e) => { e.stopPropagation(); }}
-                  >
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-                  </a>
                   <button
                     ref={portalButtonRef}
                     type="button"
@@ -76,6 +68,14 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   >
                     ⋯
                   </button>
+                  <a
+                    href={`nostr:${nip19.neventEncode({ id: event.id })}`}
+                    title="Open in native client"
+                    className="text-gray-400 hover:text-gray-200"
+                    onClick={(e) => { e.stopPropagation(); }}
+                  >
+                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                  </a>
                 </>
               ) : null}
             </div>
