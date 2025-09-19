@@ -51,6 +51,7 @@ export const searchExamples = [
   'Gregzaj1-ln_strike.gif',
   'giphy.gif',
   'by:gregzaj has:gif',
+  '(GM OR GN) by:dergigi has:image',
 
   // Kinds filter examples
   'is:muted by:fiatjaf',
