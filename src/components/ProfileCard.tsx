@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
-import { PORTAL_LINKS } from '@/lib/portals';
+import { PROFILE_EXPLORERS } from '@/lib/portals';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -109,7 +109,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const portalLinks = PORTAL_LINKS;
+  const portalLinks = PROFILE_EXPLORERS;
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {

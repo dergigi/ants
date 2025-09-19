@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PORTAL_LINKS } from '@/lib/portals';
+import { EVENT_EXPLORERS } from '@/lib/portals';
 
 type Props = {
   event: NDKEvent;
@@ -89,7 +89,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
         >
           <ul className="py-1 text-sm text-gray-200">
-            {PORTAL_LINKS.map((p) => {
+            {EVENT_EXPLORERS.map((p) => {
               const nevent = nip19.neventEncode({ id: event.id });
               return (
                 <li key={p.name}>
