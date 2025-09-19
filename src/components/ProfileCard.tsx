@@ -117,28 +117,34 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         </a>
       </div>
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
-        <div
-          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-          style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenuBottom(false); }}
-        >
-          <ul className="py-1 text-sm text-gray-200">
-            {PROFILE_EXPLORERS.map((p) => (
-              <li key={p.name}>
-                <a
-                  href={`${p.base}${npub}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                  onClick={(e) => { e.stopPropagation(); }}
-                >
-                  <span>{p.name}</span>
-                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>,
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => { e.preventDefault(); setShowPortalMenuBottom(false); }}
+          />
+          <div
+            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <ul className="py-1 text-sm text-gray-200">
+              {PROFILE_EXPLORERS.map((p) => (
+                <li key={p.name}>
+                  <a
+                    href={`${p.base}${npub}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
+                  >
+                    <span>{p.name}</span>
+                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>,
         document.body
       )}
     </div>
