@@ -666,6 +666,31 @@ export async function searchEvents(
     : [1];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
+  // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
+  // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
+  {
+    const expandedSeeds = expandParenthesizedOr(cleanedQuery);
+    if (expandedSeeds.length > 1) {
+      const merged: NDKEvent[] = [];
+      const seen = new Set<string>();
+      for (const seed of expandedSeeds) {
+        try {
+          const partResults = await searchEvents(seed, limit, options, chosenRelaySet, abortSignal);
+          for (const evt of partResults) {
+            if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+          }
+        } catch (error) {
+          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+            // no-op
+          } else {
+            console.warn('Expanded seed failed:', seed, error);
+          }
+        }
+      }
+      return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+    }
+  }
+
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
   const earlyAuthorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (earlyAuthorMatch) {
@@ -742,28 +767,7 @@ export async function searchEvents(
     return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
   }
 
-  // First, expand any parenthesized OR seeds by distributing surrounding terms
-  const expandedSeeds = expandParenthesizedOr(cleanedQuery);
-  if (expandedSeeds.length > 1) {
-    // Execute each expanded seed independently and merge (OR semantics)
-    const merged: NDKEvent[] = [];
-    const seen = new Set<string>();
-    for (const seed of expandedSeeds) {
-      try {
-        const partResults = await searchEvents(seed, limit, options, chosenRelaySet, abortSignal);
-        for (const evt of partResults) {
-          if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
-        }
-      } catch (error) {
-        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-          // no-op
-        } else {
-          console.warn('Expanded seed failed:', seed, error);
-        }
-      }
-    }
-    return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
-  }
+  // (Already expanded above)
 
   // Check for top-level OR operator (outside parentheses)
   const orParts = parseOrQuery(cleanedQuery);
