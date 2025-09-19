@@ -583,6 +583,23 @@ export function parseOrQuery(query: string): string[] {
 // Example: "GM (.mp4 OR .jpg)" -> ["GM .mp4", "GM .jpg"]
 export function expandParenthesizedOr(query: string): string[] {
   const normalize = (s: string) => s.replace(/\s{2,}/g, ' ').trim();
+  const needsSpace = (leftLast: string | undefined, rightFirst: string | undefined): boolean => {
+    if (!leftLast || !rightFirst) return false;
+    if (/\s/.test(leftLast)) return false; // already spaced
+    if (/\s/.test(rightFirst)) return false; // already spaced
+    // If right begins with a dot or alphanumeric, and left ends with alphanumeric or ':' (e.g., by:npub)
+    // insert a space to avoid unintended token merge like "GM.png".
+    const leftWordy = /[A-Za-z0-9:_]$/.test(leftLast);
+    const rightWordyOrDot = /^[A-Za-z0-9.]/.test(rightFirst);
+    return leftWordy && rightWordyOrDot;
+  };
+  const smartJoin = (a: string, b: string): string => {
+    if (!a) return b;
+    if (!b) return a;
+    const leftLast = a[a.length - 1];
+    const rightFirst = b[0];
+    return needsSpace(leftLast, rightFirst) ? `${a} ${b}` : `${a}${b}`;
+  };
   const unique = (arr: string[]) => Array.from(new Set(arr.map(normalize)));
 
   const rx = /\(([^()]*?\s+OR\s+[^()]*?)\)/i; // innermost () that contains an OR
@@ -600,7 +617,8 @@ export function expandParenthesizedOr(query: string): string[] {
   const alts = inner.split(/\s+OR\s+/i).map((s) => s.trim()).filter(Boolean);
   const expanded: string[] = [];
   for (const alt of alts) {
-    const next = normalize(`${before}${alt}${after}`);
+    const joined = smartJoin(before, alt);
+    const next = normalize(smartJoin(joined, after));
     for (const ex of expandParenthesizedOr(next)) {
       expanded.push(ex);
     }
