@@ -18,7 +18,6 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'njump.me', base: 'https://njump.me/' },
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.band', base: 'https://nostr.band/' },
-  { name: 'habla.news', base: 'https://habla.news/' },
 ];
 
 export type ExplorerItem = { name: string; href: string };
