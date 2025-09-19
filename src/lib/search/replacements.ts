@@ -58,7 +58,7 @@ export async function applySimpleReplacements(input: string): Promise<string> {
 export async function getIsKindTokens(): Promise<string[]> {
   const rules = await loadRules();
   return rules
-    .filter((r) => r.kind === 'is' && /^kind:/i.test(r.expansion))
+    .filter((r) => r.kind === 'is')
     .map((r) => `is:${r.key}`);
 }
 
