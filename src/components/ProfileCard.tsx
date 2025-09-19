@@ -10,12 +10,17 @@ import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
+import { createProfileExplorerItems } from '@/lib/portals';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
+  const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
+  const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
+  const bottomButtonRef = useRef<HTMLButtonElement>(null);
+  const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
 
   useEffect(() => {
     let isMounted = true;
@@ -85,7 +90,64 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{sinceLabel}</span>
         )}
+        <button
+          ref={bottomButtonRef}
+          type="button"
+          aria-label="Open in portals"
+          title="Open in portals"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (bottomButtonRef.current) {
+              const rect = bottomButtonRef.current.getBoundingClientRect();
+              setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
+            }
+            setShowPortalMenuBottom((v) => !v);
+          }}
+          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+        >
+          ⋯
+        </button>
+        <a
+          href={`nostr:${npub}`}
+          title="Open in native client"
+          className="text-gray-400 hover:text-gray-200"
+          onClick={(e) => { e.stopPropagation(); }}
+        >
+          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+        </a>
       </div>
+      {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => { e.preventDefault(); setShowPortalMenuBottom(false); }}
+          />
+          <div
+            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <ul className="py-1 text-sm text-gray-200">
+              {bottomItems.map((item) => (
+                <li key={item.name}>
+                  <a
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
+                  >
+                    <span>{item.name}</span>
+                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }
@@ -108,13 +170,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const portalLinks = [
-    { name: 'njump.me', base: 'https://njump.me/' },
-    { name: 'nostr.at', base: 'https://nostr.at/' },
-    { name: 'npub.world', base: 'https://npub.world/' },
-    { name: 'nosta.me', base: 'https://nosta.me/' },
-    { name: 'castr.me', base: 'https://castr.me/' },
-  ];
+  const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub, event.author.pubkey), [event.author.npub, event.author.pubkey]);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -305,30 +361,37 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
+        npub={event.author.npub}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
-        <div
-          className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-          style={{ top: menuPosition.top, left: menuPosition.left }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortalMenu(false); }}
-        >
-          <ul className="py-1 text-sm text-gray-200">
-            {portalLinks.map((p) => (
-              <li key={p.name}>
-                <a
-                  href={`${p.base}${event.author.npub}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                  onClick={(e) => { e.stopPropagation(); }}
-                >
-                  <span>{p.name}</span>
-                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>,
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
+          />
+          <div
+            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <ul className="py-1 text-sm text-gray-200">
+              {portalItems.map((item) => (
+                <li key={item.name}>
+                  <a
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                  >
+                    <span>{item.name}</span>
+                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>,
         document.body
       )}
     </div>
