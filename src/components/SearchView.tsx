@@ -394,7 +394,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           const finalQueries = Array.from(finalQueriesSet);
 
           // Format compact preview
-          const preview = finalQueries.length > 0 ? finalQueries.join(' • ') : afterReplacements;
+          const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
           if (!cancelled) setTranslation(preview);
         } catch {
           if (!cancelled) setTranslation('');
@@ -1137,7 +1137,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
         
         {translation && (
-          <div className="mt-1 pl-4 text-[11px] text-gray-400 font-mono break-words">
+          <div className="mt-1 pl-4 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap">
             {translation}
           </div>
         )}
