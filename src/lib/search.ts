@@ -684,11 +684,28 @@ export async function searchEvents(
       return [];
     }
 
+    // Expand parenthesized OR seeds inside remaining terms
+    const seedExpansions = terms ? expandParenthesizedOr(terms) : [terms];
     const filters: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) };
-    if (terms) filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+    if (terms && seedExpansions.length === 1) {
+      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+    }
 
     console.log('Searching with filters (early author):', filters);
-    let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    let res: NDKEvent[] = [];
+    if (terms && seedExpansions.length > 1) {
+      // Run each expansion and merge
+      const seen = new Set<string>();
+      for (const seed of seedExpansions) {
+        try {
+          const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+          const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+          for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+        } catch {}
+      }
+    } else {
+      res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    }
     const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
     const seedTerms: string[] = [];
     for (const m of seedMatches) {
@@ -967,10 +984,11 @@ export async function searchEvents(
 
     // Add search term to the filter if present
     if (terms) {
-      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
-      // Increase limit for filtered text searches to improve recall
-      // Many relays require higher limits to surface matching events
-      filters.limit = Math.max(limit, 200);
+      const seedExpansions2 = expandParenthesizedOr(terms);
+      if (seedExpansions2.length === 1) {
+        filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
+        filters.limit = Math.max(limit, 200);
+      }
     }
 
     // No additional post-filtering; use default limits
@@ -978,7 +996,24 @@ export async function searchEvents(
     console.log('Searching with filters:', filters);
     {
       // Fetch by base terms if any, restricted to author
-      let res: NDKEvent[] = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      let res: NDKEvent[] = [];
+      if (terms) {
+        const seedExpansions3 = expandParenthesizedOr(terms);
+        if (seedExpansions3.length > 1) {
+          const seen = new Set<string>();
+          for (const seed of seedExpansions3) {
+            try {
+              const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+              const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+              for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+            } catch {}
+          }
+        } else {
+          res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+        }
+      } else {
+        res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      }
 
       // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
       const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
