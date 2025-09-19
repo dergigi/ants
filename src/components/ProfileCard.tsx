@@ -171,6 +171,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const portalItems = useMemo(() => createProfileExplorerItems(event.author.npub, event.author.pubkey), [event.author.npub, event.author.pubkey]);
+  const quickSearchItems = useMemo(() => [
+    'is:repost',
+    'is:reaction',
+    'is:picture',
+    'is:file',
+    'is:patch',
+    'is:issue',
+    'is:report',
+    'is:zap',
+    'is:muted',
+    'is:pin',
+    'is:bookmark'
+  ], []);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -375,18 +388,21 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             onClick={(e) => { e.stopPropagation(); }}
           >
             <ul className="py-1 text-sm text-gray-200">
-              {portalItems.map((item) => (
-                <li key={item.name}>
-                  <a
-                    href={item.href}
-                    target={item.href.startsWith('http') ? '_blank' : undefined}
-                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                    onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+              {quickSearchItems.map((token) => (
+                <li key={token}>
+                  <button
+                    type="button"
+                    className="block w-full text-left px-3 py-2 hover:bg-[#3a3a3a]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const params = new URLSearchParams();
+                      params.set('q', `${token} by:${event.author.npub}`);
+                      router.push(`/?${params.toString()}`);
+                      setShowPortalMenu(false);
+                    }}
                   >
-                    <span>{item.name}</span>
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                  </a>
+                    {token}
+                  </button>
                 </li>
               ))}
             </ul>
