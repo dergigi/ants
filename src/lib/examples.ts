@@ -16,6 +16,7 @@ export const searchExamples = [
 
   // Combined
   'GM by:dergigi',
+  'GM fiat by:fiatjaf',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
   'NIP-EE by:jeffg',
@@ -59,7 +60,9 @@ export const searchExamples = [
   'is:bookmark by:hzrd',
   'is:file',
 
-  // Relay filters (removed)
+  // Multiple Authors
+  'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
+  '(by:gregzaj OR by:yellow) is:gif'
 
   // NIP-50 extensions
   'bitcoin include:spam',
