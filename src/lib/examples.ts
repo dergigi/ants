@@ -43,6 +43,7 @@ export const searchExamples = [
   'is:video',
   'has:gif',
   'is:gif',
+
   // Mixed media + text
   'GM has:video',
   'Bitcoin has:image',
@@ -62,7 +63,7 @@ export const searchExamples = [
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
-  '(by:gregzaj OR by:yellow) is:gif'
+  '(by:gregzaj OR by:yellow) is:gif',
 
   // NIP-50 extensions
   'bitcoin include:spam',
