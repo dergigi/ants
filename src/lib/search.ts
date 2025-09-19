@@ -47,32 +47,7 @@ export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 // Use a search-capable relay set explicitly for NIP-50 queries
 const searchRelaySet = relaySets.search();
 
-// Extract human-language OR tokens from parenthesized groups, excluding media/URL/key:value tokens
-function extractHumanOrTokens(query: string): string[] {
-  const tokens: string[] = [];
-  const matches = Array.from(query.matchAll(/\(([^)]+)\)/g));
-  for (const m of matches) {
-    const inner = (m[1] || '').trim();
-    if (!/\s+OR\s+/i.test(inner)) continue;
-    const parts = inner.split(/\s+OR\s+/i).map((p) => p.trim()).filter(Boolean);
-    for (const p of parts) {
-      if (p.startsWith('.')) continue; // file extensions
-      if (/^https?:\/\//i.test(p)) continue; // URLs
-      if (/^[a-z]+:/i.test(p)) continue; // key:value like kind:, site:, nostr:
-      tokens.push(p);
-    }
-  }
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const t of tokens) { const k = t.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(t); } }
-  return out;
-}
-
-function contentIncludesAny(event: NDKEvent, tokens: string[]): boolean {
-  if (tokens.length === 0) return true;
-  const c = (event.content || '').toLowerCase();
-  return tokens.some((t) => c.includes(t.toLowerCase()));
-}
+// (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
 
 // Extract NIP-50 extensions from the raw query string
 function extractNip50Extensions(rawQuery: string): { cleaned: string; extensions: Nip50Extensions } {
@@ -787,10 +762,7 @@ export async function searchEvents(
         }
       }
     }
-    // Enforce presence of any human OR tokens in content (e.g., GM/GN)
-    const humanOr = extractHumanOrTokens(cleanedQuery);
-    const filteredByHuman = humanOr.length > 0 ? merged.filter((e) => contentIncludesAny(e, humanOr)) : merged;
-    return filteredByHuman.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+    return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
   }
 
   // Check for top-level OR operator (outside parentheses)
@@ -822,9 +794,7 @@ export async function searchEvents(
     
     // Sort by creation time (newest first) and limit results
     const merged = allResults;
-    const humanOr = extractHumanOrTokens(cleanedQuery);
-    const filteredByHuman = humanOr.length > 0 ? merged.filter((e) => contentIncludesAny(e, humanOr)) : merged;
-    return filteredByHuman
+    return merged
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
   }
