@@ -2,6 +2,9 @@
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
+import { nip19 } from 'nostr-tools';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   event: NDKEvent;
@@ -36,7 +39,19 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
           </div>
           {footerRight ? (
-            <div className="flex items-center gap-2">{footerRight}</div>
+            <div className="flex items-center gap-2">
+              {footerRight}
+              {event?.id ? (
+                <a
+                  href={`nostr:${nip19.neventEncode({ id: event.id })}`}
+                  title="Open in native client"
+                  className="text-gray-400 hover:text-gray-200"
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                </a>
+              ) : null}
+            </div>
           ) : null}
         </div>
       )}
