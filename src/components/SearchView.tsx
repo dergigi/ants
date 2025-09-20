@@ -851,19 +851,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               )}
               variant="inline"
               footerRight={embedded.created_at ? (
-                <button
-                  type="button"
+                <a
+                  href={`/e/${nip19.neventEncode({ id: embedded.id })}`}
                   className="text-xs hover:underline opacity-80"
-                  title="Search this nevent"
-                  onClick={() => {
-                    try {
-                      const nevent = nip19.neventEncode({ id: embedded.id });
-                      submitQueryOrRoot(nevent);
-                    } catch {}
-                  }}
+                  title="Open this event"
+                  onClick={(e) => { e.stopPropagation(); }}
                 >
                   {new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </button>
+                </a>
               ) : null}
             />
           </div>
@@ -1338,19 +1333,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       )}
                       mediaRenderer={renderNoteMedia}
                       footerRight={(
-                        <button
-                          type="button"
+                        <a
+                          href={`/e/${nip19.neventEncode({ id: event.id })}`}
                           className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              submitQueryOrRoot(nevent);
-                            } catch {}
-                          }}
+                          title="Open this event"
+                          onClick={(e) => { e.stopPropagation(); }}
                         >
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                        </button>
+                        </a>
                       )}
                       className={noteCardClasses}
                     />
@@ -1382,19 +1372,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       )}
                       className={noteCardClasses}
                       footerRight={(
-                        <button
-                          type="button"
+                        <a
+                          href={`/e/${nip19.neventEncode({ id: event.id })}`}
                           className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              submitQueryOrRoot(nevent);
-                            } catch {}
-                          }}
+                          title="Open this event"
+                          onClick={(e) => { e.stopPropagation(); }}
                         >
                           {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
-                        </button>
+                        </a>
                       )}
                     />
                   )}
@@ -1403,7 +1388,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, toPlainEvent, submitQueryOrRoot])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, toPlainEvent])}
     </div>
   );
 }
