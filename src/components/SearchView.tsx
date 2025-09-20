@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
-import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
+import { lookupVertexProfile, searchProfilesFullText, resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
@@ -205,30 +205,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const author = (byMatch[1] || '').trim();
         let resolvedNpub: string | null = null;
         try {
-          if (/^npub1[0-9a-z]+$/i.test(author)) {
-            resolvedNpub = author;
-          } else {
-            // Try to resolve via Vertex DVM with a hard timeout, falling back to simple profile search
-            const resolveWithFallback = async (): Promise<string | null> => {
-              try {
-                let profile = await lookupVertexProfile(`p:${author}`);
-                if (!profile) {
-                  try {
-                    const profiles = await searchProfilesFullText(author, 1);
-                    profile = profiles[0] || null;
-                  } catch {}
-                }
-                const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-                if (!pubkey) return null;
-                try { return nip19.npubEncode(pubkey); } catch { return null; }
-              } catch {
-                return null;
-              }
-            };
-            const TIMEOUT_MS = 2500;
-            const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-            resolvedNpub = (await Promise.race([resolveWithFallback(), timed])) as string | null;
-          }
+          const TIMEOUT_MS = 2500;
+          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
+          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
         } catch {}
         // If we resolved successfully, replace only the matched by: token with the resolved npub.
         // If resolution failed, proceed without modifying the query; the backend search will fallback.
@@ -442,19 +421,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const suffix = (match && match[2]) || '';
               let replacement = core;
               try {
-                if (!/^npub1[0-9a-z]+$/i.test(core)) {
-                  let profile = await lookupVertexProfile(`p:${core}`);
-                  if (!profile) {
-                    try {
-                      const profiles = await searchProfilesFullText(core, 1);
-                      profile = profiles[0] || null;
-                    } catch {}
-                  }
-                  const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-                  if (pubkey) {
-                    try { replacement = nip19.npubEncode(pubkey); } catch {}
-                  }
-                }
+                const npub = await resolveAuthorToNpub(core);
+                if (npub) replacement = npub;
               } catch {}
               result += q.slice(lastIndex, m.index);
               result += `${pre}by:${replacement}${suffix}`;
