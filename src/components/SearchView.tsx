@@ -6,12 +6,14 @@ import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
+import { applyContentFilters } from '@/lib/contentAnalysis';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
+import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
@@ -51,10 +53,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: null, maxHashtags: null });
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
   }, []);
+
+  // Memoized client-side filtered results (for count and rendering)
+  const filteredResults = useMemo(
+    () => applyContentFilters(results, filterSettings.maxEmojis, filterSettings.maxHashtags),
+    [results, filterSettings.maxEmojis, filterSettings.maxHashtags]
+  );
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -1257,10 +1266,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {useMemo(() => (
-        results.length > 0 ? (
+      {/* Client-side filters */}
+      {results.length > 0 && (
+        <ClientFilters
+          filterSettings={filterSettings}
+          onFilterChange={setFilterSettings}
+          resultCount={results.length}
+          filteredCount={filteredResults.length}
+        />
+      )}
+
+      {useMemo(() => {
+        return filteredResults.length > 0 ? (
           <div className="mt-8 space-y-4">
-            {results.map((event, idx) => {
+            {filteredResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
               const isLoadingParent = parent === 'loading';
@@ -1361,8 +1380,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               );
             })}
           </div>
-        ) : null
-      ), [results, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+        ) : null;
+      }, [results, filterSettings.maxEmojis, filterSettings.maxHashtags, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
     </div>
   );
 }
