@@ -644,9 +644,31 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
 // Simple in-memory cache for NIP-05 verification results
 const nip05VerificationCache = new Map<string, boolean>();
 
+function normalizeNip05String(input: string): string {
+  const raw = (input || '').trim();
+  if (!raw) return '';
+  const lower = raw.toLowerCase();
+  // If value starts with '@domain', treat as top-level => '_@domain'
+  if (lower.startsWith('@')) {
+    const domain = lower.slice(1).trim();
+    return domain ? `_${'@'}${domain}` : '';
+  }
+  // If there is no '@', treat as domain-only => '_@domain'
+  if (!lower.includes('@')) {
+    return `_${'@'}${lower}`;
+  }
+  // If local part is empty, normalize to '_'
+  const [local, domain] = lower.split('@');
+  if (!domain) return '';
+  const normalizedLocal = local && local.length > 0 ? local : '_';
+  return `${normalizedLocal}${'@'}${domain}`;
+}
+
 async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
   if (!nip05) return false;
-  const cacheKey = `${nip05}|${pubkeyHex}`;
+  const normalized = normalizeNip05String(nip05);
+  if (!normalized) return false;
+  const cacheKey = `${normalized}|${pubkeyHex}`;
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
     // Use NDK's built-in verification for DRYness and consistency
@@ -654,7 +676,7 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     user.ndk = ndk;
     const maybeVerify = (user as unknown as { verifyNip05?: (nip05: string) => Promise<boolean> }).verifyNip05;
     if (typeof maybeVerify === 'function') {
-      const ok = await maybeVerify.call(user, nip05);
+      const ok = await maybeVerify.call(user, normalized);
       nip05VerificationCache.set(cacheKey, ok);
       return ok;
     }
@@ -662,7 +684,7 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     nip05VerificationCache.set(cacheKey, false);
     return false;
   } catch {
-    const cacheKey = `${nip05}|${pubkeyHex}`;
+    const cacheKey = `${normalized}|${pubkeyHex}`;
     nip05VerificationCache.set(cacheKey, false);
     return false;
   }
@@ -675,8 +697,9 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
 
 // Force re-validation bypassing cache
 export async function reverifyNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
-  invalidateNip05Cache(pubkeyHex, nip05);
-  return verifyNip05(pubkeyHex, nip05);
+  const normalized = normalizeNip05String(nip05);
+  invalidateNip05Cache(pubkeyHex, normalized || nip05);
+  return verifyNip05(pubkeyHex, normalized || nip05);
 }
 
 // Re-validate with debug steps for UI
@@ -686,6 +709,8 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     const raw = (nip05 || '').trim();
     if (!raw) return { ok: false, steps: [...steps, 'No nip05 provided'] };
     steps.push(`Input: ${raw}`);
+    const normalized = normalizeNip05String(raw);
+    if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
     // Delegate to NDK for verification
     const user = new NDKUser({ pubkey: pubkeyHex });
     user.ndk = ndk;
@@ -695,7 +720,7 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
       return { ok: false, steps };
     }
     steps.push('NDK: calling user.verifyNip05');
-    const ok = await maybeVerify.call(user, raw);
+    const ok = await maybeVerify.call(user, normalized || raw);
     steps.push(`NDK result: ${ok ? 'MATCH' : 'NO MATCH'}`);
     return { ok, steps };
   } catch (e) {
