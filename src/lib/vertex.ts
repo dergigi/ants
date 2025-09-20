@@ -649,8 +649,9 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   const cacheKey = `${nip05}|${pubkeyHex}`;
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
-    const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-    const name = parts[0] || '_';
+    const raw = nip05.trim();
+    const parts = raw.includes('@') ? raw.split('@') : ['_', raw];
+    const name = (parts[0] || '_').trim() || '_';
     const domain = (parts[1] || '').trim();
     if (!domain) {
       nip05VerificationCache.set(cacheKey, false);
@@ -658,15 +659,41 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`, { signal: controller.signal });
+    const baseUrl = `https://${domain}/.well-known/nostr.json`;
+    const headers: Record<string, string> = { 'Accept': 'application/json, application/nostr+json' };
+    // Prefer name-scoped request
+    let resolved: string | null = null;
+    let res: Response | null = null;
+    try {
+      res = await fetch(`${baseUrl}?name=${encodeURIComponent(name)}`, { signal: controller.signal, headers });
+      if (res.ok) {
+        const data = await res.json();
+        const value = (data?.names?.[name] as string | undefined)
+          || (data?.names?.[name.toLowerCase()] as string | undefined)
+          || null;
+        resolved = value;
+      }
+    } catch {}
+    // Fallback: fetch full document if nothing resolved yet
+    if (!resolved) {
+      try {
+        const full = await fetch(baseUrl, { signal: controller.signal, headers });
+        if (full.ok) {
+          const data = await full.json();
+          const names = data?.names || {};
+          resolved = (names[name] as string | undefined)
+            || (names[name.toLowerCase()] as string | undefined)
+            || (names['_'] as string | undefined)
+            || null;
+        }
+      } catch {}
+    }
     clearTimeout(timeout);
-    if (!res.ok) {
+    if (!resolved) {
       nip05VerificationCache.set(cacheKey, false);
       return false;
     }
-    const data = await res.json();
-    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
-    const result = mapped === pubkeyHex.toLowerCase();
+    const result = resolved.toLowerCase() === pubkeyHex.toLowerCase();
     nip05VerificationCache.set(cacheKey, result);
     return result;
   } catch {
