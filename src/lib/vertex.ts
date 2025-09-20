@@ -1,5 +1,5 @@
 import { ndk, safePublish, safeSubscribe } from './ndk';
-import { nip19 } from 'nostr-tools';
+import { nip19, nip05 as nostrNip05 } from 'nostr-tools';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
@@ -671,18 +671,10 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   const cacheKey = `${normalized}|${pubkeyHex}`;
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
-    // Use NDK's built-in verification for DRYness and consistency
-    const user = new NDKUser({ pubkey: pubkeyHex });
-    user.ndk = ndk;
-    const maybeVerify = (user as unknown as { verifyNip05?: (nip05: string) => Promise<boolean> }).verifyNip05;
-    if (typeof maybeVerify === 'function') {
-      const ok = await maybeVerify.call(user, normalized);
-      nip05VerificationCache.set(cacheKey, ok);
-      return ok;
-    }
-    // If verifyNip05 is not available, treat as unverifiable rather than duplicating logic
-    nip05VerificationCache.set(cacheKey, false);
-    return false;
+    // Use nostr-tools nip05 validation for reliability
+    const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
+    nip05VerificationCache.set(cacheKey, ok);
+    return ok;
   } catch {
     const cacheKey = `${normalized}|${pubkeyHex}`;
     nip05VerificationCache.set(cacheKey, false);
@@ -711,17 +703,9 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     steps.push(`Input: ${raw}`);
     const normalized = normalizeNip05String(raw);
     if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
-    // Delegate to NDK for verification
-    const user = new NDKUser({ pubkey: pubkeyHex });
-    user.ndk = ndk;
-    const maybeVerify = (user as unknown as { verifyNip05?: (nip05: string) => Promise<boolean> }).verifyNip05;
-    if (typeof maybeVerify !== 'function') {
-      steps.push('NDK verifyNip05 not available');
-      return { ok: false, steps };
-    }
-    steps.push('NDK: calling user.verifyNip05');
-    const ok = await maybeVerify.call(user, normalized || raw);
-    steps.push(`NDK result: ${ok ? 'MATCH' : 'NO MATCH'}`);
+    steps.push('nostr-tools: calling isValid(pubkey, nip05)');
+    const ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
+    steps.push(`nostr-tools result: ${ok ? 'MATCH' : 'NO MATCH'}`);
     return { ok, steps };
   } catch (e) {
     steps.push(`Exception: ${(e as Error)?.message || 'unknown'}`);
