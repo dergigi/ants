@@ -664,11 +664,16 @@ function normalizeNip05String(input: string): string {
   return `${normalizedLocal}${'@'}${domain}`;
 }
 
+function nip05CacheKey(pubkeyHex: string, nip05: string): string {
+  const normalized = normalizeNip05String(nip05);
+  return `${normalized}|${pubkeyHex}`;
+}
+
 async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
   if (!nip05) return false;
   const normalized = normalizeNip05String(nip05);
   if (!normalized) return false;
-  const cacheKey = `${normalized}|${pubkeyHex}`;
+  const cacheKey = nip05CacheKey(pubkeyHex, nip05);
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
     // Use nostr-tools nip05 validation for reliability
@@ -676,7 +681,7 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     nip05VerificationCache.set(cacheKey, ok);
     return ok;
   } catch {
-    const cacheKey = `${normalized}|${pubkeyHex}`;
+    const cacheKey = nip05CacheKey(pubkeyHex, nip05);
     nip05VerificationCache.set(cacheKey, false);
     return false;
   }
@@ -684,7 +689,12 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
 
 // Invalidate one cached NIP-05 verification entry
 export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
-  try { nip05VerificationCache.delete(`${nip05}|${pubkeyHex}`); } catch {}
+  try {
+    const key = nip05CacheKey(pubkeyHex, nip05);
+    nip05VerificationCache.delete(key);
+    // Also delete raw key if it was stored prior to normalization change
+    nip05VerificationCache.delete(`${nip05}|${pubkeyHex}`);
+  } catch {}
 }
 
 // Force re-validation bypassing cache
@@ -703,6 +713,7 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     steps.push(`Input: ${raw}`);
     const normalized = normalizeNip05String(raw);
     if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
+    invalidateNip05Cache(pubkeyHex, normalized || raw);
     steps.push('nostr-tools: calling isValid(pubkey, nip05)');
     const ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
     steps.push(`nostr-tools result: ${ok ? 'MATCH' : 'NO MATCH'}`);
