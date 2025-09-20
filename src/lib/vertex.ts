@@ -955,8 +955,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       else if (contains) matchParts.push('contains');
       if (about) matchParts.push('about');
       if (nip05Lower) matchParts.push(n5Top ? 'nip05(top)' : 'nip05');
-      const dbg = `score: ${parts.join(' + ')} = ${row.finalScore}; match: ${matchParts.join(', ') || 'none'}`;
-      (row.event as unknown as { debugScore?: string }).debugScore = dbg;
+      // debug ranking info removed from UI; keep local variables only
     } catch {}
   }
 

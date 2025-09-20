@@ -335,7 +335,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               type="button"
               onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
-              title={(event as unknown as { debugScore?: string }).debugScore || ''}
             >
               <Image
                 src={avatarUrl as string}
