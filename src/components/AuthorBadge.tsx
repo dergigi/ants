@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
@@ -30,6 +31,8 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
 }
 
 export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
@@ -58,7 +61,20 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
       <button
         type="button"
-        onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            const parts = value.includes('@') ? value.split('@') : ['_', value];
+            const domain = (parts[1] || parts[0] || '').trim();
+            if (!domain) return;
+            const q = `p:${domain}`;
+            const current = searchParams ? searchParams.toString() : '';
+            const params = new URLSearchParams(current);
+            params.set('q', q);
+            router.push(`/?${params.toString()}`);
+          } catch {}
+        }}
         className="hover:underline truncate max-w-[14rem] text-left"
         title={value}
       >
