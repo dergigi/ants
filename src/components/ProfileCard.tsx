@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
-import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { getNewestProfileMetadata } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,8 +15,6 @@ import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
-  const [createdAt, setCreatedAt] = useState<number | null>(null);
-  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -28,17 +26,11 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     let isMounted = true;
     (async () => {
       try {
-        const [oldest, newest] = await Promise.all([
-          getOldestProfileMetadata(pubkey),
-          getNewestProfileMetadata(pubkey)
-        ]);
+        const newest = await getNewestProfileMetadata(pubkey);
         if (!isMounted) return;
-        if (oldest) { setCreatedAt(oldest.created_at || null); setCreatedEventId(oldest.id || null); }
         if (newest) { setUpdatedAt(newest.created_at || null); setUpdatedEventId(newest.id || null); }
       } catch {
         if (!isMounted) return;
-        setCreatedAt(fallbackCreatedAt || null);
-        setCreatedEventId(fallbackEventId || null);
         setUpdatedAt(fallbackCreatedAt || null);
         setUpdatedEventId(fallbackEventId || null);
       }
@@ -63,9 +55,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return rtf.format(-seconds, 'second');
   };
 
-  const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
   // footer-specific state only
 
   return (
@@ -89,11 +79,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{updatedLabel}</span>
         )}
-        {createdAt && createdEventId ? (
-          <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
-        ) : (
-          <span>{sinceLabel}</span>
-        )}
+        {/* Removed: on nostr since */}
         <button
           ref={bottomButtonRef}
           type="button"
@@ -143,7 +129,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
                     onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
                   >
                     <span>{item.name}</span>
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                    <span className="text-gray-400">↗</span>
                   </a>
                 </li>
               ))}
