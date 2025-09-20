@@ -221,7 +221,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
           const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
           if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
-            const carry = encodeURIComponent(effectiveQuery);
+            const implicitQ = toImplicitUrlQuery(effectiveQuery, resolvedNpub);
+            const carry = encodeURIComponent(implicitQ);
             router.push(`/p/${resolvedNpub}?q=${carry}`);
             setResolvingAuthor(false);
             setLoading(false);
@@ -374,11 +375,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setQuery(display);
       const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
       handleSearch(backend);
+      // Normalize URL to implicit form if needed
+      const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
+      if (implicit !== urlQuery) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('q', implicit);
+        router.replace(`?${params.toString()}`);
+      }
     } else if (urlQuery) {
       setQuery(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
