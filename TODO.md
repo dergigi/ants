@@ -36,3 +36,4 @@
 - [ ] Explain that users need Vertex credits for the username lookup to work properly
 - [ ] Fix the one weird profile-specific search UI bug
 - [ ] Refactor to use nepsilon/search-query-parser (?)
+- [ ] Add NIP-56 support to allow for nudity/profanity/illegal/spam/impersonation content filters
