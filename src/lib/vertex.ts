@@ -649,54 +649,18 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   const cacheKey = `${nip05}|${pubkeyHex}`;
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
-    const raw = nip05.trim();
-    const parts = raw.includes('@') ? raw.split('@') : ['_', raw];
-    const name = (parts[0] || '_').trim() || '_';
-    const domain = (parts[1] || '').trim();
-    if (!domain) {
-      nip05VerificationCache.set(cacheKey, false);
-      return false;
+    // Use NDK's built-in verification for DRYness and consistency
+    const user = new NDKUser({ pubkey: pubkeyHex });
+    user.ndk = ndk;
+    const maybeVerify = (user as unknown as { verifyNip05?: (nip05: string) => Promise<boolean> }).verifyNip05;
+    if (typeof maybeVerify === 'function') {
+      const ok = await maybeVerify.call(user, nip05);
+      nip05VerificationCache.set(cacheKey, ok);
+      return ok;
     }
-    const headers: Record<string, string> = { 'Accept': 'application/nostr+json, application/json' };
-    const baseUrl = `https://${domain}/.well-known/nostr.json`;
-    let resolved: string | null = null;
-    // 1) Try name-scoped request (independent controller)
-    try {
-      const controller1 = new AbortController();
-      const timeout1 = setTimeout(() => controller1.abort(), 4000);
-      const res1 = await fetch(`${baseUrl}?name=${encodeURIComponent(name)}`, { signal: controller1.signal, headers });
-      clearTimeout(timeout1);
-      if (res1.ok) {
-        const data1 = await res1.json();
-        resolved = (data1?.names?.[name] as string | undefined)
-          || (data1?.names?.[name.toLowerCase()] as string | undefined)
-          || null;
-      }
-    } catch {}
-    // 2) Fallback: fetch full document (independent controller)
-    if (!resolved) {
-      try {
-        const controller2 = new AbortController();
-        const timeout2 = setTimeout(() => controller2.abort(), 5000);
-        const res2 = await fetch(baseUrl, { signal: controller2.signal, headers });
-        clearTimeout(timeout2);
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const names2 = data2?.names || {};
-          resolved = (names2[name] as string | undefined)
-            || (names2[name.toLowerCase()] as string | undefined)
-            || (names2['_'] as string | undefined)
-            || null;
-        }
-      } catch {}
-    }
-    if (!resolved) {
-      nip05VerificationCache.set(cacheKey, false);
-      return false;
-    }
-    const result = resolved.toLowerCase() === pubkeyHex.toLowerCase();
-    nip05VerificationCache.set(cacheKey, result);
-    return result;
+    // If verifyNip05 is not available, treat as unverifiable rather than duplicating logic
+    nip05VerificationCache.set(cacheKey, false);
+    return false;
   } catch {
     const cacheKey = `${nip05}|${pubkeyHex}`;
     nip05VerificationCache.set(cacheKey, false);
@@ -722,66 +686,17 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     const raw = (nip05 || '').trim();
     if (!raw) return { ok: false, steps: [...steps, 'No nip05 provided'] };
     steps.push(`Input: ${raw}`);
-    const parts = raw.includes('@') ? raw.split('@') : ['_', raw];
-    const name = (parts[0] || '_').trim() || '_';
-    const domain = (parts[1] || '').trim();
-    if (!domain) return { ok: false, steps: [...steps, 'Missing domain'] };
-    steps.push(`Parsed -> name: '${name}', domain: '${domain}'`);
-
-    const headers: Record<string, string> = { 'Accept': 'application/nostr+json, application/json' };
-    const baseUrl = `https://${domain}/.well-known/nostr.json`;
-    let resolved: string | null = null;
-
-    // 1) Scoped fetch
-    try {
-      const controller1 = new AbortController();
-      const timeout1 = setTimeout(() => controller1.abort(), 4000);
-      const scopedUrl = `${baseUrl}?name=${encodeURIComponent(name)}`;
-      steps.push(`Scoped: GET ${scopedUrl}`);
-      const res1 = await fetch(scopedUrl, { signal: controller1.signal, headers });
-      clearTimeout(timeout1);
-      steps.push(`Scoped status: ${res1.status}`);
-      if (res1.ok) {
-        const data1 = await res1.json();
-        resolved = (data1?.names?.[name] as string | undefined)
-          || (data1?.names?.[name.toLowerCase()] as string | undefined)
-          || null;
-        steps.push(`Scoped resolved: ${resolved || 'null'}`);
-      }
-    } catch (e) {
-      steps.push(`Scoped error: ${(e as Error)?.message || 'unknown'}`);
-    }
-
-    // 2) Full fetch
-    if (!resolved) {
-      try {
-        const controller2 = new AbortController();
-        const timeout2 = setTimeout(() => controller2.abort(), 5000);
-        steps.push(`Full: GET ${baseUrl}`);
-        const res2 = await fetch(baseUrl, { signal: controller2.signal, headers });
-        clearTimeout(timeout2);
-        steps.push(`Full status: ${res2.status}`);
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const names2 = data2?.names || {};
-          resolved = (names2[name] as string | undefined)
-            || (names2[name.toLowerCase()] as string | undefined)
-            || (names2['_'] as string | undefined)
-            || null;
-          steps.push(`Full resolved: ${resolved || 'null'}`);
-        }
-      } catch (e) {
-        steps.push(`Full error: ${(e as Error)?.message || 'unknown'}`);
-      }
-    }
-
-    if (!resolved) {
-      steps.push('No mapping found');
+    // Delegate to NDK for verification
+    const user = new NDKUser({ pubkey: pubkeyHex });
+    user.ndk = ndk;
+    const maybeVerify = (user as unknown as { verifyNip05?: (nip05: string) => Promise<boolean> }).verifyNip05;
+    if (typeof maybeVerify !== 'function') {
+      steps.push('NDK verifyNip05 not available');
       return { ok: false, steps };
     }
-
-    const ok = resolved.toLowerCase() === pubkeyHex.toLowerCase();
-    steps.push(`Compare: resolved=${resolved} pubkey=${pubkeyHex} -> ${ok ? 'MATCH' : 'NO MATCH'}`);
+    steps.push('NDK: calling user.verifyNip05');
+    const ok = await maybeVerify.call(user, raw);
+    steps.push(`NDK result: ${ok ? 'MATCH' : 'NO MATCH'}`);
     return { ok, steps };
   } catch (e) {
     steps.push(`Exception: ${(e as Error)?.message || 'unknown'}`);
