@@ -716,6 +716,9 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
   if (isLoggedIn()) {
     try {
       vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
+      for (const v of vertexEvents) {
+        (v as unknown as { debugScore?: string }).debugScore = 'DVM-ranked result';
+      }
     } catch (e) {
       if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
         console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
@@ -819,6 +822,26 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     if (row.isFriend) score += 50;
     row.finalScore = score;
     row.verified = verified;
+    try {
+      const termLower2 = query.toLowerCase();
+      const nameLower = (row.name || '').toLowerCase();
+      const displayLower = ((row.event.author?.profile as { displayName?: string } | undefined)?.displayName || '').toLowerCase();
+      const aboutLower = ((row.event.author?.profile as { about?: string } | undefined)?.about || '').toLowerCase();
+      const exact = nameLower === termLower2 || displayLower === termLower2;
+      const starts = nameLower.startsWith(termLower2) || displayLower.startsWith(termLower2);
+      const contains = nameLower.includes(termLower2) || displayLower.includes(termLower2);
+      const about = aboutLower.includes(termLower2);
+      const parts: string[] = [`base=${row.baseScore}`];
+      if (verified) parts.push('verified=+100');
+      if (row.isFriend) parts.push('friend=+50');
+      const matchParts: string[] = [];
+      if (exact) matchParts.push('exact');
+      else if (starts) matchParts.push('starts');
+      else if (contains) matchParts.push('contains');
+      if (about) matchParts.push('about');
+      const dbg = `score: ${parts.join(' + ')} = ${row.finalScore}; match: ${matchParts.join(', ') || 'none'}`;
+      (row.event as unknown as { debugScore?: string }).debugScore = dbg;
+    } catch {}
   }
 
   enriched.sort((a, b) => {
