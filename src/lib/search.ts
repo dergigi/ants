@@ -1,7 +1,7 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter } from './ndk';
 import { getStoredPubkey } from './nip07';
-import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
+import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 // legacy import removed

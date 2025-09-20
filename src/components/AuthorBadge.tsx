@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = {
   isVerified: boolean;
@@ -63,6 +63,8 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
+  const [manualVerified, setManualVerified] = useState<boolean | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,16 +80,60 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
     return () => { isMounted = false; };
   }, [user]);
 
+  const effectiveVerified = manualVerified ?? isVerified;
+
   const nip05Part = value ? (
-    <button
-      type="button"
-      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
-      title={value}
-    >
-      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
-      <span className="truncate max-w-[14rem]">{value}</span>
-    </button>
+    <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
+      <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+        className="hover:underline truncate max-w-[14rem] text-left"
+        title={value}
+      >
+        <span className="truncate max-w-[14rem]">{value}</span>
+      </button>
+      {(() => {
+        const parts = value.includes('@') ? value.split('@') : ['_', value];
+        const domain = (parts[1] || parts[0] || '').trim();
+        if (!domain) return null;
+        const wellKnown = `https://${domain}/.well-known/nostr.json`;
+        return (
+          <a
+            href={wellKnown}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-gray-200"
+            title={`Open ${wellKnown}`}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+          </a>
+        );
+      })()}
+      <button
+        type="button"
+        className="text-gray-300 hover:text-gray-100"
+        title={refreshing ? 'Re-validating…' : 'Re-validate NIP-05 now'}
+        onClick={async (e) => {
+          e.preventDefault();
+          if (!value) return;
+          setRefreshing(true);
+          try {
+            // invalidate local cache and re-run verification
+            try { nip05Cache.delete(`${value}|${user.pubkey}`); } catch {}
+            const ok = await verifyNip05(user.pubkey, value);
+            setManualVerified(ok);
+          } catch {
+            setManualVerified(false);
+          } finally {
+            setRefreshing(false);
+          }
+        }}
+      >
+        <FontAwesomeIcon icon={faArrowsRotate} className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+      </button>
+    </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
       <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
