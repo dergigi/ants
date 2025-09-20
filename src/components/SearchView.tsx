@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
+import { RELAYS } from '@/lib/relays';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -60,6 +61,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+
+  // Consider indicator green if any NIP-50 relay is connected or recently active
+  const nip50RelaySet = useMemo(() => new Set<string>([...RELAYS.SEARCH, ...RELAYS.PROFILE_SEARCH]), []);
+  const nip50Reachable = useMemo(() => {
+    const connected = connectionDetails?.connectedRelays || [];
+    const combined = new Set<string>([...connected, ...recentlyActive]);
+    for (const url of combined) {
+      if (nip50RelaySet.has(url)) return true;
+    }
+    return false;
+  }, [connectionDetails, recentlyActive, nip50RelaySet]);
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -1151,8 +1163,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   {/* Mask to hide underlying text/underline */}
                   <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
                   <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                    connectionStatus === 'connected' ? 'bg-green-400' : 
-                    connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                    nip50Reachable ? 'bg-green-400' : connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
                   }`} />
                 </div>
               </button>
