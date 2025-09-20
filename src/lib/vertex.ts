@@ -691,11 +691,12 @@ function extractProfileFields(event: NDKEvent): { name?: string; display?: strin
   }
 }
 
-function computeMatchScore(termLower: string, name?: string, display?: string, about?: string): number {
+function computeMatchScore(termLower: string, name?: string, display?: string, about?: string, nip05?: string): number {
   let score = 0;
   const n = (name || '').toLowerCase();
   const d = (display || '').toLowerCase();
   const a = (about || '').toLowerCase();
+  const n5 = (nip05 || '').toLowerCase();
   if (!termLower) return 0;
   const exact = d === termLower || n === termLower;
   const starts = d.startsWith(termLower) || n.startsWith(termLower);
@@ -704,6 +705,12 @@ function computeMatchScore(termLower: string, name?: string, display?: string, a
   else if (starts) score += 30;
   else if (contains) score += 20;
   if (a.includes(termLower)) score += 10;
+  // Consider NIP-05 string as well (both local part and domain are included in n5)
+  if (n5) {
+    if (n5 === termLower) score += 40;
+    else if (n5.startsWith(termLower)) score += 30;
+    else if (n5.includes(termLower)) score += 20;
+  }
   return score;
 }
 
@@ -791,7 +798,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       }
     }
 
-    const baseScore = computeMatchScore(termLower, name, display, about);
+    const baseScore = computeMatchScore(termLower, name, display, about, nip05);
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
 
     let verifyPromise: Promise<boolean> | null = null;
@@ -825,11 +832,12 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     try {
       const termLower2 = query.toLowerCase();
       const nameLower = (row.name || '').toLowerCase();
-      const displayLower = ((row.event.author?.profile as { displayName?: string } | undefined)?.displayName || '').toLowerCase();
+      const displayLower = ((row.event.author?.profile as { displayName?: string; name?: string } | undefined)?.displayName || (row.event.author?.profile as { name?: string } | undefined)?.name || '').toLowerCase();
       const aboutLower = ((row.event.author?.profile as { about?: string } | undefined)?.about || '').toLowerCase();
-      const exact = nameLower === termLower2 || displayLower === termLower2;
-      const starts = nameLower.startsWith(termLower2) || displayLower.startsWith(termLower2);
-      const contains = nameLower.includes(termLower2) || displayLower.includes(termLower2);
+      const nip05Lower = ((row.event.author?.profile as { nip05?: string } | undefined)?.nip05 || '').toLowerCase();
+      const exact = [nameLower, displayLower, nip05Lower].includes(termLower2);
+      const starts = [nameLower, displayLower, nip05Lower].some((v) => v.startsWith(termLower2));
+      const contains = [nameLower, displayLower, nip05Lower].some((v) => v.includes(termLower2));
       const about = aboutLower.includes(termLower2);
       const parts: string[] = [`base=${row.baseScore}`];
       if (verified) parts.push('verified=+100');
