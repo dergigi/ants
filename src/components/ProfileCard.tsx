@@ -16,7 +16,7 @@ import { getIsKindTokens } from '@/lib/search/replacements';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { connect, safeSubscribe } from '@/lib/ndk';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onRawToggle, onRawData }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onRawToggle?: (active: boolean) => void; onRawData?: (loading: boolean, evt: NDKEvent | null) => void }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -117,22 +117,25 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (showRaw) { setShowRaw(false); return; }
+            if (showRaw) { setShowRaw(false); if (onRawToggle) onRawToggle(false); if (onRawData) onRawData(false, rawEvent); return; }
             setShowRaw(true);
+            if (onRawToggle) onRawToggle(true);
             const id = updatedEventId || fallbackEventId || null;
             if (!id) { setRawEvent(null); return; }
             setRawLoading(true);
             setRawEvent(null);
+            if (onRawData) onRawData(true, null);
             try {
               try { await connect(); } catch {}
               const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true });
               if (!sub) { setRawLoading(false); return; }
               const timer = setTimeout(() => { try { sub.stop(); } catch {}; setRawLoading(false); }, 8000);
-              sub.on('event', (evt: NDKEvent) => { setRawEvent(evt); });
-              sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; setRawLoading(false); });
+              sub.on('event', (evt: NDKEvent) => { setRawEvent(evt); if (onRawData) onRawData(false, evt); });
+              sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; setRawLoading(false); if (onRawData) onRawData(false, rawEvent); });
               sub.start();
             } catch {
               setRawLoading(false);
+              if (onRawData) onRawData(false, null);
             }
           }}
         >
@@ -231,6 +234,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
   const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
   const [bannerExpanded, setBannerExpanded] = useState(false);
+  const [rawActive, setRawActive] = useState(false);
+  const [rawEventFromFooter, setRawEventFromFooter] = useState<NDKEvent | null>(null);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
@@ -433,10 +438,44 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         )}
       </div>
-      {event.author?.profile?.about && (
-        <p className="mt-4 text-gray-300 break-words">
-          {renderBioWithHashtags(event.author?.profile?.about)}
-        </p>
+      {rawActive ? (
+        <div className="mt-4">
+          {rawEventFromFooter ? (
+            <Highlight
+              code={JSON.stringify({
+                id: rawEventFromFooter.id,
+                kind: rawEventFromFooter.kind,
+                created_at: rawEventFromFooter.created_at,
+                pubkey: rawEventFromFooter.pubkey,
+                content: rawEventFromFooter.content,
+                tags: rawEventFromFooter.tags,
+                sig: rawEventFromFooter.sig
+              }, null, 2)}
+              language="json"
+              theme={themes.nightOwl}
+            >
+              {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
+                  {tokens.map((line, i: number) => (
+                    <div key={i} {...getLineProps({ line })}>
+                      {line.map((token, key: number) => (
+                        <span key={key} {...getTokenProps({ token })} />
+                      ))}
+                    </div>
+                  ))}
+                </pre>
+              )}
+            </Highlight>
+          ) : (
+            <div className="text-xs text-gray-400">Loading…</div>
+          )}
+        </div>
+      ) : (
+        event.author?.profile?.about ? (
+          <p className="mt-4 text-gray-300 break-words">
+            {renderBioWithHashtags(event.author?.profile?.about)}
+          </p>
+        ) : null
       )}
       </div>
       <ProfileCreatedAt
@@ -445,6 +484,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
         npub={event.author.npub}
+        onRawToggle={(active) => setRawActive(active)}
+        onRawData={(_loading, evt) => { if (evt) setRawEventFromFooter(evt); }}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <>
