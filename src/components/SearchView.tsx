@@ -7,6 +7,7 @@ import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
+import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -61,9 +62,45 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, []);
 
   // Memoized client-side filtered results (for count and rendering)
+  // Maintain a map of pubkey->verified to avoid re-verifying
+  const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
+
+  useEffect(() => {
+    if (!filterSettings.verifiedOnly) return;
+    const toVerify: Array<{ pubkey?: string; nip05?: string }> = [];
+    for (const evt of results) {
+      const pubkey = evt.pubkey || evt.author?.pubkey;
+      const nip05 = evt.author?.profile?.nip05;
+      if (!pubkey || !nip05) continue;
+      if (!verifiedMapRef.current.has(pubkey)) toVerify.push({ pubkey, nip05 });
+    }
+    if (toVerify.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      await Promise.allSettled(toVerify.map(async ({ pubkey, nip05 }) => {
+        if (!pubkey) return;
+        const ok = await verifyNip05Async(pubkey, nip05);
+        if (!cancelled) verifiedMapRef.current.set(pubkey, ok);
+      }));
+      // Trigger recompute via state nudge by updating filterSettings to same object won't help; rely on results change
+      // Instead, force a noop state update by toggling a local counter
+      setVerificationTick((t) => t + 1);
+    })();
+    return () => { cancelled = true; };
+  }, [results, filterSettings.verifiedOnly]);
+
+  const [verificationTick, setVerificationTick] = useState(0);
+
   const filteredResults = useMemo(
-    () => applyContentFilters(results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly),
-    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly]
+    () => applyContentFilters(
+      results,
+      filterSettings.maxEmojis,
+      filterSettings.maxHashtags,
+      filterSettings.hideLinks,
+      filterSettings.verifiedOnly,
+      (pubkey, nip05) => Promise.resolve(verifiedMapRef.current.get(pubkey || '') === true)
+    ),
+    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, verificationTick]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
