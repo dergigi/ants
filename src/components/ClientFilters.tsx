@@ -52,7 +52,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
