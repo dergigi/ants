@@ -16,7 +16,7 @@ const profileSearchRelaySet = relaySets.profileSearch();
 // In-memory cache for DVM profile lookups: key=username(lower), value=array of profile events
 type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };
 const DVM_CACHE = new Map<string, DvmCacheEntry>();
-const DVM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DVM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DVM_NEGATIVE_TTL_MS = 60 * 1000; // 1 minute for negative results
 
 function getCachedDvm(usernameLower: string): NDKEvent[] | null | undefined {
