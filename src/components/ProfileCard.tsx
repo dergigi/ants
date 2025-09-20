@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, nip05 }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; nip05?: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -83,7 +83,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : null}
         {(() => {
           // Display NIP-05 with a refresh action for re-verification
-          const nip05 = (event.author.profile as unknown as { nip05?: string })?.nip05;
           if (!nip05) return null;
           const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
           const domain = (parts[1] || parts[0] || '').trim();
@@ -109,12 +108,12 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
                 title={reverifyLoading ? 'Re-validating…' : 'Re-validate NIP-05 now'}
                 onClick={async (e) => {
                   e.preventDefault();
-                  if (!event.author?.pubkey || !nip05) return;
+                  if (!pubkey || !nip05) return;
                   setReverifyLoading(true);
                   setReverifyOk(null);
                   try {
                     const { reverifyNip05 } = await import('@/lib/vertex');
-                    const ok = await reverifyNip05(event.author.pubkey, nip05);
+                    const ok = await reverifyNip05(pubkey, nip05);
                     setReverifyOk(ok);
                   } catch { setReverifyOk(false); }
                   finally { setReverifyLoading(false); }
@@ -212,7 +211,7 @@ type ProfileCardProps = {
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
-  const profile = event.author.profile as ProfileLike;
+  const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
@@ -373,15 +372,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {event.author.profile?.image && (
+          {event.author?.profile?.image && (
             <button
               type="button"
-              onClick={() => onAuthorClick && onAuthorClick(event.author.npub)}
+              onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
               title={(event as unknown as { debugScore?: string }).debugScore || ''}
             >
               <Image
-                src={event.author.profile.image}
+                src={event.author?.profile?.image || ''}
                 alt="Profile"
                 width={48}
                 height={48}
@@ -413,9 +412,9 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         )}
       </div>
-      {event.author.profile?.about && (
+      {event.author?.profile?.about && (
         <p className="mt-4 text-gray-300 break-words">
-          {renderBioWithHashtags(event.author.profile.about)}
+          {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
       )}
       </div>
@@ -424,6 +423,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
+        nip05={(event.author?.profile as unknown as { nip05?: string })?.nip05}
         npub={event.author.npub}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
