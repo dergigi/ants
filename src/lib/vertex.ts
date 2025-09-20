@@ -651,6 +651,16 @@ function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   return `${normalized}|${pubkeyHex}`;
 }
 
+function getCachedNip05Result(pubkeyHex: string, nip05?: string): boolean | null {
+  if (!nip05) return null;
+  try {
+    const key = nip05CacheKey(pubkeyHex, nip05);
+    return nip05VerificationCache.has(key) ? (nip05VerificationCache.get(key) as boolean) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function verifyNip05ViaApi(pubkeyHex: string, normalizedNip05: string): Promise<boolean> {
   try {
     const url = `/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalizedNip05)}`;
@@ -867,9 +877,12 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
 
     let verifyPromise: Promise<boolean> | null = null;
-    if (idx < verificationLimit) {
+    // Use cached result immediately for scoring, and schedule background verification for a subset
+    const cached = pubkey ? getCachedNip05Result(pubkey, nip05) : null;
+    if (idx < verificationLimit && cached === null && pubkey) {
+      // Fire and forget; don't await in ranking path
       verifyPromise = verifyNip05(pubkey, nip05);
-      verifications.push(verifyPromise);
+      verifications.push(verifyPromise.catch(() => false));
     }
 
     return {
@@ -883,12 +896,11 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     };
   });
 
-  // Step 3: await the scheduled verifications concurrently
-  await Promise.allSettled(verifications);
+  // Step 3: don't await verifications; they run in background and update cache when done
 
   // Step 4: assign final score and sort
   for (const row of enriched) {
-    const verified = row.verifyPromise ? await row.verifyPromise.catch(() => false) : false;
+    const verified = (row.pubkey ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
     let score = row.baseScore;
     if (verified) score += 100;
     if (row.isFriend) score += 50;
