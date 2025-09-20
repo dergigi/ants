@@ -59,7 +59,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
 
   return (
-    <div className="mt-6 mb-4">
+    <div className="mt-3 mb-4">
       {/* Collapsed view */}
       {!isExpanded && (
         <div className="flex justify-end">
