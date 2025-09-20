@@ -72,30 +72,30 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="text-xs text-gray-400">Hide results that …</div>
 
-            <div className="flex items-center gap-2 text-sm text-gray-300">
+            <div className="flex items-center gap-1 text-xs text-gray-300">
               <span>…have more than</span>
               <input
                 type="number"
                 min="0"
                 value={filterSettings.maxEmojis ?? ''}
                 onChange={(e) => handleEmojiChange(e.target.value)}
-                className="w-16 px-2 py-1 text-sm bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-14 px-1 py-0.5 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
                 placeholder="0"
               />
               <span>emojis.</span>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-gray-300">
+            <div className="flex items-center gap-1 text-xs text-gray-300">
               <span>…have more than</span>
               <input
                 type="number"
                 min="0"
                 value={filterSettings.maxHashtags ?? ''}
                 onChange={(e) => handleHashtagChange(e.target.value)}
-                className="w-16 px-2 py-1 text-sm bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-14 px-1 py-0.5 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
                 placeholder="0"
               />
               <span>hashtags.</span>
