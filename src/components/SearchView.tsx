@@ -84,13 +84,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         if (!cancelled) verifiedMapRef.current.set(pubkey, ok);
       }));
       // Trigger recompute via state nudge by updating filterSettings to same object won't help; rely on results change
-      // Instead, force a noop state update by toggling a local counter
-      setVerificationTick((t) => t + 1);
     })();
     return () => { cancelled = true; };
   }, [results, filterSettings.verifiedOnly]);
 
-  const [verificationTick, setVerificationTick] = useState(0);
 
   const filteredResults = useMemo(
     () => applyContentFilters(
@@ -103,7 +100,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       filterSettings.hideBots,
       filterSettings.hideNsfw
     ),
-    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw, verificationTick]
+    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
@@ -119,7 +116,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       ]
     });
     return fuse.search(q).map(r => r.item);
-  }, [filteredResults, filterSettings.resultFilter]);
+  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -1435,7 +1432,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [fuseFilteredResults, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.resultFilter, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
     </div>
   );
 }
