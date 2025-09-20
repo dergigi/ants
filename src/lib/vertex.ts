@@ -657,38 +657,39 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
       nip05VerificationCache.set(cacheKey, false);
       return false;
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const headers: Record<string, string> = { 'Accept': 'application/nostr+json, application/json' };
     const baseUrl = `https://${domain}/.well-known/nostr.json`;
-    const headers: Record<string, string> = { 'Accept': 'application/json, application/nostr+json' };
-    // Prefer name-scoped request
     let resolved: string | null = null;
-    let res: Response | null = null;
+    // 1) Try name-scoped request (independent controller)
     try {
-      res = await fetch(`${baseUrl}?name=${encodeURIComponent(name)}`, { signal: controller.signal, headers });
-      if (res.ok) {
-        const data = await res.json();
-        const value = (data?.names?.[name] as string | undefined)
-          || (data?.names?.[name.toLowerCase()] as string | undefined)
+      const controller1 = new AbortController();
+      const timeout1 = setTimeout(() => controller1.abort(), 4000);
+      const res1 = await fetch(`${baseUrl}?name=${encodeURIComponent(name)}`, { signal: controller1.signal, headers });
+      clearTimeout(timeout1);
+      if (res1.ok) {
+        const data1 = await res1.json();
+        resolved = (data1?.names?.[name] as string | undefined)
+          || (data1?.names?.[name.toLowerCase()] as string | undefined)
           || null;
-        resolved = value;
       }
     } catch {}
-    // Fallback: fetch full document if nothing resolved yet
+    // 2) Fallback: fetch full document (independent controller)
     if (!resolved) {
       try {
-        const full = await fetch(baseUrl, { signal: controller.signal, headers });
-        if (full.ok) {
-          const data = await full.json();
-          const names = data?.names || {};
-          resolved = (names[name] as string | undefined)
-            || (names[name.toLowerCase()] as string | undefined)
-            || (names['_'] as string | undefined)
+        const controller2 = new AbortController();
+        const timeout2 = setTimeout(() => controller2.abort(), 5000);
+        const res2 = await fetch(baseUrl, { signal: controller2.signal, headers });
+        clearTimeout(timeout2);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          const names2 = data2?.names || {};
+          resolved = (names2[name] as string | undefined)
+            || (names2[name.toLowerCase()] as string | undefined)
+            || (names2['_'] as string | undefined)
             || null;
         }
       } catch {}
     }
-    clearTimeout(timeout);
     if (!resolved) {
       nip05VerificationCache.set(cacheKey, false);
       return false;
