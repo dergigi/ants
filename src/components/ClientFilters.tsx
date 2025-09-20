@@ -75,7 +75,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           <div className="space-y-1">
             <div className="text-xs text-gray-400">Hide results that …</div>
 
-            <div className="flex items-center gap-1 text-xs text-gray-300">
+            <div className="flex items-center gap-1 text-xs text-gray-400">
               <span>…have more than</span>
               <input
                 type="number"
@@ -88,7 +88,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <span>emojis.</span>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-gray-300">
+            <div className="flex items-center gap-1 text-xs text-gray-400">
               <span>…have more than</span>
               <input
                 type="number"
