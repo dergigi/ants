@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getNip05Domain } from '@/lib/nip05';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -34,6 +34,7 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
 export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
@@ -67,6 +68,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
         <span className="truncate max-w-[14rem]">{value}</span>
       </button>
       {/* External link removed */}
+      {pathname?.startsWith('/p/') && (
       <button
         type="button"
         className="text-gray-300 hover:text-gray-100"
@@ -86,6 +88,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       >
         <FontAwesomeIcon icon={faUserGroup} className="h-3 w-3" />
       </button>
+      )}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
