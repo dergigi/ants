@@ -155,6 +155,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
   }
 
+  // Helper: navigate to root search with provided query
+  const goToRootSearch = useCallback((q: string) => {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    router.push(`/?${params.toString()}`);
+  }, [router]);
+
+  // Helper: run an exact search (no token transforms), used for filenames/URLs
+  const runExactSearch = useCallback(async (q: string) => {
+    setLoading(true);
+    try {
+      const searchResults = await searchEvents(q, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+      setResults(searchResults);
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+        return;
+      }
+      console.error('Search error:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -184,7 +208,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
     }
-    
+
     try {
       // compute expanded label/terms for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
@@ -238,52 +262,48 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         // If we resolved successfully, replace only the matched by: token with the resolved npub.
         // If resolution failed, proceed without modifying the query; the backend search will fallback.
         if (resolvedNpub) {
-          // Replace by: token with resolved npub
-          effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
-
-          // If currently on a profile page and the resolved author differs, navigate there and carry query
-          const onProfilePage = /^\/p\//i.test(pathname || '');
-          const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
-          const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
-          if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
-            const implicitQ = toImplicitUrlQuery(effectiveQuery, resolvedNpub);
-            const carry = encodeURIComponent(implicitQ);
-            router.push(`/p/${resolvedNpub}?q=${carry}`);
-            setResolvingAuthor(false);
-            setLoading(false);
-            return;
-          }
+          effectiveQuery = searchQuery.replace(/(^|\s)by:(\S+)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
         }
-        // Resolution phase complete (either way)
-        setResolvingAuthor(false);
       }
 
-      const expanded = await applySimpleReplacements(effectiveQuery);
-      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
-      
-      // Check if search was aborted after getting results
-      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
-        return;
+      // Execute search
+      const searchResults = await searchEvents(effectiveQuery, undefined as unknown as number, undefined, undefined, abortController.signal);
+      if (currentSearchId.current !== searchId) {
+        return; // stale
       }
-
       setBaseResults(searchResults);
-      const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
-      setResults(filtered);
+      setResults(searchResults);
     } catch (error) {
-      // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
         return;
       }
       console.error('Search error:', error);
       setResults([]);
     } finally {
-      // Only update loading state if this is still the current search
-      if (currentSearchId.current === searchId) {
-        setLoading(false);
-        setResolvingAuthor(false);
-      }
+      if (needsAuthorResolution) setResolvingAuthor(false);
+      setLoading(false);
     }
-  }, [pathname, router]);
+  }, [setResults, setExpandedLabel, setExpandedTerms, setActiveFilters, setResolvingAuthor, setLoading]);
+
+  // Helper: submit query locally or route to root if on /p/...; optionally run exact search
+  const submitQueryOrRoot = useCallback((nextQuery: string, options?: { exact?: boolean }) => {
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub) {
+      goToRootSearch(nextQuery);
+      return;
+    }
+    setQuery(nextQuery);
+    if (manageUrl) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('q', nextQuery);
+      router.replace(`?${params.toString()}`);
+    }
+    if (options?.exact) {
+      void runExactSearch(nextQuery);
+    } else {
+      handleSearch(nextQuery);
+    }
+  }, [pathname, goToRootSearch, setQuery, manageUrl, searchParams, router, runExactSearch, handleSearch]);
 
   useEffect(() => {
     if (!isConnecting) return;
@@ -650,30 +670,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               type="button"
               title="Search for this URL"
               className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
-              onClick={() => {
-                const nextQuery = cleanedUrl;
-                setQuery(nextQuery);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
-                }
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
-              }}
+              onClick={() => submitQueryOrRoot(cleanedUrl, { exact: true })}
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
             </button>
@@ -835,21 +832,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   onClick={() => {
                     try {
                       const nevent = nip19.neventEncode({ id: embedded.id });
-                      const q = nevent;
-                      const currentProfileNpub = getCurrentProfileNpub(pathname);
-                      if (currentProfileNpub) {
-                        const params = new URLSearchParams();
-                        params.set('q', q);
-                        router.push(`/?${params.toString()}`);
-                        return;
-                      }
-                      setQuery(q);
-                      if (manageUrl) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set('q', q);
-                        router.replace(`?${params.toString()}`);
-                      }
-                      handleSearch(q);
+                      submitQueryOrRoot(nevent);
                     } catch {}
                   }}
                 >
@@ -900,23 +883,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               finalNodes.push(
                 <button
                   key={`hashtag-${segIndex}-${chunkIdx}-${subIdx}-${index}`}
-                  onClick={() => {
-                    const nextQuery = part;
-                    const currentProfileNpub = getCurrentProfileNpub(pathname);
-                    if (currentProfileNpub) {
-                      const params = new URLSearchParams();
-                      params.set('q', nextQuery);
-                      router.push(`/?${params.toString()}`);
-                      return;
-                    }
-                    setQuery(nextQuery);
-                    if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', nextQuery);
-                      router.replace(`?${params.toString()}`);
-                    }
-                    handleSearch(nextQuery);
-                  }}
+                  onClick={() => submitQueryOrRoot(part)}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
                   {part}
@@ -930,20 +897,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 if (emojiParts[i]) finalNodes.push(emojiParts[i]);
                 if (emojis[i]) {
                   finalNodes.push(
-                    <button
-                      key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
-                      onClick={() => {
-                        const nextQuery = emojis[i] as string;
-                        setQuery(nextQuery);
-                        if (manageUrl) {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.set('q', nextQuery);
-                          router.replace(`?${params.toString()}`);
-                        }
-                        handleSearch(nextQuery);
-                      }}
-                      className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-                    >
+                  <button
+                    key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
+                    onClick={() => submitQueryOrRoot(emojis[i] as string)}
+                    className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
+                  >
                       {emojis[i]}
                     </button>
                   );
@@ -958,7 +916,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, pathname]);
+  }, [stripPreviewUrls, stripMediaUrls, submitQueryOrRoot, goToProfile]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1033,35 +991,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
               onClick={() => {
                 const filename = getFilenameFromUrl(src);
-                const nextQuery = filename;
-                const currentProfileNpub = getCurrentProfileNpub(pathname);
-                if (currentProfileNpub) {
-                  const params = new URLSearchParams();
-                  params.set('q', nextQuery);
-                  router.push(`/?${params.toString()}`);
-                  return;
-                }
-                setQuery(filename);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', filename);
-                  router.replace(`?${params.toString()}`);
-                }
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
+                submitQueryOrRoot(filename, { exact: true });
               }}
             >
               {isAbsoluteHttpUrl(src) ? (
@@ -1097,43 +1027,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   return next;
                 });
               }}
-              onSearch={(targetUrl) => {
-                const nextQuery = targetUrl;
-                const currentProfileNpub = getCurrentProfileNpub(pathname);
-                if (currentProfileNpub) {
-                  const params = new URLSearchParams();
-                  params.set('q', nextQuery);
-                  router.push(`/?${params.toString()}`);
-                  return;
-                }
-                setQuery(nextQuery);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
-                }
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
-              }}
+              onSearch={(targetUrl) => submitQueryOrRoot(targetUrl, { exact: true })}
             />
           ))}
         </div>
       )}
     </>
-  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router, pathname]);
+  ), [extractImageUrls, extractVideoUrls, submitQueryOrRoot]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -1420,21 +1320,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           onClick={() => {
                             try {
                               const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              const currentProfileNpub = getCurrentProfileNpub(pathname);
-                              if (currentProfileNpub) {
-                                const params = new URLSearchParams();
-                                params.set('q', q);
-                                router.push(`/?${params.toString()}`);
-                                return;
-                              }
-                              setQuery(q);
-                              if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
-                              }
-                              handleSearch(q);
+                              submitQueryOrRoot(nevent);
                             } catch {}
                           }}
                         >
@@ -1478,14 +1364,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           onClick={() => {
                             try {
                               const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
-                              }
-                              handleSearch(q);
+                              submitQueryOrRoot(nevent);
                             } catch {}
                           }}
                         >
@@ -1499,7 +1378,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent, pathname])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, toPlainEvent, submitQueryOrRoot])}
     </div>
   );
 }
