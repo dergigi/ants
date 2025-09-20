@@ -90,18 +90,19 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </div>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            {/* Fuzzy filter with icon */}
+            <div className="relative w-full max-w-xs">
+              <FontAwesomeIcon icon={faFilter} className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
               <input
                 type="text"
                 value={filterSettings.resultFilter || ''}
                 onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
-                className="w-full max-w-xs px-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none"
               />
             </div>
 
-            <div className="text-xs text-gray-400">Show:</div>
-
+            {/* Show only verified */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
                 type="checkbox"
@@ -109,11 +110,10 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
                 className="accent-[#4a4a4a]"
               />
-              <span>Verified (NIP-05) only</span>
+              <span>Show only verified (NIP-05)</span>
             </label>
 
-            <div className="text-xs text-gray-400">Hide:</div>
-
+            {/* Hide more than X emojis */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
                 type="checkbox"
@@ -123,7 +123,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 }}
                 className="accent-[#4a4a4a]"
               />
-              <span>More than</span>
+              <span>Hide more than</span>
               <input
                 type="number"
                 min="0"
@@ -135,6 +135,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <span>emojis</span>
             </label>
 
+            {/* Hide more than X hashtags */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
                 type="checkbox"
@@ -144,7 +145,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 }}
                 className="accent-[#4a4a4a]"
               />
-              <span>More than</span>
+              <span>Hide more than</span>
               <input
                 type="number"
                 min="0"
@@ -156,6 +157,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <span>hashtags</span>
             </label>
 
+            {/* Hide external links */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
                 type="checkbox"
@@ -165,7 +167,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 }}
                 className="accent-[#4a4a4a]"
               />
-              <span>External links</span>
+              <span>Hide external links</span>
             </label>
           </div>
 
