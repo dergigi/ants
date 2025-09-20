@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getNip05Domain } from '@/lib/nip05';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark, faCircleExclamation, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
@@ -84,7 +84,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           router.push(`/?${params.toString()}`);
         }}
       >
-        <FontAwesomeIcon icon={faMagnifyingGlass} className="h-3 w-3" />
+        <FontAwesomeIcon icon={faUserGroup} className="h-3 w-3" />
       </button>
     </span>
   ) : (
