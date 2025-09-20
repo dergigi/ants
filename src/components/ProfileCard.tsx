@@ -22,7 +22,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
   const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
   const [showRaw, setShowRaw] = useState(false);
-  const [rawLoading, setRawLoading] = useState(false);
   const [rawEvent, setRawEvent] = useState<NDKEvent | null>(null);
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
@@ -122,19 +121,17 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             if (onRawToggle) onRawToggle(true);
             const id = updatedEventId || fallbackEventId || null;
             if (!id) { setRawEvent(null); return; }
-            setRawLoading(true);
             setRawEvent(null);
             if (onRawData) onRawData(true, null);
             try {
               try { await connect(); } catch {}
               const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true });
-              if (!sub) { setRawLoading(false); return; }
-              const timer = setTimeout(() => { try { sub.stop(); } catch {}; setRawLoading(false); }, 8000);
+              if (!sub) { if (onRawData) onRawData(false, null); return; }
+              const timer = setTimeout(() => { try { sub.stop(); } catch {}; if (onRawData) onRawData(false, rawEvent); }, 8000);
               sub.on('event', (evt: NDKEvent) => { setRawEvent(evt); if (onRawData) onRawData(false, evt); });
-              sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; setRawLoading(false); if (onRawData) onRawData(false, rawEvent); });
+              sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; if (onRawData) onRawData(false, rawEvent); });
               sub.start();
             } catch {
-              setRawLoading(false);
               if (onRawData) onRawData(false, null);
             }
           }}
@@ -150,41 +147,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
         </a>
       </div>
-      {showRaw ? (
-        <div className="w-full mt-2">
-          {rawLoading ? (
-            <div className="text-xs text-gray-400">Loading…</div>
-          ) : rawEvent ? (
-            <Highlight
-              code={JSON.stringify({
-                id: rawEvent.id,
-                kind: rawEvent.kind,
-                created_at: rawEvent.created_at,
-                pubkey: rawEvent.pubkey,
-                content: rawEvent.content,
-                tags: rawEvent.tags,
-                sig: rawEvent.sig
-              }, null, 2)}
-              language="json"
-              theme={themes.nightOwl}
-            >
-              {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
-                  {tokens.map((line, i: number) => (
-                    <div key={i} {...getLineProps({ line })}>
-                      {line.map((token, key: number) => (
-                        <span key={key} {...getTokenProps({ token })} />
-                      ))}
-                    </div>
-                  ))}
-                </pre>
-              )}
-            </Highlight>
-          ) : (
-            <div className="text-xs text-gray-400">No event available</div>
-          )}
-        </div>
-      ) : null}
+      {/* Raw JSON is rendered in parent ProfileCard (bio area) only */}
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
         <>
           <div
