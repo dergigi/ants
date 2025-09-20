@@ -1,0 +1,34 @@
+const nip05Cache = new Map<string, boolean>();
+
+export async function verifyNip05(pubkeyHex: string | undefined, nip05?: string, timeoutMs: number = 4000): Promise<boolean> {
+  if (!pubkeyHex || !nip05) return false;
+  const cacheKey = `${nip05}|${pubkeyHex}`;
+  if (nip05Cache.has(cacheKey)) return nip05Cache.get(cacheKey) as boolean;
+  try {
+    const [namePart, domainPartCandidate] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+    const name = namePart || '_';
+    const domain = (domainPartCandidate || '').trim();
+    if (!domain) {
+      nip05Cache.set(cacheKey, false);
+      return false;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      nip05Cache.set(cacheKey, false);
+      return false;
+    }
+    const data = await res.json();
+    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
+    const result = mapped === pubkeyHex.toLowerCase();
+    nip05Cache.set(cacheKey, result);
+    return result;
+  } catch {
+    nip05Cache.set(cacheKey, false);
+    return false;
+  }
+}
+
+

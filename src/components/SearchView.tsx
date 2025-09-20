@@ -6,17 +6,22 @@ import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
+import { applyContentFilters } from '@/lib/contentAnalysis';
+import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
+import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
+import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import Fuse from 'fuse.js';
 
 type Props = {
   initialQuery?: string;
@@ -51,10 +56,67 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
   }, []);
+
+  // Memoized client-side filtered results (for count and rendering)
+  // Maintain a map of pubkey->verified to avoid re-verifying
+  const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
+
+  useEffect(() => {
+    if (!filterSettings.verifiedOnly) return;
+    const toVerify: Array<{ pubkey?: string; nip05?: string }> = [];
+    for (const evt of results) {
+      const pubkey = evt.pubkey || evt.author?.pubkey;
+      const nip05 = evt.author?.profile?.nip05;
+      if (!pubkey || !nip05) continue;
+      if (!verifiedMapRef.current.has(pubkey)) toVerify.push({ pubkey, nip05 });
+    }
+    if (toVerify.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      await Promise.allSettled(toVerify.map(async ({ pubkey, nip05 }) => {
+        if (!pubkey) return;
+        const ok = await verifyNip05Async(pubkey, nip05);
+        if (!cancelled) verifiedMapRef.current.set(pubkey, ok);
+      }));
+      // Trigger recompute via state nudge by updating filterSettings to same object won't help; rely on results change
+    })();
+    return () => { cancelled = true; };
+  }, [results, filterSettings.verifiedOnly]);
+
+
+  const filteredResults = useMemo(
+    () => applyContentFilters(
+      results,
+      filterSettings.maxEmojis,
+      filterSettings.maxHashtags,
+      filterSettings.hideLinks,
+      filterSettings.verifiedOnly,
+      (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
+      filterSettings.hideBots,
+      filterSettings.hideNsfw
+    ),
+    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+  );
+
+  // Apply optional fuzzy filter on top of client-side filters
+  const fuseFilteredResults = useMemo(() => {
+    const q = (filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
+    if (!q) return filteredResults;
+    const fuse = new Fuse(filteredResults, {
+      includeScore: false,
+      threshold: 0.35,
+      ignoreLocation: true,
+      keys: [
+        { name: 'content', weight: 1 }
+      ]
+    });
+    return fuse.search(q).map(r => r.item);
+  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -456,38 +518,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const extractImageUrls = useCallback((text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = regex.exec(text)) !== null) {
-      const url = m[1].replace(/[),.;]+$/, '').trim();
-      if (!matches.includes(url)) matches.push(url);
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (IMAGE_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 3);
   }, []);
 
   const extractVideoUrls = useCallback((text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = regex.exec(text)) !== null) {
-      const url = m[1].replace(/[),.;]+$/, '').trim();
-      if (!matches.includes(url)) matches.push(url);
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (VIDEO_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 2);
   }, []);
 
   const extractNonMediaUrls = (text: string): string[] => {
     if (!text) return [];
-    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
-    const videoExt = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
     const urls: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = urlRegex.exec(text)) !== null) {
-      const raw = m[1].replace(/[),.;]+$/, '').trim();
-      if (!imageExt.test(raw) && !videoExt.test(raw) && !urls.includes(raw)) {
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const raw = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (!IMAGE_EXT_REGEX.test(raw) && !VIDEO_EXT_REGEX.test(raw) && !urls.includes(raw)) {
         urls.push(raw);
       }
     }
@@ -1257,10 +1314,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {useMemo(() => (
-        results.length > 0 ? (
+      {/* Client-side filters */}
+      {results.length > 0 && (
+        <ClientFilters
+          filterSettings={filterSettings}
+          onFilterChange={setFilterSettings}
+          resultCount={results.length}
+          filteredCount={fuseFilteredResults.length}
+        />
+      )}
+
+      {/* Textbox moved inside ClientFilters 'Show:' section */}
+
+      {useMemo(() => {
+        const finalResults = fuseFilteredResults;
+        return finalResults.length > 0 ? (
           <div className="mt-8 space-y-4">
-            {results.map((event, idx) => {
+            {finalResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
               const isLoadingParent = parent === 'loading';
@@ -1361,8 +1431,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               );
             })}
           </div>
-        ) : null
-      ), [results, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+        ) : null;
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
     </div>
   );
 }

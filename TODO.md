@@ -19,7 +19,7 @@
 - [x] Same for gifs (`has:gif` and `is:gif`)
 - [x] Add more examples to pre-fill search field
 - [x] Show different examples periodically for discovery
-- [ ] Fix "OR" logic
+- [x] Fix "OR" logic
 - [ ] Update UI with placeholders immediatly after any search is triggered
 - [ ] Add support for `is:tweet` and `is:short` (<= 210 chars)
 - [ ] Hide note content if it is longer than 210 chars, adding "show more"
@@ -36,3 +36,4 @@
 - [ ] Explain that users need Vertex credits for the username lookup to work properly
 - [ ] Fix the one weird profile-specific search UI bug
 - [ ] Refactor to use nepsilon/search-query-parser (?)
+- [ ] Add NIP-56 support to allow for nudity/profanity/illegal/spam/impersonation content filters
