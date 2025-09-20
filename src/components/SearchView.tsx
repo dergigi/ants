@@ -7,8 +7,9 @@ import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
-import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
-import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
+import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
+// Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
+import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
@@ -69,11 +70,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
 
   useEffect(() => {
-    if (!filterSettings.verifiedOnly) return;
-    const toVerify: Array<{ pubkey?: string; nip05?: string }> = [];
-    for (const evt of results) {
-      const pubkey = evt.pubkey || evt.author?.pubkey;
-      const nip05 = evt.author?.profile?.nip05;
+    // Proactively verify missing entries (bounded to first 50) and then reorder results
+    const toVerify: Array<{ pubkey: string; nip05: string }> = [];
+    for (const evt of results.slice(0, 50)) {
+      const pubkey = (evt.pubkey || evt.author?.pubkey) as string | undefined;
+      const nip05 = (evt.author?.profile as { nip05?: string } | undefined)?.nip05;
       if (!pubkey || !nip05) continue;
       if (!verifiedMapRef.current.has(pubkey)) toVerify.push({ pubkey, nip05 });
     }
@@ -81,14 +82,38 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     let cancelled = false;
     (async () => {
       await Promise.allSettled(toVerify.map(async ({ pubkey, nip05 }) => {
-        if (!pubkey) return;
-        const ok = await verifyNip05Async(pubkey, nip05);
-        if (!cancelled) verifiedMapRef.current.set(pubkey, ok);
+        try {
+          const ok = await verifyNip05Async(pubkey, nip05);
+          if (!cancelled) verifiedMapRef.current.set(pubkey, Boolean(ok));
+        } catch {
+          if (!cancelled) verifiedMapRef.current.set(pubkey, false);
+        }
       }));
-      // Trigger recompute via state nudge by updating filterSettings to same object won't help; rely on results change
+      if (cancelled) return;
+      // Reorder results by verified first while preserving relative order for ties
+      setResults(prev => {
+        const index = new Map<string, number>();
+        prev.forEach((e, i) => {
+          const pk = (e.pubkey || e.author?.pubkey) as string | undefined;
+          if (pk) index.set(pk, i);
+        });
+        const copy = [...prev];
+        copy.sort((a, b) => {
+          const ap = (a.pubkey || a.author?.pubkey) as string | undefined;
+          const bp = (b.pubkey || b.author?.pubkey) as string | undefined;
+          const av = ap ? (verifiedMapRef.current.get(ap) === true ? 1 : 0) : 0;
+          const bv = bp ? (verifiedMapRef.current.get(bp) === true ? 1 : 0) : 0;
+          if (av !== bv) return bv - av; // verified first
+          // stable by original index
+          const ai = ap ? (index.get(ap) ?? 0) : 0;
+          const bi = bp ? (index.get(bp) ?? 0) : 0;
+          return ai - bi;
+        });
+        return copy;
+      });
     })();
     return () => { cancelled = true; };
-  }, [results, filterSettings.verifiedOnly]);
+  }, [results]);
 
 
   const filteredResults = useMemo(
@@ -1017,7 +1042,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 })();
               }}
             >
-              <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+              {isAbsoluteHttpUrl(src) ? (
+                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+              ) : null}
             </button>
           ))}
         </div>

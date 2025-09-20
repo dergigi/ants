@@ -1,7 +1,7 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter } from './ndk';
 import { getStoredPubkey } from './nip07';
-import { lookupVertexProfile, searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey } from './vertex';
+import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 // legacy import removed
@@ -717,17 +717,10 @@ export async function searchEvents(
     console.log('Found author filter (early):', { author, terms });
 
     let pubkey: string | null = null;
-    if (isNpub(author)) {
-      try { pubkey = getPubkey(author); } catch { pubkey = null; }
-    } else {
-      try {
-        let profile = await lookupVertexProfile(`p:${author}`);
-        if (!profile) {
-          try { const profiles = await searchProfilesFullText(author, 1); profile = profiles[0] || null; } catch {}
-        }
-        if (profile) pubkey = profile.author?.pubkey || profile.pubkey || null;
-      } catch {}
-    }
+    try {
+      const resolved = await resolveAuthor(author);
+      pubkey = resolved.pubkeyHex;
+    } catch {}
 
     if (!pubkey) {
       console.log('No valid pubkey found for author:', author);
@@ -971,34 +964,12 @@ export async function searchEvents(
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
-
-    // Check if author is a direct npub
-    if (isNpub(author)) {
-      try {
-        pubkey = getPubkey(author);
-      } catch (error) {
-        console.error('Error decoding author npub:', error);
-        pubkey = null;
-      }
-    } else {
-      // Look up author's profile via Vertex DVM (personalized when logged in, global otherwise)
-      try {
-        let profile = await lookupVertexProfile(`p:${author}`);
-        // Fallback: try full-text profile search if DVM and fallback did not return a result
-        if (!profile) {
-          try {
-            const profiles = await searchProfilesFullText(author, 1);
-            profile = profiles[0] || null;
-          } catch {
-            // ignore and keep profile null
-          }
-        }
-        if (profile) {
-          pubkey = profile.author?.pubkey || profile.pubkey || null;
-        }
-      } catch (error) {
-        console.error('Error looking up author profile:', error);
-      }
+    try {
+      // Unified resolver handles npub, nip05, and username with a single DVM attempt
+      const resolved = await resolveAuthor(author);
+      pubkey = resolved.pubkeyHex;
+    } catch (error) {
+      console.error('Error resolving author:', error);
     }
 
     if (!pubkey) {

@@ -5,6 +5,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -65,6 +66,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
   const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
+  // footer-specific state only
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -79,6 +81,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <span className="truncate max-w-[14rem]">{lightning}</span>
           </a>
         ) : null}
+        {/* NIP-05 controls moved to AuthorBadge next to the name */}
       </div>
       <div className="ml-auto flex items-center gap-2">
         {updatedAt && updatedEventId ? (
@@ -163,8 +166,9 @@ type ProfileCardProps = {
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
-  const profile = event.author.profile as ProfileLike;
+  const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
+  const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
@@ -216,7 +220,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   }, [onHashtagClick, router]);
   return (
     <div className={noteCardClasses}>
-      {showBanner && bannerUrl && (
+      {showBanner && safeBannerUrl && (
         <div
           role="button"
           tabIndex={0}
@@ -236,7 +240,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             style={{ height: bannerExpanded ? 240 : 32 }}
           >
             <div className="absolute inset-0 overflow-hidden">
-              <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+              <Image src={safeBannerUrl} alt="Banner" fill className="object-cover" unoptimized />
             </div>
             <div className="absolute top-1 left-1 z-50">
               <div className="relative">
@@ -274,7 +278,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (bannerUrl) window.open(bannerUrl, '_blank', 'noopener,noreferrer');
+                  if (safeBannerUrl) window.open(safeBannerUrl, '_blank', 'noopener,noreferrer');
                 }}
                 className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
@@ -324,14 +328,18 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {event.author.profile?.image && (
+          {(() => {
+            const avatarUrl = (event.author?.profile as unknown as { image?: string } | undefined)?.image;
+            const showAvatar = typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl);
+            if (!showAvatar) return null;
+            return (
             <button
               type="button"
-              onClick={() => onAuthorClick && onAuthorClick(event.author.npub)}
+              onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
             >
               <Image
-                src={event.author.profile.image}
+                src={avatarUrl as string}
                 alt="Profile"
                 width={48}
                 height={48}
@@ -339,7 +347,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 unoptimized
               />
             </button>
-          )}
+            );
+          })()}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
         {event.author?.npub && (
@@ -363,9 +372,9 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         )}
       </div>
-      {event.author.profile?.about && (
+      {event.author?.profile?.about && (
         <p className="mt-4 text-gray-300 break-words">
-          {renderBioWithHashtags(event.author.profile.about)}
+          {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
       )}
       </div>

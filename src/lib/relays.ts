@@ -1,27 +1,21 @@
 import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe } from './ndk';
+import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
 const nip50SupportCache = new Map<string, { supported: boolean; timestamp: number }>();
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CACHE_STORAGE_KEY = 'ants_nip50_cache';
 
-// Utility: check if running in a browser environment
-function hasLocalStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
 // Load cache from localStorage on initialization (browser only)
 function loadCacheFromStorage(): void {
-  if (!hasLocalStorage()) return;
   try {
-    const stored = localStorage.getItem(CACHE_STORAGE_KEY);
-    if (stored) {
-      const data = JSON.parse(stored);
-      for (const [url, cacheEntry] of Object.entries(data)) {
-        nip50SupportCache.set(url, cacheEntry as { supported: boolean; timestamp: number });
-      }
-      console.log(`Loaded ${nip50SupportCache.size} NIP-50 cache entries from storage`);
+    const loaded = loadMapFromStorage<{ supported: boolean; timestamp: number }>(CACHE_STORAGE_KEY);
+    for (const [url, entry] of loaded.entries()) {
+      nip50SupportCache.set(url, entry);
+    }
+    if (loaded.size > 0) {
+      console.log(`Loaded ${loaded.size} NIP-50 cache entries from storage`);
     }
   } catch (error) {
     console.warn('Failed to load NIP-50 cache from storage:', error);
@@ -30,10 +24,8 @@ function loadCacheFromStorage(): void {
 
 // Save cache to localStorage (browser only)
 function saveCacheToStorage(): void {
-  if (!hasLocalStorage()) return;
   try {
-    const data = Object.fromEntries(nip50SupportCache);
-    localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(data));
+    saveMapToStorage(CACHE_STORAGE_KEY, nip50SupportCache);
   } catch (error) {
     console.warn('Failed to save NIP-50 cache to storage:', error);
   }
@@ -62,7 +54,8 @@ export const RELAYS = {
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
     'wss://purplepag.es',
-    'wss://search.nos.today'
+    'wss://search.nos.today',
+    'wss://relay.nostr.band'
   ],
 
   // Vertex DVM relay
@@ -223,9 +216,7 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
 export function clearNip50Cache(): void {
   nip50SupportCache.clear();
   try {
-    if (hasLocalStorage()) {
-      localStorage.removeItem(CACHE_STORAGE_KEY);
-    }
+    clearStorageKey(CACHE_STORAGE_KEY);
     console.log('NIP-50 cache cleared');
   } catch (error) {
     console.warn('Failed to clear NIP-50 cache from storage:', error);

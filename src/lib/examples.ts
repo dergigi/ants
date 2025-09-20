@@ -11,7 +11,7 @@ export const searchExamples = [
   // Author
   'by:dergigi',
   'by:gigi',
-  'by:pablo',
+  'by:pablof7z',
   'by:corndalorian',
 
   // Combined
@@ -35,6 +35,10 @@ export const searchExamples = [
   'p:hodl',
   'p:dergigi.com',
   '@dergigi.com',
+  'p:zaps.lol',
+  'p:nostrplebs.com',
+  'p:dave',
+  'kind:0 #bitcoin',
 
   // Operators & media
   'bitcoin OR lightning',

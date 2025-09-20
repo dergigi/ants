@@ -1,9 +1,11 @@
 import { ndk, safePublish, safeSubscribe } from './ndk';
-import { nip19 } from 'nostr-tools';
+import { nip19, nip05 as nostrNip05 } from 'nostr-tools';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
 import { relaySets } from './relays';
+import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from './storageCache';
+import { normalizeNip05String } from './nip05';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -12,6 +14,120 @@ const dvmRelaySet = relaySets.vertexDvm();
 
 // Fallback profile search relay set (NIP-50 capable)
 const profileSearchRelaySet = relaySets.profileSearch();
+
+// In-memory cache for DVM profile lookups: key=username(lower), value=array of profile events
+type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };
+const DVM_CACHE = new Map<string, DvmCacheEntry>();
+const DVM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DVM_NEGATIVE_TTL_MS = 60 * 1000; // 1 minute for negative results
+const DVM_CACHE_STORAGE_KEY = 'ants_dvm_cache_v1';
+
+type DvmStoredRecord = {
+  pubkey: string;
+  profile?: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string };
+};
+
+function serializeDvmEvents(events: NDKEvent[] | null): DvmStoredRecord[] {
+  if (!events || events.length === 0) return [];
+  const records: DvmStoredRecord[] = [];
+  for (const evt of events) {
+    const pubkey = (evt.pubkey || evt.author?.pubkey || '').trim();
+    if (!pubkey) continue;
+    const fields = extractProfileFields(evt);
+    const profile: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string } | undefined = (
+      fields.name || fields.display || fields.about || fields.nip05 || fields.image
+    ) ? {
+      name: fields.name,
+      displayName: fields.display,
+      about: fields.about,
+      nip05: fields.nip05,
+      image: fields.image
+    } : undefined;
+    records.push({ pubkey, profile });
+  }
+  return records;
+}
+
+function deserializeDvmEvents(records: DvmStoredRecord[]): NDKEvent[] {
+  const events: NDKEvent[] = [];
+  for (const rec of records) {
+    const user = new NDKUser({ pubkey: rec.pubkey });
+    user.ndk = ndk;
+    if (rec.profile) {
+      (user as NDKUser & { profile: typeof rec.profile }).profile = { ...rec.profile } as unknown as typeof rec.profile;
+    }
+    const plain: Event = {
+      kind: 0,
+      created_at: Math.floor(Date.now() / 1000),
+      content: JSON.stringify({
+        name: rec.profile?.name,
+        display_name: rec.profile?.displayName || rec.profile?.name,
+        about: rec.profile?.about,
+        nip05: rec.profile?.nip05,
+        image: rec.profile?.image
+      }),
+      pubkey: rec.pubkey,
+      tags: [],
+      id: '',
+      sig: ''
+    };
+    plain.id = getEventHash(plain);
+    const evt = new NDKEvent(ndk, plain);
+    evt.author = user;
+    events.push(evt);
+  }
+  return events;
+}
+
+function saveDvmCacheToStorage(): void {
+  try {
+    if (!hasLocalStorage()) return;
+    const out = new Map<string, { records: DvmStoredRecord[]; timestamp: number }>();
+    for (const [key, entry] of DVM_CACHE.entries()) {
+      const records = serializeDvmEvents(entry.events);
+      out.set(key, { records, timestamp: entry.timestamp });
+    }
+    saveMapToStorage(DVM_CACHE_STORAGE_KEY, out);
+  } catch {
+    // ignore
+  }
+}
+
+function loadDvmCacheFromStorage(): void {
+  try {
+    if (!hasLocalStorage()) return;
+    const loaded = loadMapFromStorage<{ records: DvmStoredRecord[]; timestamp: number }>(DVM_CACHE_STORAGE_KEY);
+    for (const [key, stored] of loaded.entries()) {
+      const events = deserializeDvmEvents(stored.records || []);
+      DVM_CACHE.set(key, { events, timestamp: stored.timestamp || Date.now() });
+    }
+  } catch {
+    // ignore
+  }
+}
+
+// Initialize persistent DVM cache on module load (browser only)
+loadDvmCacheFromStorage();
+
+function getCachedDvm(usernameLower: string): NDKEvent[] | null | undefined {
+  const entry = DVM_CACHE.get(usernameLower);
+  if (!entry) return undefined;
+  const ttl = entry.events && entry.events.length > 0 ? DVM_CACHE_TTL_MS : DVM_NEGATIVE_TTL_MS;
+  if (Date.now() - entry.timestamp > ttl) {
+    DVM_CACHE.delete(usernameLower);
+    return undefined;
+  }
+  return entry.events;
+}
+
+function setCachedDvm(usernameLower: string, events: NDKEvent[] | null): void {
+  DVM_CACHE.set(usernameLower, { events, timestamp: Date.now() });
+  saveDvmCacheToStorage();
+}
+
+function isLoggedIn(): boolean {
+  return Boolean(getStoredPubkey());
+}
 
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
@@ -91,6 +207,13 @@ export async function profileEventFromPubkey(pubkey: string): Promise<NDKEvent> 
 
 async function queryVertexDVM(username: string, limit: number = 10): Promise<NDKEvent[]> {
   try {
+    // Check cache first
+    const key = (username || '').toLowerCase();
+    const cached = getCachedDvm(key);
+    if (cached !== undefined) {
+      return (cached || []).slice(0, Math.max(0, limit));
+    }
+
     console.log('Starting DVM query for username:', username);
     const storedPubkey = getStoredPubkey();
     
@@ -233,6 +356,8 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
               return profileEvent;
             });
 
+            // Store in cache (positive)
+            setCachedDvm(key, events);
             resolve(events);
           } catch (e) {
             console.error('Error processing DVM response:', e);
@@ -264,6 +389,11 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
     });
   } catch (error) {
     console.error('Error in queryVertexDVM:', error);
+    // Cache negative outcome briefly to avoid thrashing
+    try {
+      const key = (username || '').toLowerCase();
+      setCachedDvm(key, null);
+    } catch {}
     throw error;
   }
 }
@@ -273,7 +403,12 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   if (!match) return null;
   
   const username = match[1].toLowerCase();
-  
+
+  // If not logged in, skip DVM entirely
+  if (!isLoggedIn()) {
+    try { return await fallbackLookupProfile(username); } catch { return null; }
+  }
+
   // Run DVM query and fallback in parallel; return the first non-null result
   const dvmPromise: Promise<NDKEvent | null> = (async () => {
     try {
@@ -309,6 +444,46 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   return dvmRes || fbRes;
 } 
 
+// Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
+export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> {
+  try {
+    const input = (authorInput || '').trim();
+    if (!input) return { pubkeyHex: null, profileEvent: null };
+
+    // 1) If input is npub, decode directly
+    if (/^npub1[0-9a-z]+$/i.test(input)) {
+      try {
+        const { type, data } = nip19.decode(input);
+        if (type === 'npub' && typeof data === 'string') {
+          return { pubkeyHex: data, profileEvent: await profileEventFromPubkey(data) };
+        }
+      } catch {}
+      return { pubkeyHex: null, profileEvent: null };
+    }
+
+    // 2) If input looks like NIP-05 ('@name@domain' | 'domain.tld' | '@domain.tld'), resolve to pubkey
+    const nip05Like = input.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
+    if (nip05Like) {
+      const pk = await resolveNip05ToPubkey(input);
+      if (!pk) return { pubkeyHex: null, profileEvent: null };
+      return { pubkeyHex: pk, profileEvent: await profileEventFromPubkey(pk) };
+    }
+
+    // 3) Otherwise treat as username and try Vertex DVM with fallback (single DVM attempt)
+    let profileEvt: NDKEvent | null = null;
+    try {
+      profileEvt = await lookupVertexProfile(`p:${input}`);
+    } catch {}
+    if (!profileEvt) {
+      return { pubkeyHex: null, profileEvent: null };
+    }
+    const pubkeyHex = profileEvt.author?.pubkey || profileEvt.pubkey || null;
+    return { pubkeyHex, profileEvent: profileEvt };
+  } catch {
+    return { pubkeyHex: null, profileEvent: null };
+  }
+}
+
 export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: string; created_at: number } | null> {
   try {
     const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 8000 }, 8000);
@@ -331,22 +506,12 @@ export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: st
 // and falls back to a NIP-50 profile search. Hard timebox externally when needed.
 export async function resolveAuthorToNpub(author: string): Promise<string | null> {
   try {
-    const core = (author || '').trim();
-    if (!core) return null;
-    if (/^npub1[0-9a-z]+$/i.test(core)) return core;
-
-    // Try Vertex first
-    let profile = await lookupVertexProfile(`p:${core}`);
-    if (!profile) {
-      // Fallback to full-text profile search
-      try {
-        const profiles = await searchProfilesFullText(core, 1);
-        profile = profiles[0] || null;
-      } catch {}
-    }
-    const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-    if (!pubkey) return null;
-    try { return nip19.npubEncode(pubkey); } catch { return null; }
+    const input = (author || '').trim();
+    if (!input) return null;
+    if (/^npub1[0-9a-z]+$/i.test(input)) return input;
+    const { pubkeyHex } = await resolveAuthor(input);
+    if (!pubkeyHex) return null;
+    try { return nip19.npubEncode(pubkeyHex); } catch { return null; }
   } catch {
     return null;
   }
@@ -477,40 +642,96 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
   return ensureAuthor(sortedByCount[0]);
 }
 
-// Simple in-memory cache for NIP-05 verification results
+// Simple in-memory + persisted cache for NIP-05 verification results
+const NIP05_CACHE_STORAGE_KEY = 'ants_nip05_cache_v1';
+type Nip05CacheValue = { ok: boolean; timestamp: number };
+const NIP05_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const nip05VerificationCache = new Map<string, boolean>();
+const nip05PersistentCache: Map<string, Nip05CacheValue> = loadMapFromStorage<Nip05CacheValue>(NIP05_CACHE_STORAGE_KEY);
 
-async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
-  if (!nip05) return false;
-  const cacheKey = `${nip05}|${pubkeyHex}`;
-  if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
+
+function nip05CacheKey(pubkeyHex: string, nip05: string): string {
+  const normalized = normalizeNip05String(nip05);
+  return `${normalized}|${pubkeyHex}`;
+}
+
+function getCachedNip05Result(pubkeyHex: string, nip05?: string): boolean | null {
+  if (!nip05) return null;
   try {
-    const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-    const name = parts[0] || '_';
-    const domain = (parts[1] || '').trim();
-    if (!domain) {
-      nip05VerificationCache.set(cacheKey, false);
-      return false;
+    const key = nip05CacheKey(pubkeyHex, nip05);
+    if (nip05VerificationCache.has(key)) return nip05VerificationCache.get(key) as boolean;
+    const persisted = nip05PersistentCache.get(key);
+    if (persisted && (Date.now() - persisted.timestamp) <= NIP05_TTL_MS) {
+      nip05VerificationCache.set(key, persisted.ok);
+      return persisted.ok;
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      nip05VerificationCache.set(cacheKey, false);
-      return false;
-    }
-    const data = await res.json();
-    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
-    const result = mapped === pubkeyHex.toLowerCase();
-    nip05VerificationCache.set(cacheKey, result);
-    return result;
+    return null;
   } catch {
-    const cacheKey = `${nip05}|${pubkeyHex}`;
-    nip05VerificationCache.set(cacheKey, false);
+    return null;
+  }
+}
+
+async function verifyNip05ViaApi(pubkeyHex: string, normalizedNip05: string): Promise<boolean> {
+  try {
+    const url = `/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalizedNip05)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    return Boolean(data?.ok);
+  } catch {
     return false;
   }
 }
+
+async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
+  if (!nip05) return false;
+  const normalized = normalizeNip05String(nip05);
+  if (!normalized) return false;
+  const cacheKey = nip05CacheKey(pubkeyHex, nip05);
+  if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
+  try {
+    // Try server-side endpoint to avoid CORS from browser
+    const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
+    if (okApi !== false) {
+      nip05VerificationCache.set(cacheKey, okApi);
+      nip05PersistentCache.set(cacheKey, { ok: okApi, timestamp: Date.now() });
+      if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
+      return okApi;
+    }
+  } catch {}
+  try {
+    // Fallback to direct nostr-tools check
+    const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
+    nip05VerificationCache.set(cacheKey, ok);
+    nip05PersistentCache.set(cacheKey, { ok, timestamp: Date.now() });
+    if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
+    return ok;
+  } catch {}
+  const cacheKey2 = nip05CacheKey(pubkeyHex, nip05);
+  nip05VerificationCache.set(cacheKey2, false);
+  nip05PersistentCache.set(cacheKey2, { ok: false, timestamp: Date.now() });
+  if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
+  return false;
+}
+
+// Invalidate one cached NIP-05 verification entry
+export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
+  try {
+    const key = nip05CacheKey(pubkeyHex, nip05);
+    nip05VerificationCache.delete(key);
+    // Also delete raw key if it was stored prior to normalization change
+    nip05VerificationCache.delete(`${nip05}|${pubkeyHex}`);
+    nip05PersistentCache.delete(key);
+    if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
+  } catch {}
+}
+
+// Check NIP-05 using cache; does not invalidate
+export async function checkNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
+  return verifyNip05(pubkeyHex, nip05);
+}
+
+// Note: reverifyNip05 and debug variant removed; UI now uses cached check
 
 function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
   try {
@@ -527,11 +748,12 @@ function extractProfileFields(event: NDKEvent): { name?: string; display?: strin
   }
 }
 
-function computeMatchScore(termLower: string, name?: string, display?: string, about?: string): number {
+function computeMatchScore(termLower: string, name?: string, display?: string, about?: string, nip05?: string): number {
   let score = 0;
   const n = (name || '').toLowerCase();
   const d = (display || '').toLowerCase();
   const a = (about || '').toLowerCase();
+  const n5 = (nip05 || '').toLowerCase();
   if (!termLower) return 0;
   const exact = d === termLower || n === termLower;
   const starts = d.startsWith(termLower) || n.startsWith(termLower);
@@ -540,6 +762,23 @@ function computeMatchScore(termLower: string, name?: string, display?: string, a
   else if (starts) score += 30;
   else if (contains) score += 20;
   if (a.includes(termLower)) score += 10;
+  // Consider NIP-05 string with strong weighting; top-level (no local part) scores highest
+  if (n5) {
+    const [localRaw, domainRaw] = n5.includes('@') ? n5.split('@') : ['_', n5];
+    const local = (localRaw || '').trim();
+    const domain = (domainRaw || '').trim();
+    const isTop = local === '' || local === '_';
+    if (isTop) {
+      if (domain === termLower) score += 120; // top-level exact
+      else if (domain.startsWith(termLower)) score += 90; // top-level starts
+      else if (domain.includes(termLower)) score += 70; // top-level contains
+    } else {
+      const full = `${local}@${domain}`;
+      if (full === termLower || local === termLower || domain === termLower) score += 90; // exact on any part
+      else if (full.startsWith(termLower) || local.startsWith(termLower) || domain.startsWith(termLower)) score += 70;
+      else if (full.includes(termLower) || local.includes(termLower) || domain.includes(termLower)) score += 50;
+    }
+  }
   return score;
 }
 
@@ -547,13 +786,18 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
   const query = term.trim();
   if (!query) return [];
 
-  // Step 0: try Vertex DVM for top ranked results
+  // Step 0: try Vertex DVM for top ranked results (only when logged in)
   let vertexEvents: NDKEvent[] = [];
-  try {
-    vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
-  } catch (e) {
-    if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
-      console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+  if (isLoggedIn()) {
+    try {
+      vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
+      for (const v of vertexEvents) {
+        (v as unknown as { debugScore?: string }).debugScore = 'DVM-ranked result';
+      }
+    } catch (e) {
+      if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
+        console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+      }
     }
   }
 
@@ -622,13 +866,16 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       }
     }
 
-    const baseScore = computeMatchScore(termLower, name, display, about);
+    const baseScore = computeMatchScore(termLower, name, display, about, nip05);
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
 
     let verifyPromise: Promise<boolean> | null = null;
-    if (idx < verificationLimit) {
+    // Use cached result immediately for scoring, and schedule background verification for a subset
+    const cached = pubkey ? getCachedNip05Result(pubkey, nip05) : null;
+    if (idx < verificationLimit && cached === null && pubkey) {
+      // Fire and forget; don't await in ranking path
       verifyPromise = verifyNip05(pubkey, nip05);
-      verifications.push(verifyPromise);
+      verifications.push(verifyPromise.catch(() => false));
     }
 
     return {
@@ -642,17 +889,44 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     };
   });
 
-  // Step 3: await the scheduled verifications concurrently
-  await Promise.allSettled(verifications);
+  // Step 3: don't await verifications; they run in background and update cache when done
 
   // Step 4: assign final score and sort
   for (const row of enriched) {
-    const verified = row.verifyPromise ? await row.verifyPromise.catch(() => false) : false;
+    const verified = (row.pubkey ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
     let score = row.baseScore;
     if (verified) score += 100;
     if (row.isFriend) score += 50;
     row.finalScore = score;
     row.verified = verified;
+    try {
+      const termLower2 = query.toLowerCase();
+      const nameLower = (row.name || '').toLowerCase();
+      const displayLower = ((row.event.author?.profile as { displayName?: string; name?: string } | undefined)?.displayName || (row.event.author?.profile as { name?: string } | undefined)?.name || '').toLowerCase();
+      const aboutLower = ((row.event.author?.profile as { about?: string } | undefined)?.about || '').toLowerCase();
+      const nip05Lower = ((row.event.author?.profile as { nip05?: string } | undefined)?.nip05 || '').toLowerCase();
+      const [n5LocalRaw, n5DomainRaw] = nip05Lower.includes('@') ? nip05Lower.split('@') : ['_', nip05Lower];
+      const n5Local = (n5LocalRaw || '').trim();
+      const n5Domain = (n5DomainRaw || '').trim();
+      const n5Top = n5Local === '' || n5Local === '_';
+      const n5Exact = n5Top ? (n5Domain === termLower2) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].includes(termLower2));
+      const n5Starts = n5Top ? (n5Domain.startsWith(termLower2)) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].some((v) => v.startsWith(termLower2)));
+      const n5Contains = n5Top ? (n5Domain.includes(termLower2)) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].some((v) => v.includes(termLower2)));
+      const exact = [nameLower, displayLower].includes(termLower2) || n5Exact;
+      const starts = [nameLower, displayLower].some((v) => v.startsWith(termLower2)) || n5Starts;
+      const contains = [nameLower, displayLower].some((v) => v.includes(termLower2)) || n5Contains;
+      const about = aboutLower.includes(termLower2);
+      const parts: string[] = [`base=${row.baseScore}`];
+      if (verified) parts.push('verified=+100');
+      if (row.isFriend) parts.push('friend=+50');
+      const matchParts: string[] = [];
+      if (exact) matchParts.push('exact');
+      else if (starts) matchParts.push('starts');
+      else if (contains) matchParts.push('contains');
+      if (about) matchParts.push('about');
+      if (nip05Lower) matchParts.push(n5Top ? 'nip05(top)' : 'nip05');
+      // debug ranking info removed from UI; keep local variables only
+    } catch {}
   }
 
   enriched.sort((a, b) => {

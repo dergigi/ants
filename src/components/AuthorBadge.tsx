@@ -1,46 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { getNip05Domain } from '@/lib/nip05';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
 
-type Nip05CheckResult = {
-  isVerified: boolean;
-  value: string | undefined;
-};
-
-const nip05Cache = new Map<string, boolean>();
-
-async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
-  if (!nip05) return false;
-  const cacheKey = `${nip05}|${pubkeyHex}`;
-  if (nip05Cache.has(cacheKey)) return nip05Cache.get(cacheKey) as boolean;
-
-  try {
-    const [namePart, domainPartCandidate] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-    const name = namePart || '_';
-    const domain = (domainPartCandidate || '').trim();
-    if (!domain) {
-      nip05Cache.set(cacheKey, false);
-      return false;
-    }
-    const url = `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`;
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) {
-      nip05Cache.set(cacheKey, false);
-      return false;
-    }
-    const data = await res.json();
-    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
-    const result = mapped === pubkeyHex.toLowerCase();
-    nip05Cache.set(cacheKey, result);
-    return result;
-  } catch {
-    nip05Cache.set(cacheKey, false);
-    return false;
-  }
-}
+type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
 function useNip05Status(user: NDKUser): Nip05CheckResult {
   const [verified, setVerified] = useState(false);
@@ -50,8 +17,13 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   useEffect(() => {
     let isMounted = true;
     (async () => {
-      const result = await verifyNip05(pubkey, nip05);
-      if (isMounted) setVerified(result);
+      try {
+        const { checkNip05 } = await import('@/lib/vertex');
+        const result = await checkNip05(pubkey, nip05 || '');
+        if (isMounted) setVerified(Boolean(result));
+      } catch {
+        if (isMounted) setVerified(false);
+      }
     })();
     return () => { isMounted = false; };
   }, [pubkey, nip05]);
@@ -60,9 +32,13 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
 }
 
 export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
+  // Removed manual revalidation UI; rely on automatic/implicit verification
 
   useEffect(() => {
     let isMounted = true;
@@ -78,16 +54,42 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
     return () => { isMounted = false; };
   }, [user]);
 
+  const effectiveVerified = isVerified;
+
   const nip05Part = value ? (
-    <button
-      type="button"
-      onClick={() => onAuthorClick && onAuthorClick(user.npub)}
-      className={`inline-flex items-center gap-1 ${isVerified ? 'text-green-400' : 'text-red-400'} hover:underline`}
-      title={value}
-    >
-      <FontAwesomeIcon icon={isVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
-      <span className="truncate max-w-[14rem]">{value}</span>
-    </button>
+    <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
+      <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={() => onAuthorClick && onAuthorClick(user.npub)}
+        className="hover:underline truncate max-w-[14rem] text-left"
+        title={value}
+      >
+        <span className="truncate max-w-[14rem]">{value}</span>
+      </button>
+      {/* External link removed */}
+      {pathname?.startsWith('/p/') && (
+      <button
+        type="button"
+        className="text-gray-300 hover:text-gray-100"
+        title="Search for profiles by this domain"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!value) return;
+          const domain = getNip05Domain(value);
+          if (!domain) return;
+          const q = `p:${domain}`;
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', q);
+          router.push(`/?${params.toString()}`);
+        }}
+      >
+        <FontAwesomeIcon icon={faUserGroup} className="h-3 w-3" />
+      </button>
+      )}
+    </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
       <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />

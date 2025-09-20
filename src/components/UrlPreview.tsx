@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
@@ -87,7 +88,7 @@ export default function UrlPreview({ url, className, onSearch, onLoaded }: Props
         }
       >
         <div className="flex gap-3 p-3">
-          {image ? (
+          {image && isAbsoluteHttpUrl(image) ? (
             <div className="relative flex-shrink-0 w-24 h-24 bg-[#2a2a2a] border border-[#3d3d3d] rounded overflow-hidden">
               {/* next/image remote allowed in next.config.ts */}
               <Image src={image} alt={title} fill sizes="96px" className="object-cover" unoptimized />
