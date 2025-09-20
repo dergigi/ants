@@ -56,7 +56,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: true });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);

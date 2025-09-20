@@ -47,13 +47,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: true });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: true });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
