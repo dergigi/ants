@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getNip05Domain } from '@/lib/nip05';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faCircleXmark, faCircleExclamation, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
@@ -74,16 +75,13 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           e.preventDefault();
           e.stopPropagation();
           if (!value) return;
-          try {
-            const parts = value.includes('@') ? value.split('@') : ['_', value];
-            const domain = (parts[1] || parts[0] || '').trim();
-            if (!domain) return;
-            const q = `p:${domain}`;
-            const current = searchParams ? searchParams.toString() : '';
-            const params = new URLSearchParams(current);
-            params.set('q', q);
-            router.push(`/?${params.toString()}`);
-          } catch {}
+          const domain = getNip05Domain(value);
+          if (!domain) return;
+          const q = `p:${domain}`;
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', q);
+          router.push(`/?${params.toString()}`);
         }}
       >
         <FontAwesomeIcon icon={faMagnifyingGlass} className="h-3 w-3" />

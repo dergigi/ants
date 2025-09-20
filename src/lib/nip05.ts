@@ -15,6 +15,13 @@ export function normalizeNip05String(input: string): string {
   return `${normalizedLocal}${'@'}${domain}`;
 }
 
+export function getNip05Domain(input: string): string {
+  const normalized = normalizeNip05String(input);
+  if (!normalized) return '';
+  const parts = normalized.split('@');
+  return (parts[1] || '').trim();
+}
+
 const nip05Cache = new Map<string, boolean>();
 
 export async function verifyNip05(pubkeyHex: string | undefined, nip05?: string, timeoutMs: number = 4000): Promise<boolean> {
