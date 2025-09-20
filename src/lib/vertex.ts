@@ -13,6 +13,27 @@ const dvmRelaySet = relaySets.vertexDvm();
 // Fallback profile search relay set (NIP-50 capable)
 const profileSearchRelaySet = relaySets.profileSearch();
 
+// In-memory cache for DVM profile lookups: key=username(lower), value=array of profile events
+type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };
+const DVM_CACHE = new Map<string, DvmCacheEntry>();
+const DVM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DVM_NEGATIVE_TTL_MS = 60 * 1000; // 1 minute for negative results
+
+function getCachedDvm(usernameLower: string): NDKEvent[] | null | undefined {
+  const entry = DVM_CACHE.get(usernameLower);
+  if (!entry) return undefined;
+  const ttl = entry.events && entry.events.length > 0 ? DVM_CACHE_TTL_MS : DVM_NEGATIVE_TTL_MS;
+  if (Date.now() - entry.timestamp > ttl) {
+    DVM_CACHE.delete(usernameLower);
+    return undefined;
+  }
+  return entry.events;
+}
+
+function setCachedDvm(usernameLower: string, events: NDKEvent[] | null): void {
+  DVM_CACHE.set(usernameLower, { events, timestamp: Date.now() });
+}
+
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
@@ -91,6 +112,13 @@ export async function profileEventFromPubkey(pubkey: string): Promise<NDKEvent> 
 
 async function queryVertexDVM(username: string, limit: number = 10): Promise<NDKEvent[]> {
   try {
+    // Check cache first
+    const key = (username || '').toLowerCase();
+    const cached = getCachedDvm(key);
+    if (cached !== undefined) {
+      return (cached || []).slice(0, Math.max(0, limit));
+    }
+
     console.log('Starting DVM query for username:', username);
     const storedPubkey = getStoredPubkey();
     
@@ -233,6 +261,8 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
               return profileEvent;
             });
 
+            // Store in cache (positive)
+            setCachedDvm(key, events);
             resolve(events);
           } catch (e) {
             console.error('Error processing DVM response:', e);
@@ -264,6 +294,11 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
     });
   } catch (error) {
     console.error('Error in queryVertexDVM:', error);
+    // Cache negative outcome briefly to avoid thrashing
+    try {
+      const key = (username || '').toLowerCase();
+      setCachedDvm(key, null);
+    } catch {}
     throw error;
   }
 }
