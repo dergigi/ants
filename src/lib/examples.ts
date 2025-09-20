@@ -28,6 +28,7 @@ export const searchExamples = [
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+  'proof-of-work by:npub1satsv3728d65nenvkmzthrge0aduj8088dvwkxk70rydm407cl4s87sfhu',
 
   // Profile lookup / NIP-05
   'p:fiatjaf',
