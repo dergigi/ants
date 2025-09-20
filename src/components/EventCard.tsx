@@ -8,7 +8,7 @@ import { faArrowUpRightFromSquare, faCode } from '@fortawesome/free-solid-svg-ic
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
-import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import RawEventJson from '@/components/RawEventJson';
 
 type Props = {
   event: NDKEvent;
@@ -41,31 +41,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   return (
     <div className={containerClasses}>
       {showRaw ? (
-        <Highlight
-          code={JSON.stringify({
-            id: event.id,
-            kind: event.kind,
-            created_at: event.created_at,
-            pubkey: event.pubkey,
-            content: event.content,
-            tags: event.tags,
-            sig: event.sig
-          }, null, 2)}
-          language="json"
-          theme={themes.nightOwl}
-        >
-          {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-            <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
-              {tokens.map((line, i: number) => (
-                <div key={i} {...getLineProps({ line })}>
-                  {line.map((token, key: number) => (
-                    <span key={key} {...getTokenProps({ token })} />
-                  ))}
-                </div>
-              ))}
-            </pre>
-          )}
-        </Highlight>
+        <RawEventJson event={event} />
       ) : (
         <>
           <div className={contentClasses}>{renderContent(event.content || '')}</div>

@@ -13,7 +13,7 @@ import { faArrowUpRightFromSquare, faCopy, faCode } from '@fortawesome/free-soli
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
-import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import RawEventJson from '@/components/RawEventJson';
 import { connect, safeSubscribe } from '@/lib/ndk';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onRawToggle, onRawData }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onRawToggle?: (active: boolean) => void; onRawData?: (loading: boolean, evt: NDKEvent | null) => void }) {
@@ -403,35 +403,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       </div>
       {rawActive ? (
         <div className="mt-4">
-          {rawEventFromFooter ? (
-            <Highlight
-              code={JSON.stringify({
-                id: rawEventFromFooter.id,
-                kind: rawEventFromFooter.kind,
-                created_at: rawEventFromFooter.created_at,
-                pubkey: rawEventFromFooter.pubkey,
-                content: rawEventFromFooter.content,
-                tags: rawEventFromFooter.tags,
-                sig: rawEventFromFooter.sig
-              }, null, 2)}
-              language="json"
-              theme={themes.nightOwl}
-            >
-              {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
-                  {tokens.map((line, i: number) => (
-                    <div key={i} {...getLineProps({ line })}>
-                      {line.map((token, key: number) => (
-                        <span key={key} {...getTokenProps({ token })} />
-                      ))}
-                    </div>
-                  ))}
-                </pre>
-              )}
-            </Highlight>
-          ) : (
-            <div className="text-xs text-gray-400">Loading…</div>
-          )}
+          <RawEventJson event={rawEventFromFooter} loading={!rawEventFromFooter} />
         </div>
       ) : (
         event.author?.profile?.about ? (
