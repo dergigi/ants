@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
-import { lookupVertexProfile, searchProfilesFullText, resolveAuthorToNpub } from '@/lib/vertex';
+import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
@@ -11,6 +11,7 @@ import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
 import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -61,7 +62,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
-  }, []);
+  }, [setQuery]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
@@ -256,7 +257,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResolvingAuthor(false);
       }
     }
-  }, []);
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!isConnecting) return;
@@ -367,18 +368,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   useEffect(() => {
     if (!manageUrl) return;
     const urlQuery = searchParams.get('q') || '';
-    const onProfilePage = /^\/p\//i.test(pathname || '');
-    const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
-    const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
-    if (onProfilePage && currentProfileNpub) {
-      // Show explicit by: in the input, but keep URL implicit (handled here by reading urlQuery without by:)
-      const display = urlQuery
-        ? `${urlQuery} by:${currentProfileNpub}`
-        : `by:${currentProfileNpub}`;
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub) {
+      const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
       setQuery(display);
-      const backend = urlQuery
-        ? `${urlQuery} by:${currentProfileNpub}`
-        : `by:${currentProfileNpub}`;
+      const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
       handleSearch(backend);
     } else if (urlQuery) {
       setQuery(urlQuery);
@@ -389,12 +383,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
-    const onProfilePage = /^\/p\//i.test(pathname || '');
-    const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
-    const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
       displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
     }
     setQuery(displayVal);
@@ -402,18 +394,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const params = new URLSearchParams(searchParams.toString());
       if (displayVal) {
         // URL should be implicit on profile pages: strip matching by:npub
-        let urlValue = displayVal;
-        if (onProfilePage && currentProfileNpub) {
-          urlValue = urlValue.replace(/(^|\s)by:(npub1[0-9a-z]+)(?=\s|$)/ig, (m, pre, npub) => {
-            return npub.toLowerCase() === currentProfileNpub.toLowerCase() ? (pre ? pre : '') : m;
-          }).replace(/\s{2,}/g, ' ').trim();
-        }
+        const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
         params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
         // Backend search should include implicit author on profile pages
-        const backend = (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal))
-          ? `${displayVal} by:${currentProfileNpub}`
-          : displayVal;
+        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
         handleSearch(backend.trim());
       } else {
         params.delete('q');
