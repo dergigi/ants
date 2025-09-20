@@ -64,7 +64,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             onClick={() => setIsExpanded(true)}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
           >
-            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
             <span className="text-xs text-gray-400">
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
@@ -78,33 +77,30 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FontAwesomeIcon icon={faFilter} className="w-4 h-4 text-gray-400" />
               <span className="text-sm font-medium text-gray-200">Filter Results</span>
-              {hasActiveFilters && (
-                <span className="text-xs text-gray-400">
-                  {filteredCount}/{resultCount} shown
-                </span>
-              )}
             </div>
-            <button
-              onClick={() => setIsExpanded(false)}
-              className="text-gray-400 hover:text-gray-300 transition-colors"
-            >
-              <FontAwesomeIcon icon={faChevronUp} className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400">{filteredCount}/{resultCount} shown</span>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-400 hover:text-gray-300 transition-colors"
+              >
+                <FontAwesomeIcon icon={faChevronUp} className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs text-gray-400">Show:</div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={filterSettings.resultFilter || ''}
                 onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
-                placeholder="Filter results…"
-                className="w-full max-w-xs px-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-full max-w-xs px-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none"
               />
             </div>
+
+            <div className="text-xs text-gray-400">Show:</div>
 
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
