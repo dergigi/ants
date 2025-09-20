@@ -705,11 +705,22 @@ function computeMatchScore(termLower: string, name?: string, display?: string, a
   else if (starts) score += 30;
   else if (contains) score += 20;
   if (a.includes(termLower)) score += 10;
-  // Consider NIP-05 string as well (both local part and domain are included in n5)
+  // Consider NIP-05 string with strong weighting; top-level (no local part) scores highest
   if (n5) {
-    if (n5 === termLower) score += 40;
-    else if (n5.startsWith(termLower)) score += 30;
-    else if (n5.includes(termLower)) score += 20;
+    const [localRaw, domainRaw] = n5.includes('@') ? n5.split('@') : ['_', n5];
+    const local = (localRaw || '').trim();
+    const domain = (domainRaw || '').trim();
+    const isTop = local === '' || local === '_';
+    if (isTop) {
+      if (domain === termLower) score += 120; // top-level exact
+      else if (domain.startsWith(termLower)) score += 90; // top-level starts
+      else if (domain.includes(termLower)) score += 70; // top-level contains
+    } else {
+      const full = `${local}@${domain}`;
+      if (full === termLower || local === termLower || domain === termLower) score += 90; // exact on any part
+      else if (full.startsWith(termLower) || local.startsWith(termLower) || domain.startsWith(termLower)) score += 70;
+      else if (full.includes(termLower) || local.includes(termLower) || domain.includes(termLower)) score += 50;
+    }
   }
   return score;
 }
@@ -835,9 +846,16 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       const displayLower = ((row.event.author?.profile as { displayName?: string; name?: string } | undefined)?.displayName || (row.event.author?.profile as { name?: string } | undefined)?.name || '').toLowerCase();
       const aboutLower = ((row.event.author?.profile as { about?: string } | undefined)?.about || '').toLowerCase();
       const nip05Lower = ((row.event.author?.profile as { nip05?: string } | undefined)?.nip05 || '').toLowerCase();
-      const exact = [nameLower, displayLower, nip05Lower].includes(termLower2);
-      const starts = [nameLower, displayLower, nip05Lower].some((v) => v.startsWith(termLower2));
-      const contains = [nameLower, displayLower, nip05Lower].some((v) => v.includes(termLower2));
+      const [n5LocalRaw, n5DomainRaw] = nip05Lower.includes('@') ? nip05Lower.split('@') : ['_', nip05Lower];
+      const n5Local = (n5LocalRaw || '').trim();
+      const n5Domain = (n5DomainRaw || '').trim();
+      const n5Top = n5Local === '' || n5Local === '_';
+      const n5Exact = n5Top ? (n5Domain === termLower2) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].includes(termLower2));
+      const n5Starts = n5Top ? (n5Domain.startsWith(termLower2)) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].some((v) => v.startsWith(termLower2)));
+      const n5Contains = n5Top ? (n5Domain.includes(termLower2)) : ([`${n5Local}@${n5Domain}`, n5Local, n5Domain].some((v) => v.includes(termLower2)));
+      const exact = [nameLower, displayLower].includes(termLower2) || n5Exact;
+      const starts = [nameLower, displayLower].some((v) => v.startsWith(termLower2)) || n5Starts;
+      const contains = [nameLower, displayLower].some((v) => v.includes(termLower2)) || n5Contains;
       const about = aboutLower.includes(termLower2);
       const parts: string[] = [`base=${row.baseScore}`];
       if (verified) parts.push('verified=+100');
@@ -847,6 +865,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       else if (starts) matchParts.push('starts');
       else if (contains) matchParts.push('contains');
       if (about) matchParts.push('about');
+      if (nip05Lower) matchParts.push(n5Top ? 'nip05(top)' : 'nip05');
       const dbg = `score: ${parts.join(' + ')} = ${row.finalScore}; match: ${matchParts.join(', ') || 'none'}`;
       (row.event as unknown as { debugScore?: string }).debugScore = dbg;
     } catch {}
