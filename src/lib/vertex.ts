@@ -728,6 +728,10 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
 
 // Check NIP-05 using cache; does not invalidate
 export async function checkNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
+  try {
+    const cached = getCachedNip05Result(pubkeyHex, nip05);
+    if (cached !== null) return cached;
+  } catch {}
   return verifyNip05(pubkeyHex, nip05);
 }
 
