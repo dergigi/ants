@@ -10,6 +10,7 @@ export interface FilterSettings {
   hideLinks: boolean;
   resultFilter: string;
   verifiedOnly: boolean;
+  fuzzyEnabled: boolean;
 }
 
 interface Props {
@@ -44,13 +45,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
@@ -91,16 +92,25 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           </div>
 
           <div className="space-y-2">
-            {/* Fuzzy filter with icon */}
-            <div className="relative w-full max-w-xs">
-              <FontAwesomeIcon icon={faFilter} className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+            {/* Fuzzy filter with enable checkbox and icon */}
+            <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
-                type="text"
-                value={filterSettings.resultFilter || ''}
-                onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
-                className="w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none"
+                type="checkbox"
+                checked={filterSettings.fuzzyEnabled}
+                onChange={(e) => onFilterChange({ ...filterSettings, fuzzyEnabled: e.target.checked, resultFilter: e.target.checked ? filterSettings.resultFilter : '' })}
+                className="accent-[#4a4a4a]"
               />
-            </div>
+              <div className="relative w-full max-w-xs">
+                <FontAwesomeIcon icon={faFilter} className={`absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 ${filterSettings.fuzzyEnabled ? 'text-gray-400' : 'text-gray-600'}`} />
+                <input
+                  type="text"
+                  value={filterSettings.resultFilter || ''}
+                  onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
+                  disabled={!filterSettings.fuzzyEnabled}
+                  className={`w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none ${!filterSettings.fuzzyEnabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                />
+              </div>
+            </label>
 
             {/* Verified only */}
             <label className="flex items-center gap-2 text-xs text-gray-400">

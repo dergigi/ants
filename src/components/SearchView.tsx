@@ -55,7 +55,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false });
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -105,7 +105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
-    const q = (filterSettings.resultFilter || '').trim();
+    const q = (filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
     if (!q) return filteredResults;
     const fuse = new Fuse(filteredResults, {
       includeScore: false,
