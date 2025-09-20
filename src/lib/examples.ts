@@ -11,7 +11,7 @@ export const searchExamples = [
   // Author
   'by:dergigi',
   'by:gigi',
-  'by:pablo',
+  'by:pablof7z',
   'by:corndalorian',
 
   // Combined
