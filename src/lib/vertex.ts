@@ -5,6 +5,7 @@ import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } f
 import { getStoredPubkey } from './nip07';
 import { relaySets } from './relays';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from './storageCache';
+import { normalizeNip05String } from './nip05';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
@@ -644,25 +645,6 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
 // Simple in-memory cache for NIP-05 verification results
 const nip05VerificationCache = new Map<string, boolean>();
 
-function normalizeNip05String(input: string): string {
-  const raw = (input || '').trim();
-  if (!raw) return '';
-  const lower = raw.toLowerCase();
-  // If value starts with '@domain', treat as top-level => '_@domain'
-  if (lower.startsWith('@')) {
-    const domain = lower.slice(1).trim();
-    return domain ? `_${'@'}${domain}` : '';
-  }
-  // If there is no '@', treat as domain-only => '_@domain'
-  if (!lower.includes('@')) {
-    return `_${'@'}${lower}`;
-  }
-  // If local part is empty, normalize to '_'
-  const [local, domain] = lower.split('@');
-  if (!domain) return '';
-  const normalizedLocal = local && local.length > 0 ? local : '_';
-  return `${normalizedLocal}${'@'}${domain}`;
-}
 
 function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   const normalized = normalizeNip05String(nip05);
@@ -676,15 +658,24 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   const cacheKey = nip05CacheKey(pubkeyHex, nip05);
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
-    // Use nostr-tools nip05 validation for reliability
+    // Try server-side endpoint to avoid CORS from browser
+    const resp = await fetch(`/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalized)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const ok = Boolean(data.ok);
+      nip05VerificationCache.set(cacheKey, ok);
+      return ok;
+    }
+  } catch {}
+  try {
+    // Fallback to direct nostr-tools check
     const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
     nip05VerificationCache.set(cacheKey, ok);
     return ok;
-  } catch {
-    const cacheKey = nip05CacheKey(pubkeyHex, nip05);
-    nip05VerificationCache.set(cacheKey, false);
-    return false;
-  }
+  } catch {}
+  const cacheKey2 = nip05CacheKey(pubkeyHex, nip05);
+  nip05VerificationCache.set(cacheKey2, false);
+  return false;
 }
 
 // Invalidate one cached NIP-05 verification entry
@@ -714,8 +705,24 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     const normalized = normalizeNip05String(raw);
     if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
     invalidateNip05Cache(pubkeyHex, normalized || raw);
-    steps.push('nostr-tools: calling isValid(pubkey, nip05)');
-    const ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
+    steps.push('API: GET /api/nip05/verify');
+    let ok = false;
+    try {
+      const resp = await fetch(`/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalized || raw)}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        ok = Boolean(data.ok);
+        steps.push(`API result: ${ok ? 'MATCH' : 'NO MATCH'}`);
+      } else {
+        steps.push(`API error: ${resp.status}`);
+      }
+    } catch (e) {
+      steps.push(`API exception: ${(e as Error)?.message || 'unknown'}`);
+    }
+    if (!ok) {
+      steps.push('fallback: nostr-tools.isValid');
+      ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
+    }
     steps.push(`nostr-tools result: ${ok ? 'MATCH' : 'NO MATCH'}`);
     return { ok, steps };
   } catch (e) {
