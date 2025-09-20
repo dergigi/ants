@@ -36,7 +36,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null;
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 flex justify-end">
       {/* Collapsed view */}
       {!isExpanded && (
         <button
@@ -44,7 +44,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
         >
           <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
-          <span>Filters</span>
+          <span>Filter results</span>
           {hasActiveFilters && (
             <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
               {filteredCount}/{resultCount}
