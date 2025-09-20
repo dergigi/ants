@@ -80,9 +80,10 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <input
                 type="number"
                 min="0"
+                max="9"
                 value={filterSettings.maxEmojis ?? ''}
                 onChange={(e) => handleEmojiChange(e.target.value)}
-                className="w-14 px-1 py-0.5 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-8 px-1 py-0.5 text-center text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
                 placeholder="0"
               />
               <span>emojis.</span>
@@ -93,9 +94,10 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <input
                 type="number"
                 min="0"
+                max="9"
                 value={filterSettings.maxHashtags ?? ''}
                 onChange={(e) => handleHashtagChange(e.target.value)}
-                className="w-14 px-1 py-0.5 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                className="w-8 px-1 py-0.5 text-center text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
                 placeholder="0"
               />
               <span>hashtags.</span>
