@@ -18,8 +18,8 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
     let isMounted = true;
     (async () => {
       try {
-        const { reverifyNip05 } = await import('@/lib/vertex');
-        const result = await reverifyNip05(pubkey, nip05 || '');
+        const { checkNip05 } = await import('@/lib/vertex');
+        const result = await checkNip05(pubkey, nip05 || '');
         if (isMounted) setVerified(Boolean(result));
       } catch {
         if (isMounted) setVerified(false);

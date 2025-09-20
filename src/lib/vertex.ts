@@ -726,6 +726,11 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
   } catch {}
 }
 
+// Check NIP-05 using cache; does not invalidate
+export async function checkNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
+  return verifyNip05(pubkeyHex, nip05);
+}
+
 // Force re-validation bypassing cache
 export async function reverifyNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
   const normalized = normalizeNip05String(nip05);
