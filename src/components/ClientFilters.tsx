@@ -110,8 +110,8 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
                 className="accent-[#4a4a4a]"
               />
-              <FontAwesomeIcon icon={faCircleCheck} className="w-3 h-3 text-green-400" />
               <span>Verified only</span>
+              <FontAwesomeIcon icon={faCircleCheck} className="w-3 h-3 text-green-400" />
             </label>
 
             {/* Hide more than X emojis */}
