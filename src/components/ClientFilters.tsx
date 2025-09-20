@@ -138,7 +138,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 }}
                 className="accent-[#4a4a4a]"
               />
-              <span>Contain links</span>
+              <span>External links</span>
             </label>
           </div>
 

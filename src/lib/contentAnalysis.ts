@@ -28,8 +28,8 @@ export function countHashtags(text: string): number {
  */
 export function containsLink(text: string): boolean {
   if (!text) return false;
-  const urlRegex = /https?:\/\/[^\s'"<>]+/i;
-  return urlRegex.test(text);
+  const lower = text.toLowerCase();
+  return lower.includes('http://') || lower.includes('https://');
 }
 
 /**
