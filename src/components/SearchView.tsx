@@ -19,6 +19,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import Fuse from 'fuse.js';
 
 type Props = {
   initialQuery?: string;
@@ -54,6 +55,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false });
+  const [resultFilter, setResultFilter] = useState<string>('');
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -64,6 +66,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     () => applyContentFilters(results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks),
     [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks]
   );
+
+  // Apply optional fuzzy filter on top of client-side filters
+  const fuseFilteredResults = useMemo(() => {
+    const q = resultFilter.trim();
+    if (!q) return filteredResults;
+    const fuse = new Fuse(filteredResults, {
+      includeScore: false,
+      threshold: 0.35,
+      ignoreLocation: true,
+      keys: [
+        { name: 'content', weight: 1 }
+      ]
+    });
+    return fuse.search(q).map(r => r.item);
+  }, [filteredResults, resultFilter]);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
     if (terms.length === 0) return events;
@@ -1276,10 +1293,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         />
       )}
 
+      {/* Fuzzy result filter (applies after structural filters) */}
+      {filteredResults.length > 0 && (
+        <div className="mt-2">
+          <input
+            type="text"
+            value={resultFilter}
+            onChange={(e) => setResultFilter(e.target.value)}
+            placeholder="Filter results…"
+            className="w-full max-w-xs px-2 py-1 text-xs bg-[#2d2d2d] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+          />
+        </div>
+      )}
+
       {useMemo(() => {
-        return filteredResults.length > 0 ? (
+        const finalResults = fuseFilteredResults;
+        return finalResults.length > 0 ? (
           <div className="mt-8 space-y-4">
-            {filteredResults.map((event, idx) => {
+            {finalResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
               const isLoadingParent = parent === 'loading';
