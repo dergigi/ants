@@ -326,7 +326,11 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       <div className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {event.author?.profile?.image && (
+          {(() => {
+            const avatarUrl = (event.author?.profile as unknown as { image?: string } | undefined)?.image;
+            const showAvatar = typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl);
+            if (!showAvatar) return null;
+            return (
             <button
               type="button"
               onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
@@ -334,7 +338,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               title={(event as unknown as { debugScore?: string }).debugScore || ''}
             >
               <Image
-                src={event.author?.profile?.image || ''}
+                src={avatarUrl as string}
                 alt="Profile"
                 width={48}
                 height={48}
@@ -342,7 +346,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 unoptimized
               />
             </button>
-          )}
+            );
+          })()}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
         {event.author?.npub && (
