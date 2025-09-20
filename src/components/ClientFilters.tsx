@@ -42,10 +42,16 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false });
   };
 
-  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null;
+  const resetToDefaults = () => {
+    setEmojiLimit(3);
+    setHashtagLimit(3);
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false });
+  };
+
+  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
 
   return (
     <div className="mb-4">
@@ -144,16 +150,20 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </label>
           </div>
 
-          {hasActiveFilters && (
-            <div className="flex justify-end">
-              <button
-                onClick={clearFilters}
-                className="text-xs text-gray-400 hover:text-gray-300 underline transition-colors"
-              >
-                Clear all filters
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={resetToDefaults}
+              className="text-xs text-gray-400 hover:text-gray-300 underline transition-colors"
+            >
+              Reset to defaults
+            </button>
+            <button
+              onClick={clearFilters}
+              className="text-xs text-gray-400 hover:text-gray-300 underline transition-colors"
+            >
+              Clear all filters
+            </button>
+          </div>
         </div>
       )}
     </div>
