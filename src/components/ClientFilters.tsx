@@ -48,19 +48,21 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null;
 
   return (
-    <div className="mb-4 flex justify-end">
+    <div className="mb-4">
       {/* Collapsed view */}
       {!isExpanded && (
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
-        >
-          <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
-          <span className="text-xs text-gray-400">
-            {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
-          </span>
-          <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
-        </button>
+        <div className="flex justify-end">
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+          >
+            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
+            <span className="text-xs text-gray-400">
+              {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
+            </span>
+            <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
+          </button>
+        </div>
       )}
 
       {/* Expanded view */}
