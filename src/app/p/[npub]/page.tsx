@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { ndk, connect } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
@@ -70,6 +70,8 @@ function useNostrUser(npub: string | undefined) {
 export default function ProfilePage() {
   const params = useParams<{ npub: string }>();
   const npub = params?.npub;
+  const searchParams = useSearchParams();
+  const q = searchParams?.get('q') || null;
   const { profileEvent } = useNostrUser(npub);
 
   return (
@@ -81,7 +83,7 @@ export default function ProfilePage() {
 
         {npub ? (
           <div className="mt-4">
-            <SearchView initialQuery={`by:${npub}`} manageUrl={false} />
+            <SearchView initialQuery={q || `by:${npub}`} manageUrl={false} />
           </div>
         ) : null}
       </div>

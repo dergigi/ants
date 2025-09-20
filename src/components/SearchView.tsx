@@ -10,7 +10,7 @@ import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
 import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -32,6 +32,7 @@ type Props = {
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
@@ -232,7 +233,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         // If we resolved successfully, replace only the matched by: token with the resolved npub.
         // If resolution failed, proceed without modifying the query; the backend search will fallback.
         if (resolvedNpub) {
+          // Replace by: token with resolved npub
           effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
+
+          // If currently on a profile page and the resolved author differs, navigate there and carry query
+          const onProfilePage = /^\/p\//i.test(pathname || '');
+          const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
+          const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
+          if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
+            const carry = encodeURIComponent(effectiveQuery);
+            router.push(`/p/${resolvedNpub}?q=${carry}`);
+            setResolvingAuthor(false);
+            setLoading(false);
+            return;
+          }
         }
         // Resolution phase complete (either way)
         setResolvingAuthor(false);
