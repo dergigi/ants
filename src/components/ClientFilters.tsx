@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faFilter, faChevronDown, faChevronUp, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 
 export interface FilterSettings {
   maxEmojis: number | null;
@@ -102,7 +102,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               />
             </div>
 
-            {/* Show only verified */}
+            {/* Verified only */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
                 type="checkbox"
@@ -110,7 +110,8 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
                 className="accent-[#4a4a4a]"
               />
-              <span>Show only verified (NIP-05)</span>
+              <FontAwesomeIcon icon={faCircleCheck} className="w-3 h-3 text-green-400" />
+              <span>Verified only</span>
             </label>
 
             {/* Hide more than X emojis */}
