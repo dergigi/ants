@@ -18,15 +18,26 @@ interface Props {
 
 export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
+  const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
+
+  const emojiEnabled = filterSettings.maxEmojis !== null;
+  const hashtagEnabled = filterSettings.maxHashtags !== null;
 
   const handleEmojiChange = (value: string) => {
-    const maxEmojis = value === '' ? null : Math.max(0, parseInt(value, 10));
-    onFilterChange({ ...filterSettings, maxEmojis });
+    const parsed = Math.max(0, parseInt(value || '0', 10));
+    setEmojiLimit(parsed);
+    if (emojiEnabled) {
+      onFilterChange({ ...filterSettings, maxEmojis: parsed });
+    }
   };
 
   const handleHashtagChange = (value: string) => {
-    const maxHashtags = value === '' ? null : Math.max(0, parseInt(value, 10));
-    onFilterChange({ ...filterSettings, maxHashtags });
+    const parsed = Math.max(0, parseInt(value || '0', 10));
+    setHashtagLimit(parsed);
+    if (hashtagEnabled) {
+      onFilterChange({ ...filterSettings, maxHashtags: parsed });
+    }
   };
 
   const clearFilters = () => {
@@ -73,35 +84,49 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs text-gray-400">Hide results that …</div>
+            <div className="text-xs text-gray-400">Hide:</div>
 
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <span>…have more than</span>
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={emojiEnabled}
+                onChange={(e) => {
+                  onFilterChange({ ...filterSettings, maxEmojis: e.target.checked ? (emojiLimit || 3) : null });
+                }}
+                className="accent-[#4a4a4a]"
+              />
+              <span>More than</span>
               <input
                 type="number"
                 min="0"
                 max="9"
-                value={filterSettings.maxEmojis ?? ''}
+                value={emojiLimit}
                 onChange={(e) => handleEmojiChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                placeholder="0"
               />
-              <span>emojis.</span>
-            </div>
+              <span>emojis</span>
+            </label>
 
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <span>…have more than</span>
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={hashtagEnabled}
+                onChange={(e) => {
+                  onFilterChange({ ...filterSettings, maxHashtags: e.target.checked ? (hashtagLimit || 3) : null });
+                }}
+                className="accent-[#4a4a4a]"
+              />
+              <span>More than</span>
               <input
                 type="number"
                 min="0"
                 max="9"
-                value={filterSettings.maxHashtags ?? ''}
+                value={hashtagLimit}
                 onChange={(e) => handleHashtagChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                placeholder="0"
               />
-              <span>hashtags.</span>
-            </div>
+              <span>hashtags</span>
+            </label>
           </div>
 
           {hasActiveFilters && (
