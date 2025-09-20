@@ -283,13 +283,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setConnectionStatus('timeout');
       }
       
-      if (initialQuery) {
+      if (initialQuery && !manageUrl) {
         setQuery(initialQuery);
         handleSearch(initialQuery);
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery]);
+  }, [handleSearch, initialQuery, manageUrl]);
 
   // Listen for connection status changes
   useEffect(() => {
