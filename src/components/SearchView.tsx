@@ -63,15 +63,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
 
   // Consider indicator green if any NIP-50 relay is connected or recently active
-  const nip50RelaySet = useMemo(() => new Set<string>([...RELAYS.SEARCH, ...RELAYS.PROFILE_SEARCH]), []);
+  const normalizeRelayId = useCallback((url: string): string => {
+    try {
+      // strip protocol and trailing slash, lowercased
+      return url.replace(/^wss?:\/\//i, '').replace(/\/$/, '').toLowerCase();
+    } catch {
+      return url.toLowerCase();
+    }
+  }, []);
+
+  const nip50RelaySet = useMemo(() => {
+    const s = new Set<string>();
+    [...RELAYS.SEARCH, ...RELAYS.PROFILE_SEARCH].forEach((u) => s.add(normalizeRelayId(u)));
+    return s;
+  }, [normalizeRelayId]);
+
   const nip50Reachable = useMemo(() => {
     const connected = connectionDetails?.connectedRelays || [];
     const combined = new Set<string>([...connected, ...recentlyActive]);
     for (const url of combined) {
-      if (nip50RelaySet.has(url)) return true;
+      if (nip50RelaySet.has(normalizeRelayId(url))) return true;
     }
     return false;
-  }, [connectionDetails, recentlyActive, nip50RelaySet]);
+  }, [connectionDetails, recentlyActive, nip50RelaySet, normalizeRelayId]);
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
