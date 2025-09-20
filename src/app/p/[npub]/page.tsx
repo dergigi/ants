@@ -14,18 +14,36 @@ function useNostrUser(npub: string | undefined) {
   const [pubkey, setPubkey] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      if (!npub) return;
-      try { await connect(); } catch {}
+      if (!npub) { setUser(null); setProfileEvent(null); setPubkey(null); return; }
       try {
         const { data } = nip19.decode(npub);
         const pk = data as string;
         setPubkey(pk);
         const u = new NDKUser({ pubkey: pk });
         u.ndk = ndk;
-        try { await u.fetchProfile(); } catch {}
+
+        // Show placeholder immediately
         setUser(u);
-        const evt = new NDKEvent(ndk, {
+        const placeholder = new NDKEvent(ndk, {
+          kind: 0,
+          created_at: Math.floor(Date.now() / 1000),
+          content: JSON.stringify({}),
+          pubkey: pk,
+          tags: [],
+          id: '',
+          sig: ''
+        });
+        placeholder.author = u;
+        setProfileEvent(placeholder);
+
+        // Load connection and fetch profile
+        try { await connect(); } catch {}
+        try { await u.fetchProfile(); } catch {}
+        if (cancelled) return;
+
+        const filled = new NDKEvent(ndk, {
           kind: 0,
           created_at: Math.floor(Date.now() / 1000),
           content: JSON.stringify(u.profile || {}),
@@ -34,13 +52,16 @@ function useNostrUser(npub: string | undefined) {
           id: '',
           sig: ''
         });
-        evt.author = u;
-        setProfileEvent(evt);
+        filled.author = u;
+        setProfileEvent(filled);
       } catch {
+        if (cancelled) return;
         setUser(null);
         setProfileEvent(null);
+        setPubkey(null);
       }
     })();
+    return () => { cancelled = true; };
   }, [npub]);
 
   return { user, profileEvent, pubkey };
