@@ -53,7 +53,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3 });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false });
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -61,8 +61,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Memoized client-side filtered results (for count and rendering)
   const filteredResults = useMemo(
-    () => applyContentFilters(results, filterSettings.maxEmojis, filterSettings.maxHashtags),
-    [results, filterSettings.maxEmojis, filterSettings.maxHashtags]
+    () => applyContentFilters(results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks),
+    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks]
   );
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {

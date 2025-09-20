@@ -24,15 +24,26 @@ export function countHashtags(text: string): number {
 }
 
 /**
+ * Detect if the text contains a URL/link
+ */
+export function containsLink(text: string): boolean {
+  if (!text) return false;
+  const urlRegex = /https?:\/\/[^\s'"<>]+/i;
+  return urlRegex.test(text);
+}
+
+/**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
 export function applyContentFilters<T extends { content?: string }>(
   events: T[],
   maxEmojis: number | null,
-  maxHashtags: number | null
+  maxHashtags: number | null,
+  hideLinks: boolean = false
 ): T[] {
   if (maxEmojis === null && maxHashtags === null) {
-    return events;
+    // if neither threshold is set, only apply link filter if requested
+    return hideLinks ? events.filter((e) => !containsLink(e.content || '')) : events;
   }
 
   return events.filter(event => {
@@ -52,6 +63,11 @@ export function applyContentFilters<T extends { content?: string }>(
       if (hashtagCount > maxHashtags) {
         return false;
       }
+    }
+
+    // Hide links if enabled
+    if (hideLinks && containsLink(content)) {
+      return false;
     }
     
     return true;

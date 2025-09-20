@@ -7,6 +7,7 @@ import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-sv
 export interface FilterSettings {
   maxEmojis: number | null;
   maxHashtags: number | null;
+  hideLinks: boolean;
 }
 
 interface Props {
@@ -126,6 +127,18 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
               />
               <span>hashtags</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={filterSettings.hideLinks}
+                onChange={(e) => {
+                  onFilterChange({ ...filterSettings, hideLinks: e.target.checked });
+                }}
+                className="accent-[#4a4a4a]"
+              />
+              <span>Contain links</span>
             </label>
           </div>
 
