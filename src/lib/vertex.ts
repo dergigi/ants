@@ -704,6 +704,17 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   }
 }
 
+// Invalidate one cached NIP-05 verification entry
+export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
+  try { nip05VerificationCache.delete(`${nip05}|${pubkeyHex}`); } catch {}
+}
+
+// Force re-validation bypassing cache
+export async function reverifyNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
+  invalidateNip05Cache(pubkeyHex, nip05);
+  return verifyNip05(pubkeyHex, nip05);
+}
+
 function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
   try {
     const content = JSON.parse(event.content || '{}');
