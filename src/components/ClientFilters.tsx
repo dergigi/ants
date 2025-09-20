@@ -193,6 +193,17 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               />
               <span>Hide bots</span>
             </label>
+
+          {/* Hide NSFW */}
+          <label className="flex items-center gap-2 text-xs text-gray-400">
+            <input
+              type="checkbox"
+              checked={filterSettings.hideNsfw}
+              onChange={(e) => onFilterChange({ ...filterSettings, hideNsfw: e.target.checked })}
+              className="accent-[#4a4a4a]"
+            />
+            <span>Hide NSFW</span>
+          </label>
           </div>
 
           <div className="flex justify-end gap-4">
