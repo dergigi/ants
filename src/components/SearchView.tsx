@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
-import { lookupVertexProfile, searchProfilesFullText } from '@/lib/vertex';
+import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
@@ -10,7 +10,8 @@ import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
 import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -32,6 +33,7 @@ type Props = {
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
@@ -60,7 +62,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
-  }, []);
+  }, [setQuery]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
@@ -204,35 +206,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const author = (byMatch[1] || '').trim();
         let resolvedNpub: string | null = null;
         try {
-          if (/^npub1[0-9a-z]+$/i.test(author)) {
-            resolvedNpub = author;
-          } else {
-            // Try to resolve via Vertex DVM with a hard timeout, falling back to simple profile search
-            const resolveWithFallback = async (): Promise<string | null> => {
-              try {
-                let profile = await lookupVertexProfile(`p:${author}`);
-                if (!profile) {
-                  try {
-                    const profiles = await searchProfilesFullText(author, 1);
-                    profile = profiles[0] || null;
-                  } catch {}
-                }
-                const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-                if (!pubkey) return null;
-                try { return nip19.npubEncode(pubkey); } catch { return null; }
-              } catch {
-                return null;
-              }
-            };
-            const TIMEOUT_MS = 2500;
-            const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-            resolvedNpub = (await Promise.race([resolveWithFallback(), timed])) as string | null;
-          }
+          const TIMEOUT_MS = 2500;
+          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
+          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
         } catch {}
         // If we resolved successfully, replace only the matched by: token with the resolved npub.
         // If resolution failed, proceed without modifying the query; the backend search will fallback.
         if (resolvedNpub) {
+          // Replace by: token with resolved npub
           effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
+
+          // If currently on a profile page and the resolved author differs, navigate there and carry query
+          const onProfilePage = /^\/p\//i.test(pathname || '');
+          const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
+          const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
+          if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
+            const implicitQ = toImplicitUrlQuery(effectiveQuery, resolvedNpub);
+            const carry = encodeURIComponent(implicitQ);
+            router.push(`/p/${resolvedNpub}?q=${carry}`);
+            setResolvingAuthor(false);
+            setLoading(false);
+            return;
+          }
         }
         // Resolution phase complete (either way)
         setResolvingAuthor(false);
@@ -263,7 +258,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResolvingAuthor(false);
       }
     }
-  }, []);
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!isConnecting) return;
@@ -290,13 +285,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setConnectionStatus('timeout');
       }
       
-      if (initialQuery) {
+      if (initialQuery && !manageUrl) {
         setQuery(initialQuery);
         handleSearch(initialQuery);
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery]);
+  }, [handleSearch, initialQuery, manageUrl]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -373,30 +368,53 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   useEffect(() => {
     if (!manageUrl) return;
-    const urlQuery = searchParams.get('q');
-    if (urlQuery) {
+    const urlQuery = searchParams.get('q') || '';
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub) {
+      const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+      setQuery(display);
+      const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
+      handleSearch(backend);
+      // Normalize URL to implicit form if needed
+      const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
+      if (implicit !== urlQuery) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('q', implicit);
+        router.replace(`?${params.toString()}`);
+      }
+    } else if (urlQuery) {
       setQuery(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const searchQuery = query.trim() || placeholder;
-    setQuery(searchQuery);
+    const raw = query.trim() || placeholder;
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
+    let displayVal = raw;
+    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
+    }
+    setQuery(displayVal);
     if (manageUrl) {
       const params = new URLSearchParams(searchParams.toString());
-      if (searchQuery) {
-        params.set('q', searchQuery);
+      if (displayVal) {
+        // URL should be implicit on profile pages: strip matching by:npub
+        const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
+        params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
-        handleSearch(searchQuery);
+        // Backend search should include implicit author on profile pages
+        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
+        handleSearch(backend.trim());
       } else {
         params.delete('q');
         router.replace(`?${params.toString()}`);
         setResults([]);
       }
     } else {
-      if (searchQuery) handleSearch(searchQuery);
+      if (displayVal) handleSearch(displayVal);
       else setResults([]);
     }
   };
@@ -428,19 +446,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const suffix = (match && match[2]) || '';
               let replacement = core;
               try {
-                if (!/^npub1[0-9a-z]+$/i.test(core)) {
-                  let profile = await lookupVertexProfile(`p:${core}`);
-                  if (!profile) {
-                    try {
-                      const profiles = await searchProfilesFullText(core, 1);
-                      profile = profiles[0] || null;
-                    } catch {}
-                  }
-                  const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
-                  if (pubkey) {
-                    try { replacement = nip19.npubEncode(pubkey); } catch {}
-                  }
-                }
+                const npub = await resolveAuthorToNpub(core);
+                if (npub) replacement = npub;
               } catch {}
               result += q.slice(lastIndex, m.index);
               result += `${pre}by:${replacement}${suffix}`;
@@ -1152,11 +1159,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
-                  if (manageUrl) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.delete('q');
-                    router.replace(`?${params.toString()}`);
-                  }
+                  // Always reset to root path when clearing
+                  router.replace('/');
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
                 aria-label="Clear search"

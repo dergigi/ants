@@ -1,4 +1,5 @@
 import { ndk, safePublish, safeSubscribe } from './ndk';
+import { nip19 } from 'nostr-tools';
 import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { getStoredPubkey } from './nip07';
@@ -320,6 +321,32 @@ export async function getOldestProfileMetadata(pubkey: string): Promise<{ id: st
     }
     if (!oldest) return null;
     return { id: oldest.id, created_at: oldest.created_at as number };
+  } catch {
+    return null;
+  }
+}
+
+// Resolve a by:<author> token value (username, nip05, or npub) to an npub.
+// Returns the original input if it's already an npub, otherwise attempts Vertex DVM
+// and falls back to a NIP-50 profile search. Hard timebox externally when needed.
+export async function resolveAuthorToNpub(author: string): Promise<string | null> {
+  try {
+    const core = (author || '').trim();
+    if (!core) return null;
+    if (/^npub1[0-9a-z]+$/i.test(core)) return core;
+
+    // Try Vertex first
+    let profile = await lookupVertexProfile(`p:${core}`);
+    if (!profile) {
+      // Fallback to full-text profile search
+      try {
+        const profiles = await searchProfilesFullText(core, 1);
+        profile = profiles[0] || null;
+      } catch {}
+    }
+    const pubkey = profile?.author?.pubkey || profile?.pubkey || null;
+    if (!pubkey) return null;
+    try { return nip19.npubEncode(pubkey); } catch { return null; }
   } catch {
     return null;
   }
