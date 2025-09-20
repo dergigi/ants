@@ -651,6 +651,18 @@ function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   return `${normalized}|${pubkeyHex}`;
 }
 
+async function verifyNip05ViaApi(pubkeyHex: string, normalizedNip05: string): Promise<boolean> {
+  try {
+    const url = `/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalizedNip05)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    return Boolean(data?.ok);
+  } catch {
+    return false;
+  }
+}
+
 async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
   if (!nip05) return false;
   const normalized = normalizeNip05String(nip05);
@@ -659,12 +671,10 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
   try {
     // Try server-side endpoint to avoid CORS from browser
-    const resp = await fetch(`/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalized)}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      const ok = Boolean(data.ok);
-      nip05VerificationCache.set(cacheKey, ok);
-      return ok;
+    const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
+    if (okApi !== false) {
+      nip05VerificationCache.set(cacheKey, okApi);
+      return okApi;
     }
   } catch {}
   try {
@@ -706,19 +716,8 @@ export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): 
     if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
     invalidateNip05Cache(pubkeyHex, normalized || raw);
     steps.push('API: GET /api/nip05/verify');
-    let ok = false;
-    try {
-      const resp = await fetch(`/api/nip05/verify?pubkey=${encodeURIComponent(pubkeyHex)}&nip05=${encodeURIComponent(normalized || raw)}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        ok = Boolean(data.ok);
-        steps.push(`API result: ${ok ? 'MATCH' : 'NO MATCH'}`);
-      } else {
-        steps.push(`API error: ${resp.status}`);
-      }
-    } catch (e) {
-      steps.push(`API exception: ${(e as Error)?.message || 'unknown'}`);
-    }
+    let ok = await verifyNip05ViaApi(pubkeyHex, (normalized || raw));
+    steps.push(`API result: ${ok ? 'MATCH' : 'NO MATCH'}`);
     if (!ok) {
       steps.push('fallback: nostr-tools.isValid');
       ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
