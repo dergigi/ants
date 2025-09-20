@@ -28,8 +28,17 @@ export function countHashtags(text: string): number {
  */
 export function containsLink(text: string): boolean {
   if (!text) return false;
-  const lower = text.toLowerCase();
-  return lower.includes('http://') || lower.includes('https://');
+  // Detect any http(s) URL that is NOT an image link
+  const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
+  const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
+  let m: RegExpExecArray | null;
+  while ((m = urlRegex.exec(text)) !== null) {
+    const raw = (m[1] || '').replace(/[),.;]+$/, '').trim();
+    if (!imageExt.test(raw)) {
+      return true; // counts as an external link
+    }
+  }
+  return false;
 }
 
 /**
