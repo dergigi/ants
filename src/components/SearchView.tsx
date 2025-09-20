@@ -7,6 +7,7 @@ import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
+import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
 import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -520,38 +521,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const extractImageUrls = useCallback((text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = regex.exec(text)) !== null) {
-      const url = m[1].replace(/[),.;]+$/, '').trim();
-      if (!matches.includes(url)) matches.push(url);
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (IMAGE_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 3);
   }, []);
 
   const extractVideoUrls = useCallback((text: string): string[] => {
     if (!text) return [];
-    const regex = /(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?!\w)/gi;
     const matches: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = regex.exec(text)) !== null) {
-      const url = m[1].replace(/[),.;]+$/, '').trim();
-      if (!matches.includes(url)) matches.push(url);
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (VIDEO_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
     }
     return matches.slice(0, 2);
   }, []);
 
   const extractNonMediaUrls = (text: string): string[] => {
     if (!text) return [];
-    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
-    const videoExt = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
     const urls: string[] = [];
     let m: RegExpExecArray | null;
-    while ((m = urlRegex.exec(text)) !== null) {
-      const raw = m[1].replace(/[),.;]+$/, '').trim();
-      if (!imageExt.test(raw) && !videoExt.test(raw) && !urls.includes(raw)) {
+    while ((m = URL_REGEX.exec(text)) !== null) {
+      const raw = (m[1] || '').replace(/[),.;]+$/, '').trim();
+      if (!IMAGE_EXT_REGEX.test(raw) && !VIDEO_EXT_REGEX.test(raw) && !urls.includes(raw)) {
         urls.push(raw);
       }
     }

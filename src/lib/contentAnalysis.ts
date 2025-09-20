@@ -1,4 +1,5 @@
 import emojiRegex from 'emoji-regex';
+import { URL_REGEX, IMAGE_EXT_REGEX } from '@/lib/urlPatterns';
 
 /**
  * Count the number of emojis in a text string
@@ -29,12 +30,10 @@ export function countHashtags(text: string): number {
 export function containsLink(text: string): boolean {
   if (!text) return false;
   // Detect any http(s) URL that is NOT an image link
-  const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-  const imageExt = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
   let m: RegExpExecArray | null;
-  while ((m = urlRegex.exec(text)) !== null) {
+  while ((m = URL_REGEX.exec(text)) !== null) {
     const raw = (m[1] || '').replace(/[),.;]+$/, '').trim();
-    if (!imageExt.test(raw)) {
+    if (!IMAGE_EXT_REGEX.test(raw)) {
       return true; // counts as an external link
     }
   }
