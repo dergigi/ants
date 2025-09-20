@@ -41,17 +41,33 @@ export function containsLink(text: string): boolean {
   return false;
 }
 
+// --- NSFW detection helpers ---
+const NSFW_TAGS = new Set(['nsfw', 'nude']);
+
+export function isNsfwText(text: string): boolean {
+  if (!text) return false;
+  // check hashtags and plain words (case-insensitive)
+  const lower = text.toLowerCase();
+  if (/(^|\s)#(nsfw|nude)(?=\b)/i.test(text)) return true;
+  for (const tag of NSFW_TAGS) {
+    if (lower.includes(tag)) return true;
+  }
+  return false;
+}
+
 /**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
-export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string; bot?: boolean; is_bot?: boolean; about?: string }, pubkey?: string }; pubkey?: string }>(
+export function applyContentFilters<T extends { id?: string; content?: string; author?: { profile?: { nip05?: string; bot?: boolean; is_bot?: boolean; about?: string }, pubkey?: string }; pubkey?: string }>(
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
   hideLinks: boolean = false,
   verifiedOnly: boolean = false,
   verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean,
-  hideBots: boolean = false
+  hideBots: boolean = false,
+  hideNsfw: boolean = false,
+  nsfwCheck?: (evt: T) => boolean
 ): T[] {
   const base = events.filter(event => {
     const content = event.content || '';
@@ -83,6 +99,12 @@ export function applyContentFilters<T extends { content?: string; author?: { pro
       const declaredBot = profile?.bot === true || profile?.is_bot === true;
       const aboutHints = typeof profile?.about === 'string' && /\b(bot|automated|autopost)\b/i.test(profile.about);
       if (declaredBot || aboutHints) return false;
+    }
+
+    // Hide NSFW
+    if (hideNsfw) {
+      const flagged = nsfwCheck ? nsfwCheck(event) : isNsfwText(content);
+      if (flagged) return false;
     }
     
     return true;
