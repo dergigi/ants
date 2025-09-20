@@ -401,7 +401,13 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   if (!match) return null;
   
   const username = match[1].toLowerCase();
-  
+
+  // If not logged in, skip DVM entirely
+  const storedPubkey = getStoredPubkey();
+  if (!storedPubkey) {
+    try { return await fallbackLookupProfile(username); } catch { return null; }
+  }
+
   // Run DVM query and fallback in parallel; return the first non-null result
   const dvmPromise: Promise<NDKEvent | null> = (async () => {
     try {
@@ -705,13 +711,15 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
   const query = term.trim();
   if (!query) return [];
 
-  // Step 0: try Vertex DVM for top ranked results
+  // Step 0: try Vertex DVM for top ranked results (only when logged in)
   let vertexEvents: NDKEvent[] = [];
-  try {
-    vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
-  } catch (e) {
-    if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
-      console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+  if (getStoredPubkey()) {
+    try {
+      vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
+    } catch (e) {
+      if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
+        console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+      }
     }
   }
 
