@@ -5,42 +5,7 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 
-type Nip05CheckResult = {
-  isVerified: boolean;
-  value: string | undefined;
-};
-
-const nip05Cache = new Map<string, boolean>();
-
-async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
-  if (!nip05) return false;
-  const cacheKey = `${nip05}|${pubkeyHex}`;
-  if (nip05Cache.has(cacheKey)) return nip05Cache.get(cacheKey) as boolean;
-
-  try {
-    const [namePart, domainPartCandidate] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-    const name = namePart || '_';
-    const domain = (domainPartCandidate || '').trim();
-    if (!domain) {
-      nip05Cache.set(cacheKey, false);
-      return false;
-    }
-    const url = `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`;
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) {
-      nip05Cache.set(cacheKey, false);
-      return false;
-    }
-    const data = await res.json();
-    const mapped = (data?.names?.[name] as string | undefined)?.toLowerCase();
-    const result = mapped === pubkeyHex.toLowerCase();
-    nip05Cache.set(cacheKey, result);
-    return result;
-  } catch {
-    nip05Cache.set(cacheKey, false);
-    return false;
-  }
-}
+type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
 function useNip05Status(user: NDKUser): Nip05CheckResult {
   const [verified, setVerified] = useState(false);
@@ -50,8 +15,13 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   useEffect(() => {
     let isMounted = true;
     (async () => {
-      const result = await verifyNip05(pubkey, nip05);
-      if (isMounted) setVerified(result);
+      try {
+        const { reverifyNip05 } = await import('@/lib/vertex');
+        const result = await reverifyNip05(pubkey, nip05 || '');
+        if (isMounted) setVerified(Boolean(result));
+      } catch {
+        if (isMounted) setVerified(false);
+      }
     })();
     return () => { isMounted = false; };
   }, [pubkey, nip05]);
@@ -65,6 +35,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const { isVerified, value } = useNip05Status(user);
   const [manualVerified, setManualVerified] = useState<boolean | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [debugLines, setDebugLines] = useState<string[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -122,8 +93,10 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           try {
             // invalidate local cache and re-run verification
             try { nip05Cache.delete(`${value}|${user.pubkey}`); } catch {}
-            const ok = await verifyNip05(user.pubkey, value);
-            setManualVerified(ok);
+            const { reverifyNip05WithDebug } = await import('@/lib/vertex');
+            const res = await reverifyNip05WithDebug(user.pubkey, value);
+            setManualVerified(res.ok);
+            setDebugLines(res.steps);
           } catch {
             setManualVerified(false);
           } finally {
@@ -133,6 +106,9 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       >
         <FontAwesomeIcon icon={faArrowsRotate} className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
       </button>
+      {debugLines.length > 0 && (
+        <span className="text-xs text-gray-400" title={debugLines.join('\n')}>ℹ︎</span>
+      )}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
