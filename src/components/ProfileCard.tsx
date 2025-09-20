@@ -85,9 +85,24 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           // Display NIP-05 with a refresh action for re-verification
           const nip05 = (event.author.profile as unknown as { nip05?: string })?.nip05;
           if (!nip05) return null;
+          const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
+          const domain = (parts[1] || parts[0] || '').trim();
+          const wellKnownUrl = domain ? `https://${domain}/.well-known/nostr.json` : '';
           return (
             <span className="inline-flex items-center gap-2">
               <span className="text-gray-300 truncate max-w-[14rem]" title={nip05}>@ {nip05}</span>
+              {domain && (
+                <a
+                  href={wellKnownUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-200"
+                  title={`Open ${wellKnownUrl}`}
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                </a>
+              )}
               <button
                 type="button"
                 className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
