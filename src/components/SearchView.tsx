@@ -236,6 +236,50 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
 
     try {
+      // Helper: fully resolve the query into concrete search lines
+      const computeResolvedQueryLines = async (qIn: string): Promise<string[]> => {
+        // 1) Apply simple replacements (site:, is:, has:)
+        const afterReplacements = await applySimpleReplacements(qIn);
+        // 2) Distribute parenthesized OR across the query
+        const distributed = expandParenthesizedOr(afterReplacements);
+        // 3) Resolve all by:<author> tokens within a single query string
+        const resolveByTokensInQuery = async (q: string): Promise<string> => {
+          const rx = /(^|\s)by:(\S+)/gi;
+          let result = '';
+          let lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = rx.exec(q)) !== null) {
+            const full = m[0];
+            const pre = m[1] || '';
+            const raw = m[2] || '';
+            const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+            const core = (match && match[1]) || raw;
+            const suffix = (match && match[2]) || '';
+            let replacement = core;
+            try {
+              const npub = await resolveAuthorToNpub(core);
+              if (npub) replacement = npub;
+            } catch {}
+            result += q.slice(lastIndex, m.index);
+            result += `${pre}by:${replacement}${suffix}`;
+            lastIndex = m.index + full.length;
+          }
+          result += q.slice(lastIndex);
+          return result;
+        };
+        const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
+        // 4) Split into multiple queries if top-level OR exists and dedupe
+        const finalQueriesSet = new Set<string>();
+        for (const q of resolvedDistributed) {
+          const parts = parseOrQuery(q);
+          if (parts.length > 1) {
+            parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+          } else {
+            const s = q.trim(); if (s) finalQueriesSet.add(s);
+          }
+        }
+        return Array.from(finalQueriesSet);
+      };
       // compute expanded label/terms for media flags used without additional terms
       const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
       const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
@@ -275,30 +319,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      // Pre-resolve by:<author> to npub (if needed) BEFORE searching
-      let effectiveQuery = searchQuery;
-      if (needsAuthorResolution && byMatch) {
-        const author = (byMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
+      // Resolve into concrete search lines and query each line, merging results
+      const lines = await computeResolvedQueryLines(searchQuery);
+      const merged: typeof baseResults = [];
+      const seen = new Set<string>();
+      const seeds = lines.length > 0 ? lines : [searchQuery];
+      for (const seed of seeds) {
+        if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
         try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        // If we resolved successfully, replace only the matched by: token with the resolved npub.
-        // If resolution failed, proceed without modifying the query; the backend search will fallback.
-        if (resolvedNpub) {
-          effectiveQuery = searchQuery.replace(/(^|\s)by:(\S+)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
+          const part = await searchEvents(seed, undefined as unknown as number, undefined, undefined, abortController.signal);
+          for (const evt of part) {
+            if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+          }
+        } catch (e) {
+          if (e instanceof Error && (e.name === 'AbortError' || e.message === 'Search aborted')) {
+            return;
+          }
+          console.warn('Partial search failed for seed:', seed, e);
         }
       }
-
-      // Execute search
-      const searchResults = await searchEvents(effectiveQuery, undefined as unknown as number, undefined, undefined, abortController.signal);
       if (currentSearchId.current !== searchId) {
         return; // stale
       }
-      setBaseResults(searchResults);
-      setResults(searchResults);
+      setBaseResults(merged);
+      setResults(merged);
     } catch (error) {
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
         return;
