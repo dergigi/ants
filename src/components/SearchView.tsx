@@ -98,7 +98,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       filterSettings.maxHashtags,
       filterSettings.hideLinks,
       filterSettings.verifiedOnly,
-      (pubkey, nip05) => Promise.resolve(verifiedMapRef.current.get(pubkey || '') === true)
+      (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true)
     ),
     [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, verificationTick]
   );

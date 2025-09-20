@@ -35,13 +35,13 @@ export function containsLink(text: string): boolean {
 /**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
-export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string }, pubkey?: string } }>(
+export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string }, pubkey?: string }; pubkey?: string }>(
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
   hideLinks: boolean = false,
   verifiedOnly: boolean = false,
-  verifyFn?: (pubkeyHex: string, nip05?: string) => Promise<boolean>
+  verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean
 ): T[] {
   const base = events.filter(event => {
     const content = event.content || '';
@@ -72,13 +72,15 @@ export function applyContentFilters<T extends { content?: string; author?: { pro
 
   if (!verifiedOnly) return base;
 
-  // If verification requested, require author profile to have nip05 and let caller pre-verify or
-  // pass a verify function. As a baseline, filter to events with a present nip05 string.
+  // Only include events whose authors are actually verified according to verifyCheck map.
   return base.filter((evt) => {
+    const pubkey = (evt.pubkey || evt.author?.pubkey) as string | undefined;
     const nip05 = evt.author?.profile?.nip05;
-    if (!nip05) return false;
-    // Optional: caller may supply verifyFn to ensure verified mapping match
-    // For performance, we default to presence check here; SearchView will pre-verify profiles when needed.
-    return true;
+    if (!pubkey || !nip05) return false;
+    if (verifyCheck) {
+      return verifyCheck(pubkey, nip05) === true;
+    }
+    // Without a checker, default to exclude until verified
+    return false;
   });
 }
