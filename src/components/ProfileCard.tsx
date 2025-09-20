@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, nip05 }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; nip05?: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -65,8 +65,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
   const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
-  const [reverifyLoading, setReverifyLoading] = useState(false);
-  const [reverifyOk, setReverifyOk] = useState<boolean | null>(null);
+  // footer-specific state only
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -81,52 +80,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <span className="truncate max-w-[14rem]">{lightning}</span>
           </a>
         ) : null}
-        {(() => {
-          // Display NIP-05 with a refresh action for re-verification
-          if (!nip05) return null;
-          const parts = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-          const domain = (parts[1] || parts[0] || '').trim();
-          const wellKnownUrl = domain ? `https://${domain}/.well-known/nostr.json` : '';
-          return (
-            <span className="inline-flex items-center gap-2">
-              <span className="text-gray-300 truncate max-w-[14rem]" title={nip05}>@ {nip05}</span>
-              {domain && (
-                <a
-                  href={wellKnownUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-200"
-                  title={`Open ${wellKnownUrl}`}
-                  onClick={(e) => { e.stopPropagation(); }}
-                >
-                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-                </a>
-              )}
-              <button
-                type="button"
-                className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                title={reverifyLoading ? 'Re-validating…' : 'Re-validate NIP-05 now'}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (!pubkey || !nip05) return;
-                  setReverifyLoading(true);
-                  setReverifyOk(null);
-                  try {
-                    const { reverifyNip05 } = await import('@/lib/vertex');
-                    const ok = await reverifyNip05(pubkey, nip05);
-                    setReverifyOk(ok);
-                  } catch { setReverifyOk(false); }
-                  finally { setReverifyLoading(false); }
-                }}
-              >
-                {reverifyLoading ? '⟳' : '↻'}
-              </button>
-              {reverifyOk !== null && (
-                <span className={`text-xs ${reverifyOk ? 'text-green-400' : 'text-red-400'}`}>{reverifyOk ? '✓' : '✕'}</span>
-              )}
-            </span>
-          );
-        })()}
+        {/* NIP-05 controls moved to AuthorBadge next to the name */}
       </div>
       <div className="ml-auto flex items-center gap-2">
         {updatedAt && updatedEventId ? (
@@ -423,7 +377,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
-        nip05={(event.author?.profile as unknown as { nip05?: string })?.nip05}
         npub={event.author.npub}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
