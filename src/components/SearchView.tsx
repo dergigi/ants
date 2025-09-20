@@ -366,30 +366,58 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   useEffect(() => {
     if (!manageUrl) return;
-    const urlQuery = searchParams.get('q');
-    if (urlQuery) {
+    const urlQuery = searchParams.get('q') || '';
+    const onProfilePage = /^\/p\//i.test(pathname || '');
+    const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
+    const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
+    if (onProfilePage && currentProfileNpub) {
+      // Show explicit by: in the input, but keep URL implicit (handled here by reading urlQuery without by:)
+      const display = urlQuery
+        ? `${urlQuery} by:${currentProfileNpub}`
+        : `by:${currentProfileNpub}`;
+      setQuery(display);
+      const backend = urlQuery
+        ? `${urlQuery} by:${currentProfileNpub}`
+        : `by:${currentProfileNpub}`;
+      handleSearch(backend);
+    } else if (urlQuery) {
       setQuery(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl]);
+  }, [searchParams, handleSearch, manageUrl, pathname]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const searchQuery = query.trim() || placeholder;
-    setQuery(searchQuery);
+    const raw = query.trim() || placeholder;
+    const onProfilePage = /^\/p\//i.test(pathname || '');
+    const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
+    const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
+    // Keep input explicit
+    setQuery(raw);
     if (manageUrl) {
       const params = new URLSearchParams(searchParams.toString());
-      if (searchQuery) {
-        params.set('q', searchQuery);
+      if (raw) {
+        // URL should be implicit on profile pages: strip matching by:npub
+        let urlValue = raw;
+        if (onProfilePage && currentProfileNpub) {
+          urlValue = urlValue.replace(/(^|\s)by:(npub1[0-9a-z]+)(?=\s|$)/ig, (m, pre, npub) => {
+            return npub.toLowerCase() === currentProfileNpub.toLowerCase() ? (pre ? pre : '') : m;
+          }).replace(/\s{2,}/g, ' ').trim();
+        }
+        params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
-        handleSearch(searchQuery);
+        // Backend search should include implicit author on profile pages
+        const backend = (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(raw))
+          ? `${raw} by:${currentProfileNpub}`
+          : raw;
+        handleSearch(backend.trim());
       } else {
         params.delete('q');
         router.replace(`?${params.toString()}`);
         setResults([]);
       }
     } else {
-      if (searchQuery) handleSearch(searchQuery);
+      if (raw) handleSearch(raw);
       else setResults([]);
     }
   };
