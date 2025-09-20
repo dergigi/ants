@@ -72,51 +72,33 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Emoji filter */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-gray-300">
-                  Max emojis per note
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400">
-                    {filterSettings.maxEmojis === null ? 'No limit' : filterSettings.maxEmojis}
-                  </span>
-                </div>
-              </div>
+          <div className="space-y-2">
+            <div className="text-xs text-gray-400">Hide results that …</div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <span>…have more than</span>
               <input
-                type="range"
-                min={0}
-                max={50}
-                step={1}
-                value={filterSettings.maxEmojis === null ? 10 : filterSettings.maxEmojis}
+                type="number"
+                min="0"
+                value={filterSettings.maxEmojis ?? ''}
                 onChange={(e) => handleEmojiChange(e.target.value)}
-                className="w-full h-1.5 rounded bg-[#1f1f1f] outline-none disabled:opacity-50 accent-[#4a4a4a]"
+                className="w-16 px-2 py-1 text-sm bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                placeholder="0"
               />
+              <span>emojis.</span>
             </div>
 
-            {/* Hashtag filter */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-gray-300">
-                  Max hashtags per note
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400">
-                    {filterSettings.maxHashtags === null ? 'No limit' : filterSettings.maxHashtags}
-                  </span>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <span>…have more than</span>
               <input
-                type="range"
-                min={0}
-                max={50}
-                step={1}
-                value={filterSettings.maxHashtags === null ? 5 : filterSettings.maxHashtags}
+                type="number"
+                min="0"
+                value={filterSettings.maxHashtags ?? ''}
                 onChange={(e) => handleHashtagChange(e.target.value)}
-                className="w-full h-1.5 rounded bg-[#1f1f1f] outline-none disabled:opacity-50 accent-[#4a4a4a]"
+                className="w-16 px-2 py-1 text-sm bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                placeholder="0"
               />
+              <span>hashtags.</span>
             </div>
           </div>
 
