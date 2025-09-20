@@ -62,7 +62,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               <FontAwesomeIcon icon={faFilter} className="w-4 h-4 text-gray-400" />
               <span className="text-sm font-medium text-gray-200">Client-side Filters</span>
               {hasActiveFilters && (
-                <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                <span className="text-xs text-gray-400">
                   {filteredCount}/{resultCount} shown
                 </span>
               )}
