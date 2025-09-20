@@ -9,6 +9,7 @@ export interface FilterSettings {
   maxHashtags: number | null;
   hideLinks: boolean;
   resultFilter: string;
+  verifiedOnly: boolean;
 }
 
 interface Props {
@@ -43,13 +44,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '' });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '' });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
@@ -104,6 +105,16 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 className="w-full max-w-xs px-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
               />
             </div>
+
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={filterSettings.verifiedOnly}
+                onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
+                className="accent-[#4a4a4a]"
+              />
+              <span>Verified (NIP-05) only</span>
+            </label>
 
             <div className="text-xs text-gray-400">Hide:</div>
 

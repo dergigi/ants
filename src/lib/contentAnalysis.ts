@@ -35,18 +35,15 @@ export function containsLink(text: string): boolean {
 /**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
-export function applyContentFilters<T extends { content?: string }>(
+export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string }, pubkey?: string } }>(
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
-  hideLinks: boolean = false
+  hideLinks: boolean = false,
+  verifiedOnly: boolean = false,
+  verifyFn?: (pubkeyHex: string, nip05?: string) => Promise<boolean>
 ): T[] {
-  if (maxEmojis === null && maxHashtags === null) {
-    // if neither threshold is set, only apply link filter if requested
-    return hideLinks ? events.filter((e) => !containsLink(e.content || '')) : events;
-  }
-
-  return events.filter(event => {
+  const base = events.filter(event => {
     const content = event.content || '';
     
     // Check emoji limit
@@ -70,6 +67,18 @@ export function applyContentFilters<T extends { content?: string }>(
       return false;
     }
     
+    return true;
+  });
+
+  if (!verifiedOnly) return base;
+
+  // If verification requested, require author profile to have nip05 and let caller pre-verify or
+  // pass a verify function. As a baseline, filter to events with a present nip05 string.
+  return base.filter((evt) => {
+    const nip05 = evt.author?.profile?.nip05;
+    if (!nip05) return false;
+    // Optional: caller may supply verifyFn to ensure verified mapping match
+    // For performance, we default to presence check here; SearchView will pre-verify profiles when needed.
     return true;
   });
 }
