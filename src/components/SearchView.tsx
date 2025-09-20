@@ -342,7 +342,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return; // stale
       }
       setBaseResults(merged);
-      setResults(merged);
+      const filtered = applyClientFilters(merged, seedTerms, seedActive);
+      setResults(filtered);
     } catch (error) {
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
         return;
