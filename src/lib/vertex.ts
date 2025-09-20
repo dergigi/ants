@@ -731,37 +731,7 @@ export async function checkNip05(pubkeyHex: string, nip05: string): Promise<bool
   return verifyNip05(pubkeyHex, nip05);
 }
 
-// Force re-validation bypassing cache
-export async function reverifyNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
-  const normalized = normalizeNip05String(nip05);
-  invalidateNip05Cache(pubkeyHex, normalized || nip05);
-  return verifyNip05(pubkeyHex, normalized || nip05);
-}
-
-// Re-validate with debug steps for UI
-export async function reverifyNip05WithDebug(pubkeyHex: string, nip05: string): Promise<{ ok: boolean; steps: string[] }> {
-  const steps: string[] = [];
-  try {
-    const raw = (nip05 || '').trim();
-    if (!raw) return { ok: false, steps: [...steps, 'No nip05 provided'] };
-    steps.push(`Input: ${raw}`);
-    const normalized = normalizeNip05String(raw);
-    if (normalized !== raw) steps.push(`Normalized: ${normalized}`);
-    invalidateNip05Cache(pubkeyHex, normalized || raw);
-    steps.push('API: GET /api/nip05/verify');
-    let ok = await verifyNip05ViaApi(pubkeyHex, (normalized || raw));
-    steps.push(`API result: ${ok ? 'MATCH' : 'NO MATCH'}`);
-    if (!ok) {
-      steps.push('fallback: nostr-tools.isValid');
-      ok = await nostrNip05.isValid(pubkeyHex, (normalized || raw) as `${string}@${string}`);
-    }
-    steps.push(`nostr-tools result: ${ok ? 'MATCH' : 'NO MATCH'}`);
-    return { ok, steps };
-  } catch (e) {
-    steps.push(`Exception: ${(e as Error)?.message || 'unknown'}`);
-    return { ok: false, steps };
-  }
-}
+// Note: reverifyNip05 and debug variant removed; UI now uses cached check
 
 function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
   try {
