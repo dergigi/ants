@@ -1082,7 +1082,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       return (
         <div className={barClasses}>
           <button type="button" onClick={handleToggle} className="w-full text-left">
-            {isLoading ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
+            {isLoading ? 'Loading parent…' : (() => {
+              try {
+                const nevent = nip19.neventEncode({ id: parentId });
+                const short = `${nevent.slice(0, 10)}…${nevent.slice(-4)}`;
+                return `Replying to: ${short}`;
+              } catch {
+                const id = parentId || '';
+                const shortId = id.length > 14 ? `${id.slice(0, 10)}…${id.slice(-4)}` : id;
+                return `Replying to: ${shortId}`;
+              }
+            })()}
           </button>
         </div>
       );
