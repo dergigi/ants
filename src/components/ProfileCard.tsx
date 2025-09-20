@@ -113,13 +113,14 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           type="button"
           aria-label="Show raw event"
           title="Show raw event"
-          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center hover:bg-[#3a3a3a]"
+          className={`w-5 h-5 rounded-md flex items-center justify-center hover:bg-[#3a3a3a] ${showRaw ? 'text-green-400' : 'text-gray-300'}`}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const id = updatedEventId || fallbackEventId || null;
-            if (!id) { setShowRaw(true); setRawEvent(null); return; }
+            if (showRaw) { setShowRaw(false); return; }
             setShowRaw(true);
+            const id = updatedEventId || fallbackEventId || null;
+            if (!id) { setRawEvent(null); return; }
             setRawLoading(true);
             setRawEvent(null);
             try {
@@ -146,65 +147,41 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
         </a>
       </div>
-      {showRaw && typeof window !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[9998] bg-black/40"
-            onClick={(e) => { e.preventDefault(); setShowRaw(false); }}
-          />
-          <div
-            className="fixed z-[9999] max-w-2xl w-[90vw] max-h-[70vh] overflow-auto rounded-md bg-[#1f1f1f] border border-[#3d3d3d] shadow-lg p-3"
-            style={{ top: '15vh', left: '50%', transform: 'translateX(-50%)' }}
-            onClick={(e) => { e.stopPropagation(); }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-gray-300">Raw event</div>
-              <button
-                type="button"
-                className="text-gray-400 hover:text-gray-200"
-                onClick={() => setShowRaw(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className="text-xs text-gray-200">
-              {rawLoading ? (
-                <div>Loading…</div>
-              ) : rawEvent ? (
-                <Highlight
-                  code={JSON.stringify({
-                    id: rawEvent.id,
-                    kind: rawEvent.kind,
-                    created_at: rawEvent.created_at,
-                    pubkey: rawEvent.pubkey,
-                    content: rawEvent.content,
-                    tags: rawEvent.tags,
-                    sig: rawEvent.sig
-                  }, null, 2)}
-                  language="json"
-                  theme={themes.nightOwl}
-                >
-                  {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                    <pre className={`${className} overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
-                      {tokens.map((line, i: number) => (
-                        <div key={i} {...getLineProps({ line })}>
-                          {line.map((token, key: number) => (
-                            <span key={key} {...getTokenProps({ token })} />
-                          ))}
-                        </div>
+      {showRaw ? (
+        <div className="w-full mt-2">
+          {rawLoading ? (
+            <div className="text-xs text-gray-400">Loading…</div>
+          ) : rawEvent ? (
+            <Highlight
+              code={JSON.stringify({
+                id: rawEvent.id,
+                kind: rawEvent.kind,
+                created_at: rawEvent.created_at,
+                pubkey: rawEvent.pubkey,
+                content: rawEvent.content,
+                tags: rawEvent.tags,
+                sig: rawEvent.sig
+              }, null, 2)}
+              language="json"
+              theme={themes.nightOwl}
+            >
+              {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
+                  {tokens.map((line, i: number) => (
+                    <div key={i} {...getLineProps({ line })}>
+                      {line.map((token, key: number) => (
+                        <span key={key} {...getTokenProps({ token })} />
                       ))}
-                    </pre>
-                  )}
-                </Highlight>
-              ) : (
-                <div className="text-gray-400">No event available</div>
+                    </div>
+                  ))}
+                </pre>
               )}
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
+            </Highlight>
+          ) : (
+            <div className="text-xs text-gray-400">No event available</div>
+          )}
+        </div>
+      ) : null}
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
         <>
           <div
