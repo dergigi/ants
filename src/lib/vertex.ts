@@ -642,8 +642,12 @@ async function fallbackLookupProfile(username: string): Promise<NDKEvent | null>
   return ensureAuthor(sortedByCount[0]);
 }
 
-// Simple in-memory cache for NIP-05 verification results
+// Simple in-memory + persisted cache for NIP-05 verification results
+const NIP05_CACHE_STORAGE_KEY = 'ants_nip05_cache_v1';
+type Nip05CacheValue = { ok: boolean; timestamp: number };
+const NIP05_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const nip05VerificationCache = new Map<string, boolean>();
+const nip05PersistentCache: Map<string, Nip05CacheValue> = loadMapFromStorage<Nip05CacheValue>(NIP05_CACHE_STORAGE_KEY);
 
 
 function nip05CacheKey(pubkeyHex: string, nip05: string): string {
@@ -655,7 +659,13 @@ function getCachedNip05Result(pubkeyHex: string, nip05?: string): boolean | null
   if (!nip05) return null;
   try {
     const key = nip05CacheKey(pubkeyHex, nip05);
-    return nip05VerificationCache.has(key) ? (nip05VerificationCache.get(key) as boolean) : null;
+    if (nip05VerificationCache.has(key)) return nip05VerificationCache.get(key) as boolean;
+    const persisted = nip05PersistentCache.get(key);
+    if (persisted && (Date.now() - persisted.timestamp) <= NIP05_TTL_MS) {
+      nip05VerificationCache.set(key, persisted.ok);
+      return persisted.ok;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -684,6 +694,8 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
     if (okApi !== false) {
       nip05VerificationCache.set(cacheKey, okApi);
+      nip05PersistentCache.set(cacheKey, { ok: okApi, timestamp: Date.now() });
+      if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
       return okApi;
     }
   } catch {}
@@ -691,10 +703,14 @@ async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> 
     // Fallback to direct nostr-tools check
     const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
     nip05VerificationCache.set(cacheKey, ok);
+    nip05PersistentCache.set(cacheKey, { ok, timestamp: Date.now() });
+    if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
     return ok;
   } catch {}
   const cacheKey2 = nip05CacheKey(pubkeyHex, nip05);
   nip05VerificationCache.set(cacheKey2, false);
+  nip05PersistentCache.set(cacheKey2, { ok: false, timestamp: Date.now() });
+  if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
   return false;
 }
 
@@ -705,6 +721,8 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
     nip05VerificationCache.delete(key);
     // Also delete raw key if it was stored prior to normalization change
     nip05VerificationCache.delete(`${nip05}|${pubkeyHex}`);
+    nip05PersistentCache.delete(key);
+    if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
   } catch {}
 }
 
