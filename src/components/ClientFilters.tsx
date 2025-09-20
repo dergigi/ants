@@ -83,21 +83,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   <span className="text-[10px] text-gray-400">
                     {filterSettings.maxEmojis === null ? 'No limit' : filterSettings.maxEmojis}
                   </span>
-                  <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={filterSettings.maxEmojis === null}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onFilterChange({ ...filterSettings, maxEmojis: null });
-                        } else {
-                          onFilterChange({ ...filterSettings, maxEmojis: 10 });
-                        }
-                      }}
-                      className="accent-[#4a4a4a]"
-                    />
-                    No limit
-                  </label>
                 </div>
               </div>
               <input
@@ -107,7 +92,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 step={1}
                 value={filterSettings.maxEmojis === null ? 10 : filterSettings.maxEmojis}
                 onChange={(e) => handleEmojiChange(e.target.value)}
-                disabled={filterSettings.maxEmojis === null}
                 className="w-full h-1.5 rounded bg-[#1f1f1f] outline-none disabled:opacity-50 accent-[#4a4a4a]"
               />
             </div>
@@ -122,21 +106,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   <span className="text-[10px] text-gray-400">
                     {filterSettings.maxHashtags === null ? 'No limit' : filterSettings.maxHashtags}
                   </span>
-                  <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={filterSettings.maxHashtags === null}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onFilterChange({ ...filterSettings, maxHashtags: null });
-                        } else {
-                          onFilterChange({ ...filterSettings, maxHashtags: 5 });
-                        }
-                      }}
-                      className="accent-[#4a4a4a]"
-                    />
-                    No limit
-                  </label>
                 </div>
               </div>
               <input
@@ -146,7 +115,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 step={1}
                 value={filterSettings.maxHashtags === null ? 5 : filterSettings.maxHashtags}
                 onChange={(e) => handleHashtagChange(e.target.value)}
-                disabled={filterSettings.maxHashtags === null}
                 className="w-full h-1.5 rounded bg-[#1f1f1f] outline-none disabled:opacity-50 accent-[#4a4a4a]"
               />
             </div>
