@@ -12,7 +12,7 @@ import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
+import { getCurrentProfileNpub, toImplicitUrlQuery } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -1133,7 +1133,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router]);
+  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router, pathname]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -1499,7 +1499,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent, pathname])}
     </div>
   );
 }

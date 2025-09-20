@@ -33,7 +33,7 @@ site:quora => (quora.com OR www.quora.com OR m.quora.com)
 is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
 is:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 is:gif => (.gif OR .gifs OR .apng)
-is:quote => nostr:nevent
+is:quote => nevent
 is:mention => (nostr:npub OR nostr:nprofile)
 
 # --- HAS ---
