@@ -44,12 +44,9 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
         >
           <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
-          <span>Filter results</span>
-          {hasActiveFilters && (
-            <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-              {filteredCount}/{resultCount}
-            </span>
-          )}
+          <span className="text-xs text-gray-400">
+            {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
+          </span>
           <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
         </button>
       )}
@@ -60,7 +57,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FontAwesomeIcon icon={faFilter} className="w-4 h-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-200">Client-side Filters</span>
+              <span className="text-sm font-medium text-gray-200">Filter Results</span>
               {hasActiveFilters && (
                 <span className="text-xs text-gray-400">
                   {filteredCount}/{resultCount} shown
