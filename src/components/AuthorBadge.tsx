@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
@@ -36,9 +36,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const { isVerified, value } = useNip05Status(user);
-  const [manualVerified, setManualVerified] = useState<boolean | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [debugLines, setDebugLines] = useState<string[]>([]);
+  // Removed manual revalidation UI; rely on automatic/implicit verification
 
   useEffect(() => {
     let isMounted = true;
@@ -54,27 +52,14 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
     return () => { isMounted = false; };
   }, [user]);
 
-  const effectiveVerified = manualVerified ?? isVerified;
+  const effectiveVerified = isVerified;
 
   const nip05Part = value ? (
     <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
       <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
       <button
         type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          try {
-            const parts = value.includes('@') ? value.split('@') : ['_', value];
-            const domain = (parts[1] || parts[0] || '').trim();
-            if (!domain) return;
-            const q = `p:${domain}`;
-            const current = searchParams ? searchParams.toString() : '';
-            const params = new URLSearchParams(current);
-            params.set('q', q);
-            router.push(`/?${params.toString()}`);
-          } catch {}
-        }}
+        onClick={() => onAuthorClick && onAuthorClick(user.npub)}
         className="hover:underline truncate max-w-[14rem] text-left"
         title={value}
       >
@@ -101,30 +86,25 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       <button
         type="button"
         className="text-gray-300 hover:text-gray-100"
-        title={refreshing ? 'Re-validating…' : 'Re-validate NIP-05 now'}
-        onClick={async (e) => {
+        title="Search for profiles by this domain"
+        onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           if (!value) return;
-          setRefreshing(true);
           try {
-            // invalidate local cache and re-run verification
-            const { invalidateNip05Cache, reverifyNip05WithDebug } = await import('@/lib/vertex');
-            invalidateNip05Cache(user.pubkey, value);
-            const res = await reverifyNip05WithDebug(user.pubkey, value);
-            setManualVerified(res.ok);
-            setDebugLines(res.steps);
-          } catch {
-            setManualVerified(false);
-          } finally {
-            setRefreshing(false);
-          }
+            const parts = value.includes('@') ? value.split('@') : ['_', value];
+            const domain = (parts[1] || parts[0] || '').trim();
+            if (!domain) return;
+            const q = `p:${domain}`;
+            const current = searchParams ? searchParams.toString() : '';
+            const params = new URLSearchParams(current);
+            params.set('q', q);
+            router.push(`/?${params.toString()}`);
+          } catch {}
         }}
       >
-        <FontAwesomeIcon icon={faArrowsRotate} className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+        <FontAwesomeIcon icon={faMagnifyingGlass} className="h-3 w-3" />
       </button>
-      {debugLines.length > 0 && (
-        <span className="text-xs text-gray-400" title={debugLines.join('\n')}>ℹ︎</span>
-      )}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
