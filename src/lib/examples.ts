@@ -17,6 +17,7 @@ export const searchExamples = [
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
+  'good by:socrates',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
   'NIP-EE by:jeffg',
