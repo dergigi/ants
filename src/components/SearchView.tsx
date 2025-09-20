@@ -396,10 +396,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const urlQuery = searchParams.get('q') || '';
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (currentProfileNpub) {
-      const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
-      setQuery(display);
-      const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-      handleSearch(backend);
+      // Do not implicitly add by: on /p pages unless the user submits via the textbox.
+      // Keep the input reflecting the URL query as-is, and perform a root search when q is present.
+      setQuery(urlQuery);
+      if (urlQuery) {
+        handleSearch(urlQuery);
+      }
       // Normalize URL to implicit form if needed
       const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
       if (implicit !== urlQuery) {
@@ -417,7 +419,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     e.preventDefault();
     const raw = query.trim() || placeholder;
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
+    // Only when user manually submits from the textbox on /p, add missing by:<current npub>
     let displayVal = raw;
     if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
       displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
@@ -430,9 +432,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
         params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
-        // Backend search should include implicit author on profile pages
-        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
-        handleSearch(backend.trim());
+        // Backend search: use exactly what the user submitted (displayVal)
+        handleSearch(displayVal.trim());
       } else {
         params.delete('q');
         router.replace(`?${params.toString()}`);
@@ -835,6 +836,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     try {
                       const nevent = nip19.neventEncode({ id: embedded.id });
                       const q = nevent;
+                      const currentProfileNpub = getCurrentProfileNpub(pathname);
+                      if (currentProfileNpub) {
+                        const params = new URLSearchParams();
+                        params.set('q', q);
+                        router.push(`/?${params.toString()}`);
+                        return;
+                      }
                       setQuery(q);
                       if (manageUrl) {
                         const params = new URLSearchParams(searchParams.toString());
@@ -894,6 +902,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   key={`hashtag-${segIndex}-${chunkIdx}-${subIdx}-${index}`}
                   onClick={() => {
                     const nextQuery = part;
+                    const currentProfileNpub = getCurrentProfileNpub(pathname);
+                    if (currentProfileNpub) {
+                      const params = new URLSearchParams();
+                      params.set('q', nextQuery);
+                      router.push(`/?${params.toString()}`);
+                      return;
+                    }
                     setQuery(nextQuery);
                     if (manageUrl) {
                       const params = new URLSearchParams(searchParams.toString());
@@ -943,7 +958,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, pathname]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1019,6 +1034,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               onClick={() => {
                 const filename = getFilenameFromUrl(src);
                 const nextQuery = filename;
+                const currentProfileNpub = getCurrentProfileNpub(pathname);
+                if (currentProfileNpub) {
+                  const params = new URLSearchParams();
+                  params.set('q', nextQuery);
+                  router.push(`/?${params.toString()}`);
+                  return;
+                }
                 setQuery(filename);
                 if (manageUrl) {
                   const params = new URLSearchParams(searchParams.toString());
@@ -1077,6 +1099,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               }}
               onSearch={(targetUrl) => {
                 const nextQuery = targetUrl;
+                const currentProfileNpub = getCurrentProfileNpub(pathname);
+                if (currentProfileNpub) {
+                  const params = new URLSearchParams();
+                  params.set('q', nextQuery);
+                  router.push(`/?${params.toString()}`);
+                  return;
+                }
                 setQuery(nextQuery);
                 if (manageUrl) {
                   const params = new URLSearchParams(searchParams.toString());
@@ -1392,6 +1421,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             try {
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
+                              const currentProfileNpub = getCurrentProfileNpub(pathname);
+                              if (currentProfileNpub) {
+                                const params = new URLSearchParams();
+                                params.set('q', q);
+                                router.push(`/?${params.toString()}`);
+                                return;
+                              }
                               setQuery(q);
                               if (manageUrl) {
                                 const params = new URLSearchParams(searchParams.toString());
