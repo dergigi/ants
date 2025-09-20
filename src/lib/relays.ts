@@ -54,7 +54,8 @@ export const RELAYS = {
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
     'wss://purplepag.es',
-    'wss://search.nos.today'
+    'wss://search.nos.today',
+    'wss://relay.nostr.band'
   ],
 
   // Vertex DVM relay
