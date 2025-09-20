@@ -1288,7 +1288,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           filterSettings={filterSettings}
           onFilterChange={setFilterSettings}
           resultCount={results.length}
-          filteredCount={filteredResults.length}
+          filteredCount={fuseFilteredResults.length}
         />
       )}
 
@@ -1400,7 +1400,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [results, filterSettings.maxEmojis, filterSettings.maxHashtags, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+      }, [fuseFilteredResults, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.resultFilter, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
     </div>
   );
 }
