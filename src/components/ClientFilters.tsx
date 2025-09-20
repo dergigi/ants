@@ -8,6 +8,7 @@ export interface FilterSettings {
   maxEmojis: number | null;
   maxHashtags: number | null;
   hideLinks: boolean;
+  resultFilter: string;
 }
 
 interface Props {
@@ -42,13 +43,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '' });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '' });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
@@ -93,6 +94,17 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
           </div>
 
           <div className="space-y-1">
+            <div className="text-xs text-gray-400">Show:</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={filterSettings.resultFilter || ''}
+                onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
+                placeholder="Filter results…"
+                className="w-full max-w-xs px-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+              />
+            </div>
+
             <div className="text-xs text-gray-400">Hide:</div>
 
             <label className="flex items-center gap-2 text-xs text-gray-400">
