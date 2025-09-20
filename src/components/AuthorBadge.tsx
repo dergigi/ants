@@ -92,8 +92,8 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           setRefreshing(true);
           try {
             // invalidate local cache and re-run verification
-            try { nip05Cache.delete(`${value}|${user.pubkey}`); } catch {}
-            const { reverifyNip05WithDebug } = await import('@/lib/vertex');
+            const { invalidateNip05Cache, reverifyNip05WithDebug } = await import('@/lib/vertex');
+            invalidateNip05Cache(user.pubkey, value);
             const res = await reverifyNip05WithDebug(user.pubkey, value);
             setManualVerified(res.ok);
             setDebugLines(res.steps);
