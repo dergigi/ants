@@ -32,19 +32,16 @@ function serializeDvmEvents(events: NDKEvent[] | null): DvmStoredRecord[] {
   for (const evt of events) {
     const pubkey = (evt.pubkey || evt.author?.pubkey || '').trim();
     if (!pubkey) continue;
-    let profile: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string } | undefined;
-    try {
-      const content = JSON.parse(evt.content || '{}');
-      profile = {
-        name: content.name,
-        displayName: content.display_name || content.displayName,
-        about: content.about,
-        nip05: content.nip05,
-        image: content.image || content.picture
-      };
-    } catch {
-      // ignore parsing errors; store minimal
-    }
+    const fields = extractProfileFields(evt);
+    const profile: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string } | undefined = (
+      fields.name || fields.display || fields.about || fields.nip05 || fields.image
+    ) ? {
+      name: fields.name,
+      displayName: fields.display,
+      about: fields.about,
+      nip05: fields.nip05,
+      image: fields.image
+    } : undefined;
     records.push({ pubkey, profile });
   }
   return records;
@@ -125,6 +122,10 @@ function getCachedDvm(usernameLower: string): NDKEvent[] | null | undefined {
 function setCachedDvm(usernameLower: string, events: NDKEvent[] | null): void {
   DVM_CACHE.set(usernameLower, { events, timestamp: Date.now() });
   saveDvmCacheToStorage();
+}
+
+function isLoggedIn(): boolean {
+  return Boolean(getStoredPubkey());
 }
 
 async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
@@ -403,8 +404,7 @@ export async function lookupVertexProfile(query: string): Promise<NDKEvent | nul
   const username = match[1].toLowerCase();
 
   // If not logged in, skip DVM entirely
-  const storedPubkey = getStoredPubkey();
-  if (!storedPubkey) {
+  if (!isLoggedIn()) {
     try { return await fallbackLookupProfile(username); } catch { return null; }
   }
 
@@ -713,7 +713,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
 
   // Step 0: try Vertex DVM for top ranked results (only when logged in)
   let vertexEvents: NDKEvent[] = [];
-  if (getStoredPubkey()) {
+  if (isLoggedIn()) {
     try {
       vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
     } catch (e) {
