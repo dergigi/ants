@@ -11,6 +11,7 @@ export interface FilterSettings {
   resultFilter: string;
   verifiedOnly: boolean;
   fuzzyEnabled: boolean;
+  hideBots: boolean;
 }
 
 interface Props {
@@ -45,13 +46,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks;
@@ -179,6 +180,17 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 className="accent-[#4a4a4a]"
               />
               <span>Hide external links</span>
+            </label>
+
+            {/* Hide bots */}
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={filterSettings.hideBots}
+                onChange={(e) => onFilterChange({ ...filterSettings, hideBots: e.target.checked })}
+                className="accent-[#4a4a4a]"
+              />
+              <span>Hide bots</span>
             </label>
           </div>
 

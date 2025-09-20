@@ -44,13 +44,14 @@ export function containsLink(text: string): boolean {
 /**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
-export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string }, pubkey?: string }; pubkey?: string }>(
+export function applyContentFilters<T extends { content?: string; author?: { profile?: { nip05?: string; bot?: boolean; is_bot?: boolean; about?: string }, pubkey?: string }; pubkey?: string }>(
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
   hideLinks: boolean = false,
   verifiedOnly: boolean = false,
-  verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean
+  verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean,
+  hideBots: boolean = false
 ): T[] {
   const base = events.filter(event => {
     const content = event.content || '';
@@ -74,6 +75,14 @@ export function applyContentFilters<T extends { content?: string; author?: { pro
     // Hide links if enabled
     if (hideLinks && containsLink(content)) {
       return false;
+    }
+
+    // Hide bots when requested (based on kind:0 metadata heuristics per NIP-24)
+    if (hideBots) {
+      const profile = event.author?.profile as { bot?: boolean; is_bot?: boolean; about?: string } | undefined;
+      const declaredBot = profile?.bot === true || profile?.is_bot === true;
+      const aboutHints = typeof profile?.about === 'string' && /\b(bot|automated|autopost)\b/i.test(profile.about);
+      if (declaredBot || aboutHints) return false;
     }
     
     return true;
