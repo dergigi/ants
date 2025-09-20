@@ -442,11 +442,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const urlQuery = searchParams.get('q') || '';
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (currentProfileNpub) {
-      // Do not implicitly add by: on /p pages unless the user submits via the textbox.
-      // Keep the input reflecting the URL query as-is, and perform a root search when q is present.
+      // On /p pages, if q is present: keep input reflecting URL and perform a root search.
+      // If q is absent: run a backend search scoped to by:<npub> without modifying the input/URL.
       setQuery(urlQuery);
       if (urlQuery) {
         handleSearch(urlQuery);
+      } else {
+        handleSearch(`by:${currentProfileNpub}`);
       }
       // Normalize URL to implicit form if needed
       const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
