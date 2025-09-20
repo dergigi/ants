@@ -392,13 +392,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const onProfilePage = /^\/p\//i.test(pathname || '');
     const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
     const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
-    // Keep input explicit
-    setQuery(raw);
+    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
+    let displayVal = raw;
+    if (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
+    }
+    setQuery(displayVal);
     if (manageUrl) {
       const params = new URLSearchParams(searchParams.toString());
-      if (raw) {
+      if (displayVal) {
         // URL should be implicit on profile pages: strip matching by:npub
-        let urlValue = raw;
+        let urlValue = displayVal;
         if (onProfilePage && currentProfileNpub) {
           urlValue = urlValue.replace(/(^|\s)by:(npub1[0-9a-z]+)(?=\s|$)/ig, (m, pre, npub) => {
             return npub.toLowerCase() === currentProfileNpub.toLowerCase() ? (pre ? pre : '') : m;
@@ -407,9 +411,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
         // Backend search should include implicit author on profile pages
-        const backend = (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(raw))
-          ? `${raw} by:${currentProfileNpub}`
-          : raw;
+        const backend = (onProfilePage && currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal))
+          ? `${displayVal} by:${currentProfileNpub}`
+          : displayVal;
         handleSearch(backend.trim());
       } else {
         params.delete('q');
@@ -417,7 +421,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResults([]);
       }
     } else {
-      if (raw) handleSearch(raw);
+      if (displayVal) handleSearch(displayVal);
       else setResults([]);
     }
   };
