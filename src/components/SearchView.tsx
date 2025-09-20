@@ -7,7 +7,7 @@ import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
-import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from '@/lib/urlPatterns';
+import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { verifyNip05 as verifyNip05Async } from '@/lib/nip05';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -1017,7 +1017,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 })();
               }}
             >
-              {/^https?:\/\//i.test(src) ? (
+              {isAbsoluteHttpUrl(src) ? (
                 <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
               ) : null}
             </button>

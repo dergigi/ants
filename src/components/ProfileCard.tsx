@@ -5,6 +5,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -167,7 +168,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
-  const safeBannerUrl = typeof bannerUrl === 'string' && /^https?:\/\//i.test(bannerUrl) ? bannerUrl : undefined;
+  const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);

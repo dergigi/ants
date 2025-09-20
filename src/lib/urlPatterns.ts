@@ -17,4 +17,14 @@ export function isVideoUrl(url: string): boolean {
   return VIDEO_EXT_REGEX.test(url);
 }
 
+export function isAbsoluteHttpUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.trim().length === 0) return false;
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 
