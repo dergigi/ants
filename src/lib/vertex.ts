@@ -125,6 +125,34 @@ function setCachedDvm(usernameLower: string, events: NDKEvent[] | null): void {
   saveDvmCacheToStorage();
 }
 
+// Cache for author resolution: token (lowercased) -> { pubkeyHex, npub, score, timestamp }
+const AUTHOR_RESOLUTION_CACHE_STORAGE_KEY = 'ants_author_resolution_cache_v1';
+type AuthorResolutionRecord = { pubkeyHex: string; npub: string; score: number; timestamp: number };
+const AUTHOR_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const authorResolutionCache: Map<string, AuthorResolutionRecord> = loadMapFromStorage<AuthorResolutionRecord>(AUTHOR_RESOLUTION_CACHE_STORAGE_KEY);
+
+function getCachedAuthorResolution(tokenLower: string): AuthorResolutionRecord | null {
+  try {
+    const rec = authorResolutionCache.get(tokenLower);
+    if (!rec) return null;
+    if (Date.now() - rec.timestamp > AUTHOR_TTL_MS) {
+      authorResolutionCache.delete(tokenLower);
+      if (hasLocalStorage()) saveMapToStorage(AUTHOR_RESOLUTION_CACHE_STORAGE_KEY, authorResolutionCache);
+      return null;
+    }
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedAuthorResolution(tokenLower: string, rec: Omit<AuthorResolutionRecord, 'timestamp'>): void {
+  try {
+    authorResolutionCache.set(tokenLower, { ...rec, timestamp: Date.now() });
+    if (hasLocalStorage()) saveMapToStorage(AUTHOR_RESOLUTION_CACHE_STORAGE_KEY, authorResolutionCache);
+  } catch {}
+}
+
 function isLoggedIn(): boolean {
   return Boolean(getStoredPubkey());
 }
@@ -455,6 +483,8 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       try {
         const { type, data } = nip19.decode(input);
         if (type === 'npub' && typeof data === 'string') {
+          // Opportunistically store in author cache
+          try { setCachedAuthorResolution(input.toLowerCase(), { pubkeyHex: data, npub: input, score: 1000 }); } catch {}
           return { pubkeyHex: data, profileEvent: await profileEventFromPubkey(data) };
         }
       } catch {}
@@ -466,10 +496,46 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
     if (nip05Like) {
       const pk = await resolveNip05ToPubkey(input);
       if (!pk) return { pubkeyHex: null, profileEvent: null };
+      try {
+        const npub = nip19.npubEncode(pk);
+        setCachedAuthorResolution(input.toLowerCase(), { pubkeyHex: pk, npub, score: 950 });
+      } catch {}
       return { pubkeyHex: pk, profileEvent: await profileEventFromPubkey(pk) };
     }
 
     // 3) Otherwise treat as username and try Vertex DVM with fallback (single DVM attempt)
+    const tokenLower = input.toLowerCase();
+
+    // 3a) Check author resolution cache
+    const cached = getCachedAuthorResolution(tokenLower);
+    if (cached) {
+      try { return { pubkeyHex: cached.pubkeyHex, profileEvent: await profileEventFromPubkey(cached.pubkeyHex) }; } catch { return { pubkeyHex: cached.pubkeyHex, profileEvent: null }; }
+    }
+
+    // 3b) Check DVM cache and pick highest-scored profile
+    try {
+      const dvmCached = getCachedDvm(tokenLower);
+      if (Array.isArray(dvmCached) && dvmCached.length > 0) {
+        let bestEvt: NDKEvent | null = null;
+        let bestScore = -Infinity;
+        for (const evt of dvmCached) {
+          const fields = extractProfileFields(evt);
+          const s = computeMatchScore(tokenLower, fields.name, fields.display, fields.about, fields.nip05);
+          if (s > bestScore) { bestScore = s; bestEvt = evt; }
+        }
+        if (bestEvt) {
+          const pk = bestEvt.pubkey || bestEvt.author?.pubkey || '';
+          if (pk) {
+            try {
+              const npub = nip19.npubEncode(pk);
+              setCachedAuthorResolution(tokenLower, { pubkeyHex: pk, npub, score: bestScore });
+            } catch {}
+            return { pubkeyHex: pk, profileEvent: bestEvt };
+          }
+        }
+      }
+    } catch {}
+
     let profileEvt: NDKEvent | null = null;
     try {
       profileEvt = await lookupVertexProfile(`p:${input}`);
@@ -478,6 +544,14 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       return { pubkeyHex: null, profileEvent: null };
     }
     const pubkeyHex = profileEvt.author?.pubkey || profileEvt.pubkey || null;
+    if (pubkeyHex) {
+      try {
+        const fields = extractProfileFields(profileEvt);
+        const score = computeMatchScore(tokenLower, fields.name, fields.display, fields.about, fields.nip05);
+        const npub = nip19.npubEncode(pubkeyHex);
+        setCachedAuthorResolution(tokenLower, { pubkeyHex, npub, score });
+      } catch {}
+    }
     return { pubkeyHex, profileEvent: profileEvt };
   } catch {
     return { pubkeyHex: null, profileEvent: null };
