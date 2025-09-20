@@ -83,7 +83,7 @@ export default function ProfilePage() {
 
         {npub ? (
           <div className="mt-4">
-            <SearchView initialQuery={q || `by:${npub}`} manageUrl={false} />
+            <SearchView initialQuery={q || `by:${npub}`} manageUrl={true} />
           </div>
         ) : null}
       </div>
