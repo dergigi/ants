@@ -67,6 +67,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             onClick={() => setIsExpanded(true)}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
           >
+            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
             <span className="text-xs text-gray-400">
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
