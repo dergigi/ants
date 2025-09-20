@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faCircleXmark, faCircleExclamation, faArrowUpRightFromSquare, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
@@ -65,24 +65,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       >
         <span className="truncate max-w-[14rem]">{value}</span>
       </button>
-      {(() => {
-        const parts = value.includes('@') ? value.split('@') : ['_', value];
-        const domain = (parts[1] || parts[0] || '').trim();
-        if (!domain) return null;
-        const wellKnown = `https://${domain}/.well-known/nostr.json`;
-        return (
-          <a
-            href={wellKnown}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-400 hover:text-gray-200"
-            title={`Open ${wellKnown}`}
-            onClick={(e) => { e.stopPropagation(); }}
-          >
-            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
-          </a>
-        );
-      })()}
+      {/* External link removed */}
       <button
         type="button"
         className="text-gray-300 hover:text-gray-100"
