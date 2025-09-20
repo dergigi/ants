@@ -1017,7 +1017,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 })();
               }}
             >
-              <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+              {/^https?:\/\//i.test(src) ? (
+                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+              ) : null}
             </button>
           ))}
         </div>

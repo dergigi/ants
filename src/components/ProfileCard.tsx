@@ -167,6 +167,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
+  const safeBannerUrl = typeof bannerUrl === 'string' && /^https?:\/\//i.test(bannerUrl) ? bannerUrl : undefined;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
@@ -218,7 +219,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   }, [onHashtagClick, router]);
   return (
     <div className={noteCardClasses}>
-      {showBanner && bannerUrl && (
+      {showBanner && safeBannerUrl && (
         <div
           role="button"
           tabIndex={0}
@@ -238,7 +239,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             style={{ height: bannerExpanded ? 240 : 32 }}
           >
             <div className="absolute inset-0 overflow-hidden">
-              <Image src={bannerUrl} alt="Banner" fill className="object-cover" unoptimized />
+              <Image src={safeBannerUrl} alt="Banner" fill className="object-cover" unoptimized />
             </div>
             <div className="absolute top-1 left-1 z-50">
               <div className="relative">
@@ -276,7 +277,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (bannerUrl) window.open(bannerUrl, '_blank', 'noopener,noreferrer');
+                  if (safeBannerUrl) window.open(safeBannerUrl, '_blank', 'noopener,noreferrer');
                 }}
                 className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
