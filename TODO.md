@@ -34,6 +34,6 @@
 - [ ] Make up a kind for the stuff that is in `replacements.txt` & fetch it from nostr
 - [ ] Build a little tool that allows users to create new replacements
 - [ ] Explain that users need Vertex credits for the username lookup to work properly
-- [ ] Fix the one weird profile-specific search UI bug
+- [x] Fix the one weird profile-specific search UI bug
 - [ ] Refactor to use nepsilon/search-query-parser (?)
 - [ ] Add NIP-56 support to allow for nudity/profanity/illegal/spam/impersonation content filters
