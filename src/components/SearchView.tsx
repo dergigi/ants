@@ -1152,11 +1152,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
-                  if (manageUrl) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.delete('q');
-                    router.replace(`?${params.toString()}`);
-                  }
+                  // Always reset to root path when clearing
+                  router.replace('/');
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
                 aria-label="Clear search"
