@@ -96,6 +96,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           <span>{sinceLabel}</span>
         )}
         <button
+          type="button"
+          aria-label="Toggle raw JSON"
+          title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
+          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+        >
+          <FontAwesomeIcon icon={faCode} className="text-xs" />
+        </button>
+        <button
           ref={bottomButtonRef}
           type="button"
           aria-label="Open in portals"
@@ -112,15 +121,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
         >
           ⋯
-        </button>
-        <button
-          type="button"
-          aria-label="Toggle raw JSON"
-          title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
-          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-        >
-          <FontAwesomeIcon icon={faCode} className="text-xs" />
         </button>
         <a
           href={`nostr:${npub}`}
