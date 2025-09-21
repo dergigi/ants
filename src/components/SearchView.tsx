@@ -66,6 +66,56 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
+  const runSlashCommand = useCallback((rawInput: string) => {
+    const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
+    const buildHelp = () => [
+      '$ /help',
+      'Available commands:',
+      '  /help      Show this help',
+      '  /examples  List example queries',
+      '  /login     Connect with NIP-07',
+      '  /logout    Clear session',
+    ].join('\n');
+    if (cmd === 'help') {
+      setTopCommandText(buildHelp());
+      return;
+    }
+    if (cmd === 'examples') {
+      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
+      setTopCommandText(['$ /examples', ...examples.map(e => `  - ${e}`)].join('\n'));
+      return;
+    }
+    if (cmd === 'login') {
+      setTopCommandText('$ /login\nAttempting login…');
+      (async () => {
+        try {
+          const user = await login();
+          if (user) {
+            try { await user.fetchProfile(); } catch {}
+            setTopCommandText(`$ /login\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
+            setPlaceholder(nextExample());
+          } else {
+            setTopCommandText('$ /login\nLogin cancelled');
+          }
+        } catch {
+          setTopCommandText('$ /login\nLogin failed. Ensure a NIP-07 extension is installed.');
+        }
+      })();
+      return;
+    }
+    if (cmd === 'logout') {
+      try {
+        logout();
+        setTopCommandText('$ /logout\nLogged out');
+        setPlaceholder(nextExample());
+      } catch {
+        setTopCommandText('$ /logout\nLogout failed');
+      }
+      return;
+    }
+    setTopCommandText(`$ /${cmd}\nUnknown command`);
+  }, [setTopCommandText, setPlaceholder]);
+
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -318,11 +368,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       
       if (initialQuery && !manageUrl) {
         setQuery(initialQuery);
+        if (/^\//.test(initialQuery)) runSlashCommand(initialQuery);
         handleSearch(initialQuery);
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery, manageUrl]);
+  }, [handleSearch, initialQuery, manageUrl, runSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -405,6 +456,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
       setQuery(display);
       const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
+      if (/^\//.test(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(backend);
       // Normalize URL to implicit form if needed
       const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
@@ -415,9 +467,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
     } else if (urlQuery) {
       setQuery(urlQuery);
+      if (/^\//.test(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,47 +478,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     
     // Slash-commands: show CLI-style top card but still run normal search
     if (/^\//.test(raw)) {
-      const cmd = raw.replace(/^\s*\//, '').trim().toLowerCase();
-      const buildHelp = () => [
-        '$ /help',
-        'Available commands:',
-        '  /help      Show this help',
-        '  /examples  List example queries',
-        '  /login     Connect with NIP-07',
-        '  /logout    Clear session',
-      ].join('\n');
-      if (cmd === 'help') {
-        setTopCommandText(buildHelp());
-      } else if (cmd === 'examples') {
-        const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
-        setTopCommandText(['$ /examples', ...examples.map(e => `  - ${e}`)].join('\n'));
-      } else if (cmd === 'login') {
-        setTopCommandText('$ /login\nAttempting login…');
-        (async () => {
-          try {
-            const user = await login();
-            if (user) {
-              try { await user.fetchProfile(); } catch {}
-              setTopCommandText(`$ /login\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
-              setPlaceholder(nextExample());
-            } else {
-              setTopCommandText('$ /login\nLogin cancelled');
-            }
-          } catch {
-            setTopCommandText('$ /login\nLogin failed. Ensure a NIP-07 extension is installed.');
-          }
-        })();
-      } else if (cmd === 'logout') {
-        try {
-          logout();
-          setTopCommandText('$ /logout\nLogged out');
-          setPlaceholder(nextExample());
-        } catch {
-          setTopCommandText('$ /logout\nLogout failed');
-        }
-      } else {
-        setTopCommandText(`$ /${cmd}\nUnknown command`);
-      }
+      runSlashCommand(raw);
     } else {
       // Clear any previous command card for non-command searches
       setTopCommandText(null);
