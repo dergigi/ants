@@ -1511,7 +1511,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText])}
     </div>
   );
 }
