@@ -70,6 +70,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
     const buildHelp = () => [
       '$ ants --help',
+      '',
       'Available commands:',
       '  ants --help   Show this help',
       '  ants examples List example queries',
@@ -82,23 +83,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     if (cmd === 'examples') {
       const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
-      setTopCommandText(['$ ants examples', ...examples.map(e => `  - ${e}`)].join('\n'));
+      setTopCommandText(['$ ants examples', '', ...examples.map(e => `  - ${e}`)].join('\n'));
       return;
     }
     if (cmd === 'login') {
-      setTopCommandText('$ ants login\nAttempting login…');
+      setTopCommandText('$ ants login\n\nAttempting login…');
       (async () => {
         try {
           const user = await login();
           if (user) {
             try { await user.fetchProfile(); } catch {}
-            setTopCommandText(`$ ants login\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
+            setTopCommandText(`$ ants login\n\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
             setPlaceholder(nextExample());
           } else {
-            setTopCommandText('$ ants login\nLogin cancelled');
+            setTopCommandText('$ ants login\n\nLogin cancelled');
           }
         } catch {
-          setTopCommandText('$ ants login\nLogin failed. Ensure a NIP-07 extension is installed.');
+          setTopCommandText('$ ants login\n\nLogin failed. Ensure a NIP-07 extension is installed.');
         }
       })();
       return;
@@ -106,14 +107,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'logout') {
       try {
         logout();
-        setTopCommandText('$ ants logout\nLogged out');
+        setTopCommandText('$ ants logout\n\nLogged out');
         setPlaceholder(nextExample());
       } catch {
-        setTopCommandText('$ ants logout\nLogout failed');
+        setTopCommandText('$ ants logout\n\nLogout failed');
       }
       return;
     }
-    setTopCommandText(`$ ants ${cmd}\nUnknown command`);
+    setTopCommandText(`$ ants ${cmd}\n\nUnknown command`);
   }, [setTopCommandText, setPlaceholder]);
 
   // Simple input change handler: update local query state; searches run on submit
