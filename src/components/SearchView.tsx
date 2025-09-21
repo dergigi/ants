@@ -344,7 +344,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router]);
+  }, [pathname, router, isSlashCommand]);
 
   useEffect(() => {
     if (!isConnecting) return;
