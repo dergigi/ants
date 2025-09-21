@@ -16,7 +16,7 @@ export function Footer() {
 
   const handleGitHubClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const nextQuery = 'https://github.com/dergigi/ants/';
+    const nextQuery = '"dergigi/ants"';
     const params = new URLSearchParams(searchParams.toString());
     params.set('q', nextQuery);
     router.replace(`?${params.toString()}`);
@@ -24,15 +24,7 @@ export function Footer() {
 
   const handleSec04Click = (e: React.MouseEvent) => {
     e.preventDefault();
-    const nextQuery = 'SEC-04 #SovEng';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
-  };
-
-  const handleSec05Click = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const nextQuery = 'SEC-05 #SovEng';
+    const nextQuery = '#SovEng';
     const params = new URLSearchParams(searchParams.toString());
     params.set('q', nextQuery);
     router.replace(`?${params.toString()}`);
@@ -57,7 +49,7 @@ export function Footer() {
   return (
     <footer className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">
       <p>
-        Vibed with love by <a href="#" onClick={handleGigiClick} className="underline hover:text-gray-300">Gigi</a>.
+        Vibed by <a href="#" onClick={handleGigiClick} className="underline hover:text-gray-300">Gigi</a>.
       </p>
       <p className="mt-1">
         <a href="#" onClick={handleGitHubClick} className="underline hover:text-gray-300">GitHub</a>
@@ -66,9 +58,7 @@ export function Footer() {
         <span className="mx-2">·</span>
         <a href="#" onClick={handleSec04Click} className="underline hover:text-gray-300">Birthed during SEC-04</a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleSec05Click} className="underline hover:text-gray-300">Refined during SEC-05</a>
-        <span className="mx-2">·</span>
-        Using <a href="#" onClick={handleVertexClick} className="underline hover:text-gray-300">Vertex</a> DVM
+        <a href="#" onClick={handleVertexClick} className="underline hover:text-gray-300">Using Vertex</a>
       </p>
     </footer>
   );

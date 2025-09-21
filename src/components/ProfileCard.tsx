@@ -25,6 +25,17 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
+  const router = useRouter();
+
+  const handleLightningSearch = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!lightning) return;
+    const searchQuery = `(kind:0 OR kind:1) ${lightning}`;
+    const params = new URLSearchParams();
+    params.set('q', searchQuery);
+    router.push(`/?${params.toString()}`);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -74,14 +85,25 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-h-[1rem]">
         {lightning ? (
-          <a
-            href={`lightning:${lightning}`}
-            className="inline-flex items-center gap-1 hover:underline"
-            title={lightning}
-          >
-            <span className="text-yellow-400">⚡</span>
-            <span className="truncate max-w-[14rem]">{lightning}</span>
-          </a>
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleLightningSearch}
+              className="inline-flex items-center gap-1 hover:underline"
+              title={`Search for ${lightning}`}
+            >
+              <span className="text-yellow-400">⚡</span>
+              <span className="truncate max-w-[14rem]">{lightning}</span>
+            </button>
+            <a
+              href={`lightning:${lightning}`}
+              className="text-gray-400 hover:text-gray-200"
+              title={`Open ${lightning} in Lightning wallet`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+            </a>
+          </div>
         ) : null}
         {/* NIP-05 controls moved to AuthorBadge next to the name */}
       </div>
