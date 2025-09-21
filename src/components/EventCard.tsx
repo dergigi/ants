@@ -9,6 +9,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
 import RawEventJson from '@/components/RawEventJson';
+import IconButton from '@/components/IconButton';
 
 type Props = {
   event: NDKEvent;
@@ -58,20 +59,17 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               {event?.id ? (
                 <>
                   
-                  <button
-                    type="button"
-                    aria-label="Toggle raw JSON"
+                  <IconButton
                     title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+                    ariaLabel="Toggle raw JSON"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
-                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
                   >
                     <FontAwesomeIcon icon={faCode} className="text-xs" />
-                  </button>
-                  <button
+                  </IconButton>
+                  <IconButton
                     ref={portalButtonRef}
-                    type="button"
-                    aria-label="Open in portals"
                     title="Open in portals"
+                    ariaLabel="Open in portals"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -81,10 +79,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       }
                       setShowPortalMenu((v) => !v);
                     }}
-                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
                   >
                     ⋯
-                  </button>
+                  </IconButton>
                   <a
                     href={`nostr:${nip19.neventEncode({ id: event.id })}`}
                     title="Open in native client"

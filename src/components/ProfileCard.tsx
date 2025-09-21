@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
+import IconButton from '@/components/IconButton';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -95,20 +96,17 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{sinceLabel}</span>
         )}
-        <button
-          type="button"
-          aria-label="Toggle raw JSON"
+        <IconButton
           title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+          ariaLabel="Toggle raw JSON"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
-          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
         >
           <FontAwesomeIcon icon={faCode} className="text-xs" />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           ref={bottomButtonRef}
-          type="button"
-          aria-label="Open in portals"
           title="Open in portals"
+          ariaLabel="Open in portals"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -118,10 +116,9 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             }
             setShowPortalMenuBottom((v) => !v);
           }}
-          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
         >
           ⋯
-        </button>
+        </IconButton>
         <a
           href={`nostr:${npub}`}
           title="Open in native client"
