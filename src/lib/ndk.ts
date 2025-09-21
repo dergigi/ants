@@ -15,7 +15,11 @@ export async function ensureCacheInitialized(): Promise<void> {
   try {
     await cacheAdapter.initialize();
   } catch (error) {
-    console.warn('Failed to initialize sqlite-wasm cache adapter, continuing without cache:', error);
+    console.warn('Failed to initialize sqlite-wasm cache adapter, disabling cache and continuing:', error);
+    try {
+      // Disable cache usage to avoid "Database not initialized" paths
+      ndk.cacheAdapter = undefined;
+    } catch {}
   } finally {
     cacheInitialized = true;
   }
