@@ -14,7 +14,18 @@ export default function RawEventJson({ event, loading = false, className }: Prop
   if (loading) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>Loading…</div>;
   if (!event) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>No event available</div>;
 
-  const json = JSON.stringify(toPlainEvent(event), null, 2);
+  const base = toPlainEvent(event) as Record<string, unknown>;
+  const data: Record<string, unknown> = { ...base };
+  try {
+    const raw = data.content;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        data.content = JSON.parse(trimmed);
+      }
+    }
+  } catch {}
+  const json = JSON.stringify(data, null, 2);
 
   return (
     <Highlight code={json} language="json" theme={themes.nightOwl}>
