@@ -8,7 +8,7 @@ import { isLoggedIn } from './nip07';
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ dbName: 'ants-ndk-cache' });
 let cacheInitialized = false;
 
-async function ensureCacheInitialized(): Promise<void> {
+export async function ensureCacheInitialized(): Promise<void> {
   if (cacheInitialized) return;
   // Avoid initializing in SSR environments
   if (typeof window === 'undefined') { cacheInitialized = true; return; }

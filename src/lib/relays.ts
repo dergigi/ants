@@ -1,5 +1,5 @@
 import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
-import { ndk, safeSubscribe } from './ndk';
+import { ndk, safeSubscribe, ensureCacheInitialized } from './ndk';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
@@ -67,20 +67,21 @@ export const RELAYS = {
 // Pre-configured relay sets
 export const relaySets = {
   // Default relay set for general use
-  default: () => NDKRelaySet.fromRelayUrls(RELAYS.DEFAULT, ndk),
+  default: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.DEFAULT, ndk); },
   
   // Search relay set (NIP-50 capable)
-  search: () => NDKRelaySet.fromRelayUrls(RELAYS.SEARCH, ndk),
+  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.SEARCH, ndk); },
   
   // Profile search relay set
-  profileSearch: () => NDKRelaySet.fromRelayUrls(RELAYS.PROFILE_SEARCH, ndk),
+  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.PROFILE_SEARCH, ndk); },
   
   // Vertex DVM relay set
-  vertexDvm: () => NDKRelaySet.fromRelayUrls(RELAYS.VERTEX_DVM, ndk)
+  vertexDvm: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.VERTEX_DVM, ndk); }
 } as const;
 
 // Helper function to create custom relay sets
-export function createRelaySet(urls: string[]): NDKRelaySet {
+export async function createRelaySet(urls: string[]): Promise<NDKRelaySet> {
+  await ensureCacheInitialized();
   return NDKRelaySet.fromRelayUrls(urls, ndk);
 }
 

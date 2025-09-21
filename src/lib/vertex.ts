@@ -9,11 +9,14 @@ import { normalizeNip05String } from './nip05';
 
 export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
-// Create a specific relay set for the Vertex DVM
-const dvmRelaySet = relaySets.vertexDvm();
+// Lazily create relay sets when needed (avoid cache access during module import)
+async function getDvmRelaySet() {
+  return relaySets.vertexDvm();
+}
 
-// Fallback profile search relay set (NIP-50 capable)
-const profileSearchRelaySet = relaySets.profileSearch();
+async function getProfileSearchRelaySet() {
+  return relaySets.profileSearch();
+}
 
 // In-memory cache for DVM profile lookups: key=username(lower), value=array of profile events
 type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };
@@ -133,33 +136,36 @@ async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number 
   return new Promise<NDKEvent[]>((resolve) => {
     const collected: Map<string, NDKEvent> = new Map();
 
-    const sub = safeSubscribe(
-      [filter],
-      { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: profileSearchRelaySet }
-    );
+    (async () => {
+      const relaySet = await getProfileSearchRelaySet();
+      const sub = safeSubscribe(
+        [filter],
+        { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet }
+      );
     
-    if (!sub) {
-      console.warn('Failed to create profile search subscription');
-      resolve([]);
-      return;
-    }
+      if (!sub) {
+        console.warn('Failed to create profile search subscription');
+        resolve([]);
+        return;
+      }
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
     }, timeoutMs);
 
-    sub.on('event', (event: NDKEvent) => {
-      if (!collected.has(event.id)) {
-        collected.set(event.id, event);
-      }
-    });
+      sub.on('event', (event: NDKEvent) => {
+        if (!collected.has(event.id)) {
+          collected.set(event.id, event);
+        }
+      });
 
-    sub.on('eose', () => {
-      clearTimeout(timer);
-      resolve(Array.from(collected.values()));
-    });
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        resolve(Array.from(collected.values()));
+      });
 
-    sub.start();
+      sub.start();
+    })();
   });
 }
 export async function resolveNip05ToPubkey(nip05: string): Promise<string | null> {
@@ -272,116 +278,120 @@ async function queryVertexDVM(username: string, limit: number = 10): Promise<NDK
           ...requestEvent.filter()
         };
         
-        const sub = safeSubscribe(
-          [dvmFilter],
-          { 
-            closeOnEose: false,
-            cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
-            relaySet: dvmRelaySet
-          }
-        );
-        
-        if (!sub) {
-          console.warn('Failed to create DVM subscription');
-          reject(new Error('Failed to create DVM subscription'));
-          return;
-        }
-
-        let settled = false;
-
-        // Add event handlers after creating subscription
-        sub.on('event', async (event: NDKEvent) => {
-          console.log('Received DVM event:', {
-            kind: event.kind,
-            id: event.id,
-            tags: event.tags,
-            content: event.content.slice(0, 100) + '...'
-          });
-
-          if (event.kind === 7000) {
-            const statusTag = event.tags.find((tag: string[]) => tag[0] === 'status');
-            const status = statusTag?.[2] ?? statusTag?.[1];
-            if (status) {
-              console.log('DVM status update:', status);
-              if (!settled && /credit/i.test(status)) {
-                settled = true;
-                try { sub.stop(); } catch {}
-                reject(new Error('VERTEX_NO_CREDITS'));
-                return;
-              }
+        (async () => {
+          const relaySet = await getDvmRelaySet();
+          const sub = safeSubscribe(
+            [dvmFilter],
+            { 
+              closeOnEose: false,
+              cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+              relaySet
             }
+          );
+
+          if (!sub) {
+            console.warn('Failed to create DVM subscription');
+            reject(new Error('Failed to create DVM subscription'));
             return;
           }
 
-          // Stop subscription immediately when we get a valid response
-          console.log('Got valid DVM response, stopping subscription');
-          sub.stop();
+          let settled = false;
 
-          try {
-            console.log('Parsing DVM response content...');
-            const records = JSON.parse(event.content);
-            if (!Array.isArray(records) || records.length === 0) {
-              console.log('No valid records found in DVM response');
-              reject(new Error('No results found'));
+          // Add event handlers after creating subscription
+          sub.on('event', async (event: NDKEvent) => {
+            console.log('Received DVM event:', {
+              kind: event.kind,
+              id: event.id,
+              tags: event.tags,
+              content: event.content.slice(0, 100) + '...'
+            });
+
+            if (event.kind === 7000) {
+              const statusTag = event.tags.find((tag: string[]) => tag[0] === 'status');
+              const status = statusTag?.[2] ?? statusTag?.[1];
+              if (status) {
+                console.log('DVM status update:', status);
+                if (!settled && /credit/i.test(status)) {
+                  settled = true;
+                  try { sub.stop(); } catch {}
+                  reject(new Error('VERTEX_NO_CREDITS'));
+                  return;
+                }
+              }
               return;
             }
 
-            // Create profile events for up to `limit` results, preserving DVM rank order
-            const top = records.slice(0, Math.max(1, limit));
-            type DVMRecord = { pubkey?: string };
-            const users = top.map((rec: DVMRecord) => {
-              const pk = rec?.pubkey as string | undefined;
-              if (!pk) return null;
-              const user = new NDKUser({ pubkey: pk });
-              user.ndk = ndk;
-              return user;
-            }).filter(Boolean) as NDKUser[];
+            // Stop subscription immediately when we get a valid response
+            console.log('Got valid DVM response, stopping subscription');
+            sub.stop();
 
-            await Promise.allSettled(users.map((u) => u.fetchProfile()));
+            try {
+              console.log('Parsing DVM response content...');
+              const records = JSON.parse(event.content);
+              if (!Array.isArray(records) || records.length === 0) {
+                console.log('No valid records found in DVM response');
+                reject(new Error('No results found'));
+                return;
+              }
 
-            const events: NDKEvent[] = users.map((user) => {
-              const plain: Event = {
-                kind: 0,
-                created_at: Math.floor(Date.now() / 1000),
-                content: JSON.stringify(user.profile || {}),
-                pubkey: user.pubkey,
-                tags: [],
-                id: '',
-                sig: ''
-              };
-              // Deterministic id for React keys, not signed
-              plain.id = getEventHash(plain);
-              const profileEvent = new NDKEvent(ndk, plain);
-              profileEvent.author = user;
-              return profileEvent;
-            });
+              // Create profile events for up to `limit` results, preserving DVM rank order
+              const top = records.slice(0, Math.max(1, limit));
+              type DVMRecord = { pubkey?: string };
+              const users = top.map((rec: DVMRecord) => {
+                const pk = rec?.pubkey as string | undefined;
+                if (!pk) return null;
+                const user = new NDKUser({ pubkey: pk });
+                user.ndk = ndk;
+                return user;
+              }).filter(Boolean) as NDKUser[];
 
-            // Store in cache (positive)
-            setCachedDvm(key, events);
-            resolve(events);
-          } catch (e) {
-            console.error('Error processing DVM response:', e);
-            reject(e);
-          }
-        });
+              await Promise.allSettled(users.map((u) => u.fetchProfile()));
 
-        sub.on('eose', async () => {
-          console.log('Got EOSE, publishing DVM request...');
-          // Publish the request to the DVM relay set after we get EOSE
-          const published = await safePublish(requestEvent, dvmRelaySet);
-          if (published) {
-            console.log('Published DVM request:', { 
-              id: requestEvent.id,
-              kind: requestEvent.kind,
-              tags: requestEvent.tags 
-            });
-          } else {
-            console.warn('DVM request publish failed, but continuing with subscription...');
-          }
-        });
-        
-        console.log('Starting DVM subscription...');
-        sub.start();
+              const events: NDKEvent[] = users.map((user) => {
+                const plain: Event = {
+                  kind: 0,
+                  created_at: Math.floor(Date.now() / 1000),
+                  content: JSON.stringify(user.profile || {}),
+                  pubkey: user.pubkey,
+                  tags: [],
+                  id: '',
+                  sig: ''
+                };
+                // Deterministic id for React keys, not signed
+                plain.id = getEventHash(plain);
+                const profileEvent = new NDKEvent(ndk, plain);
+                profileEvent.author = user;
+                return profileEvent;
+              });
+
+              // Store in cache (positive)
+              setCachedDvm(key, events);
+              resolve(events);
+            } catch (e) {
+              console.error('Error processing DVM response:', e);
+              reject(e);
+            }
+          });
+
+          sub.on('eose', async () => {
+            console.log('Got EOSE, publishing DVM request...');
+            // Publish the request to the DVM relay set after we get EOSE
+            const rs = await getDvmRelaySet();
+            const published = await safePublish(requestEvent, rs);
+            if (published) {
+              console.log('Published DVM request:', { 
+                id: requestEvent.id,
+                kind: requestEvent.kind,
+                tags: requestEvent.tags 
+              });
+            } else {
+              console.warn('DVM request publish failed, but continuing with subscription...');
+            }
+          });
+          
+          console.log('Starting DVM subscription...');
+          sub.start();
+        })();
       } catch (e) {
         console.error('Error in subscription:', e);
         reject(e);

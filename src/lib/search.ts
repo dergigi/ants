@@ -44,8 +44,12 @@ export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as c
 export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
 
-// Use a search-capable relay set explicitly for NIP-50 queries
-const searchRelaySet = relaySets.search();
+// Use a search-capable relay set explicitly for NIP-50 queries (lazy, async)
+let searchRelaySetPromise: Promise<NDKRelaySet> | null = null;
+async function getSearchRelaySet(): Promise<NDKRelaySet> {
+  if (!searchRelaySetPromise) searchRelaySetPromise = relaySets.search();
+  return searchRelaySetPromise;
+}
 
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
 
@@ -168,7 +172,8 @@ async function subscribeAndStream(
     abortSignal?: AbortSignal;
   } = {}
 ): Promise<NDKEvent[]> {
-  const { timeoutMs = 30000, maxResults = 1000, onResults, relaySet = searchRelaySet, abortSignal } = options;
+  const { timeoutMs = 30000, maxResults = 1000, onResults, relaySet, abortSignal } = options;
+  const rs = relaySet || await getSearchRelaySet();
   
   return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
@@ -205,7 +210,7 @@ async function subscribeAndStream(
     const sub = safeSubscribe([streamingFilter], { 
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet 
+      relaySet: rs 
     });
 
     if (!sub) {
@@ -302,7 +307,7 @@ async function subscribeAndStream(
   });
 }
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet: NDKRelaySet = searchRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
+async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
     if (abortSignal?.aborted) {
@@ -337,13 +342,15 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       console.log('Subscribing with filter on relays:', { relayUrls, filter });
     } catch {}
 
-    const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet });
+    (async () => {
+      const rs = relaySet || await getSearchRelaySet();
+      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs });
     
-    if (!sub) {
-      console.warn('Failed to create subscription in subscribeAndCollect');
-      resolve([]);
-      return;
-    }
+      if (!sub) {
+        console.warn('Failed to create subscription in subscribeAndCollect');
+        resolve([]);
+        return;
+      }
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
       resolve(Array.from(collected.values()));
@@ -364,7 +371,7 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       abortSignal.addEventListener('abort', abortHandler);
     }
 
-    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+      sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
       // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
@@ -386,15 +393,16 @@ async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, 
       }
     });
 
-    sub.on('eose', () => {
-      clearTimeout(timer);
-      if (abortSignal) {
-        abortSignal.removeEventListener('abort', abortHandler);
-      }
-      resolve(Array.from(collected.values()));
-    });
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        if (abortSignal) {
+          abortSignal.removeEventListener('abort', abortHandler);
+        }
+        resolve(Array.from(collected.values()));
+      });
 
-    sub.start();
+      sub.start();
+    })();
   });
 }
 
