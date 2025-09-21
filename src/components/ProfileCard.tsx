@@ -15,7 +15,7 @@ import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -112,6 +112,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
         >
           ⋯
+        </button>
+        <button
+          type="button"
+          aria-label="Toggle raw JSON"
+          title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
+          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+        >
+          <FontAwesomeIcon icon={faCode} className="text-xs" />
         </button>
         <a
           href={`nostr:${npub}`}
@@ -357,15 +366,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           <div className="flex items-center gap-2 max-w-[50%] text-right text-sm text-gray-400">
             <button
               type="button"
-              aria-label="Toggle raw JSON"
-              title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
-              className="p-1 rounded hover:bg-[#3a3a3a]"
-            >
-              <FontAwesomeIcon icon={faCode} className="text-gray-400 text-xs" />
-            </button>
-            <button
-              type="button"
               aria-label="Copy npub"
               title="Copy npub"
               onClick={async (e) => {
@@ -399,6 +399,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
         npub={event.author.npub}
+        onToggleRaw={() => setShowRaw(v => !v)}
+        showRaw={showRaw}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <>
