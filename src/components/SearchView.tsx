@@ -65,7 +65,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
-  const [topCommandText, setTopCommandText] = useState<string | null>(null);
+  const [topCommand, setTopCommand] = useState<{ text: string; type: 'help' | 'examples' | 'message'; items?: string[] } | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
     const lines = Array.isArray(body) ? body : [body];
@@ -74,34 +74,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const runSlashCommand = useCallback((rawInput: string) => {
     const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
     if (cmd === 'help') {
-      setTopCommandText(buildCli('--help', [
+      setTopCommand({ text: buildCli('--help', [
         'Available commands:',
         '  ants --help   Show this help',
         '  ants examples List example queries',
         '  ants login    Connect with NIP-07',
         '  ants logout   Clear session',
-      ]));
+      ]), type: 'help' });
       return;
     }
     if (cmd === 'examples') {
       const examples = getFilteredExamples(isLoggedIn()).slice(0, 30).map(e => `  - ${e}`);
-      setTopCommandText(buildCli('examples', examples));
+      setTopCommand({ text: buildCli('examples', ['Examples:', ...examples]), type: 'examples', items: getFilteredExamples(isLoggedIn()).slice(0, 30) as string[] });
       return;
     }
     if (cmd === 'login') {
-      setTopCommandText(buildCli('login', 'Attempting login…'));
+      setTopCommand({ text: buildCli('login', 'Attempting login…'), type: 'message' });
       (async () => {
         try {
           const user = await login();
           if (user) {
             try { await user.fetchProfile(); } catch {}
-            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+            setTopCommand({ text: buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`), type: 'message' });
             setPlaceholder(nextExample());
           } else {
-            setTopCommandText(buildCli('login', 'Login cancelled'));
+            setTopCommand({ text: buildCli('login', 'Login cancelled'), type: 'message' });
           }
         } catch {
-          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+          setTopCommand({ text: buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'), type: 'message' });
         }
       })();
       return;
@@ -109,15 +109,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'logout') {
       try {
         logout();
-        setTopCommandText(buildCli('logout', 'Logged out'));
+        setTopCommand({ text: buildCli('logout', 'Logged out'), type: 'message' });
         setPlaceholder(nextExample());
       } catch {
-        setTopCommandText(buildCli('logout', 'Logout failed'));
+        setTopCommand({ text: buildCli('logout', 'Logout failed'), type: 'message' });
       }
       return;
     }
-    setTopCommandText(buildCli(cmd, 'Unknown command'));
-  }, [buildCli, setTopCommandText, setPlaceholder]);
+    setTopCommand({ text: buildCli(cmd, 'Unknown command'), type: 'message' });
+  }, [buildCli, setTopCommand, setPlaceholder]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,7 +484,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       runSlashCommand(raw);
     } else {
       // Clear any previous command card for non-command searches
-      setTopCommandText(null);
+      setTopCommand(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
@@ -1195,7 +1195,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
-    <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+    <div className={`w-full ${(results.length > 0 || topCommand) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -1224,7 +1224,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
-                  setTopCommandText(null);
+                  setTopCommand(null);
                   // Always reset to root path when clearing
                   router.replace('/');
                 }}
@@ -1402,12 +1402,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
-            {topCommandText ? (
+            {topCommand ? (
               <EventCard
                 event={new NDKEvent(ndk)}
                 onAuthorClick={goToProfile}
                 renderContent={() => (
-                  <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                  <>
+                  <Highlight code={topCommand.text} language="bash" theme={themes.nightOwl}>
                     {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
                       <pre
                         className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
@@ -1423,6 +1424,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       </pre>
                     )}
                   </Highlight>
+                  {topCommand.type === 'examples' && Array.isArray(topCommand.items) && topCommand.items.length > 0 ? (
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-xs">
+                      {topCommand.items.map((ex) => (
+                        <button
+                          key={ex}
+                          type="button"
+                          className="text-left px-2 py-1 rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
+                          onClick={() => {
+                            setQuery(ex);
+                            if (manageUrl) {
+                              const params = new URLSearchParams(searchParams.toString());
+                              params.set('q', ex);
+                              router.replace(`?${params.toString()}`);
+                            }
+                            handleSearch(ex);
+                          }}
+                        >
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  </>
                 )}
                 variant="card"
                 showFooter={false}
@@ -1511,7 +1535,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommand])}
     </div>
   );
 }
