@@ -88,7 +88,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'examples') {
       const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
       setTopExamples(examples);
-      setTopCommandText(buildCli('examples', ['Examples:', ...examples.map(e => `  - ${e}`)]));
+      setTopCommandText(buildCli('examples'));
       return;
     }
     if (cmd === 'login') {
@@ -1433,7 +1433,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
                       <div>$ ants examples</div>
                       <div>&nbsp;</div>
-                      <div>Examples:</div>
                       {topExamples.map((ex) => (
                         <div key={ex}>
                           <button
@@ -1449,7 +1448,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               handleSearch(ex);
                             }}
                           >
-                            {`- ${ex}`}
+                            {ex}
                           </button>
                         </div>
                       ))}
