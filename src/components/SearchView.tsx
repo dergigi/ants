@@ -65,7 +65,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
-  const [commandState, setCommandState] = useState<{ mode: 'none' | 'help' | 'examples' | 'message'; message?: string }>(() => ({ mode: 'none' }));
+  const [topCommandText, setTopCommandText] = useState<string | null>(null);
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -422,51 +422,53 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
-
-    // Slash-commands: /help, /examples, /login, /logout
+    
+    // Slash-commands: show CLI-style top card but still run normal search
     if (/^\//.test(raw)) {
       const cmd = raw.replace(/^\s*\//, '').trim().toLowerCase();
-      const run = async () => {
-        // Reset normal result state
-        setResults([]);
-        setBaseResults([]);
-        setExpandedLabel(null);
-        setExpandedTerms([]);
-        setActiveFilters(new Set());
-        setTranslation('');
-
-        if (cmd === 'help') {
-          setCommandState({ mode: 'help' });
-        } else if (cmd === 'examples') {
-          setCommandState({ mode: 'examples' });
-        } else if (cmd === 'login') {
+      const buildHelp = () => [
+        '$ /help',
+        'Available commands:',
+        '  /help      Show this help',
+        '  /examples  List example queries',
+        '  /login     Connect with NIP-07',
+        '  /logout    Clear session',
+      ].join('\n');
+      if (cmd === 'help') {
+        setTopCommandText(buildHelp());
+      } else if (cmd === 'examples') {
+        const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
+        setTopCommandText(['$ /examples', ...examples.map(e => `  - ${e}`)].join('\n'));
+      } else if (cmd === 'login') {
+        setTopCommandText('$ /login\nAttempting login…');
+        (async () => {
           try {
             const user = await login();
             if (user) {
               try { await user.fetchProfile(); } catch {}
-              setCommandState({ mode: 'message', message: `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}` });
-              // Refresh placeholder examples for logged-in state
+              setTopCommandText(`$ /login\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
               setPlaceholder(nextExample());
             } else {
-              setCommandState({ mode: 'message', message: 'Login cancelled' });
+              setTopCommandText('$ /login\nLogin cancelled');
             }
-          } catch (err) {
-            setCommandState({ mode: 'message', message: 'Login failed. Ensure a NIP-07 extension is installed.' });
-          }
-        } else if (cmd === 'logout') {
-          try {
-            logout();
-            setCommandState({ mode: 'message', message: 'Logged out' });
-            setPlaceholder(nextExample());
           } catch {
-            setCommandState({ mode: 'message', message: 'Logout failed' });
+            setTopCommandText('$ /login\nLogin failed. Ensure a NIP-07 extension is installed.');
           }
-        } else {
-          setCommandState({ mode: 'message', message: `Unknown command: /${cmd}` });
+        })();
+      } else if (cmd === 'logout') {
+        try {
+          logout();
+          setTopCommandText('$ /logout\nLogged out');
+          setPlaceholder(nextExample());
+        } catch {
+          setTopCommandText('$ /logout\nLogout failed');
         }
-      };
-      void run();
-      return;
+      } else {
+        setTopCommandText(`$ /${cmd}\nUnknown command`);
+      }
+    } else {
+      // Clear any previous command card for non-command searches
+      setTopCommandText(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
@@ -1206,6 +1208,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
+                  setTopCommandText(null);
                   // Always reset to root path when clearing
                   router.replace('/');
                 }}
@@ -1365,61 +1368,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {/* Slash-command output rendered via EventCard with CLI look */}
-      {commandState.mode !== 'none' && (
-        <div className="mt-6 w-full">
-          <EventCard
-            event={new NDKEvent(ndk)}
-            onAuthorClick={goToProfile}
-            renderContent={() => {
-              const buildCliText = (): string => {
-                if (commandState.mode === 'help') {
-                  return [
-                    '$ /help',
-                    'Available commands:',
-                    '  /help      Show this help',
-                    '  /examples  List example queries',
-                    '  /login     Connect with NIP-07',
-                    '  /logout    Clear session',
-                  ].join('\n');
-                }
-                if (commandState.mode === 'examples') {
-                  const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
-                  return [
-                    '$ /examples',
-                    ...(examples.length > 0 ? examples.map(e => `  - ${e}`) : ['  (no examples)'])
-                  ].join('\n');
-                }
-                if (commandState.mode === 'message') {
-                  return `$ ${query.trim()}\n${commandState.message || ''}`.trim();
-                }
-                return '';
-              };
-              const text = buildCliText();
-              return (
-                <Highlight code={text} language="bash" theme={themes.nightOwl}>
-                  {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                    <pre
-                      className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
-                      style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
-                    >
-                      {tokens.map((line, i) => (
-                        <div key={`cmd-${i}`} {...getLineProps({ line })}>
-                          {line.map((token, key) => (
-                            <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
-                          ))}
-                        </div>
-                      ))}
-                    </pre>
-                  )}
-                </Highlight>
-              );
-            }}
-            variant="card"
-            showFooter={false}
-          />
-        </div>
-      )}
+      {/* Command output will be injected as first result card below */}
 
       {/* Client-side filters */}
       {results.length > 0 && (
@@ -1435,8 +1384,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
       {useMemo(() => {
         const finalResults = fuseFilteredResults;
-        return finalResults.length > 0 ? (
+        return (
           <div className="mt-8 space-y-4">
+            {topCommandText ? (
+              <EventCard
+                event={new NDKEvent(ndk)}
+                onAuthorClick={goToProfile}
+                renderContent={() => (
+                  <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                    {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                      <pre
+                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
+                        style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                      >
+                        {tokens.map((line, i) => (
+                          <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                            {line.map((token, key) => (
+                              <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                            ))}
+                          </div>
+                        ))}
+                      </pre>
+                    )}
+                  </Highlight>
+                )}
+                variant="card"
+                showFooter={false}
+              />
+            ) : null}
             {finalResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
@@ -1519,7 +1494,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               );
             })}
           </div>
-        ) : null;
+        );
       }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
     </div>
   );
