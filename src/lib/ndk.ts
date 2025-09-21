@@ -5,7 +5,10 @@ import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
-const cacheAdapter = new NDKCacheAdapterSqliteWasm({ dbName: 'ants-ndk-cache' });
+const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
+  dbName: 'ants-ndk-cache', 
+  wasmUrl: '/ndk/sql-wasm.wasm'
+});
 let cacheInitialized = false;
 
 export async function ensureCacheInitialized(): Promise<void> {
