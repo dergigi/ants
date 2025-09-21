@@ -65,7 +65,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
-  const [topCommand, setTopCommand] = useState<{ text: string; type: 'help' | 'examples' | 'message'; items?: string[] } | null>(null);
+  const [topCommandText, setTopCommandText] = useState<string | null>(null);
+  const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
     const lines = Array.isArray(body) ? body : [body];
@@ -74,34 +75,37 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const runSlashCommand = useCallback((rawInput: string) => {
     const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
     if (cmd === 'help') {
-      setTopCommand({ text: buildCli('--help', [
+      setTopCommandText(buildCli('--help', [
         'Available commands:',
         '  ants --help   Show this help',
         '  ants examples List example queries',
         '  ants login    Connect with NIP-07',
         '  ants logout   Clear session',
-      ]), type: 'help' });
+      ]));
+      setTopExamples(null);
       return;
     }
     if (cmd === 'examples') {
-      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30).map(e => `  - ${e}`);
-      setTopCommand({ text: buildCli('examples', ['Examples:', ...examples]), type: 'examples', items: getFilteredExamples(isLoggedIn()).slice(0, 30) as string[] });
+      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
+      setTopExamples(examples);
+      setTopCommandText(buildCli('examples', ['Examples:', ...examples.map(e => `  - ${e}`)]));
       return;
     }
     if (cmd === 'login') {
-      setTopCommand({ text: buildCli('login', 'Attempting login…'), type: 'message' });
+      setTopCommandText(buildCli('login', 'Attempting login…'));
+      setTopExamples(null);
       (async () => {
         try {
           const user = await login();
           if (user) {
             try { await user.fetchProfile(); } catch {}
-            setTopCommand({ text: buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`), type: 'message' });
+            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
             setPlaceholder(nextExample());
           } else {
-            setTopCommand({ text: buildCli('login', 'Login cancelled'), type: 'message' });
+            setTopCommandText(buildCli('login', 'Login cancelled'));
           }
         } catch {
-          setTopCommand({ text: buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'), type: 'message' });
+          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
         }
       })();
       return;
@@ -109,15 +113,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'logout') {
       try {
         logout();
-        setTopCommand({ text: buildCli('logout', 'Logged out'), type: 'message' });
+        setTopCommandText(buildCli('logout', 'Logged out'));
         setPlaceholder(nextExample());
       } catch {
-        setTopCommand({ text: buildCli('logout', 'Logout failed'), type: 'message' });
+        setTopCommandText(buildCli('logout', 'Logout failed'));
       }
+      setTopExamples(null);
       return;
     }
-    setTopCommand({ text: buildCli(cmd, 'Unknown command'), type: 'message' });
-  }, [buildCli, setTopCommand, setPlaceholder]);
+    setTopCommandText(buildCli(cmd, 'Unknown command'));
+    setTopExamples(null);
+  }, [buildCli, setTopCommandText, setPlaceholder]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,7 +490,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       runSlashCommand(raw);
     } else {
       // Clear any previous command card for non-command searches
-      setTopCommand(null);
+      setTopCommandText(null);
+      setTopExamples(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
@@ -1195,7 +1202,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
-    <div className={`w-full ${(results.length > 0 || topCommand) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+    <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -1224,7 +1231,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
-                  setTopCommand(null);
+                  setTopCommandText(null);
+                  setTopExamples(null);
                   // Always reset to root path when clearing
                   router.replace('/');
                 }}
@@ -1402,51 +1410,54 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
-            {topCommand ? (
+            {topCommandText ? (
               <EventCard
                 event={new NDKEvent(ndk)}
                 onAuthorClick={goToProfile}
                 renderContent={() => (
-                  <>
-                  <Highlight code={topCommand.text} language="bash" theme={themes.nightOwl}>
-                    {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                      <pre
-                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
-                        style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
-                      >
-                        {tokens.map((line, i) => (
-                          <div key={`cmd-${i}`} {...getLineProps({ line })}>
-                            {line.map((token, key) => (
-                              <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
-                            ))}
-                          </div>
-                        ))}
-                      </pre>
-                    )}
-                  </Highlight>
-                  {topCommand.type === 'examples' && Array.isArray(topCommand.items) && topCommand.items.length > 0 ? (
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-xs">
-                      {topCommand.items.map((ex) => (
-                        <button
-                          key={ex}
-                          type="button"
-                          className="text-left px-2 py-1 rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
-                          onClick={() => {
-                            setQuery(ex);
-                            if (manageUrl) {
-                              const params = new URLSearchParams(searchParams.toString());
-                              params.set('q', ex);
-                              router.replace(`?${params.toString()}`);
-                            }
-                            handleSearch(ex);
-                          }}
-                        >
-                          {ex}
-                        </button>
+                  topExamples && topExamples.length > 0 ? (
+                    <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
+                      <div>$ ants examples</div>
+                      <div>&nbsp;</div>
+                      <div>Examples:</div>
+                      {topExamples.map((ex) => (
+                        <div key={ex}>
+                          <button
+                            type="button"
+                            className="text-left w-full hover:underline"
+                            onClick={() => {
+                              setQuery(ex);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', ex);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(ex);
+                            }}
+                          >
+                            {`- ${ex}`}
+                          </button>
+                        </div>
                       ))}
-                    </div>
-                  ) : null}
-                  </>
+                    </pre>
+                  ) : (
+                    <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                      {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                        <pre
+                          className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
+                          style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                        >
+                          {tokens.map((line, i) => (
+                            <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                              {line.map((token, key) => (
+                                <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                              ))}
+                            </div>
+                          ))}
+                        </pre>
+                      )}
+                    </Highlight>
+                  )
                 )}
                 variant="card"
                 showFooter={false}
@@ -1535,7 +1546,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommand])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText])}
     </div>
   );
 }
