@@ -1382,29 +1382,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </div>
         )}
         
-        {expandedLabel && expandedTerms.length > 0 && (
-          <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
-            {expandedTerms.map((term, i) => {
-              const active = activeFilters.has(term);
-              return (
-                <button
-                  key={`${term}-${i}`}
-                  type="button"
-                  className={`px-1.5 py-0.5 rounded border ${active ? 'bg-[#3a3a3a] border-[#4a4a4a] text-gray-100' : 'bg-[#2d2d2d] border-[#3d3d3d] text-gray-300'} hover:bg-[#3a3a3a]`}
-                  onClick={() => {
-                    const next = new Set(activeFilters);
-                    if (active) next.delete(term); else next.add(term);
-                    setActiveFilters(next);
-                    const filtered = applyClientFilters(baseResults, expandedTerms, next);
-                    setResults(filtered);
-                  }}
-                >
-                  <span className="font-mono">{term}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Removed inline expanded-term filter buttons (gif/gifs/apng etc.) per design update */}
       </form>
 
       {/* Command output will be injected as first result card below */}
