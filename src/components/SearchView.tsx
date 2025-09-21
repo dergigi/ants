@@ -26,6 +26,8 @@ import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import Fuse from 'fuse.js';
+import { getFilteredExamples } from '@/lib/examples';
+import { isLoggedIn, login, logout } from '@/lib/nip07';
 
 type Props = {
   initialQuery?: string;
@@ -62,6 +64,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+  const [commandState, setCommandState] = useState<{ mode: 'none' | 'help' | 'examples' | 'message'; message?: string }>(() => ({ mode: 'none' }));
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -418,6 +421,52 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
+
+    // Slash-commands: /help, /examples, /login, /logout
+    if (/^\//.test(raw)) {
+      const cmd = raw.replace(/^\s*\//, '').trim().toLowerCase();
+      const run = async () => {
+        // Reset normal result state
+        setResults([]);
+        setBaseResults([]);
+        setExpandedLabel(null);
+        setExpandedTerms([]);
+        setActiveFilters(new Set());
+        setTranslation('');
+
+        if (cmd === 'help') {
+          setCommandState({ mode: 'help' });
+        } else if (cmd === 'examples') {
+          setCommandState({ mode: 'examples' });
+        } else if (cmd === 'login') {
+          try {
+            const user = await login();
+            if (user) {
+              try { await user.fetchProfile(); } catch {}
+              setCommandState({ mode: 'message', message: `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}` });
+              // Refresh placeholder examples for logged-in state
+              setPlaceholder(nextExample());
+            } else {
+              setCommandState({ mode: 'message', message: 'Login cancelled' });
+            }
+          } catch (err) {
+            setCommandState({ mode: 'message', message: 'Login failed. Ensure a NIP-07 extension is installed.' });
+          }
+        } else if (cmd === 'logout') {
+          try {
+            logout();
+            setCommandState({ mode: 'message', message: 'Logged out' });
+            setPlaceholder(nextExample());
+          } catch {
+            setCommandState({ mode: 'message', message: 'Logout failed' });
+          }
+        } else {
+          setCommandState({ mode: 'message', message: `Unknown command: /${cmd}` });
+        }
+      };
+      void run();
+      return;
+    }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
@@ -1314,6 +1363,71 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </div>
         )}
       </form>
+
+      {/* Slash-command output rendered via EventCard */}
+      {commandState.mode !== 'none' && (
+        <div className="mt-6 w-full">
+          <EventCard
+            event={new NDKEvent(ndk)}
+            onAuthorClick={goToProfile}
+            renderContent={() => (
+              <div className="text-gray-100 whitespace-pre-wrap break-words">
+                {commandState.mode === 'help' && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-300">Type any of the commands below:</div>
+                    <div className="grid grid-cols-2 gap-2 max-w-md">
+                      {['/help','/examples','/login','/logout'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          className="px-2 py-1 text-left rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
+                          onClick={() => { setQuery(c); const evt = new Event('submit', { bubbles: true, cancelable: true }); searchRowRef.current?.dispatchEvent(evt as unknown as Event); }}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      You can also enter normal queries like hashtags, authors, media flags, and URLs.
+                    </div>
+                  </div>
+                )}
+                {commandState.mode === 'examples' && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-300">Examples {isLoggedIn() ? '' : '(login for more)'}:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {getFilteredExamples(isLoggedIn()).slice(0, 30).map((ex) => (
+                        <button
+                          key={ex}
+                          type="button"
+                          className="px-2 py-1 text-left rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
+                          onClick={() => {
+                            setQuery(ex);
+                            if (manageUrl) {
+                              const params = new URLSearchParams(searchParams.toString());
+                              params.set('q', ex);
+                              router.replace(`?${params.toString()}`);
+                            }
+                            handleSearch(ex);
+                            setCommandState({ mode: 'none' });
+                          }}
+                        >
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {commandState.mode === 'message' && (
+                  <div className="text-sm">{commandState.message}</div>
+                )}
+              </div>
+            )}
+            variant="card"
+            showFooter={false}
+          />
+        </div>
+      )}
 
       {/* Client-side filters */}
       {results.length > 0 && (
