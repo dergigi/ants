@@ -38,6 +38,12 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
+  const SLASH_COMMANDS = useMemo(() => ([
+    { key: 'help', label: '/help', description: 'Show this help' },
+    { key: 'examples', label: '/examples', description: 'List example queries' },
+    { key: 'login', label: '/login', description: 'Connect with NIP-07' },
+    { key: 'logout', label: '/logout', description: 'Clear session' }
+  ] as const), []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -75,13 +81,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const runSlashCommand = useCallback((rawInput: string) => {
     const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
     if (cmd === 'help') {
-      setTopCommandText(buildCli('--help', [
-        'Available commands:',
-        '  ants --help   Show this help',
-        '  ants examples List example queries',
-        '  ants login    Connect with NIP-07',
-        '  ants logout   Clear session',
-      ]));
+      const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
+      setTopCommandText(buildCli('--help', lines));
       setTopExamples(null);
       return;
     }
