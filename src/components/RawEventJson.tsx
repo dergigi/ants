@@ -2,6 +2,7 @@
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import { toPlainEvent } from '@/lib/toPlainEvent';
 
 type Props = {
   event: NDKEvent | null | undefined;
@@ -13,19 +14,7 @@ export default function RawEventJson({ event, loading = false, className }: Prop
   if (loading) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>Loading…</div>;
   if (!event) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>No event available</div>;
 
-  const json = JSON.stringify(
-    {
-      id: event.id,
-      kind: event.kind,
-      created_at: event.created_at,
-      pubkey: event.pubkey,
-      content: event.content,
-      tags: event.tags,
-      sig: event.sig
-    },
-    null,
-    2
-  );
+  const json = JSON.stringify(toPlainEvent(event), null, 2);
 
   return (
     <Highlight code={json} language="json" theme={themes.nightOwl}>
