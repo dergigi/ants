@@ -1,15 +1,13 @@
-import { NDKEvent, NDKKind, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKKind, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { Event, getEventHash, finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { ndk, safePublish, safeSubscribe } from '../ndk';
-import { getStoredPubkey } from '../nip07';
 import { relaySets } from '../relays';
+import { getStoredPubkey } from '../nip07';
 import { getCachedDvm, setCachedDvm } from './cache';
 
-// Lazily create relay sets when needed (avoid cache access during module import)
-async function getDvmRelaySet() {
-  return relaySets.vertexDvm();
-}
+export const VERTEX_REGEXP = /^p:([a-zA-Z0-9_]+)$/;
 
+// Query Vertex DVM for username resolution
 export async function queryVertexDVM(username: string, limit: number = 10): Promise<NDKEvent[]> {
   try {
     // Check cache first
@@ -78,7 +76,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
         };
         
         (async () => {
-          const relaySet = await getDvmRelaySet();
+          const relaySet = await relaySets.vertexDvm();
           const sub = safeSubscribe(
             [dvmFilter],
             { 
@@ -136,7 +134,6 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
               // Create profile events for up to `limit` results, preserving DVM rank order
               const top = records.slice(0, Math.max(1, limit));
               type DVMRecord = { pubkey?: string };
-              const { NDKUser } = require('@nostr-dev-kit/ndk');
               const users = top.map((rec: DVMRecord) => {
                 const pk = rec?.pubkey as string | undefined;
                 if (!pk) return null;
@@ -176,7 +173,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
           sub.on('eose', async () => {
             console.log('Got EOSE, publishing DVM request...');
             // Publish the request to the DVM relay set after we get EOSE
-            const rs = await getDvmRelaySet();
+            const rs = await relaySets.vertexDvm();
             const published = await safePublish(requestEvent, rs);
             if (published) {
               console.log('Published DVM request:', { 

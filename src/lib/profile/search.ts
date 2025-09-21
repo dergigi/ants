@@ -1,126 +1,23 @@
-import { NDKEvent, NDKUser, NDKFilter, type NDKUserProfile } from '@nostr-dev-kit/ndk';
-import { ndk, safeSubscribe } from '../ndk';
+import { NDKEvent, NDKUser, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { getStoredPubkey } from '../nip07';
-import { relaySets } from '../relays';
-import { queryVertexDVM } from '../dvm/query';
-import { getCachedNip05Result } from './verification';
-import { verifyNip05 } from './verification';
+import { 
+  subscribeAndCollectProfiles, 
+  getDirectFollows, 
+  extractProfileFields, 
+  computeMatchScore 
+} from './utils';
+import { queryVertexDVM } from './dvm-core';
+import { verifyNip05 } from './nip05';
+import { getCachedNip05Result } from './cache';
 
-// Lazily create relay sets when needed (avoid cache access during module import)
-async function getProfileSearchRelaySet() {
-  return relaySets.profileSearch();
-}
-
-function isLoggedIn(): boolean {
-  return Boolean(getStoredPubkey());
-}
-
-async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: number = 8000): Promise<NDKEvent[]> {
-  return new Promise<NDKEvent[]>((resolve) => {
-    const collected: Map<string, NDKEvent> = new Map();
-
-    (async () => {
-      const relaySet = await getProfileSearchRelaySet();
-      const sub = safeSubscribe(
-        [filter],
-        { closeOnEose: true, cacheUsage: 'ONLY_RELAY' as any, relaySet }
-      );
-    
-      if (!sub) {
-        console.warn('Failed to create profile search subscription');
-        resolve([]);
-        return;
-      }
-      const timer = setTimeout(() => {
-        try { sub.stop(); } catch {}
-        resolve(Array.from(collected.values()));
-      }, timeoutMs);
-
-      sub.on('event', (event: NDKEvent) => {
-        if (!collected.has(event.id)) {
-          collected.set(event.id, event);
-        }
-      });
-
-      sub.on('eose', () => {
-        clearTimeout(timer);
-        resolve(Array.from(collected.values()));
-      });
-
-      sub.start();
-    })();
-  });
-}
-
-async function getDirectFollows(pubkey: string): Promise<Set<string>> {
-  const events = await subscribeAndCollectProfiles({ kinds: [3], authors: [pubkey], limit: 1 });
-  const follows = new Set<string>();
-  if (events.length === 0) return follows;
-  const event = events[0];
-  for (const tag of event.tags as unknown as string[][]) {
-    if (Array.isArray(tag) && tag[0] === 'p' && tag[1]) {
-      follows.add(tag[1]);
-    }
-  }
-  return follows;
-}
-
-function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
-  try {
-    const content = JSON.parse(event.content || '{}');
-    return {
-      name: content.name,
-      display: content.display_name || content.displayName,
-      about: content.about,
-      nip05: content.nip05,
-      image: content.image || content.picture
-    };
-  } catch {
-    return {};
-  }
-}
-
-function computeMatchScore(termLower: string, name?: string, display?: string, about?: string, nip05?: string): number {
-  let score = 0;
-  const n = (name || '').toLowerCase();
-  const d = (display || '').toLowerCase();
-  const a = (about || '').toLowerCase();
-  const n5 = (nip05 || '').toLowerCase();
-  if (!termLower) return 0;
-  const exact = d === termLower || n === termLower;
-  const starts = d.startsWith(termLower) || n.startsWith(termLower);
-  const contains = d.includes(termLower) || n.includes(termLower);
-  if (exact) score += 40;
-  else if (starts) score += 30;
-  else if (contains) score += 20;
-  if (a.includes(termLower)) score += 10;
-  // Consider NIP-05 string with strong weighting; top-level (no local part) scores highest
-  if (n5) {
-    const [localRaw, domainRaw] = n5.includes('@') ? n5.split('@') : ['_', n5];
-    const local = (localRaw || '').trim();
-    const domain = (domainRaw || '').trim();
-    const isTop = local === '' || local === '_';
-    if (isTop) {
-      if (domain === termLower) score += 120; // top-level exact
-      else if (domain.startsWith(termLower)) score += 90; // top-level starts
-      else if (domain.includes(termLower)) score += 70; // top-level contains
-    } else {
-      const full = `${local}@${domain}`;
-      if (full === termLower || local === termLower || domain === termLower) score += 90; // exact on any part
-      else if (full.startsWith(termLower) || local.startsWith(termLower) || domain.startsWith(termLower)) score += 70;
-      else if (full.includes(termLower) || local.includes(termLower) || domain.includes(termLower)) score += 50;
-    }
-  }
-  return score;
-}
-
+// Full-text profile search with ranking
 export async function searchProfilesFullText(term: string, limit: number = 50): Promise<NDKEvent[]> {
   const query = term.trim();
   if (!query) return [];
 
   // Step 0: try Vertex DVM for top ranked results (only when logged in)
   let vertexEvents: NDKEvent[] = [];
-  if (isLoggedIn()) {
+  if (getStoredPubkey()) {
     try {
       vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
       for (const v of vertexEvents) {
@@ -160,14 +57,6 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     verified?: boolean;
   };
 
-  type UserProfile = {
-    name?: string;
-    displayName?: string;
-    about?: string;
-    nip05?: string;
-    image?: string;
-  };
-
   const enriched: EnrichedRow[] = candidates.map((evt, idx) => {
     const pubkey = evt.pubkey || evt.author?.pubkey || '';
     const { name, display, about, nip05, image } = extractProfileFields(evt);
@@ -176,8 +65,8 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     // Ensure author is set for UI
     if (!evt.author && pubkey) {
       const user = new NDKUser({ pubkey });
-      user.ndk = ndk;
-      (user as NDKUser & { profile: UserProfile }).profile = {
+      user.ndk = evt.ndk;
+      (user as NDKUser & { profile: NDKUserProfile }).profile = {
         name: name,
         displayName: display,
         about,
@@ -188,7 +77,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     } else if (evt.author) {
       // Populate minimal profile if missing
       if (!evt.author.profile) {
-        (evt.author as NDKUser & { profile: UserProfile }).profile = {
+        (evt.author as NDKUser & { profile: NDKUserProfile }).profile = {
           name: name,
           displayName: display,
           about,
@@ -254,7 +143,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     if (!evt.kind) evt.kind = 0;
     if (!evt.author && pk) {
       const user = new NDKUser({ pubkey: pk });
-      user.ndk = ndk;
+      user.ndk = evt.ndk;
       evt.author = user;
     }
     ordered.push(evt);

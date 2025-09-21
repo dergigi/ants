@@ -1,18 +1,29 @@
-// Re-export all functions from modular components for backward compatibility
-export { 
-  resolveNip05ToPubkey,
-  profileEventFromPubkey,
+// Re-export all profile-related functions from the new modular structure
+// This maintains backward compatibility while using the refactored modules
+
+export {
   resolveAuthor,
   resolveAuthorToNpub,
+  resolveNip05ToPubkey,
+  verifyNip05,
+  checkNip05,
+  invalidateNip05Cache,
+  profileEventFromPubkey,
+  subscribeAndCollectProfiles,
+  getDirectFollows,
+  countFollowerMentions,
   getOldestProfileMetadata,
   getNewestProfileMetadata,
   getNewestProfileEvent,
+  extractProfileFields,
+  computeMatchScore,
+  queryVertexDVM,
+  lookupVertexProfile,
+  VERTEX_REGEXP,
+  fallbackLookupProfile,
   searchProfilesFullText,
-  checkNip05,
-  invalidateNip05Cache,
-  VERTEX_REGEXP
-} from './profile/resolution';
-
-// Re-export DVM functions
-export { queryVertexDVM } from './dvm/query';
-export { getCachedDvm, setCachedDvm } from './dvm/cache';
+  getCachedDvm,
+  setCachedDvm,
+  getCachedNip05Result,
+  setCachedNip05Result
+} from './profile';
