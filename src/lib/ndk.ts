@@ -72,8 +72,10 @@ const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: s
 
 // Reusable connection function with timeout
 export const connectWithTimeout = async (timeoutMs: number = 3000): Promise<void> => {
+  // Always initialize cache before attempting to connect or racing with timeout
+  await ensureCacheInitialized();
   await Promise.race([
-    (async () => { await ensureCacheInitialized(); await ndk.connect(); })(),
+    ndk.connect(),
     createTimeoutPromise(timeoutMs)
   ]);
 };
@@ -215,9 +217,11 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
   let timeout = false;
 
   try {
+    // Ensure cache is initialized even if the connection times out
+    await ensureCacheInitialized();
     // Race between connection and timeout
     await Promise.race([
-      (async () => { await ensureCacheInitialized(); await ndk.connect(); })(),
+      ndk.connect(),
       createTimeoutPromise(timeoutMs)
     ]);
 

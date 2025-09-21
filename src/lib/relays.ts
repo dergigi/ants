@@ -116,6 +116,7 @@ async function checkNip50SupportViaNip11(relayUrl: string): Promise<boolean> {
 
 // Test NIP-50 support with a minimal search query
 async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
+  await ensureCacheInitialized();
   return new Promise((resolve) => {
     const testRelaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndk);
     let hasResponse = false;
