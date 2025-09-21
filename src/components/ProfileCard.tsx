@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
-import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { getOldestProfileMetadata, getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -206,8 +206,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
     (async () => {
       try {
         setRawLoading(true);
-        const newest = await getNewestProfileMetadata(event.author.pubkey);
-        if (!cancelled) setRawProfileEvent(newest || null);
+        const newestEvt = await getNewestProfileEvent(event.author.pubkey);
+        if (!cancelled) setRawProfileEvent(newestEvt || null);
       } catch {
         if (!cancelled) setRawProfileEvent(null);
       } finally {
