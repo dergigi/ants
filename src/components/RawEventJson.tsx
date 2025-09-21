@@ -3,6 +3,9 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { toPlainEvent } from '@/lib/toPlainEvent';
+import { useEffect, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCopy, faCheck } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   event: NDKEvent | null | undefined;
@@ -38,15 +41,29 @@ export default function RawEventJson({ event, loading = false, className, title,
         return headerTitle ? (
         <div className="text-xs text-gray-300 mb-2 flex items-center justify-between">
           <span className="font-semibold">{headerTitle}</span>
-          <button
-            type="button"
-            title="Copy JSON"
-            aria-label="Copy JSON"
-            className="px-2 py-0.5 rounded border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a]"
-            onClick={async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(json); } catch {} }}
-          >
-            Copy
-          </button>
+          {(() => {
+            const [copied, setCopied] = useState(false);
+            const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+            useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+            const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault();
+              try { await navigator.clipboard.writeText(json); } catch {}
+              setCopied(true);
+              if (timerRef.current) clearTimeout(timerRef.current);
+              timerRef.current = setTimeout(() => setCopied(false), 1500);
+            };
+            return (
+              <button
+                type="button"
+                title={copied ? 'Copied' : 'Copy JSON'}
+                aria-label={copied ? 'Copied' : 'Copy JSON'}
+                className="w-6 h-6 rounded-md border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a] flex items-center justify-center"
+                onClick={handleCopy}
+              >
+                <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="text-xs" />
+              </button>
+            );
+          })()}
         </div>
         ) : null;
       })()}
