@@ -1,0 +1,9 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+Commit all pending changes.
+Commit using conventional commits.
+Always commit after each implementation step or change.
