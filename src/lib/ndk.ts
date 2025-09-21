@@ -1,10 +1,33 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription } from '@nostr-dev-kit/ndk';
-import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
+import NDKCacheAdapterSqliteWasm from '@nostr-dev-kit/ndk-cache-sqlite-wasm';
 import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 
-const cacheAdapter = new NDKCacheAdapterDexie({ dbName: 'ants' });
+// SQLite (WASM) cache adapter — initialized lazily and only on the client
+const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
+  dbName: 'ants-ndk-cache', 
+  wasmUrl: '/ndk/sql-wasm.wasm'
+});
+let cacheInitialized = false;
+
+export async function ensureCacheInitialized(): Promise<void> {
+  if (cacheInitialized) return;
+  // Avoid initializing in SSR environments
+  if (typeof window === 'undefined') { cacheInitialized = true; return; }
+  try {
+    // ndk-cache-sqlite-wasm v0.5.x exposes initializeAsync()
+    await cacheAdapter.initializeAsync();
+  } catch (error) {
+    console.warn('Failed to initialize sqlite-wasm cache adapter, disabling cache and continuing:', error);
+    try {
+      // Disable cache usage to avoid "Database not initialized" paths
+      ndk.cacheAdapter = undefined;
+    } catch {}
+  } finally {
+    cacheInitialized = true;
+  }
+}
 
 export const ndk = new NDK({
   explicitRelayUrls: [...RELAYS.DEFAULT],
@@ -57,6 +80,8 @@ const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: s
 
 // Reusable connection function with timeout
 export const connectWithTimeout = async (timeoutMs: number = 3000): Promise<void> => {
+  // Always initialize cache before attempting to connect or racing with timeout
+  await ensureCacheInitialized();
   await Promise.race([
     ndk.connect(),
     createTimeoutPromise(timeoutMs)
@@ -200,6 +225,8 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
   let timeout = false;
 
   try {
+    // Ensure cache is initialized even if the connection times out
+    await ensureCacheInitialized();
     // Race between connection and timeout
     await Promise.race([
       ndk.connect(),
