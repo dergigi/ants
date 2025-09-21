@@ -57,24 +57,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               {footerRight}
               {event?.id ? (
                 <>
-                  <button
-                    ref={portalButtonRef}
-                    type="button"
-                    aria-label="Open in portals"
-                    title="Open in portals"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (portalButtonRef.current) {
-                        const rect = portalButtonRef.current.getBoundingClientRect();
-                        setMenuPosition({ top: rect.bottom + 4, left: rect.left });
-                      }
-                      setShowPortalMenu((v) => !v);
-                    }}
-                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  >
-                    ⋯
-                  </button>
+                  
                   <button
                     type="button"
                     aria-label="Toggle raw JSON"
