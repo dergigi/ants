@@ -8,6 +8,8 @@ import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
+import RawEventJson from '@/components/RawEventJson';
+import CardActions from '@/components/CardActions';
 
 type Props = {
   event: NDKEvent;
@@ -35,11 +37,20 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const portalButtonRef = useRef<HTMLButtonElement>(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   return (
     <div className={containerClasses}>
-      <div className={contentClasses}>{renderContent(event.content || '')}</div>
-      {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
+      {showRaw ? (
+        <div className="mt-0">
+          <RawEventJson event={event} />
+        </div>
+      ) : (
+        <>
+          <div className={contentClasses}>{renderContent(event.content || '')}</div>
+          {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
+        </>
+      )}
       {showFooter && (
         <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg'}>
           <div className="flex items-center gap-2">
@@ -48,36 +59,19 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {footerRight ? (
             <div className="flex items-center gap-2">
               {footerRight}
-              {event?.id ? (
-                <>
-                  <button
-                    ref={portalButtonRef}
-                    type="button"
-                    aria-label="Open in portals"
-                    title="Open in portals"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (portalButtonRef.current) {
-                        const rect = portalButtonRef.current.getBoundingClientRect();
-                        setMenuPosition({ top: rect.bottom + 4, left: rect.left });
-                      }
-                      setShowPortalMenu((v) => !v);
-                    }}
-                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  >
-                    ⋯
-                  </button>
-                  <a
-                    href={`nostr:${nip19.neventEncode({ id: event.id })}`}
-                    title="Open in native client"
-                    className="text-gray-400 hover:text-gray-200"
-                    onClick={(e) => { e.stopPropagation(); }}
-                  >
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-                  </a>
-                </>
-              ) : null}
+              <CardActions
+                eventId={event?.id}
+                showRaw={showRaw}
+                onToggleRaw={() => setShowRaw(v => !v)}
+                onToggleMenu={() => {
+                  if (portalButtonRef.current) {
+                    const rect = portalButtonRef.current.getBoundingClientRect();
+                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                  }
+                  setShowPortalMenu((v) => !v);
+                }}
+                menuButtonRef={portalButtonRef}
+              />
             </div>
           ) : null}
         </div>
@@ -103,7 +97,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       href={item.href}
                       target={item.href.startsWith('http') ? '_blank' : undefined}
                       rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                      className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                       onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                     >
                       <span>{item.name}</span>

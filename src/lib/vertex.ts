@@ -534,6 +534,23 @@ export async function getNewestProfileMetadata(pubkey: string): Promise<{ id: st
   }
 }
 
+// Return the full newest profile metadata NDKEvent for a pubkey
+export async function getNewestProfileEvent(pubkey: string): Promise<NDKEvent | null> {
+  try {
+    const events = await subscribeAndCollectProfiles({ kinds: [0], authors: [pubkey], limit: 8000 }, 8000);
+    if (!events || events.length === 0) return null;
+    let newest: NDKEvent | null = null;
+    for (const e of events) {
+      if (!newest || ((e.created_at || 0) > (newest.created_at || 0))) {
+        newest = e;
+      }
+    }
+    return newest;
+  } catch {
+    return null;
+  }
+}
+
 async function getDirectFollows(pubkey: string): Promise<Set<string>> {
   const events = await subscribeAndCollectProfiles({ kinds: [3], authors: [pubkey], limit: 1 });
   const follows = new Set<string>();

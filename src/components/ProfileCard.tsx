@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
-import { getOldestProfileMetadata, getNewestProfileMetadata } from '@/lib/vertex';
+import { getOldestProfileMetadata, getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,8 +13,10 @@ import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-ic
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
+import RawEventJson from '@/components/RawEventJson';
+import CardActions from '@/components/CardActions';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -94,32 +96,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{sinceLabel}</span>
         )}
-        <button
-          ref={bottomButtonRef}
-          type="button"
-          aria-label="Open in portals"
-          title="Open in portals"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        <CardActions
+          eventId={fallbackEventId}
+          showRaw={showRaw}
+          onToggleRaw={onToggleRaw}
+          onToggleMenu={() => {
             if (bottomButtonRef.current) {
               const rect = bottomButtonRef.current.getBoundingClientRect();
               setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
             }
             setShowPortalMenuBottom((v) => !v);
           }}
-          className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-        >
-          ⋯
-        </button>
-        <a
-          href={`nostr:${npub}`}
-          title="Open in native client"
-          className="text-gray-400 hover:text-gray-200"
-          onClick={(e) => { e.stopPropagation(); }}
-        >
-          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-        </a>
+          menuButtonRef={bottomButtonRef}
+        />
       </div>
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
         <>
@@ -139,7 +128,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
                     href={item.href}
                     target={item.href.startsWith('http') ? '_blank' : undefined}
                     rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                     onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
                   >
                     <span>{item.name}</span>
@@ -174,6 +163,9 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [showRaw, setShowRaw] = useState(false);
+  const [rawProfileEvent, setRawProfileEvent] = useState<NDKEvent | null>(null);
+  const [rawLoading, setRawLoading] = useState<boolean>(false);
 
   const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
   useEffect(() => {
@@ -188,6 +180,24 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
     })();
     return () => { cancelled = true; };
   }, []);
+  // When raw view is toggled on, fetch the newest profile metadata for accurate id/sig
+  useEffect(() => {
+    if (!showRaw) return;
+    if (rawProfileEvent) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setRawLoading(true);
+        const newestEvt = await getNewestProfileEvent(event.author.pubkey);
+        if (!cancelled) setRawProfileEvent(newestEvt || null);
+      } catch {
+        if (!cancelled) setRawProfileEvent(null);
+      } finally {
+        if (!cancelled) setRawLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showRaw, event.author.pubkey, rawProfileEvent]);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -372,11 +382,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         )}
       </div>
-      {event.author?.profile?.about && (
+      {showRaw ? (
+        <div className="mt-4">
+          <RawEventJson event={rawProfileEvent || event} loading={rawLoading} parseContent={true} />
+        </div>
+      ) : event.author?.profile?.about ? (
         <p className="mt-4 text-gray-300 break-words">
           {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
-      )}
+      ) : null}
       </div>
       <ProfileCreatedAt
         pubkey={event.author.pubkey}
@@ -384,6 +398,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
         npub={event.author.npub}
+        onToggleRaw={() => setShowRaw(v => !v)}
+        showRaw={showRaw}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <>
