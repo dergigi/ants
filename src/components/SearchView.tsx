@@ -61,10 +61,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
-  const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
-  const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
+  // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
@@ -124,7 +121,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     setTopCommandText(buildCli(cmd, 'Unknown command'));
     setTopExamples(null);
-  }, [buildCli, setTopCommandText, setPlaceholder]);
+  }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,9 +221,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
-      setExpandedLabel(null);
-      setExpandedTerms([]);
-      setActiveFilters(new Set());
       setResolvingAuthor(false);
       return;
     }
@@ -277,13 +271,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const gifTerms = ['gif','gifs','apng'];
         seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
         seedActive = new Set(seedTerms);
-        setExpandedLabel(seedTerms.join(' '));
-        setExpandedTerms(seedTerms);
-        setActiveFilters(seedActive);
       } else {
-        setExpandedLabel(null);
-        setExpandedTerms([]);
-        setActiveFilters(new Set());
+        // no-op
       }
 
       // Check if search was aborted before making the call
@@ -332,7 +321,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      setBaseResults(searchResults);
       const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
       setResults(filtered);
     } catch (error) {
@@ -1240,10 +1228,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
-                  setExpandedLabel(null);
-                  setExpandedTerms([]);
-                  setActiveFilters(new Set());
-                  setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
                   setTopCommandText(null);
@@ -1538,7 +1522,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples])}
     </div>
   );
 }

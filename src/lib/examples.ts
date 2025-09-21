@@ -76,6 +76,9 @@ export const searchExamples = [
 
   // NIP-50 extensions
   'bitcoin include:spam',
+
+  // Slash Commands
+  '/help',
 ] as const;
 
 // Examples that require login to work properly
