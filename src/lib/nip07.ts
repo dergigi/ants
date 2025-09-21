@@ -3,6 +3,14 @@ import { ndk, connect } from './ndk';
 
 const NIP07_PUBKEY_KEY = 'nip07_pubkey';
 
+function emitAuthChange(): void {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nip07:auth-change'));
+    }
+  } catch {}
+}
+
 export async function login(): Promise<NDKUser | null> {
   if (!(window as { nostr?: unknown }).nostr) {
     throw new Error('NIP-07 extension not found');
@@ -23,7 +31,7 @@ export async function login(): Promise<NDKUser | null> {
     
     // Ensure the user has the NDK instance set
     user.ndk = ndk;
-    
+    emitAuthChange();
     return user;
   } catch (error) {
     console.error('Error getting public key:', error);
@@ -42,6 +50,7 @@ export function getStoredPubkey(): string | null {
 export function logout(): void {
   localStorage.removeItem(NIP07_PUBKEY_KEY);
   ndk.signer = undefined;
+  emitAuthChange();
 }
 
 export async function restoreLogin(): Promise<NDKUser | null> {

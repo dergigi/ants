@@ -46,6 +46,28 @@ export function LoginButton() {
     };
 
     initLogin();
+    // Listen for external auth changes (e.g., slash-commands)
+    const onAuthChange = () => {
+      (async () => {
+        try {
+          const u = await restoreLogin();
+          if (u) {
+            try { await u.fetchProfile(); } catch {}
+          }
+          setUser(u);
+        } catch {
+          setUser(null);
+        }
+      })();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('nip07:auth-change', onAuthChange as EventListener);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('nip07:auth-change', onAuthChange as EventListener);
+      }
+    };
   }, []);
 
   const handleLogin = async () => {

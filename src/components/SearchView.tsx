@@ -26,6 +26,9 @@ import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import Fuse from 'fuse.js';
+import { getFilteredExamples } from '@/lib/examples';
+import { isLoggedIn, login, logout } from '@/lib/nip07';
+import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 
 type Props = {
   initialQuery?: string;
@@ -35,6 +38,12 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
+  const SLASH_COMMANDS = useMemo(() => ([
+    { key: 'help', label: '/help', description: 'Show this help' },
+    { key: 'examples', label: '/examples', description: 'List example queries' },
+    { key: 'login', label: '/login', description: 'Connect with NIP-07' },
+    { key: 'logout', label: '/logout', description: 'Clear session' }
+  ] as const), []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -52,16 +61,68 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
-  const [expandedLabel, setExpandedLabel] = useState<string | null>(null);
-  const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [baseResults, setBaseResults] = useState<NDKEvent[]>([]);
+  // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+  const [topCommandText, setTopCommandText] = useState<string | null>(null);
+  const [topExamples, setTopExamples] = useState<string[] | null>(null);
+  const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
+    const lines = Array.isArray(body) ? body : [body];
+    return [`$ ants ${label}`, '', ...lines].join('\n');
+  }, []);
+  const runSlashCommand = useCallback((rawInput: string) => {
+    const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
+    if (cmd === 'help') {
+      const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
+      setTopCommandText(buildCli('--help', lines));
+      setTopExamples(null);
+      return;
+    }
+    if (cmd === 'examples') {
+      const examples = getFilteredExamples(isLoggedIn());
+      setTopExamples(Array.from(examples));
+      setTopCommandText(buildCli('examples'));
+      return;
+    }
+    if (cmd === 'login') {
+      setTopCommandText(buildCli('login', 'Attempting login…'));
+      setTopExamples(null);
+      (async () => {
+        try {
+          const user = await login();
+          if (user) {
+            try { await user.fetchProfile(); } catch {}
+            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+            setPlaceholder(nextExample());
+          } else {
+            setTopCommandText(buildCli('login', 'Login cancelled'));
+          }
+        } catch {
+          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+        }
+      })();
+      return;
+    }
+    if (cmd === 'logout') {
+      try {
+        logout();
+        setTopCommandText(buildCli('logout', 'Logged out'));
+        setPlaceholder(nextExample());
+      } catch {
+        setTopCommandText(buildCli('logout', 'Logout failed'));
+      }
+      setTopExamples(null);
+      return;
+    }
+    setTopCommandText(buildCli(cmd, 'Unknown command'));
+    setTopExamples(null);
+  }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
+
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -160,9 +221,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
-      setExpandedLabel(null);
-      setExpandedTerms([]);
-      setActiveFilters(new Set());
       setResolvingAuthor(false);
       return;
     }
@@ -177,6 +235,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     abortControllerRef.current = abortController;
     const searchId = ++currentSearchId.current;
 
+    // Clear previous UI immediately
+    const isCmd = isSlashCommand(searchQuery);
+    if (!isCmd) {
+      setTopCommandText(null);
+      setTopExamples(null);
+    }
+    setResults([]);
     setLoading(true);
     
     // Check if we need to resolve an author first
@@ -213,13 +278,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const gifTerms = ['gif','gifs','apng'];
         seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
         seedActive = new Set(seedTerms);
-        setExpandedLabel(seedTerms.join(' '));
-        setExpandedTerms(seedTerms);
-        setActiveFilters(seedActive);
       } else {
-        setExpandedLabel(null);
-        setExpandedTerms([]);
-        setActiveFilters(new Set());
+        // no-op
       }
 
       // Check if search was aborted before making the call
@@ -268,7 +328,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      setBaseResults(searchResults);
       const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
       setResults(filtered);
     } catch (error) {
@@ -314,11 +373,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       
       if (initialQuery && !manageUrl) {
         setQuery(initialQuery);
+        if (isSlashCommand(initialQuery)) runSlashCommand(initialQuery);
         handleSearch(initialQuery);
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery, manageUrl]);
+  }, [handleSearch, initialQuery, manageUrl, runSlashCommand, isSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -398,26 +458,54 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const urlQuery = searchParams.get('q') || '';
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (currentProfileNpub) {
-      const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
-      setQuery(display);
-      const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-      handleSearch(backend);
-      // Normalize URL to implicit form if needed
-      const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
-      if (implicit !== urlQuery) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('q', implicit);
-        router.replace(`?${params.toString()}`);
+      if (isSlashCommand(urlQuery)) {
+        setQuery(urlQuery);
+        runSlashCommand(urlQuery);
+        handleSearch(urlQuery);
+      } else {
+        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+        setQuery(display);
+        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
+        handleSearch(backend);
+        // Normalize URL to implicit form if needed
+        const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
+        if (implicit !== urlQuery) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('q', implicit);
+          router.replace(`?${params.toString()}`);
+        }
       }
     } else if (urlQuery) {
       setQuery(urlQuery);
+      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
+    
+    // Slash-commands: show CLI-style top card but still run normal search
+    if (isSlashCommand(raw)) {
+      runSlashCommand(raw);
+      setQuery(raw);
+      if (manageUrl) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('q', raw);
+        router.replace(`?${params.toString()}`);
+      }
+      // Clear prior results immediately before async search
+      setResults([]);
+      setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
+      if (raw) handleSearch(raw);
+      else setResults([]);
+      return;
+    } else {
+      // Clear any previous command card for non-command searches
+      setTopCommandText(null);
+      setTopExamples(null);
+    }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
@@ -1127,7 +1215,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
-    <div className={`w-full ${results.length > 0 ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+    <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -1150,12 +1238,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   currentSearchId.current++;
                   setQuery('');
                   setResults([]);
-                  setExpandedLabel(null);
-                  setExpandedTerms([]);
-                  setActiveFilters(new Set());
-                  setBaseResults([]);
                   setLoading(false);
                   setResolvingAuthor(false);
+                  setTopCommandText(null);
+                  setTopExamples(null);
                   // Always reset to root path when clearing
                   router.replace('/');
                 }}
@@ -1290,30 +1376,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </div>
         )}
         
-        {expandedLabel && expandedTerms.length > 0 && (
-          <div className="mt-1 text-xs text-gray-400 flex items-center gap-1 flex-wrap">
-            {expandedTerms.map((term, i) => {
-              const active = activeFilters.has(term);
-              return (
-                <button
-                  key={`${term}-${i}`}
-                  type="button"
-                  className={`px-1.5 py-0.5 rounded border ${active ? 'bg-[#3a3a3a] border-[#4a4a4a] text-gray-100' : 'bg-[#2d2d2d] border-[#3d3d3d] text-gray-300'} hover:bg-[#3a3a3a]`}
-                  onClick={() => {
-                    const next = new Set(activeFilters);
-                    if (active) next.delete(term); else next.add(term);
-                    setActiveFilters(next);
-                    const filtered = applyClientFilters(baseResults, expandedTerms, next);
-                    setResults(filtered);
-                  }}
-                >
-                  <span className="font-mono">{term}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Removed inline expanded-term filter buttons (gif/gifs/apng etc.) per design update */}
       </form>
+
+      {/* Command output will be injected as first result card below */}
 
       {/* Client-side filters */}
       {results.length > 0 && (
@@ -1329,8 +1395,60 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
       {useMemo(() => {
         const finalResults = fuseFilteredResults;
-        return finalResults.length > 0 ? (
+        return (
           <div className="mt-8 space-y-4">
+            {topCommandText ? (
+              <EventCard
+                event={new NDKEvent(ndk)}
+                onAuthorClick={goToProfile}
+                renderContent={() => (
+                  topExamples && topExamples.length > 0 ? (
+                    <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
+                      <div>$ ants examples</div>
+                      <div>&nbsp;</div>
+                      {topExamples.map((ex) => (
+                        <div key={ex}>
+                          <button
+                            type="button"
+                            className="text-left w-full hover:underline"
+                            onClick={() => {
+                              setQuery(ex);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', ex);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(ex);
+                            }}
+                          >
+                            {ex}
+                          </button>
+                        </div>
+                      ))}
+                    </pre>
+                  ) : (
+                    <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                      {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                        <pre
+                          className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
+                          style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                        >
+                          {tokens.map((line, i) => (
+                            <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                              {line.map((token, key) => (
+                                <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                              ))}
+                            </div>
+                          ))}
+                        </pre>
+                      )}
+                    </Highlight>
+                  )
+                )}
+                variant="card"
+                showFooter={false}
+              />
+            ) : null}
             {finalResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
@@ -1413,8 +1531,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               );
             })}
           </div>
-        ) : null;
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
+        );
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples])}
     </div>
   );
 }

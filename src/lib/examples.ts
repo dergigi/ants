@@ -39,6 +39,7 @@ export const searchExamples = [
   'p:nostrplebs.com',
   'p:dave',
   'kind:0 #bitcoin',
+  '(p:dad OR p:husband OR p:father)',
 
   // Operators & media
   'bitcoin OR lightning',
@@ -75,6 +76,9 @@ export const searchExamples = [
 
   // NIP-50 extensions
   'bitcoin include:spam',
+
+  // Slash Commands
+  '/help',
 ] as const;
 
 // Examples that require login to work properly
