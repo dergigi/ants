@@ -21,5 +21,9 @@ export {
   setCachedDvm, 
   getCachedNip05Result, 
   setCachedNip05Result, 
-  invalidateNip05Cache 
+  invalidateNip05Cache
 } from './cache';
+export { 
+  getCachedUsername,
+  setCachedUsername
+} from './username-cache';

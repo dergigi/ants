@@ -26,6 +26,7 @@ const nip05PersistentCache: Map<string, Nip05CacheValue> = loadMapFromStorage<Ni
 // Track in-flight verification promises to dedupe concurrent calls
 const nip05InFlight = new Map<string, Promise<boolean>>();
 
+
 // DVM Cache functions
 export function getCachedDvm(usernameLower: string): NDKEvent[] | null | undefined {
   const entry = DVM_CACHE.get(usernameLower);
@@ -176,6 +177,7 @@ function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   const normalized = normalizeNip05String(nip05);
   return `${normalized}|${pubkeyHex}`;
 }
+
 
 // Helper function to extract profile fields from an event
 function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
