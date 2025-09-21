@@ -1382,10 +1382,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       event={event}
                       onAuthorClick={goToProfile}
                       renderContent={() => (
-                        <div>
-                          <div className="mb-2 text-xs text-gray-400">Rendering raw event (kind {event.kind}).</div>
-                          <RawEventJson event={event} />
-                        </div>
+                        <RawEventJson event={event} />
                       )}
                       className={noteCardClasses}
                       footerRight={(
