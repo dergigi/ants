@@ -235,6 +235,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     abortControllerRef.current = abortController;
     const searchId = ++currentSearchId.current;
 
+    // Clear previous UI immediately
+    const isCmd = isSlashCommand(searchQuery);
+    if (!isCmd) {
+      setTopCommandText(null);
+      setTopExamples(null);
+    }
+    setResults([]);
     setLoading(true);
     
     // Check if we need to resolve an author first
@@ -488,6 +495,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         params.set('q', raw);
         router.replace(`?${params.toString()}`);
       }
+      // Clear prior results immediately before async search
+      setResults([]);
+      setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
       if (raw) handleSearch(raw);
       else setResults([]);
       return;
