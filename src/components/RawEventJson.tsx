@@ -12,7 +12,7 @@ type Props = {
   parseContent?: boolean;
 };
 
-export default function RawEventJson({ event, loading = false, className, title = 'Event JSON', parseContent = true }: Props) {
+export default function RawEventJson({ event, loading = false, className, title, parseContent = true }: Props) {
   if (loading) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>Loading…</div>;
   if (!event) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>No event available</div>;
 
@@ -33,9 +33,11 @@ export default function RawEventJson({ event, loading = false, className, title 
 
   return (
     <div>
-      {title ? (
+      {(() => {
+        const headerTitle = typeof title === 'string' ? title : (typeof event?.kind === 'number' ? `kind:${event.kind}` : null);
+        return headerTitle ? (
         <div className="text-xs text-gray-300 mb-2 flex items-center justify-between">
-          <span className="font-semibold">{title}</span>
+          <span className="font-semibold">{headerTitle}</span>
           <button
             type="button"
             title="Copy JSON"
@@ -46,7 +48,8 @@ export default function RawEventJson({ event, loading = false, className, title 
             Copy
           </button>
         </div>
-      ) : null}
+        ) : null;
+      })()}
       <Highlight code={json} language="json" theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
