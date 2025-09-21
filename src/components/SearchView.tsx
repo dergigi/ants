@@ -28,6 +28,7 @@ import RawEventJson from '@/components/RawEventJson';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
+import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 
 type Props = {
   initialQuery?: string;
@@ -1364,65 +1365,56 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         )}
       </form>
 
-      {/* Slash-command output rendered via EventCard */}
+      {/* Slash-command output rendered via EventCard with CLI look */}
       {commandState.mode !== 'none' && (
         <div className="mt-6 w-full">
           <EventCard
             event={new NDKEvent(ndk)}
             onAuthorClick={goToProfile}
-            renderContent={() => (
-              <div className="text-gray-100 whitespace-pre-wrap break-words">
-                {commandState.mode === 'help' && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-300">Type any of the commands below:</div>
-                    <div className="grid grid-cols-2 gap-2 max-w-md">
-                      {['/help','/examples','/login','/logout'].map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          className="px-2 py-1 text-left rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
-                          onClick={() => { setQuery(c); const evt = new Event('submit', { bubbles: true, cancelable: true }); searchRowRef.current?.dispatchEvent(evt as unknown as Event); }}
-                        >
-                          {c}
-                        </button>
+            renderContent={() => {
+              const buildCliText = (): string => {
+                if (commandState.mode === 'help') {
+                  return [
+                    '$ /help',
+                    'Available commands:',
+                    '  /help      Show this help',
+                    '  /examples  List example queries',
+                    '  /login     Connect with NIP-07',
+                    '  /logout    Clear session',
+                  ].join('\n');
+                }
+                if (commandState.mode === 'examples') {
+                  const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
+                  return [
+                    '$ /examples',
+                    ...(examples.length > 0 ? examples.map(e => `  - ${e}`) : ['  (no examples)'])
+                  ].join('\n');
+                }
+                if (commandState.mode === 'message') {
+                  return `$ ${query.trim()}\n${commandState.message || ''}`.trim();
+                }
+                return '';
+              };
+              const text = buildCliText();
+              return (
+                <Highlight code={text} language="bash" theme={themes.nightOwl}>
+                  {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                    <pre
+                      className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
+                      style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                    >
+                      {tokens.map((line, i) => (
+                        <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                          {line.map((token, key) => (
+                            <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                          ))}
+                        </div>
                       ))}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      You can also enter normal queries like hashtags, authors, media flags, and URLs.
-                    </div>
-                  </div>
-                )}
-                {commandState.mode === 'examples' && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-300">Examples {isLoggedIn() ? '' : '(login for more)'}:</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {getFilteredExamples(isLoggedIn()).slice(0, 30).map((ex) => (
-                        <button
-                          key={ex}
-                          type="button"
-                          className="px-2 py-1 text-left rounded bg-[#1f1f1f] border border-[#3d3d3d] hover:bg-[#2a2a2a]"
-                          onClick={() => {
-                            setQuery(ex);
-                            if (manageUrl) {
-                              const params = new URLSearchParams(searchParams.toString());
-                              params.set('q', ex);
-                              router.replace(`?${params.toString()}`);
-                            }
-                            handleSearch(ex);
-                            setCommandState({ mode: 'none' });
-                          }}
-                        >
-                          {ex}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {commandState.mode === 'message' && (
-                  <div className="text-sm">{commandState.message}</div>
-                )}
-              </div>
-            )}
+                    </pre>
+                  )}
+                </Highlight>
+              );
+            }}
             variant="card"
             showFooter={false}
           />
