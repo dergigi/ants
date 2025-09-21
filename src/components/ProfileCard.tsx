@@ -182,6 +182,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [rawProfileEvent, setRawProfileEvent] = useState<NDKEvent | null>(null);
+  const [rawLoading, setRawLoading] = useState<boolean>(false);
 
   const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
   useEffect(() => {
@@ -196,6 +198,24 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
     })();
     return () => { cancelled = true; };
   }, []);
+  // When raw view is toggled on, fetch the newest profile metadata for accurate id/sig
+  useEffect(() => {
+    if (!showRaw) return;
+    if (rawProfileEvent) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setRawLoading(true);
+        const newest = await getNewestProfileMetadata(event.author.pubkey);
+        if (!cancelled) setRawProfileEvent(newest || null);
+      } catch {
+        if (!cancelled) setRawProfileEvent(null);
+      } finally {
+        if (!cancelled) setRawLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showRaw, event.author.pubkey, rawProfileEvent]);
 
   const renderBioWithHashtags = useMemo(() => {
     return (text?: string) => {
@@ -382,7 +402,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       </div>
       {showRaw ? (
         <div className="mt-4">
-          <RawEventJson event={event} />
+          <RawEventJson event={rawProfileEvent || event} loading={rawLoading} />
         </div>
       ) : event.author?.profile?.about ? (
         <p className="mt-4 text-gray-300 break-words">
