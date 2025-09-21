@@ -84,8 +84,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       return;
     }
     if (cmd === 'examples') {
-      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
-      setTopExamples(examples);
+      const examples = getFilteredExamples(isLoggedIn());
+      setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('examples'));
       return;
     }
