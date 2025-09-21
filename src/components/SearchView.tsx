@@ -462,17 +462,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const urlQuery = searchParams.get('q') || '';
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (currentProfileNpub) {
-      const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
-      setQuery(display);
-      const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
-      handleSearch(backend);
-      // Normalize URL to implicit form if needed
-      const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
-      if (implicit !== urlQuery) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('q', implicit);
-        router.replace(`?${params.toString()}`);
+      if (isSlashCommand(urlQuery)) {
+        setQuery(urlQuery);
+        runSlashCommand(urlQuery);
+        handleSearch(urlQuery);
+      } else {
+        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+        setQuery(display);
+        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
+        handleSearch(backend);
+        // Normalize URL to implicit form if needed
+        const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
+        if (implicit !== urlQuery) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('q', implicit);
+          router.replace(`?${params.toString()}`);
+        }
       }
     } else if (urlQuery) {
       setQuery(urlQuery);
@@ -488,6 +493,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
       runSlashCommand(raw);
+      setQuery(raw);
+      if (manageUrl) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('q', raw);
+        router.replace(`?${params.toString()}`);
+      }
+      if (raw) handleSearch(raw);
+      else setResults([]);
+      return;
     } else {
       // Clear any previous command card for non-command searches
       setTopCommandText(null);
