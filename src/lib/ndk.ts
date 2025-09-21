@@ -13,7 +13,8 @@ export async function ensureCacheInitialized(): Promise<void> {
   // Avoid initializing in SSR environments
   if (typeof window === 'undefined') { cacheInitialized = true; return; }
   try {
-    await cacheAdapter.initialize();
+    // ndk-cache-sqlite-wasm v0.5.x exposes initializeAsync()
+    await cacheAdapter.initializeAsync();
   } catch (error) {
     console.warn('Failed to initialize sqlite-wasm cache adapter, disabling cache and continuing:', error);
     try {
