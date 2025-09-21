@@ -11,7 +11,7 @@ type Props = {
   showRaw: boolean;
   onToggleRaw: () => void;
   onToggleMenu: () => void;
-  menuButtonRef?: React.RefObject<HTMLButtonElement>;
+  menuButtonRef?: React.RefObject<HTMLButtonElement | null>;
   className?: string;
 };
 

@@ -9,7 +9,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faCopy, faCode } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
