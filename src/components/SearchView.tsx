@@ -22,7 +22,9 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
-import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+// Removed direct Highlight usage; RawEventJson handles JSON highlighting
+// import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import RawEventJson from '@/components/RawEventJson';
 import Fuse from 'fuse.js';
 
 type Props = {
@@ -956,39 +958,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   }, []);
 
-  // Safely convert NDKEvent (which may contain circular refs) to a plain JSON-serializable object
-  const toPlainEvent = useCallback((evt: NDKEvent): Record<string, unknown> => {
-    try {
-      const hasRaw = typeof (evt as unknown as { rawEvent?: () => unknown }).rawEvent === 'function';
-      const base = hasRaw
-        ? (evt as unknown as { rawEvent: () => Record<string, unknown> }).rawEvent()
-        : {
-            id: evt.id,
-            kind: evt.kind,
-            created_at: evt.created_at,
-            pubkey: evt.pubkey,
-            content: evt.content,
-            tags: evt.tags,
-            sig: evt.sig
-          };
-      const extra: Record<string, unknown> = {};
-      const maybeRelaySource = (evt as unknown as { relaySource?: string }).relaySource;
-      const maybeRelaySources = (evt as unknown as { relaySources?: string[] }).relaySources;
-      if (typeof maybeRelaySource === 'string') extra.relaySource = maybeRelaySource;
-      if (Array.isArray(maybeRelaySources)) extra.relaySources = maybeRelaySources;
-      return { ...base, ...extra };
-    } catch {
-      return {
-        id: evt.id,
-        kind: evt.kind,
-        created_at: evt.created_at,
-        pubkey: evt.pubkey,
-        content: evt.content,
-        tags: evt.tags,
-        sig: evt.sig
-      };
-    }
-  }, []);
+  // toPlainEvent moved to shared util; RawEventJson will use it.
 
   const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
     try { await connect(); } catch {}
@@ -1414,23 +1384,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       renderContent={() => (
                         <div>
                           <div className="mb-2 text-xs text-gray-400">Rendering raw event (kind {event.kind}).</div>
-                          <Highlight
-                            code={JSON.stringify(toPlainEvent(event), null, 2)}
-                            language="json"
-                            theme={themes.nightOwl}
-                          >
-                            {({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                              <pre className={`${className} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`} style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}>
-                                {tokens.map((line, i: number) => (
-                                  <div key={i} {...getLineProps({ line })}>
-                                    {line.map((token, key: number) => (
-                                      <span key={key} {...getTokenProps({ token })} />
-                                    ))}
-                                  </div>
-                                ))}
-                              </pre>
-                            )}
-                          </Highlight>
+                          <RawEventJson event={event} />
                         </div>
                       )}
                       className={noteCardClasses}
@@ -1463,7 +1417,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         ) : null;
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, toPlainEvent])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId])}
     </div>
   );
 }
