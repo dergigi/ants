@@ -39,6 +39,7 @@ export const searchExamples = [
   'p:nostrplebs.com',
   'p:dave',
   'kind:0 #bitcoin',
+  '(p:dad OR p:husband OR p:father)',
 
   // Operators & media
   'bitcoin OR lightning',
