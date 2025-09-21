@@ -9,7 +9,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
 import RawEventJson from '@/components/RawEventJson';
-import IconButton from '@/components/IconButton';
+import CardActions from '@/components/CardActions';
 
 type Props = {
   event: NDKEvent;
@@ -59,42 +59,19 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {footerRight ? (
             <div className="flex items-center gap-2">
               {footerRight}
-              {event?.id ? (
-                <>
-                  
-                  <IconButton
-                    title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-                    ariaLabel="Toggle raw JSON"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
-                  >
-                    <FontAwesomeIcon icon={faCode} className="text-xs" />
-                  </IconButton>
-                  <IconButton
-                    ref={portalButtonRef}
-                    title="Open in portals"
-                    ariaLabel="Open in portals"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (portalButtonRef.current) {
-                        const rect = portalButtonRef.current.getBoundingClientRect();
-                        setMenuPosition({ top: rect.bottom + 4, left: rect.left });
-                      }
-                      setShowPortalMenu((v) => !v);
-                    }}
-                  >
-                    ⋯
-                  </IconButton>
-                  <a
-                    href={`nostr:${nip19.neventEncode({ id: event.id })}`}
-                    title="Open in native client"
-                    className="text-gray-400 hover:text-gray-200"
-                    onClick={(e) => { e.stopPropagation(); }}
-                  >
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-                  </a>
-                </>
-              ) : null}
+              <CardActions
+                eventId={event?.id}
+                showRaw={showRaw}
+                onToggleRaw={() => setShowRaw(v => !v)}
+                onToggleMenu={() => {
+                  if (portalButtonRef.current) {
+                    const rect = portalButtonRef.current.getBoundingClientRect();
+                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                  }
+                  setShowPortalMenu((v) => !v);
+                }}
+                menuButtonRef={portalButtonRef}
+              />
             </div>
           ) : null}
         </div>

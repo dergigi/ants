@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
-import IconButton from '@/components/IconButton';
+import CardActions from '@/components/CardActions';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -96,37 +96,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         ) : (
           <span>{sinceLabel}</span>
         )}
-        <IconButton
-          title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-          ariaLabel="Toggle raw JSON"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
-        >
-          <FontAwesomeIcon icon={faCode} className="text-xs" />
-        </IconButton>
-        <IconButton
-          ref={bottomButtonRef}
-          title="Open in portals"
-          ariaLabel="Open in portals"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        <CardActions
+          eventId={fallbackEventId}
+          showRaw={showRaw}
+          onToggleRaw={onToggleRaw}
+          onToggleMenu={() => {
             if (bottomButtonRef.current) {
               const rect = bottomButtonRef.current.getBoundingClientRect();
               setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
             }
             setShowPortalMenuBottom((v) => !v);
           }}
-        >
-          ⋯
-        </IconButton>
-        <a
-          href={`nostr:${npub}`}
-          title="Open in native client"
-          className="text-gray-400 hover:text-gray-200"
-          onClick={(e) => { e.stopPropagation(); }}
-        >
-          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-        </a>
+          menuButtonRef={bottomButtonRef}
+        />
       </div>
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
         <>
