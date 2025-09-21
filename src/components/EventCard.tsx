@@ -55,15 +55,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {footerRight ? (
             <div className="flex items-center gap-2">
               {footerRight}
-              <button
-                type="button"
-                aria-label="Toggle raw JSON"
-                title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
-                className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-              >
-                <FontAwesomeIcon icon={faCode} className="text-xs" />
-              </button>
               {event?.id ? (
                 <>
                   <button
@@ -83,6 +74,15 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                     className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
                   >
                     ⋯
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Toggle raw JSON"
+                    title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
+                    className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+                  >
+                    <FontAwesomeIcon icon={faCode} className="text-xs" />
                   </button>
                   <a
                     href={`nostr:${nip19.neventEncode({ id: event.id })}`}
