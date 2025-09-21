@@ -2,10 +2,8 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { resolveNip05ToPubkey } from './nip05';
 import { profileEventFromPubkey } from './utils';
-import { fallbackLookupProfile } from './fallback';
 import { getCachedUsername, setCachedUsername } from './username-cache';
-import { queryVertexDVM, VERTEX_REGEXP } from './dvm-core';
-import { getStoredPubkey } from '../nip07';
+import { searchProfilesFullText } from './search';
 
 // Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
 export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> {
@@ -42,10 +40,12 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       return { pubkeyHex, profileEvent: cachedProfile };
     }
     
-    // If not in cache, perform lookup with proper sorting
+    // If not in cache, perform lookup using the same logic as p: search
     let profileEvt: NDKEvent | null = null;
     try {
-      profileEvt = await lookupVertexProfileWithSorting(`p:${input}`, fallbackLookupProfile);
+      // Use the same searchProfilesFullText function that p: search uses
+      const profiles = await searchProfilesFullText(input, 1);
+      profileEvt = profiles[0] || null;
     } catch {}
     
     // Cache the result (positive or negative)
@@ -77,43 +77,3 @@ export async function resolveAuthorToNpub(author: string): Promise<string | null
   }
 }
 
-// Improved lookup that prioritizes cached results and ensures proper sorting
-async function lookupVertexProfileWithSorting(query: string, fallbackLookup: (username: string) => Promise<NDKEvent | null>): Promise<NDKEvent | null> {
-  const match = query.match(VERTEX_REGEXP);
-  if (!match) return null;
-  
-  const username = match[1].toLowerCase();
-
-  // If not logged in, use fallback with proper sorting
-  if (!getStoredPubkey()) {
-    try { 
-      return await fallbackLookup(username); 
-    } catch { 
-      return null; 
-    }
-  }
-
-  // For logged-in users, try DVM first (which has its own cache)
-  let dvmResult: NDKEvent | null = null;
-  try {
-    const dvmEvents = await queryVertexDVM(username, 1);
-    dvmResult = dvmEvents[0] ?? null;
-  } catch (error) {
-    if ((error as Error)?.message !== 'VERTEX_NO_CREDITS') {
-      console.warn('Vertex DVM query failed, will rely on fallback if available:', error);
-    }
-  }
-
-  // If DVM returned a result, use it (it's already properly sorted by DVM)
-  if (dvmResult) {
-    return dvmResult;
-  }
-
-  // Fallback to NIP-50 search with proper sorting
-  try {
-    return await fallbackLookup(username);
-  } catch (error) {
-    console.error('Fallback profile lookup failed:', error);
-    return null;
-  }
-}
