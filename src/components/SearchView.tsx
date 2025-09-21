@@ -66,40 +66,42 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [translation, setTranslation] = useState<string>('');
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
+  const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
+    const lines = Array.isArray(body) ? body : [body];
+    return [`$ ants ${label}`, '', ...lines].join('\n');
+  }, []);
   const runSlashCommand = useCallback((rawInput: string) => {
     const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
-    const buildHelp = () => [
-      '$ ants --help',
-      '',
-      'Available commands:',
-      '  ants --help   Show this help',
-      '  ants examples List example queries',
-      '  ants login    Connect with NIP-07',
-      '  ants logout   Clear session',
-    ].join('\n');
     if (cmd === 'help') {
-      setTopCommandText(buildHelp());
+      setTopCommandText(buildCli('--help', [
+        'Available commands:',
+        '  ants --help   Show this help',
+        '  ants examples List example queries',
+        '  ants login    Connect with NIP-07',
+        '  ants logout   Clear session',
+      ]));
       return;
     }
     if (cmd === 'examples') {
-      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30);
-      setTopCommandText(['$ ants examples', '', ...examples.map(e => `  - ${e}`)].join('\n'));
+      const examples = getFilteredExamples(isLoggedIn()).slice(0, 30).map(e => `  - ${e}`);
+      setTopCommandText(buildCli('examples', examples));
       return;
     }
     if (cmd === 'login') {
-      setTopCommandText('$ ants login\n\nAttempting login…');
+      setTopCommandText(buildCli('login', 'Attempting login…'));
       (async () => {
         try {
           const user = await login();
           if (user) {
             try { await user.fetchProfile(); } catch {}
-            setTopCommandText(`$ ants login\n\nLogged in as ${user.profile?.displayName || user.profile?.name || user.npub}`);
+            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
             setPlaceholder(nextExample());
           } else {
-            setTopCommandText('$ ants login\n\nLogin cancelled');
+            setTopCommandText(buildCli('login', 'Login cancelled'));
           }
         } catch {
-          setTopCommandText('$ ants login\n\nLogin failed. Ensure a NIP-07 extension is installed.');
+          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
         }
       })();
       return;
@@ -107,15 +109,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'logout') {
       try {
         logout();
-        setTopCommandText('$ ants logout\n\nLogged out');
+        setTopCommandText(buildCli('logout', 'Logged out'));
         setPlaceholder(nextExample());
       } catch {
-        setTopCommandText('$ ants logout\n\nLogout failed');
+        setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       return;
     }
-    setTopCommandText(`$ ants ${cmd}\n\nUnknown command`);
-  }, [setTopCommandText, setPlaceholder]);
+    setTopCommandText(buildCli(cmd, 'Unknown command'));
+  }, [buildCli, setTopCommandText, setPlaceholder]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,12 +371,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       
       if (initialQuery && !manageUrl) {
         setQuery(initialQuery);
-        if (/^\//.test(initialQuery)) runSlashCommand(initialQuery);
+        if (isSlashCommand(initialQuery)) runSlashCommand(initialQuery);
         handleSearch(initialQuery);
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery, manageUrl, runSlashCommand]);
+  }, [handleSearch, initialQuery, manageUrl, runSlashCommand, isSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -457,7 +459,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
       setQuery(display);
       const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-      if (/^\//.test(urlQuery)) runSlashCommand(urlQuery);
+      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(backend);
       // Normalize URL to implicit form if needed
       const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
@@ -468,17 +470,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
     } else if (urlQuery) {
       setQuery(urlQuery);
-      if (/^\//.test(urlQuery)) runSlashCommand(urlQuery);
+      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
     
     // Slash-commands: show CLI-style top card but still run normal search
-    if (/^\//.test(raw)) {
+    if (isSlashCommand(raw)) {
       runSlashCommand(raw);
     } else {
       // Clear any previous command card for non-command searches
