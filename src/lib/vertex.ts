@@ -710,35 +710,60 @@ async function verifyNip05ViaApi(pubkeyHex: string, normalizedNip05: string): Pr
   }
 }
 
+// Track in-flight verification promises to dedupe concurrent calls
+const nip05InFlight = new Map<string, Promise<boolean>>();
+
 async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
   if (!nip05) return false;
   const normalized = normalizeNip05String(nip05);
   if (!normalized) return false;
   const cacheKey = nip05CacheKey(pubkeyHex, nip05);
+
+  // 1) Memory cache
   if (nip05VerificationCache.has(cacheKey)) return nip05VerificationCache.get(cacheKey) as boolean;
-  try {
-    // Try server-side endpoint to avoid CORS from browser
-    const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
-    if (okApi !== false) {
-      nip05VerificationCache.set(cacheKey, okApi);
-      nip05PersistentCache.set(cacheKey, { ok: okApi, timestamp: Date.now() });
+
+  // 2) Persistent cache
+  const persisted = nip05PersistentCache.get(cacheKey);
+  if (persisted && (Date.now() - persisted.timestamp) <= NIP05_TTL_MS) {
+    nip05VerificationCache.set(cacheKey, persisted.ok);
+    return persisted.ok;
+  }
+
+  // 3) Dedupe concurrent verifications
+  if (nip05InFlight.has(cacheKey)) return nip05InFlight.get(cacheKey) as Promise<boolean>;
+
+  const promise = (async () => {
+    try {
+      // Try server-side endpoint to avoid CORS from browser
+      const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
+      if (okApi !== false) {
+        nip05VerificationCache.set(cacheKey, okApi);
+        nip05PersistentCache.set(cacheKey, { ok: okApi, timestamp: Date.now() });
+        if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
+        return okApi;
+      }
+    } catch {}
+    try {
+      // Fallback to direct nostr-tools check
+      const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
+      nip05VerificationCache.set(cacheKey, ok);
+      nip05PersistentCache.set(cacheKey, { ok, timestamp: Date.now() });
       if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
-      return okApi;
-    }
-  } catch {}
-  try {
-    // Fallback to direct nostr-tools check
-    const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
-    nip05VerificationCache.set(cacheKey, ok);
-    nip05PersistentCache.set(cacheKey, { ok, timestamp: Date.now() });
+      return ok;
+    } catch {}
+    // Record negative with timestamp to avoid thrash
+    nip05VerificationCache.set(cacheKey, false);
+    nip05PersistentCache.set(cacheKey, { ok: false, timestamp: Date.now() });
     if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
-    return ok;
-  } catch {}
-  const cacheKey2 = nip05CacheKey(pubkeyHex, nip05);
-  nip05VerificationCache.set(cacheKey2, false);
-  nip05PersistentCache.set(cacheKey2, { ok: false, timestamp: Date.now() });
-  if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
-  return false;
+    return false;
+  })();
+
+  nip05InFlight.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    nip05InFlight.delete(cacheKey);
+  }
 }
 
 // Invalidate one cached NIP-05 verification entry

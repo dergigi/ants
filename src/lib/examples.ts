@@ -5,7 +5,7 @@ export const searchExamples = [
   '#PenisButter',
   '#YESTR',
   '#SovEng',
-  '#News',
+  '#gratefulchain',
   'nevent',
   
   // Author
