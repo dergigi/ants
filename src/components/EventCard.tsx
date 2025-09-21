@@ -4,10 +4,11 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCode } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
+import RawEventJson from '@/components/RawEventJson';
 
 type Props = {
   event: NDKEvent;
@@ -35,10 +36,16 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const portalButtonRef = useRef<HTMLButtonElement>(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   return (
     <div className={containerClasses}>
       <div className={contentClasses}>{renderContent(event.content || '')}</div>
+      {showRaw && (
+        <div className="mt-3">
+          <RawEventJson event={event} />
+        </div>
+      )}
       {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
       {showFooter && (
         <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg'}>
@@ -48,6 +55,15 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {footerRight ? (
             <div className="flex items-center gap-2">
               {footerRight}
+              <button
+                type="button"
+                aria-label="Toggle raw JSON"
+                title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
+                className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+              >
+                <FontAwesomeIcon icon={faCode} className="text-xs" />
+              </button>
               {event?.id ? (
                 <>
                   <button
@@ -103,7 +119,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       href={item.href}
                       target={item.href.startsWith('http') ? '_blank' : undefined}
                       rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                      className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                       onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                     >
                       <span>{item.name}</span>
