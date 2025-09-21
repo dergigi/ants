@@ -9,10 +9,11 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy, faCode } from '@fortawesome/free-solid-svg-icons';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
+import RawEventJson from '@/components/RawEventJson';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string }) {
   const [createdAt, setCreatedAt] = useState<number | null>(null);
@@ -139,7 +140,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
                     href={item.href}
                     target={item.href.startsWith('http') ? '_blank' : undefined}
                     rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="block px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                    className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
                     onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
                   >
                     <span>{item.name}</span>
@@ -174,6 +175,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
   useEffect(() => {
@@ -355,6 +357,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           <div className="flex items-center gap-2 max-w-[50%] text-right text-sm text-gray-400">
             <button
               type="button"
+              aria-label="Toggle raw JSON"
+              title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRaw(v => !v); }}
+              className="p-1 rounded hover:bg-[#3a3a3a]"
+            >
+              <FontAwesomeIcon icon={faCode} className="text-gray-400 text-xs" />
+            </button>
+            <button
+              type="button"
               aria-label="Copy npub"
               title="Copy npub"
               onClick={async (e) => {
@@ -372,11 +383,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           </div>
         )}
       </div>
-      {event.author?.profile?.about && (
+      {showRaw ? (
+        <div className="mt-4">
+          <RawEventJson event={event} />
+        </div>
+      ) : event.author?.profile?.about ? (
         <p className="mt-4 text-gray-300 break-words">
           {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
-      )}
+      ) : null}
       </div>
       <ProfileCreatedAt
         pubkey={event.author.pubkey}
