@@ -402,7 +402,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       </div>
       {showRaw ? (
         <div className="mt-4">
-          <RawEventJson event={rawProfileEvent || event} loading={rawLoading} />
+          <RawEventJson event={rawProfileEvent || event} loading={rawLoading} title="Event JSON" parseContent={true} />
         </div>
       ) : event.author?.profile?.about ? (
         <p className="mt-4 text-gray-300 break-words">
