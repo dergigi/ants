@@ -45,8 +45,7 @@ function ImageWithBlurhash({
   width, 
   height, 
   dim,
-  onClickSearch,
-  setStatusCode
+  onClickSearch
 }: {
   src: string;
   blurhash?: string;
@@ -55,10 +54,10 @@ function ImageWithBlurhash({
   height: number;
   dim?: { width: number; height: number } | null;
   onClickSearch?: () => void;
-  setStatusCode?: (code: number | null) => void;
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [statusCode, setStatusCode] = useState<number | null>(null);
 
   useEffect(() => {
     setImageLoaded(false);
@@ -102,12 +101,12 @@ function ImageWithBlurhash({
         </div>
       )}
 
-      {/* Error state: show an unobtrusive notice while keeping blurhash (if any) */}
+      {/* Error state: show status code while keeping blurhash (if any) */}
       {imageError && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center gap-2 border border-[#3d3d3d]">
             <FontAwesomeIcon icon={faImage} className="opacity-80" />
-            <span>Image unavailable</span>
+            <span>{statusCode ?? 'Error'}</span>
           </div>
         </div>
       )}
@@ -122,16 +121,15 @@ function ImageWithBlurhash({
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
-        onLoad={() => { setImageLoaded(true); setStatusCode && setStatusCode(200); }}
+        onLoad={() => { setImageLoaded(true); setStatusCode(200); }}
         onError={(e) => {
           setImageError(true);
           try {
-            const target = e.target as HTMLImageElement;
             // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
             fetch(src, { method: 'HEAD' }).then((res) => {
-              setStatusCode && setStatusCode(res.status || null);
-            }).catch(() => setStatusCode && setStatusCode(null));
-          } catch { setStatusCode && setStatusCode(null); }
+              setStatusCode(res.status || null);
+            }).catch(() => setStatusCode(null));
+          } catch { setStatusCode(null); }
         }}
         onClick={() => { if (onClickSearch) onClickSearch(); }}
       />
@@ -1585,7 +1583,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const blurhash = blurhashes[idx] || blurhashes[0];
                               const dim = dimensions[idx] || dimensions[0];
                               const hash = hashes[idx] || hashes[0] || null;
-                              const [statusCode, setStatusCode] = useState<number | null>(null);
                               return (
                                 <div key={src} className="relative">
                                   <ImageWithBlurhash
@@ -1595,7 +1592,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                     width={dim?.width || 1024}
                                     height={dim?.height || 1024}
                                     dim={dim || null}
-                                    setStatusCode={setStatusCode}
                                     onClickSearch={() => {
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
                                       setQuery(nextQuery);
@@ -1621,9 +1617,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                       })();
                                     }}
                                   />
-                                  {statusCode && statusCode !== 200 && (
-                                    <div className="absolute top-2 right-2 text-xs px-2 py-1 rounded bg-black/60 border border-[#3d3d3d] text-gray-200">{statusCode}</div>
-                                  )}
                                 </div>
                               );
                             })}
