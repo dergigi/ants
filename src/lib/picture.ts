@@ -79,4 +79,29 @@ export function extractImetaBlurhashes(event: NDKEvent): string[] {
   return Array.from(new Set(hashes));
 }
 
+export function extractImetaDimensions(event: NDKEvent): Array<{ width: number; height: number }> {
+  const dimensions: Array<{ width: number; height: number }> = [];
+  const tags = (event?.tags || []) as unknown as string[][];
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    if (tag[0] !== 'imeta') continue;
+    for (let i = 1; i < tag.length; i++) {
+      const entry = tag[i];
+      if (typeof entry !== 'string') continue;
+      if (entry.startsWith('dim ')) {
+        const dimStr = entry.slice(4).trim();
+        const match = dimStr.match(/^(\d+)x(\d+)$/);
+        if (match) {
+          const width = parseInt(match[1], 10);
+          const height = parseInt(match[2], 10);
+          if (width > 0 && height > 0) {
+            dimensions.push({ width, height });
+          }
+        }
+      }
+    }
+  }
+  return dimensions;
+}
+
 
