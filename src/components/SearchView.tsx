@@ -104,12 +104,12 @@ function ImageWithBlurhash({
       {/* Error state: show status code while keeping blurhash (if any) */}
       {imageError && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center gap-2 border border-[#3d3d3d]">
+          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center justify-center gap-2 border border-[#3d3d3d]">
             <FontAwesomeIcon icon={faImage} className="opacity-80" />
-            <span>{statusCode ?? 'Error'}</span>
+            <span className="flex-1 text-center">{statusCode ?? 'Error'}</span>
             <button
               type="button"
-              className="ml-1 p-1 hover:bg-white/10 rounded transition-colors"
+              className="p-1 hover:bg-white/10 rounded transition-colors"
               title="Open image in new tab"
               onClick={(e) => {
                 e.stopPropagation();
