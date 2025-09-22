@@ -133,7 +133,7 @@ function ImageWithBlurhash({
         }`}
         unoptimized
         onLoad={() => { setImageLoaded(true); setStatusCode(200); }}
-        onError={(e) => {
+        onError={() => {
           setImageError(true);
           try {
             // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
@@ -321,6 +321,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
     // Rely solely on replacements.txt expansion upstream; no client-side media seeding
     return events;
