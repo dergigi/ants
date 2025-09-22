@@ -87,6 +87,16 @@ function ImageWithBlurhash({
           />
         </div>
       )}
+
+      {/* Subtle loading spinner on top of blurhash while the image loads */}
+      {!imageLoaded && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div
+            className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
+            aria-label="Loading image"
+          />
+        </div>
+      )}
       
       {/* Real image - hidden until loaded */}
       <Image 
