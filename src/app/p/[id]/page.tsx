@@ -14,8 +14,29 @@ export default function PidPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const id = params?.id || '';
+  const rawId = params?.id || '';
   const q = searchParams?.get('q') || '';
+
+  const id = useMemo(() => {
+    const decodeMaybe = (s: string): string => {
+      try { return decodeURIComponent(s); } catch { return s; }
+    };
+    let token = decodeMaybe(rawId).trim();
+    if (!token) return '';
+    if (/^nostr:/i.test(token)) token = token.replace(/^nostr:/i, '');
+    const lower = token.toLowerCase();
+    try {
+      const decoded = nip19.decode(lower);
+      if (decoded?.type === 'nprofile') {
+        const pk = (decoded.data as { pubkey: string }).pubkey;
+        return nip19.npubEncode(pk);
+      }
+      if (decoded?.type === 'npub') {
+        return lower;
+      }
+    } catch {}
+    return token;
+  }, [rawId]);
 
   const looksLikeNip05 = useMemo(() => /@/.test(id) || /\./.test(id), [id]);
   const isValidNpub = useMemo(() => {
