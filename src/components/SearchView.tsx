@@ -210,13 +210,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
   function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
-    if (terms.length === 0) return events;
-    const effective = active.size > 0 ? Array.from(active) : terms;
-    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
-    return events.filter((evt) => {
-      const content = evt.content || '';
-      return termRegexes.some((rx) => rx.test(content));
-    });
+    // Rely solely on replacements.txt expansion upstream; no client-side media seeding
+    return events;
   }
 
   const handleSearch = useCallback(async (searchQuery: string) => {
@@ -254,34 +249,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     
     try {
-      // compute expanded label/terms for media flags used without additional terms
-      const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
-      const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
-      const hasGif = /(?:^|\s)has:gif(?:\s|$)/i.test(searchQuery);
-      const isImage = /(?:^|\s)is:image(?:\s|$)/i.test(searchQuery);
-      const isVideo = /(?:^|\s)is:video(?:\s|$)/i.test(searchQuery);
-      const isGif = /(?:^|\s)is:gif(?:\s|$)/i.test(searchQuery);
-      const cleaned = searchQuery
-        .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
-        .trim();
-
-      // Prepare local seeds to avoid relying on async state updates
-      let seedTerms: string[] = [];
-      let seedActive = new Set<string>();
-      if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
-        const imageTerms = ['png','jpg','jpeg','gif','gifs','apng','webp','avif','svg'];
-        const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
-        const gifTerms = ['gif','gifs','apng'];
-        seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
-        seedActive = new Set(seedTerms);
-      } else {
-        // no-op
-      }
 
       // Check if search was aborted before making the call
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -329,7 +296,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
+      const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
     } catch (error) {
       // Don't log aborted searches as errors
