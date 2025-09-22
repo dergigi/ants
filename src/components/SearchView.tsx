@@ -23,7 +23,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage } from '@fortawesome/free-solid-svg-icons';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -95,6 +95,16 @@ function ImageWithBlurhash({
             className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
             aria-label="Loading image"
           />
+        </div>
+      )}
+
+      {/* Error state: show an unobtrusive notice while keeping blurhash (if any) */}
+      {imageError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center gap-2 border border-[#3d3d3d]">
+            <FontAwesomeIcon icon={faImage} className="opacity-80" />
+            <span>Image unavailable</span>
+          </div>
         </div>
       )}
       
