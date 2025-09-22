@@ -12,7 +12,7 @@ import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
+import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -455,7 +455,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   useEffect(() => {
     if (!manageUrl) return;
-    const urlQuery = searchParams.get('q') || '';
+    const urlQueryRaw = searchParams.get('q') || '';
+    const urlQuery = decodeUrlQuery(urlQueryRaw);
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (currentProfileNpub) {
       if (isSlashCommand(urlQuery)) {

@@ -38,4 +38,17 @@ export function ensureAuthorForBackend(query: string, currentNpub: string | null
   return base ? `${base} by:${currentNpub}` : `by:${currentNpub}`;
 }
 
+// Decode a URL query parameter safely, also mapping '+' back to spaces
+export function decodeUrlQuery(input: string): string {
+  const raw = (input || '').toString();
+  if (!raw) return '';
+  // URLSearchParams encodes spaces as '+', manual encodes use '%20'
+  const plusAsSpace = raw.replace(/\+/g, ' ');
+  try {
+    return decodeURIComponent(plusAsSpace);
+  } catch {
+    return plusAsSpace;
+  }
+}
+
 
