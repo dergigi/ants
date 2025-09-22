@@ -4,10 +4,6 @@
 # - kind is one of: site, is, has
 # - key is a token without spaces (comma-separated in query supported for site only)
 # - expansion is plain text; use parentheses and OR as needed
-# Examples:
-# site:yt => (youtube.com OR youtu.be OR m.youtube.com OR www.youtube.com OR youtube-nocookie.com)
-# is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
-# has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 
 # --- SITE ALIASES ---
 site:youtube => (youtube.com OR youtu.be OR m.youtube.com OR www.youtube.com OR youtube-nocookie.com)
@@ -30,9 +26,6 @@ site:gh => (github.com OR www.github.com OR gist.github.com)
 site:quora => (quora.com OR www.quora.com OR m.quora.com)
 
 # --- IS ---
-is:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)
-is:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
-is:gif => (.gif OR .gifs OR .apng)
 is:quote => nostr:nevent
 is:mention => (nostr:npub OR nostr:nprofile)
 
@@ -44,6 +37,8 @@ has:gif => (.gif OR .gifs OR .apng)
 # --- KINDS ---
 is:repost => kind:6
 is:reaction => kind:7
+is:image => kind:20
+is:video => (kind:21 OR kind:22)
 is:picture => kind:20
 is:file => kind:1063
 is:patch => kind:1617

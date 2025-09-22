@@ -8,6 +8,8 @@ import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search'
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
+import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
+import { Blurhash } from 'react-blurhash';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
@@ -21,7 +23,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -34,6 +36,222 @@ type Props = {
   initialQuery?: string;
   manageUrl?: boolean;
 };
+
+// Component to handle image loading with blurhash placeholder
+function ImageWithBlurhash({ 
+  src, 
+  blurhash, 
+  alt, 
+  width, 
+  height, 
+  dim,
+  onClickSearch
+}: {
+  src: string;
+  blurhash?: string;
+  alt: string;
+  width: number;
+  height: number;
+  dim?: { width: number; height: number } | null;
+  onClickSearch?: () => void;
+}) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [statusCode, setStatusCode] = useState<number | null>(null);
+
+  useEffect(() => {
+    setImageLoaded(false);
+    setImageError(false);
+  }, [src]);
+
+  if (!isAbsoluteHttpUrl(src)) {
+    return null;
+  }
+
+  const aspectStyle = dim && dim.width > 0 && dim.height > 0
+    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+    : { minHeight: '200px' as const };
+
+  return (
+    <div 
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      style={aspectStyle}
+    >
+      {/* Blurhash placeholder - shown while loading or on error */}
+      {blurhash && (!imageLoaded || imageError) && (
+        <div className="absolute inset-0">
+          <Blurhash 
+            hash={blurhash} 
+            width={'100%'} 
+            height={'100%'} 
+            resolutionX={32} 
+            resolutionY={32} 
+            punch={1} 
+          />
+        </div>
+      )}
+
+      {/* Subtle loading spinner on top of blurhash while the image loads */}
+      {!imageLoaded && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div
+            className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
+            aria-label="Loading image"
+          />
+        </div>
+      )}
+
+      {/* Error state: show status code while keeping blurhash (if any) */}
+      {imageError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center justify-center gap-2 border border-[#3d3d3d]">
+            <FontAwesomeIcon icon={faImage} className="opacity-80" />
+            <span className="flex-1 text-center">{statusCode ?? 'Error'}</span>
+            <button
+              type="button"
+              className="p-1 hover:bg-white/10 rounded transition-colors"
+              title="Open image in new tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(src, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs opacity-80" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Real image - hidden until loaded */}
+      <Image 
+        src={src} 
+        alt={alt}
+        width={width} 
+        height={height} 
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+          imageLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        unoptimized
+        onLoad={() => { setImageLoaded(true); setStatusCode(200); }}
+        onError={() => {
+          setImageError(true);
+          try {
+            // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
+            fetch(src, { method: 'HEAD' }).then((res) => {
+              setStatusCode(res.status || null);
+            }).catch(() => setStatusCode(null));
+          } catch { setStatusCode(null); }
+        }}
+        onClick={() => { if (onClickSearch) onClickSearch(); }}
+      />
+    </div>
+  );
+}
+
+// Component to handle video loading with blurhash placeholder
+function VideoWithBlurhash({ 
+  src, 
+  blurhash, 
+  dim,
+  onClickSearch
+}: {
+  src: string;
+  blurhash?: string;
+  dim?: { width: number; height: number } | null;
+  onClickSearch?: () => void;
+}) {
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [statusCode, setStatusCode] = useState<number | null>(null);
+
+  useEffect(() => {
+    setVideoLoaded(false);
+    setVideoError(false);
+  }, [src]);
+
+  if (!isAbsoluteHttpUrl(src)) {
+    return null;
+  }
+
+  const aspectStyle = dim && dim.width > 0 && dim.height > 0
+    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+    : { minHeight: '200px' as const };
+
+  return (
+    <div 
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      style={aspectStyle}
+    >
+      {/* Blurhash placeholder - shown while loading or on error */}
+      {blurhash && (!videoLoaded || videoError) && (
+        <div className="absolute inset-0">
+          <Blurhash 
+            hash={blurhash} 
+            width={'100%'} 
+            height={'100%'} 
+            resolutionX={32} 
+            resolutionY={32} 
+            punch={1} 
+          />
+        </div>
+      )}
+
+      {/* Subtle loading spinner on top of blurhash while the video loads */}
+      {!videoLoaded && !videoError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div
+            className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
+            aria-label="Loading video"
+          />
+        </div>
+      )}
+
+      {/* Error state: show status code while keeping blurhash (if any) */}
+      {videoError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center justify-center gap-2 border border-[#3d3d3d]">
+            <FontAwesomeIcon icon={faImage} className="opacity-80" />
+            <span className="flex-1 text-center">{statusCode ?? 'Error'}</span>
+            <button
+              type="button"
+              className="p-1 hover:bg-white/10 rounded transition-colors"
+              title="Open video in new tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(src, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs opacity-80" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Real video - hidden until loaded */}
+      <video 
+        controls 
+        playsInline 
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+          videoLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoadedData={() => { setVideoLoaded(true); setStatusCode(200); }}
+        onError={() => {
+          setVideoError(true);
+          try {
+            // Try to fetch HEAD to get status code
+            fetch(src, { method: 'HEAD' }).then((res) => {
+              setStatusCode(res.status || null);
+            }).catch(() => setStatusCode(null));
+          } catch { setStatusCode(null); }
+        }}
+        onClick={() => { if (onClickSearch) onClickSearch(); }}
+      >
+        <source src={src} />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  );
+}
 
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
@@ -208,14 +426,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
-  function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
-    if (terms.length === 0) return events;
-    const effective = active.size > 0 ? Array.from(active) : terms;
-    const termRegexes = effective.map((t) => new RegExp(`https?:\\/\\/[^\\s'"<>]+?\\.${t}(?:[?#][^\\s]*)?`, 'i'));
-    return events.filter((evt) => {
-      const content = evt.content || '';
-      return termRegexes.some((rx) => rx.test(content));
-    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
+    // Rely solely on replacements.txt expansion upstream; no client-side media seeding
+    return events;
   }
 
   const handleSearch = useCallback(async (searchQuery: string) => {
@@ -253,34 +467,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     
     try {
-      // compute expanded label/terms for media flags used without additional terms
-      const hasImage = /(?:^|\s)has:image(?:\s|$)/i.test(searchQuery);
-      const hasVideo = /(?:^|\s)has:video(?:\s|$)/i.test(searchQuery);
-      const hasGif = /(?:^|\s)has:gif(?:\s|$)/i.test(searchQuery);
-      const isImage = /(?:^|\s)is:image(?:\s|$)/i.test(searchQuery);
-      const isVideo = /(?:^|\s)is:video(?:\s|$)/i.test(searchQuery);
-      const isGif = /(?:^|\s)is:gif(?:\s|$)/i.test(searchQuery);
-      const cleaned = searchQuery
-        .replace(/(?:^|\s)has:image(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)has:video(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)has:gif(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:image(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:video(?:\s|$)/gi, ' ')
-        .replace(/(?:^|\s)is:gif(?:\s|$)/gi, ' ')
-        .trim();
-
-      // Prepare local seeds to avoid relying on async state updates
-      let seedTerms: string[] = [];
-      let seedActive = new Set<string>();
-      if (!cleaned && (hasImage || isImage || hasVideo || isVideo || hasGif || isGif)) {
-        const imageTerms = ['png','jpg','jpeg','gif','gifs','apng','webp','avif','svg'];
-        const videoTerms = ['mp4','webm','ogg','ogv','mov','m4v'];
-        const gifTerms = ['gif','gifs','apng'];
-        seedTerms = (hasGif || isGif) ? gifTerms : (hasVideo || isVideo) ? videoTerms : imageTerms;
-        seedActive = new Set(seedTerms);
-      } else {
-        // no-op
-      }
 
       // Check if search was aborted before making the call
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -328,7 +514,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         return;
       }
 
-      const filtered = applyClientFilters(searchResults, seedTerms, seedActive);
+      const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
     } catch (error) {
       // Don't log aborted searches as errors
@@ -1102,7 +1288,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               }}
             >
               {isAbsoluteHttpUrl(src) ? (
-                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
               ) : null}
             </button>
           ))}
@@ -1496,6 +1682,172 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       )}
                       className={noteCardClasses}
                     />
+                  ) : event.kind === 20 ? (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={() => {
+                        const urls = extractImetaImageUrls(event);
+                        const blurhashes = extractImetaBlurhashes(event);
+                        const dimensions = extractImetaDimensions(event);
+                        const hashes = extractImetaHashes(event);
+                        if (urls.length === 0) {
+                          return <div className="text-gray-400">(no images)</div>;
+                        }
+                        return (
+                          <div className="mt-0 grid grid-cols-1 gap-3">
+                            {urls.map((src, idx) => {
+                              const blurhash = blurhashes[idx] || blurhashes[0];
+                              const dim = dimensions[idx] || dimensions[0];
+                              const hash = hashes[idx] || hashes[0] || null;
+                              return (
+                                <div key={src} className="relative">
+                                  <ImageWithBlurhash
+                                    src={src}
+                                    blurhash={blurhash}
+                                    alt="picture"
+                                    width={dim?.width || 1024}
+                                    height={dim?.height || 1024}
+                                    dim={dim || null}
+                                    onClickSearch={() => {
+                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
+                                      setQuery(nextQuery);
+                                      if (manageUrl) {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set('q', nextQuery);
+                                        router.replace(`?${params.toString()}`);
+                                      }
+                                      (async () => {
+                                        setLoading(true);
+                                        try {
+                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                                          setResults(searchResults);
+                                        } catch (error) {
+                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                                            return;
+                                          }
+                                          console.error('Search error:', error);
+                                          setResults([]);
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      })();
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
+                  ) : event.kind === 21 || event.kind === 22 ? (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={() => {
+                        const urls = extractImetaVideoUrls(event);
+                        const contentUrls = extractVideoUrls(event.content || '');
+                        const blurhashes = extractImetaBlurhashes(event);
+                        const dimensions = extractImetaDimensions(event);
+                        const hashes = extractImetaHashes(event);
+                        const all = Array.from(new Set([...
+                          urls,
+                          ...contentUrls
+                        ]));
+                        if (all.length === 0) {
+                          return <div className="text-gray-400">(no video)</div>;
+                        }
+                        return (
+                          <div className="mt-0 grid grid-cols-1 gap-3">
+                            {all.map((src, idx) => {
+                              const blurhash = blurhashes[idx] || blurhashes[0];
+                              const dim = dimensions[idx] || dimensions[0];
+                              const hash = hashes[idx] || hashes[0] || null;
+                              return (
+                                <div key={src} className="relative">
+                                  <VideoWithBlurhash
+                                    src={src}
+                                    blurhash={blurhash}
+                                    dim={dim || null}
+                                    onClickSearch={() => {
+                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
+                                      setQuery(nextQuery);
+                                      if (manageUrl) {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set('q', nextQuery);
+                                        router.replace(`?${params.toString()}`);
+                                      }
+                                      (async () => {
+                                        setLoading(true);
+                                        try {
+                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                                          setResults(searchResults);
+                                        } catch (error) {
+                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                                            return;
+                                          }
+                                          console.error('Search error:', error);
+                                          setResults([]);
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      })();
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
                   ) : (
                     <EventCard
                       event={event}
@@ -1533,7 +1885,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrls])}
     </div>
   );
 }

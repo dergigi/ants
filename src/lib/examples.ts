@@ -61,6 +61,7 @@ export const searchExamples = [
   'giphy.gif',
   'by:gregzaj has:gif',
   '(GM OR GN) by:dergigi has:image',
+  'is:image #Olas365',
 
   // Kinds filter examples
   'is:muted by:fiatjaf',
