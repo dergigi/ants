@@ -37,6 +37,75 @@ type Props = {
   manageUrl?: boolean;
 };
 
+// Component to handle image loading with blurhash placeholder
+function ImageWithBlurhash({ 
+  src, 
+  blurhash, 
+  alt, 
+  width, 
+  height, 
+  containerHeight, 
+  aspectRatio 
+}: {
+  src: string;
+  blurhash?: string;
+  alt: string;
+  width: number;
+  height: number;
+  containerHeight: number;
+  aspectRatio: number;
+}) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageLoaded(false);
+    setImageError(false);
+  }, [src]);
+
+  if (!isAbsoluteHttpUrl(src)) {
+    return null;
+  }
+
+  return (
+    <div 
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      style={{ 
+        height: `${containerHeight}px`,
+        minHeight: '200px'
+      }}
+    >
+      {/* Blurhash placeholder - shown while loading or on error */}
+      {blurhash && (!imageLoaded || imageError) && (
+        <div className="absolute inset-0">
+          <Blurhash 
+            hash={blurhash} 
+            width={'100%'} 
+            height={'100%'} 
+            resolutionX={32} 
+            resolutionY={32} 
+            punch={1} 
+          />
+        </div>
+      )}
+      
+      {/* Real image - hidden until loaded */}
+      <Image 
+        src={src} 
+        alt={alt}
+        width={width} 
+        height={height} 
+        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+          imageLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        unoptimized
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
@@ -1486,37 +1555,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const calculatedHeight = dim ? Math.min(maxWidth / aspectRatio, maxWidth) : maxWidth;
                               
                               return (
-                                <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                                  {blurhash ? (
-                                    <div 
-                                      className="absolute inset-0"
-                                      style={{ 
-                                        width: '100%', 
-                                        height: dim ? `${calculatedHeight}px` : 'auto',
-                                        minHeight: '200px'
-                                      }}
-                                    >
-                                      <Blurhash 
-                                        hash={blurhash} 
-                                        width={'100%'} 
-                                        height={'100%'} 
-                                        resolutionX={32} 
-                                        resolutionY={32} 
-                                        punch={1} 
-                                      />
-                                    </div>
-                                  ) : null}
-                                  {isAbsoluteHttpUrl(src) ? (
-                                    <Image 
-                                      src={src} 
-                                      alt="picture" 
-                                      width={dim?.width || 1024} 
-                                      height={dim?.height || 1024} 
-                                      className="relative h-auto w-full object-contain" 
-                                      unoptimized 
-                                    />
-                                  ) : null}
-                                </div>
+                                <ImageWithBlurhash
+                                  key={src}
+                                  src={src}
+                                  blurhash={blurhash}
+                                  alt="picture"
+                                  width={dim?.width || 1024}
+                                  height={dim?.height || 1024}
+                                  containerHeight={calculatedHeight}
+                                  aspectRatio={aspectRatio}
+                                />
                               );
                             })}
                           </div>
