@@ -152,17 +152,11 @@ function ImageWithBlurhash({
 function VideoWithBlurhash({ 
   src, 
   blurhash, 
-  alt, 
-  width, 
-  height, 
   dim,
   onClickSearch
 }: {
   src: string;
   blurhash?: string;
-  alt: string;
-  width: number;
-  height: number;
   dim?: { width: number; height: number } | null;
   onClickSearch?: () => void;
 }) {
@@ -1798,9 +1792,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                   <VideoWithBlurhash
                                     src={src}
                                     blurhash={blurhash}
-                                    alt="video"
-                                    width={dim?.width || 1024}
-                                    height={dim?.height || 1024}
                                     dim={dim || null}
                                     onClickSearch={() => {
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
