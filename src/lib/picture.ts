@@ -30,4 +30,35 @@ export function extractImetaImageUrls(event: NDKEvent): string[] {
   return Array.from(new Set(urls));
 }
 
+export function extractImetaVideoUrls(event: NDKEvent): string[] {
+  const urls: string[] = [];
+  const tags = (event?.tags || []) as unknown as string[][];
+  const VIDEO_MIME_RX = /^(video\/|application\/x-mpegURL)/i;
+  const VIDEO_FILE_RX = /\.(mp4|webm|ogg|ogv|mov|m4v|m3u8)(?:[?#].*)?$/i;
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    if (tag[0] !== 'imeta') continue;
+    let hasVideoMime = false;
+    const localUrls: string[] = [];
+    for (let i = 1; i < tag.length; i++) {
+      const entry = tag[i];
+      if (typeof entry !== 'string') continue;
+      if (entry.startsWith('m ')) {
+        const mime = entry.slice(2).trim();
+        if (VIDEO_MIME_RX.test(mime)) hasVideoMime = true;
+      } else if (entry.startsWith('url ')) {
+        const u = entry.slice(4).trim();
+        if (u && isHttpUrl(u)) localUrls.push(u);
+      } else if (entry.startsWith('fallback ')) {
+        const u = entry.slice(9).trim();
+        if (u && isHttpUrl(u)) localUrls.push(u);
+      }
+    }
+    for (const u of localUrls) {
+      if (hasVideoMime || VIDEO_FILE_RX.test(u)) urls.push(u);
+    }
+  }
+  return Array.from(new Set(urls));
+}
+
 
