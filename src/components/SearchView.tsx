@@ -23,7 +23,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -107,6 +107,17 @@ function ImageWithBlurhash({
           <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center gap-2 border border-[#3d3d3d]">
             <FontAwesomeIcon icon={faImage} className="opacity-80" />
             <span>{statusCode ?? 'Error'}</span>
+            <button
+              type="button"
+              className="ml-1 p-1 hover:bg-white/10 rounded transition-colors"
+              title="Open image in new tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(src, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs opacity-80" />
+            </button>
           </div>
         </div>
       )}
