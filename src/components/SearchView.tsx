@@ -8,7 +8,7 @@ import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search'
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { extractImetaImageUrls } from '@/lib/picture';
+import { extractImetaImageUrls, extractImetaVideoUrls } from '@/lib/picture';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
@@ -1480,6 +1480,57 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                 {isAbsoluteHttpUrl(src) ? (
                                   <Image src={src} alt="picture" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
                                 ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {event.created_at ? formatDate(event.created_at) : 'Unknown date'}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
+                  ) : event.kind === 21 || event.kind === 22 ? (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={() => {
+                        const urls = extractImetaVideoUrls(event);
+                        const contentUrls = extractVideoUrls(event.content || '');
+                        const all = Array.from(new Set([...
+                          urls,
+                          ...contentUrls
+                        ]));
+                        if (all.length === 0) {
+                          return <div className="text-gray-400">(no video)</div>;
+                        }
+                        return (
+                          <div className="mt-0 grid grid-cols-1 gap-3">
+                            {all.map((src) => (
+                              <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+                                <video controls playsInline className="w-full h-auto">
+                                  <source src={src} />
+                                  Your browser does not support the video tag.
+                                </video>
                               </div>
                             ))}
                           </div>
