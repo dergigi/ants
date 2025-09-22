@@ -17,14 +17,21 @@ export default function PidPage() {
   const id = params?.id || '';
   const q = searchParams?.get('q') || '';
 
-  const isNpub = useMemo(() => /^npub1[0-9a-z]+$/i.test(id), [id]);
   const looksLikeNip05 = useMemo(() => /@/.test(id) || /\./.test(id), [id]);
+  const isValidNpub = useMemo(() => {
+    try {
+      const decoded = nip19.decode(id);
+      return decoded?.type === 'npub' && typeof decoded.data === 'string';
+    } catch {
+      return false;
+    }
+  }, [id]);
 
-  const [mode, setMode] = useState<'profile' | 'psearch' | 'checking'>(() => (isNpub ? 'profile' : (looksLikeNip05 ? 'checking' : 'psearch')));
-  const npub = useMemo(() => (isNpub ? id : null), [isNpub, id]);
+  const [mode, setMode] = useState<'profile' | 'psearch' | 'checking'>(() => (isValidNpub ? 'profile' : (looksLikeNip05 ? 'checking' : 'psearch')));
+  const npub = useMemo(() => (isValidNpub ? id : null), [isValidNpub, id]);
 
   useEffect(() => {
-    if (isNpub) { setMode('profile'); return; }
+    if (isValidNpub) { setMode('profile'); return; }
     if (!looksLikeNip05) { setMode('psearch'); return; }
 
     let cancelled = false;
@@ -45,15 +52,12 @@ export default function PidPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [id, isNpub, looksLikeNip05, q, router]);
+  }, [id, isValidNpub, looksLikeNip05, q, router]);
 
   useEffect(() => {
     if (mode !== 'psearch') return;
-    // Ensure URL carries implicit p: query to trigger search
-    if (!q) {
-      const implicit = `p:${id}`;
-      router.replace(`?q=${encodeURIComponent(implicit)}`);
-    }
+    const implicit = (q && q.trim()) ? q : `p:${id}`;
+    router.replace(`/?q=${encodeURIComponent(implicit)}`);
   }, [mode, q, id, router]);
 
   const { profileEvent } = useNostrUser(npub || undefined);
