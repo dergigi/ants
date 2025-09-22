@@ -8,7 +8,7 @@ import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search'
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions } from '@/lib/picture';
+import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { Blurhash } from 'react-blurhash';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
@@ -44,7 +44,9 @@ function ImageWithBlurhash({
   alt, 
   width, 
   height, 
-  dim
+  dim,
+  onClickSearch,
+  setStatusCode
 }: {
   src: string;
   blurhash?: string;
@@ -52,6 +54,8 @@ function ImageWithBlurhash({
   width: number;
   height: number;
   dim?: { width: number; height: number } | null;
+  onClickSearch?: () => void;
+  setStatusCode?: (code: number | null) => void;
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -118,8 +122,18 @@ function ImageWithBlurhash({
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
-        onLoad={() => setImageLoaded(true)}
-        onError={() => setImageError(true)}
+        onLoad={() => { setImageLoaded(true); setStatusCode && setStatusCode(200); }}
+        onError={(e) => {
+          setImageError(true);
+          try {
+            const target = e.target as HTMLImageElement;
+            // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
+            fetch(src, { method: 'HEAD' }).then((res) => {
+              setStatusCode && setStatusCode(res.status || null);
+            }).catch(() => setStatusCode && setStatusCode(null));
+          } catch { setStatusCode && setStatusCode(null); }
+        }}
+        onClick={() => { if (onClickSearch) onClickSearch(); }}
       />
     </div>
   );
@@ -1561,6 +1575,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         const urls = extractImetaImageUrls(event);
                         const blurhashes = extractImetaBlurhashes(event);
                         const dimensions = extractImetaDimensions(event);
+                        const hashes = extractImetaHashes(event);
                         if (urls.length === 0) {
                           return <div className="text-gray-400">(no images)</div>;
                         }
@@ -1569,16 +1584,47 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             {urls.map((src, idx) => {
                               const blurhash = blurhashes[idx] || blurhashes[0];
                               const dim = dimensions[idx] || dimensions[0];
+                              const hash = hashes[idx] || hashes[0] || null;
+                              const [statusCode, setStatusCode] = useState<number | null>(null);
                               return (
-                                <ImageWithBlurhash
-                                  key={src}
-                                  src={src}
-                                  blurhash={blurhash}
-                                  alt="picture"
-                                  width={dim?.width || 1024}
-                                  height={dim?.height || 1024}
-                                  dim={dim || null}
-                                />
+                                <div key={src} className="relative">
+                                  <ImageWithBlurhash
+                                    src={src}
+                                    blurhash={blurhash}
+                                    alt="picture"
+                                    width={dim?.width || 1024}
+                                    height={dim?.height || 1024}
+                                    dim={dim || null}
+                                    setStatusCode={setStatusCode}
+                                    onClickSearch={() => {
+                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
+                                      setQuery(nextQuery);
+                                      if (manageUrl) {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set('q', nextQuery);
+                                        router.replace(`?${params.toString()}`);
+                                      }
+                                      (async () => {
+                                        setLoading(true);
+                                        try {
+                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                                          setResults(searchResults);
+                                        } catch (error) {
+                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                                            return;
+                                          }
+                                          console.error('Search error:', error);
+                                          setResults([]);
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      })();
+                                    }}
+                                  />
+                                  {statusCode && statusCode !== 200 && (
+                                    <div className="absolute top-2 right-2 text-xs px-2 py-1 rounded bg-black/60 border border-[#3d3d3d] text-gray-200">{statusCode}</div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>

@@ -104,4 +104,32 @@ export function extractImetaDimensions(event: NDKEvent): Array<{ width: number; 
   return dimensions;
 }
 
+export function extractImetaHashes(event: NDKEvent): string[] {
+  const hashes: string[] = [];
+  const tags = (event?.tags || []) as unknown as string[][];
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    if (tag[0] !== 'imeta') continue;
+    let found: string | null = null;
+    for (let i = 1; i < tag.length; i++) {
+      const entry = tag[i];
+      if (typeof entry !== 'string') continue;
+      if (entry.startsWith('x ')) {
+        const h = entry.slice(2).trim();
+        if (h) { found = h; break; }
+      }
+    }
+    if (found) hashes.push(found);
+  }
+  // Also consider top-level ["x", "<sha>"] tags as a fallback
+  if (hashes.length === 0) {
+    for (const tag of tags) {
+      if (Array.isArray(tag) && tag[0] === 'x' && typeof tag[1] === 'string' && tag[1].trim()) {
+        hashes.push(tag[1].trim());
+      }
+    }
+  }
+  return Array.from(new Set(hashes));
+}
+
 
