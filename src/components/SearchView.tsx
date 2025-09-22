@@ -44,16 +44,14 @@ function ImageWithBlurhash({
   alt, 
   width, 
   height, 
-  containerHeight, 
-  aspectRatio 
+  dim
 }: {
   src: string;
   blurhash?: string;
   alt: string;
   width: number;
   height: number;
-  containerHeight: number;
-  aspectRatio: number;
+  dim?: { width: number; height: number } | null;
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -67,13 +65,14 @@ function ImageWithBlurhash({
     return null;
   }
 
+  const aspectStyle = dim && dim.width > 0 && dim.height > 0
+    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+    : { minHeight: '200px' as const };
+
   return (
     <div 
       className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
-      style={{ 
-        height: `${containerHeight}px`,
-        minHeight: '200px'
-      }}
+      style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
       {blurhash && (!imageLoaded || imageError) && (
@@ -1550,10 +1549,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             {urls.map((src, idx) => {
                               const blurhash = blurhashes[idx] || blurhashes[0];
                               const dim = dimensions[idx] || dimensions[0];
-                              const aspectRatio = dim ? dim.width / dim.height : 1;
-                              const maxWidth = 600; // Max width for the container
-                              const calculatedHeight = dim ? Math.min(maxWidth / aspectRatio, maxWidth) : maxWidth;
-                              
                               return (
                                 <ImageWithBlurhash
                                   key={src}
@@ -1562,8 +1557,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                   alt="picture"
                                   width={dim?.width || 1024}
                                   height={dim?.height || 1024}
-                                  containerHeight={calculatedHeight}
-                                  aspectRatio={aspectRatio}
+                                  dim={dim || null}
                                 />
                               );
                             })}
