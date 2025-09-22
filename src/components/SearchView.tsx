@@ -117,7 +117,7 @@ function ImageWithBlurhash({
         alt={alt}
         width={width} 
         height={height} 
-        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
@@ -1171,7 +1171,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               }}
             >
               {isAbsoluteHttpUrl(src) ? (
-                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
               ) : null}
             </button>
           ))}
