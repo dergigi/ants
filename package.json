@@ -16,11 +16,13 @@
     "@nostr-dev-kit/ndk": "^2.14.33",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.5.15",
     "@nostr-dev-kit/ndk-cache-sqlite-wasm": "0.5.8",
+    "blurhash": "^2.0.5",
     "fetch-opengraph": "^1.0.36",
     "fuse.js": "7.1.0",
     "next": "^15.4.6",
     "prism-react-renderer": "2.4.1",
     "react": "^19.0.0",
+    "react-blurhash": "^0.3.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {

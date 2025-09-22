@@ -8,7 +8,8 @@ import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search'
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
 import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { extractImetaImageUrls, extractImetaVideoUrls } from '@/lib/picture';
+import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes } from '@/lib/picture';
+import { Blurhash } from 'react-blurhash';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
@@ -1470,15 +1471,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       onAuthorClick={goToProfile}
                       renderContent={() => {
                         const urls = extractImetaImageUrls(event);
+                        const blurhashes = extractImetaBlurhashes(event);
                         if (urls.length === 0) {
                           return <div className="text-gray-400">(no images)</div>;
                         }
                         return (
                           <div className="mt-0 grid grid-cols-1 gap-3">
-                            {urls.map((src) => (
+                            {urls.map((src, idx) => (
                               <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+                                {blurhashes.length > 0 ? (
+                                  <div className="absolute inset-0">
+                                    <Blurhash hash={blurhashes[idx] || blurhashes[0]} width={'100%'} height={'100%'} resolutionX={32} resolutionY={32} punch={1} />
+                                  </div>
+                                ) : null}
                                 {isAbsoluteHttpUrl(src) ? (
-                                  <Image src={src} alt="picture" width={1024} height={1024} className="h-auto w-full object-contain" unoptimized />
+                                  <Image src={src} alt="picture" width={1024} height={1024} className="relative h-auto w-full object-contain" unoptimized />
                                 ) : null}
                               </div>
                             ))}

@@ -61,4 +61,22 @@ export function extractImetaVideoUrls(event: NDKEvent): string[] {
   return Array.from(new Set(urls));
 }
 
+export function extractImetaBlurhashes(event: NDKEvent): string[] {
+  const hashes: string[] = [];
+  const tags = (event?.tags || []) as unknown as string[][];
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    if (tag[0] !== 'imeta') continue;
+    for (let i = 1; i < tag.length; i++) {
+      const entry = tag[i];
+      if (typeof entry !== 'string') continue;
+      if (entry.startsWith('blurhash ')) {
+        const hash = entry.slice(9).trim();
+        if (hash) hashes.push(hash);
+      }
+    }
+  }
+  return Array.from(new Set(hashes));
+}
+
 
