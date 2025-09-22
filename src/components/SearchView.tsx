@@ -148,6 +148,117 @@ function ImageWithBlurhash({
   );
 }
 
+// Component to handle video loading with blurhash placeholder
+function VideoWithBlurhash({ 
+  src, 
+  blurhash, 
+  alt, 
+  width, 
+  height, 
+  dim,
+  onClickSearch
+}: {
+  src: string;
+  blurhash?: string;
+  alt: string;
+  width: number;
+  height: number;
+  dim?: { width: number; height: number } | null;
+  onClickSearch?: () => void;
+}) {
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [statusCode, setStatusCode] = useState<number | null>(null);
+
+  useEffect(() => {
+    setVideoLoaded(false);
+    setVideoError(false);
+  }, [src]);
+
+  if (!isAbsoluteHttpUrl(src)) {
+    return null;
+  }
+
+  const aspectStyle = dim && dim.width > 0 && dim.height > 0
+    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+    : { minHeight: '200px' as const };
+
+  return (
+    <div 
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      style={aspectStyle}
+    >
+      {/* Blurhash placeholder - shown while loading or on error */}
+      {blurhash && (!videoLoaded || videoError) && (
+        <div className="absolute inset-0">
+          <Blurhash 
+            hash={blurhash} 
+            width={'100%'} 
+            height={'100%'} 
+            resolutionX={32} 
+            resolutionY={32} 
+            punch={1} 
+          />
+        </div>
+      )}
+
+      {/* Subtle loading spinner on top of blurhash while the video loads */}
+      {!videoLoaded && !videoError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div
+            className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
+            aria-label="Loading video"
+          />
+        </div>
+      )}
+
+      {/* Error state: show status code while keeping blurhash (if any) */}
+      {videoError && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center justify-center gap-2 border border-[#3d3d3d]">
+            <FontAwesomeIcon icon={faImage} className="opacity-80" />
+            <span className="flex-1 text-center">{statusCode ?? 'Error'}</span>
+            <button
+              type="button"
+              className="p-1 hover:bg-white/10 rounded transition-colors"
+              title="Open video in new tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(src, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs opacity-80" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Real video - hidden until loaded */}
+      <video 
+        controls 
+        playsInline 
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+          videoLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoadedData={() => { setVideoLoaded(true); setStatusCode(200); }}
+        onError={() => {
+          setVideoError(true);
+          try {
+            // Try to fetch HEAD to get status code
+            fetch(src, { method: 'HEAD' }).then((res) => {
+              setStatusCode(res.status || null);
+            }).catch(() => setStatusCode(null));
+          } catch { setStatusCode(null); }
+        }}
+        onClick={() => { if (onClickSearch) onClickSearch(); }}
+      >
+        <source src={src} />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  );
+}
+
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
@@ -1666,6 +1777,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       renderContent={() => {
                         const urls = extractImetaVideoUrls(event);
                         const contentUrls = extractVideoUrls(event.content || '');
+                        const blurhashes = extractImetaBlurhashes(event);
+                        const dimensions = extractImetaDimensions(event);
+                        const hashes = extractImetaHashes(event);
                         const all = Array.from(new Set([...
                           urls,
                           ...contentUrls
@@ -1675,14 +1789,47 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         }
                         return (
                           <div className="mt-0 grid grid-cols-1 gap-3">
-                            {all.map((src) => (
-                              <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-                                <video controls playsInline className="w-full h-auto">
-                                  <source src={src} />
-                                  Your browser does not support the video tag.
-                                </video>
-                              </div>
-                            ))}
+                            {all.map((src, idx) => {
+                              const blurhash = blurhashes[idx] || blurhashes[0];
+                              const dim = dimensions[idx] || dimensions[0];
+                              const hash = hashes[idx] || hashes[0] || null;
+                              return (
+                                <div key={src} className="relative">
+                                  <VideoWithBlurhash
+                                    src={src}
+                                    blurhash={blurhash}
+                                    alt="video"
+                                    width={dim?.width || 1024}
+                                    height={dim?.height || 1024}
+                                    dim={dim || null}
+                                    onClickSearch={() => {
+                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
+                                      setQuery(nextQuery);
+                                      if (manageUrl) {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set('q', nextQuery);
+                                        router.replace(`?${params.toString()}`);
+                                      }
+                                      (async () => {
+                                        setLoading(true);
+                                        try {
+                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                                          setResults(searchResults);
+                                        } catch (error) {
+                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                                            return;
+                                          }
+                                          console.error('Search error:', error);
+                                          setResults([]);
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      })();
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       }}
