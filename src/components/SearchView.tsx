@@ -210,7 +210,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
-  function applyClientFilters(events: NDKEvent[], terms: string[], active: Set<string>): NDKEvent[] {
+  function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
     // Rely solely on replacements.txt expansion upstream; no client-side media seeding
     return events;
   }
@@ -1604,7 +1604,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrls])}
     </div>
   );
 }
