@@ -1,14 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { ndk, connect } from '@/lib/ndk';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
-import SearchView from '@/components/SearchView';
-import ProfileCard from '@/components/ProfileCard';
+import { ndk, connect } from '@/lib/ndk';
 
-function useNostrUser(npub: string | undefined) {
+export function useNostrUser(npub: string | undefined) {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [profileEvent, setProfileEvent] = useState<NDKEvent | null>(null);
   const [pubkey, setPubkey] = useState<string | null>(null);
@@ -65,30 +62,6 @@ function useNostrUser(npub: string | undefined) {
   }, [npub]);
 
   return { user, profileEvent, pubkey };
-}
-
-export default function ProfilePage() {
-  const params = useParams<{ npub: string }>();
-  const npub = params?.npub;
-  const searchParams = useSearchParams();
-  const q = searchParams?.get('q') || null;
-  const { profileEvent } = useNostrUser(npub);
-
-  return (
-    <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
-      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
-        {profileEvent ? (
-          <ProfileCard event={profileEvent} onAuthorClick={() => {}} showBanner={true} />
-        ) : null}
-
-        {npub ? (
-          <div className="mt-4">
-            <SearchView initialQuery={q || `by:${npub}`} manageUrl={true} />
-          </div>
-        ) : null}
-      </div>
-    </main>
-  );
 }
 
 
