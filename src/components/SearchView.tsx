@@ -667,13 +667,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setQuery(display);
         const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
         handleSearch(backend);
-        // Normalize URL to implicit form if needed
-        const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
-        if (implicit !== urlQuery) {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set('q', implicit);
-          router.replace(`?${params.toString()}`);
-        }
+        // Normalize URL to implicit form if needed (do this after search to avoid conflicts)
+        setTimeout(() => {
+          const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
+          if (implicit !== urlQuery) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set('q', implicit);
+            router.replace(`?${params.toString()}`);
+          }
+        }, 0);
       }
     } else if (urlQuery) {
       setQuery(urlQuery);
@@ -685,34 +687,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim() || placeholder;
-    
-    // Slash-commands: show CLI-style top card but still run normal search
-    if (isSlashCommand(raw)) {
-      runSlashCommand(raw);
-      setQuery(raw);
-      if (manageUrl) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('q', raw);
-        router.replace(`?${params.toString()}`);
-      }
-      // Clear prior results immediately before async search
-      setResults([]);
-      setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
-      if (raw) handleSearch(raw);
-      else setResults([]);
-      return;
-    } else {
-      // Clear any previous command card for non-command searches
-      setTopCommandText(null);
-      setTopExamples(null);
-    }
+
+    // Update URL immediately when search is triggered
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
     if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
       displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
     }
-    setQuery(displayVal);
+
     if (manageUrl) {
       const params = new URLSearchParams(searchParams.toString());
       if (displayVal) {
@@ -720,17 +702,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
         params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
-        // Backend search should include implicit author on profile pages
-        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
-        handleSearch(backend.trim());
       } else {
         params.delete('q');
         router.replace(`?${params.toString()}`);
-        setResults([]);
       }
+    }
+
+    // Update UI state immediately
+    setQuery(displayVal);
+    setResults([]);
+    setLoading(true);
+
+    // Slash-commands: show CLI-style top card but still run normal search
+    if (isSlashCommand(raw)) {
+      runSlashCommand(raw);
+      setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
     } else {
-      if (displayVal) handleSearch(displayVal);
-      else setResults([]);
+      // Clear any previous command card for non-command searches
+      setTopCommandText(null);
+      setTopExamples(null);
+    }
+
+    // Execute the search
+    if (displayVal) {
+      const backend = manageUrl && currentProfileNpub ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
+      handleSearch(backend.trim());
+    } else {
+      setResults([]);
     }
   };
 
