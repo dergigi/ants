@@ -755,7 +755,12 @@ export async function searchEvents(
   const earlyAuthorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (earlyAuthorMatch) {
     const [, author] = earlyAuthorMatch;
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    // Preserve surrounding whitespace when stripping the by: token to avoid
+    // concatenating adjacent tokens (e.g., "GM" and ".jpg" -> "GM.jpg").
+    const terms = cleanedQuery
+      .replace(/(^|\s)by:(\S+)(?=\s|$)/gi, '$1')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
     console.log('Found author filter (early):', { author, terms });
 
     let pubkey: string | null = null;
@@ -1045,8 +1050,11 @@ export async function searchEvents(
   const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (authorMatch) {
     const [, author] = authorMatch;
-    // Extract search terms by removing the author filter
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+    // Extract search terms by removing the author filter while preserving spacing
+    const terms = cleanedQuery
+      .replace(/(^|\s)by:(\S+)(?=\s|$)/gi, '$1')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
     console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
