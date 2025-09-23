@@ -800,15 +800,17 @@ export async function searchEvents(
             return subscribeAndStream(f, {
               timeoutMs: streamingOptions?.timeoutMs || 30000,
               maxResults: streamingOptions?.maxResults || 1000,
-              onResults: (arr) => {
+              onResults: (arr, isComplete) => {
                 for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
-                emitMerged(false);
+                emitMerged(isComplete);
               },
               relaySet: chosenRelaySet,
               abortSignal
             });
           })
         );
+        // After all streams settle, emit completion just in case none marked complete
+        emitMerged(true);
       } else {
         // Single filter stream (with or without terms)
         await subscribeAndStream(
@@ -1154,15 +1156,16 @@ export async function searchEvents(
                 return subscribeAndStream(f, {
                   timeoutMs: streamingOptions?.timeoutMs || 30000,
                   maxResults: streamingOptions?.maxResults || 1000,
-                  onResults: (arr) => {
+                  onResults: (arr, isComplete) => {
                     for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
-                    emitMerged(false);
+                    emitMerged(isComplete);
                   },
                   relaySet: chosenRelaySet,
                   abortSignal
                 });
               })
             );
+            emitMerged(true);
           } else {
             await subscribeAndStream(filters.search ? { ...filters, limit: undefined } : { kinds: effectiveKinds, authors: [pubkey] }, {
               timeoutMs: streamingOptions?.timeoutMs || 30000,
