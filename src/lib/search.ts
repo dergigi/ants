@@ -234,8 +234,9 @@ async function subscribeAndStream(
       return;
     }
 
-    console.log('subscribeAndStream called with filter:', streamingFilter);
-    console.log('Using relay set:', Array.from(rs.relays).map(r => r.url));
+    // Debug: Log search details (can be removed after testing)
+    // console.log('subscribeAndStream called with filter:', streamingFilter);
+    // console.log('Using relay set:', Array.from(rs.relays).map(r => r.url));
     const sub = safeSubscribe([streamingFilter], {
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
@@ -297,15 +298,15 @@ async function subscribeAndStream(
         try { markRelayActivity(relayUrl); } catch {}
       }
 
-      // Debug: Log received events to see if they match our search
-      const contentPreview = (event.content || '').substring(0, 200);
-      console.log('Received event:', {
-        id: event.id,
-        author: event.author?.pubkey,
-        relay: relayUrl,
-        content: contentPreview,
-        created_at: event.created_at
-      });
+      // Debug: Log received events to see if they match our search (can be removed after testing)
+      // const contentPreview = (event.content || '').substring(0, 200);
+      // console.log('Received event:', {
+      //   id: event.id,
+      //   author: event.author?.pubkey,
+      //   relay: relayUrl,
+      //   content: contentPreview,
+      //   created_at: event.created_at
+      // });
 
       if (!collected.has(event.id)) {
         const eventWithSource = event as NDKEventWithRelaySource;
@@ -753,12 +754,14 @@ export async function searchEvents(
           seedExpansions.map((seed) => {
             const searchQuery = buildSearchQueryWithExtensions(seed, nip50Extensions);
             const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: searchQuery };
-            console.log('Early author streaming search:', { seed, searchQuery, filter: f });
+            // Debug: Log search details (can be removed after testing)
+            // console.log('Early author streaming search:', { seed, searchQuery, filter: f });
             return subscribeAndStream(f, {
               timeoutMs: streamingOptions?.timeoutMs || 30000,
               maxResults: streamingOptions?.maxResults || 1000,
               onResults: (arr, isComplete) => {
-                console.log('Early author streaming results:', { seed, resultCount: arr.length, isComplete, sampleContent: arr.slice(0, 3).map(e => e.content?.substring(0, 100)) });
+                // Debug: Log results (can be removed after testing)
+                // console.log('Early author streaming results:', { seed, resultCount: arr.length, isComplete, sampleContent: arr.slice(0, 3).map(e => e.content?.substring(0, 100)) });
                 // Global deduplication across all parallel searches
                 const newEvents: NDKEvent[] = [];
                 for (const e of arr) {
@@ -800,29 +803,11 @@ export async function searchEvents(
 
       res = Array.from(seenMap.values());
 
-      // Debug: Log final results before returning
-      console.log('Early author final results:', {
-        totalResults: res.length,
-        sampleResults: res.slice(0, 5).map(e => ({
-          id: e.id,
-          content: (e.content || '').substring(0, 100),
-          author: e.author?.pubkey
-        }))
-      });
-
       // In streaming mode, don't run non-streaming fallbacks; emit final sorted result
       {
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
         const finalResults = sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
-        console.log('Early author final deduped results:', {
-          finalCount: finalResults.length,
-          sampleFinal: finalResults.slice(0, 3).map(e => ({
-            id: e.id,
-            content: (e.content || '').substring(0, 100),
-            author: e.author?.pubkey
-          }))
-        });
         return finalResults;
       }
     }
@@ -1180,28 +1165,10 @@ export async function searchEvents(
         }
         res = Array.from(seenMap.values());
 
-        // Debug: Log final results before returning
-        console.log('Regular author final results:', {
-          totalResults: res.length,
-          sampleResults: res.slice(0, 5).map(e => ({
-            id: e.id,
-            content: (e.content || '').substring(0, 100),
-            author: e.author?.pubkey
-          }))
-        });
-
         // In streaming mode, return immediately without non-streaming fallbacks
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
         const finalResults = sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
-        console.log('Regular author final deduped results:', {
-          finalCount: finalResults.length,
-          sampleFinal: finalResults.slice(0, 3).map(e => ({
-            id: e.id,
-            content: (e.content || '').substring(0, 100),
-            author: e.author?.pubkey
-          }))
-        });
         return finalResults;
       } else {
         if (terms) {
