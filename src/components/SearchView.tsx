@@ -688,6 +688,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     e.preventDefault();
     const raw = query.trim() || placeholder;
 
+    // Immediately cancel any ongoing search
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    currentSearchId.current++;
+
     // Update URL immediately when search is triggered
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     let displayVal = raw;
@@ -1520,8 +1526,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             )}
           </div>
-          <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
-            {loading ? (resolvingAuthor ? 'Resolving...' : 'Searching...') : 'Search'}
+          <button type="submit" className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors">
+            {loading ? (resolvingAuthor ? 'Resolving...' : 'New Search') : 'Search'}
           </button>
         </div>
         
