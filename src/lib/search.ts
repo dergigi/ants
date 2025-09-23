@@ -697,19 +697,53 @@ export async function searchEvents(
   {
     const expandedSeeds = expandParenthesizedOr(cleanedQuery);
     if (expandedSeeds.length > 1) {
+      // If streaming, run all expanded seeds concurrently and emit progressive merges
+      if (isStreaming && streamingOptions?.onResults) {
+        const seenMap = new Map<string, NDKEvent>();
+        const emitMerged = (isComplete: boolean) => {
+          const mergedArr = Array.from(seenMap.values());
+          const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+          streamingOptions.onResults!(sorted, isComplete);
+        };
+
+        await Promise.allSettled(
+          expandedSeeds.map((seed) =>
+            searchEvents(
+              seed,
+              limit,
+              {
+                ...(streamingOptions as StreamingSearchOptions),
+                streaming: true,
+                onResults: (res) => {
+                  for (const e of res) {
+                    if (!seenMap.has(e.id)) seenMap.set(e.id, e);
+                  }
+                  emitMerged(false);
+                }
+              },
+              chosenRelaySet,
+              abortSignal
+            )
+          )
+        );
+
+        const final = Array.from(seenMap.values())
+          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+          .slice(0, limit);
+        streamingOptions.onResults(final, true);
+        return final;
+      }
+
+      // Non-streaming: run in parallel and merge when all complete
+      const results = await Promise.allSettled(
+        expandedSeeds.map((seed) => searchEvents(seed, limit, options, chosenRelaySet, abortSignal))
+      );
       const merged: NDKEvent[] = [];
       const seen = new Set<string>();
-      for (const seed of expandedSeeds) {
-        try {
-          const partResults = await searchEvents(seed, limit, options, chosenRelaySet, abortSignal);
-          for (const evt of partResults) {
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          for (const evt of r.value) {
             if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
-          }
-        } catch (error) {
-          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-            // no-op
-          } else {
-            console.warn('Expanded seed failed:', seed, error);
           }
         }
       }
@@ -792,32 +826,58 @@ export async function searchEvents(
   const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
+
+    // Streaming path: fan-out parallel searches and emit merged updates
+    if (isStreaming && streamingOptions?.onResults) {
+      const seenMap = new Map<string, NDKEvent>();
+      const emitMerged = (isComplete: boolean) => {
+        const mergedArr = Array.from(seenMap.values());
+        const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+        streamingOptions.onResults!(sorted, isComplete);
+      };
+
+      await Promise.allSettled(
+        orParts.map((part) =>
+          searchEvents(
+            part,
+            limit,
+            {
+              ...(streamingOptions as StreamingSearchOptions),
+              streaming: true,
+              onResults: (res) => {
+                for (const e of res) {
+                  if (!seenMap.has(e.id)) seenMap.set(e.id, e);
+                }
+                emitMerged(false);
+              }
+            },
+            chosenRelaySet,
+            abortSignal
+          )
+        )
+      );
+
+      const final = Array.from(seenMap.values())
+        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+        .slice(0, limit);
+      streamingOptions.onResults(final, true);
+      return final;
+    }
+
+    // Non-streaming: run all parts concurrently and merge
+    const results = await Promise.allSettled(
+      orParts.map((part) => searchEvents(part, limit, options, chosenRelaySet, abortSignal))
+    );
     const allResults: NDKEvent[] = [];
     const seenIds = new Set<string>();
-    
-    // Process each part of the OR query
-    for (const part of orParts) {
-      try {
-        const partResults = await searchEvents(part, limit, options, chosenRelaySet, abortSignal);
-        for (const event of partResults) {
-          if (!seenIds.has(event.id)) {
-            seenIds.add(event.id);
-            allResults.push(event);
-          }
-        }
-      } catch (error) {
-        // Suppress abort errors so they don't bubble to UI as console errors
-        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-          // No-op: benign abort during OR processing
-        } else {
-          console.error(`Error processing OR query part "${part}":`, error);
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        for (const event of r.value) {
+          if (!seenIds.has(event.id)) { seenIds.add(event.id); allResults.push(event); }
         }
       }
     }
-    
-    // Sort by creation time (newest first) and limit results
-    const merged = allResults;
-    return merged
+    return allResults
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       .slice(0, limit);
   }

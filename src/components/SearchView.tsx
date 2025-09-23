@@ -507,15 +507,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       }
 
       const expanded = await applySimpleReplacements(effectiveQuery);
-      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
-      
-      // Check if search was aborted after getting results
-      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
-        return;
-      }
-
-      const filtered = applyClientFilters(searchResults, [], new Set<string>());
-      setResults(filtered);
+      await searchEvents(
+        expanded,
+        1000,
+        {
+          streaming: true,
+          timeoutMs: 30000,
+          maxResults: 1000,
+          onResults: (streamed, isComplete) => {
+            // Ignore stale emissions
+            if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+            const filtered = applyClientFilters(streamed, [], new Set<string>());
+            setResults(filtered);
+            if (isComplete && currentSearchId.current === searchId) {
+              setLoading(false);
+              setResolvingAuthor(false);
+            }
+          }
+        },
+        undefined,
+        abortController.signal
+      );
+      // No need to set results here; onResults handles progressive updates
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -526,7 +539,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
-        setLoading(false);
+        // For streaming, loading may already be cleared in onResults when complete
         setResolvingAuthor(false);
       }
     }
