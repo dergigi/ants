@@ -235,10 +235,11 @@ async function subscribeAndStream(
     }
 
     console.log('subscribeAndStream called with filter:', streamingFilter);
-    const sub = safeSubscribe([streamingFilter], { 
+    console.log('Using relay set:', Array.from(rs.relays).map(r => r.url));
+    const sub = safeSubscribe([streamingFilter], {
       closeOnEose: false, // Keep connection open!
-      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet: rs 
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+      relaySet: rs
     });
 
     if (!sub) {
@@ -295,13 +296,23 @@ async function subscribeAndStream(
       if (relayUrl !== 'unknown') {
         try { markRelayActivity(relayUrl); } catch {}
       }
-      
+
+      // Debug: Log received events to see if they match our search
+      const contentPreview = (event.content || '').substring(0, 200);
+      console.log('Received event:', {
+        id: event.id,
+        author: event.author?.pubkey,
+        relay: relayUrl,
+        content: contentPreview,
+        created_at: event.created_at
+      });
+
       if (!collected.has(event.id)) {
         const eventWithSource = event as NDKEventWithRelaySource;
         eventWithSource.relaySource = relayUrl;
         eventWithSource.relaySources = [relayUrl];
         collected.set(event.id, eventWithSource);
-        
+
         // Check if we've hit max results
         if (maxResults && collected.size >= maxResults) {
           isComplete = true;
@@ -314,7 +325,7 @@ async function subscribeAndStream(
           resolve(sortedResults);
           return;
         }
-        
+
         // Emit results periodically
         emitResults();
       } else {
@@ -736,11 +747,14 @@ export async function searchEvents(
         // Fan out seeds in parallel, streaming partials
         await Promise.allSettled(
           seedExpansions.map((seed) => {
-            const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions) };
+            const searchQuery = buildSearchQueryWithExtensions(seed, nip50Extensions);
+            const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: searchQuery };
+            console.log('Early author streaming search:', { seed, searchQuery, filter: f });
             return subscribeAndStream(f, {
               timeoutMs: streamingOptions?.timeoutMs || 30000,
               maxResults: streamingOptions?.maxResults || 1000,
               onResults: (arr, isComplete) => {
+                console.log('Early author streaming results:', { seed, resultCount: arr.length, isComplete, sampleContent: arr.slice(0, 3).map(e => e.content?.substring(0, 100)) });
                 for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
                 emitMerged(isComplete);
               },
