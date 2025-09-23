@@ -33,6 +33,36 @@ function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
   return [...events].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 }
 
+// DRY helpers for streaming aggregation
+type EmitFn = (results: NDKEvent[], isComplete: boolean) => void;
+function addUniqueResults(target: Map<string, NDKEvent>, arr: NDKEvent[]): void {
+  for (const e of arr) {
+    if (!target.has(e.id)) target.set(e.id, e);
+  }
+}
+function emitMergedFromMap(map: Map<string, NDKEvent>, limit: number, emit?: EmitFn, isComplete: boolean = false): void {
+  if (!emit) return;
+  const merged = Array.from(map.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  emit(merged.slice(0, limit), isComplete);
+}
+async function streamFilterIntoMap(
+  filter: NDKFilter,
+  options: { timeoutMs?: number; maxResults?: number; relaySet?: NDKRelaySet; abortSignal?: AbortSignal; emit?: EmitFn; limit?: number }
+): Promise<NDKEvent[]> {
+  const seen = new Map<string, NDKEvent>();
+  await subscribeAndStream(filter, {
+    timeoutMs: options.timeoutMs,
+    maxResults: options.maxResults,
+    relaySet: options.relaySet,
+    abortSignal: options.abortSignal,
+    onResults: (arr, isComplete) => {
+      addUniqueResults(seen, arr);
+      emitMergedFromMap(seen, options.limit ?? (options.maxResults || 1000), options.emit, isComplete);
+    }
+  });
+  return Array.from(seen.values());
+}
+
 // Extend filter type to include tag queries for "t" (hashtags)
 type TagTFilter = NDKFilter & { '#t'?: string[] };
 
