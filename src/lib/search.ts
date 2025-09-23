@@ -920,10 +920,28 @@ export async function searchEvents(
   }
 
   // Full-text profile search `p:<term>` (not only username)
+  // Also supports hex or npub directly to fetch that exact profile
   const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
+    // If term is an npub or 64-char hex, fetch the exact profile event
+    if (/^npub1[0-9a-z]+$/i.test(term)) {
+      try {
+        const decoded = nip19.decode(term);
+        if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
+          const evt = await profileEventFromPubkey(decoded.data);
+          return evt ? [evt] : [];
+        }
+      } catch {}
+    }
+    if (/^[0-9a-fA-F]{64}$/.test(term)) {
+      try {
+        const evt = await profileEventFromPubkey(term.toLowerCase());
+        return evt ? [evt] : [];
+      } catch {}
+    }
+    // Otherwise, do a general full-text profile search
     try {
       const profiles = await searchProfilesFullText(term, 21);
       return profiles;
