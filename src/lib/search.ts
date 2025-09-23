@@ -783,18 +783,64 @@ export async function searchEvents(
 
     console.log('Searching with filters (early author):', filters);
     let res: NDKEvent[] = [];
-    if (terms && seedExpansions.length > 1) {
-      // Run each expansion and merge
-      const seen = new Set<string>();
-      for (const seed of seedExpansions) {
-        try {
-          const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
-          const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
-          for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-        } catch {}
+    if (isStreaming && streamingOptions?.onResults) {
+      // STREAMING path for early author
+      const seenMap = new Map<string, NDKEvent>();
+      const emitMerged = (isComplete: boolean) => {
+        const mergedArr = Array.from(seenMap.values());
+        const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+        streamingOptions.onResults!(sorted, isComplete);
+      };
+
+      if (terms && seedExpansions.length > 1) {
+        // Fan out seeds in parallel, streaming partials
+        await Promise.allSettled(
+          seedExpansions.map((seed) => {
+            const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions) };
+            return subscribeAndStream(f, {
+              timeoutMs: streamingOptions?.timeoutMs || 30000,
+              maxResults: streamingOptions?.maxResults || 1000,
+              onResults: (arr) => {
+                for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+                emitMerged(false);
+              },
+              relaySet: chosenRelaySet,
+              abortSignal
+            });
+          })
+        );
+      } else {
+        // Single filter stream (with or without terms)
+        await subscribeAndStream(
+          filters.search ? { ...filters, limit: undefined } : { kinds: effectiveKinds, authors: [pubkey] },
+          {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: (arr, isComplete) => {
+              for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+              emitMerged(isComplete);
+            },
+            relaySet: chosenRelaySet,
+            abortSignal
+          }
+        );
       }
+
+      res = Array.from(seenMap.values());
     } else {
-      res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      // NON-STREAMING path (existing behavior)
+      if (terms && seedExpansions.length > 1) {
+        const seen = new Set<string>();
+        for (const seed of seedExpansions) {
+          try {
+            const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+            const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+            for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+          } catch {}
+        }
+      } else {
+        res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      }
     }
     const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
     const seedTerms: string[] = [];
@@ -1092,22 +1138,74 @@ export async function searchEvents(
     {
       // Fetch by base terms if any, restricted to author
       let res: NDKEvent[] = [];
-      if (terms) {
-        const seedExpansions3 = expandParenthesizedOr(terms);
-        if (seedExpansions3.length > 1) {
-          const seen = new Set<string>();
-          for (const seed of seedExpansions3) {
-            try {
-              const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
-              const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
-              for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-            } catch {}
+      if (isStreaming && streamingOptions?.onResults) {
+        const seenMap = new Map<string, NDKEvent>();
+        const emitMerged = (isComplete: boolean) => {
+          const mergedArr = Array.from(seenMap.values());
+          const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+          streamingOptions.onResults!(sorted, isComplete);
+        };
+        if (terms) {
+          const seedExpansions3 = expandParenthesizedOr(terms);
+          if (seedExpansions3.length > 1) {
+            await Promise.allSettled(
+              seedExpansions3.map((seed) => {
+                const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions) };
+                return subscribeAndStream(f, {
+                  timeoutMs: streamingOptions?.timeoutMs || 30000,
+                  maxResults: streamingOptions?.maxResults || 1000,
+                  onResults: (arr) => {
+                    for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+                    emitMerged(false);
+                  },
+                  relaySet: chosenRelaySet,
+                  abortSignal
+                });
+              })
+            );
+          } else {
+            await subscribeAndStream(filters.search ? { ...filters, limit: undefined } : { kinds: effectiveKinds, authors: [pubkey] }, {
+              timeoutMs: streamingOptions?.timeoutMs || 30000,
+              maxResults: streamingOptions?.maxResults || 1000,
+              onResults: (arr, isComplete) => {
+                for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+                emitMerged(isComplete);
+              },
+              relaySet: chosenRelaySet,
+              abortSignal
+            });
+          }
+        } else {
+          await subscribeAndStream(filters.search ? { ...filters, limit: undefined } : { kinds: effectiveKinds, authors: [pubkey] }, {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: (arr, isComplete) => {
+              for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+              emitMerged(isComplete);
+            },
+            relaySet: chosenRelaySet,
+            abortSignal
+          });
+        }
+        res = Array.from(seenMap.values());
+      } else {
+        if (terms) {
+          const seedExpansions3 = expandParenthesizedOr(terms);
+          if (seedExpansions3.length > 1) {
+            const seen = new Set<string>();
+            for (const seed of seedExpansions3) {
+              try {
+                const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+                const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+                for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
+              } catch {}
+            }
+          } else {
+            res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
           }
         } else {
           res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
         }
-      } else {
-        res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
       }
 
       // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
