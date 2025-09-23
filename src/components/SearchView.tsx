@@ -20,6 +20,7 @@ import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
+import ResultSkeleton from '@/components/ResultSkeleton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
@@ -1933,6 +1934,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </div>
               );
             })}
+            {loading && (
+              <>
+                <ResultSkeleton />
+                <ResultSkeleton />
+                <ResultSkeleton />
+              </>
+            )}
           </div>
         );
       }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrls])}

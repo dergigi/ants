@@ -7,12 +7,12 @@ import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 // legacy import removed
 
 // Type definitions for relay objects
-interface RelayObject {
-  url?: string;
-  relay?: {
-    url?: string;
-  };
-}
+// interface RelayObject {
+//   url?: string;
+//   relay?: {
+//     url?: string;
+//   };
+// }
 
 // NIP-50 extension options
 interface Nip50Extensions {
@@ -33,35 +33,33 @@ function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
   return [...events].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 }
 
-// DRY helpers for streaming aggregation
+// DRY helpers for streaming aggregation (inline usage keeps code clean without unused warnings)
 type EmitFn = (results: NDKEvent[], isComplete: boolean) => void;
-function addUniqueResults(target: Map<string, NDKEvent>, arr: NDKEvent[]): void {
-  for (const e of arr) {
-    if (!target.has(e.id)) target.set(e.id, e);
-  }
-}
-function emitMergedFromMap(map: Map<string, NDKEvent>, limit: number, emit?: EmitFn, isComplete: boolean = false): void {
+const addUniqueResults = (target: Map<string, NDKEvent>, arr: NDKEvent[]): void => {
+  for (const e of arr) if (!target.has(e.id)) target.set(e.id, e);
+};
+const emitMergedFromMap = (map: Map<string, NDKEvent>, limit: number, emit?: EmitFn, isComplete: boolean = false): void => {
   if (!emit) return;
   const merged = Array.from(map.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   emit(merged.slice(0, limit), isComplete);
-}
-async function streamFilterIntoMap(
-  filter: NDKFilter,
-  options: { timeoutMs?: number; maxResults?: number; relaySet?: NDKRelaySet; abortSignal?: AbortSignal; emit?: EmitFn; limit?: number }
-): Promise<NDKEvent[]> {
-  const seen = new Map<string, NDKEvent>();
-  await subscribeAndStream(filter, {
-    timeoutMs: options.timeoutMs,
-    maxResults: options.maxResults,
-    relaySet: options.relaySet,
-    abortSignal: options.abortSignal,
-    onResults: (arr, isComplete) => {
-      addUniqueResults(seen, arr);
-      emitMergedFromMap(seen, options.limit ?? (options.maxResults || 1000), options.emit, isComplete);
-    }
-  });
-  return Array.from(seen.values());
-}
+};
+// Note: streamFilterIntoMap is currently unused but kept for future DRY use; remove comment to use when needed.
+// function streamFilterIntoMap(
+//   filter: NDKFilter,
+//   options: { timeoutMs?: number; maxResults?: number; relaySet?: NDKRelaySet; abortSignal?: AbortSignal; emit?: EmitFn; limit?: number }
+// ): Promise<NDKEvent[]> {
+//   const seen = new Map<string, NDKEvent>();
+//   return subscribeAndStream(filter, {
+//     timeoutMs: options.timeoutMs,
+//     maxResults: options.maxResults,
+//     relaySet: options.relaySet,
+//     abortSignal: options.abortSignal,
+//     onResults: (arr, isComplete) => {
+//       addUniqueResults(seen, arr);
+//       emitMergedFromMap(seen, options.limit ?? (options.maxResults || 1000), options.emit, isComplete);
+//     }
+//   }).then(() => Array.from(seen.values()));
+// }
 
 // Extend filter type to include tag queries for "t" (hashtags)
 type TagTFilter = NDKFilter & { '#t'?: string[] };
@@ -219,7 +217,7 @@ async function subscribeAndStream(
       return;
     }
 
-    console.log('subscribeAndStream called with filter:', filter);
+    // Log the actual filter used for streaming (after limit removal)
 
     const collected: Map<string, NDKEvent> = new Map();
     let isComplete = false;
@@ -237,6 +235,7 @@ async function subscribeAndStream(
       return;
     }
 
+    console.log('subscribeAndStream called with filter:', streamingFilter);
     const sub = safeSubscribe([streamingFilter], { 
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
@@ -636,11 +635,7 @@ export async function searchEvents(
       // If streaming, run all expanded seeds concurrently and emit progressive merges
       if (isStreaming && streamingOptions?.onResults) {
         const seenMap = new Map<string, NDKEvent>();
-        const emitMerged = (isComplete: boolean) => {
-          const mergedArr = Array.from(seenMap.values());
-          const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
-          streamingOptions.onResults!(sorted, isComplete);
-        };
+        const emitMerged = (isComplete: boolean) => emitMergedFromMap(seenMap, limit, streamingOptions.onResults, isComplete);
 
         await Promise.allSettled(
           expandedSeeds.map((seed) =>
@@ -651,9 +646,7 @@ export async function searchEvents(
                 ...(streamingOptions as StreamingSearchOptions),
                 streaming: true,
                 onResults: (res) => {
-                  for (const e of res) {
-                    if (!seenMap.has(e.id)) seenMap.set(e.id, e);
-                  }
+                  addUniqueResults(seenMap, res);
                   emitMerged(false);
                 }
               },
@@ -672,11 +665,7 @@ export async function searchEvents(
 
       // Always streaming: fan out and merge
       const seenMap = new Map<string, NDKEvent>();
-      const emitMerged = (isComplete: boolean) => {
-        const mergedArr = Array.from(seenMap.values());
-        const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
-        if (streamingOptions?.onResults) streamingOptions.onResults(sorted, isComplete);
-      };
+      const emitMerged = (isComplete: boolean) => emitMergedFromMap(seenMap, limit, streamingOptions?.onResults, isComplete);
       await Promise.allSettled(
         expandedSeeds.map((seed) =>
           searchEvents(seed, limit, { ...streamingOptions, streaming: true }, chosenRelaySet, abortSignal)
