@@ -706,7 +706,11 @@ export async function searchEvents(
       filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
     }
 
-    console.log('Searching with filters (early author):', filters);
+    {
+      const lf = { ...filters } as Record<string, unknown>;
+      delete (lf as { limit?: unknown }).limit;
+      console.log('Streaming with filters (early author):', lf);
+    }
     let res: NDKEvent[] = [];
     if (isStreaming && streamingOptions?.onResults) {
       // STREAMING path for early author
@@ -1042,7 +1046,11 @@ export async function searchEvents(
 
     // No additional post-filtering; use default limits
 
-    console.log('Searching with filters:', filters);
+    {
+      const lf = { ...filters } as Record<string, unknown>;
+      delete (lf as { limit?: unknown }).limit;
+      console.log('Streaming with filters:', lf);
+    }
     {
       // Fetch by base terms if any, restricted to author
       let res: NDKEvent[] = [];
