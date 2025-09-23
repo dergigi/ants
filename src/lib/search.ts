@@ -829,6 +829,12 @@ export async function searchEvents(
       }
 
       res = Array.from(seenMap.values());
+      // In streaming mode, don't run non-streaming fallbacks; emit final sorted result
+      {
+        const dedupe = new Map<string, NDKEvent>();
+        for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+        return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+      }
     } else {
       // NON-STREAMING path (existing behavior)
       if (terms && seedExpansions.length > 1) {
@@ -1191,6 +1197,10 @@ export async function searchEvents(
           });
         }
         res = Array.from(seenMap.values());
+        // In streaming mode, return immediately without non-streaming fallbacks
+        const dedupe = new Map<string, NDKEvent>();
+        for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+        return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
       } else {
         if (terms) {
           const seedExpansions3 = expandParenthesizedOr(terms);
