@@ -4,7 +4,6 @@ import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
 import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
-import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX } from './urlPatterns';
 
 // Type definitions for relay objects
 // interface RelayObject {
@@ -627,31 +626,6 @@ export async function searchEvents(
     : [1];
   const extensionFilters: Array<(content: string) => boolean> = [];
 
-  // Extract media filters from the query and create client-side filters
-  const hasImageMatch = cleanedQuery.match(/(?:^|\s)has:image(?:\s|$)/i);
-  const hasVideoMatch = cleanedQuery.match(/(?:^|\s)has:video(?:\s|$)/i);
-  const hasGifMatch = cleanedQuery.match(/(?:^|\s)has:gif(?:\s|$)/i);
-
-  if (hasImageMatch) {
-    extensionFilters.push((content: string) => {
-      const urls = content.match(URL_REGEX) || [];
-      return urls.some(url => IMAGE_EXT_REGEX.test(url));
-    });
-  }
-
-  if (hasVideoMatch) {
-    extensionFilters.push((content: string) => {
-      const urls = content.match(URL_REGEX) || [];
-      return urls.some(url => VIDEO_EXT_REGEX.test(url));
-    });
-  }
-
-  if (hasGifMatch) {
-    extensionFilters.push((content: string) => {
-      const urls = content.match(URL_REGEX) || [];
-      return urls.some(url => /\.(?:gif|gifs|apng)(?:$|[?#])/i.test(url));
-    });
-  }
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
   // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
@@ -688,15 +662,9 @@ export async function searchEvents(
           )
         );
 
-        let final = Array.from(seenMap.values())
+        const final = Array.from(seenMap.values())
           .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
           .slice(0, limit);
-
-        // Apply extension filters (media filters) if any are specified
-        if (extensionFilters.length > 0) {
-          final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-        }
-
         streamingOptions.onResults(final, true);
         return final;
       }
@@ -715,14 +683,7 @@ export async function searchEvents(
         )
       );
       emitMerged(true);
-      let final = Array.from(seenMap.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
-
-      // Apply extension filters (media filters) if any are specified
-      if (extensionFilters.length > 0) {
-        final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-      }
-
-      return final;
+      return Array.from(seenMap.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
     }
   }
 
@@ -807,13 +768,7 @@ export async function searchEvents(
         );
       }
 
-      let res = Array.from(seenMap.values());
-
-      // Apply extension filters (media filters) if any are specified
-      if (extensionFilters.length > 0) {
-        res = res.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-      }
-
+      res = Array.from(seenMap.values());
       // In streaming mode, don't run non-streaming fallbacks; emit final sorted result
       {
         const dedupe = new Map<string, NDKEvent>();
@@ -1160,13 +1115,7 @@ export async function searchEvents(
             abortSignal
           });
         }
-        let res = Array.from(seenMap.values());
-
-        // Apply extension filters (media filters) if any are specified
-        if (extensionFilters.length > 0) {
-          res = res.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-        }
-
+        res = Array.from(seenMap.values());
         // In streaming mode, return immediately without non-streaming fallbacks
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
@@ -1227,21 +1176,13 @@ export async function searchEvents(
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
-      let mergedResults: NDKEvent[] = res;
-
-      // Apply extension filters (media filters) if any are specified
-      if (extensionFilters.length > 0) {
-        mergedResults = mergedResults.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-      }
-
       // Dedupe
       const dedupe = new Map<string, NDKEvent>();
-      for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-      mergedResults = Array.from(dedupe.values());
+      for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+      const mergedResults = Array.from(dedupe.values());
       // Do not enforce additional client-side text match; rely on relay-side search
-      const filtered = mergedResults;
 
-      return sortEventsNewestFirst(filtered).slice(0, limit);
+      return sortEventsNewestFirst(mergedResults).slice(0, limit);
     }
   }
   
@@ -1275,17 +1216,12 @@ export async function searchEvents(
     }
     
     // Enforce AND: must match text and contain requested media
-    let filtered = results.filter((e, idx, arr) => {
+    const filtered = results.filter((e, idx, arr) => {
       // dedupe by id while mapping
       const firstIdx = arr.findIndex((x) => x.id === e.id);
       return firstIdx === idx;
     });
 
-    // Apply extension filters (media filters) if any are specified
-    if (extensionFilters.length > 0) {
-      filtered = filtered.filter((e) => extensionFilters.every((f) => f(e.content || '')));
-    }
-    
     return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
     // Treat aborted searches as benign; return empty without logging an error
