@@ -783,11 +783,31 @@ export async function searchEvents(
       }
 
       res = Array.from(seenMap.values());
+
+      // Debug: Log final results before returning
+      console.log('Early author final results:', {
+        totalResults: res.length,
+        sampleResults: res.slice(0, 5).map(e => ({
+          id: e.id,
+          content: (e.content || '').substring(0, 100),
+          author: e.author?.pubkey
+        }))
+      });
+
       // In streaming mode, don't run non-streaming fallbacks; emit final sorted result
       {
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-        return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+        const finalResults = sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+        console.log('Early author final deduped results:', {
+          finalCount: finalResults.length,
+          sampleFinal: finalResults.slice(0, 3).map(e => ({
+            id: e.id,
+            content: (e.content || '').substring(0, 100),
+            author: e.author?.pubkey
+          }))
+        });
+        return finalResults;
       }
     }
     const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
@@ -1130,10 +1150,30 @@ export async function searchEvents(
           });
         }
         res = Array.from(seenMap.values());
+
+        // Debug: Log final results before returning
+        console.log('Regular author final results:', {
+          totalResults: res.length,
+          sampleResults: res.slice(0, 5).map(e => ({
+            id: e.id,
+            content: (e.content || '').substring(0, 100),
+            author: e.author?.pubkey
+          }))
+        });
+
         // In streaming mode, return immediately without non-streaming fallbacks
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-        return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+        const finalResults = sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+        console.log('Regular author final deduped results:', {
+          finalCount: finalResults.length,
+          sampleFinal: finalResults.slice(0, 3).map(e => ({
+            id: e.id,
+            content: (e.content || '').substring(0, 100),
+            author: e.author?.pubkey
+          }))
+        });
+        return finalResults;
       } else {
         if (terms) {
           const seedExpansions3 = expandParenthesizedOr(terms);
