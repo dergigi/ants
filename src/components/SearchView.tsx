@@ -1527,7 +1527,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
           </div>
           <button type="submit" title={loading ? "Cancel current search and start new one" : "Start search"} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors">
-            {loading ? (resolvingAuthor ? 'Resolving...' : 'New Search') : 'Search'}
+            {loading ? (resolvingAuthor ? 'Resolving...' : 'Search') : 'Search'}
           </button>
         </div>
         
