@@ -1286,10 +1286,17 @@ export async function searchEvents(
           abortSignal
         })
       : await subscribeAndCollect({ kinds: effectiveKinds, search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
-    console.log('Search results:', {
-      query: cleanedQuery,
-      resultCount: results.length
-    });
+    if (isStreaming) {
+      console.log('Streaming completed:', {
+        query: cleanedQuery,
+        finalCount: results.length
+      });
+    } else {
+      console.log('Search results (non-streaming):', {
+        query: cleanedQuery,
+        resultCount: results.length
+      });
+    }
     
     // Enforce AND: must match text and contain requested media
     const filtered = results.filter((e, idx, arr) => {
