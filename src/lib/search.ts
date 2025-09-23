@@ -652,7 +652,13 @@ export async function searchEvents(
               },
               chosenRelaySet,
               abortSignal
-            )
+            ).then((finalResults) => {
+              // Also merge any final results that weren't streamed
+              if (finalResults && finalResults.length > 0) {
+                addUniqueResults(seenMap, finalResults);
+                emitMerged(false);
+              }
+            })
           )
         );
 
@@ -669,6 +675,11 @@ export async function searchEvents(
       await Promise.allSettled(
         expandedSeeds.map((seed) =>
           searchEvents(seed, limit, { ...streamingOptions, streaming: true }, chosenRelaySet, abortSignal)
+            .then((results) => {
+              if (results && results.length > 0) {
+                addUniqueResults(seenMap, results);
+              }
+            })
         )
       );
       emitMerged(true);
