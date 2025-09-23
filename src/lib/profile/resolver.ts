@@ -22,6 +22,12 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       return { pubkeyHex: null, profileEvent: null };
     }
 
+    // 1b) If input is a 64-char hex pubkey, accept directly
+    if (/^[0-9a-fA-F]{64}$/.test(input)) {
+      const hex = input.toLowerCase();
+      return { pubkeyHex: hex, profileEvent: await profileEventFromPubkey(hex) };
+    }
+
     // 2) If input looks like NIP-05 ('@name@domain' | 'domain.tld' | '@domain.tld'), resolve to pubkey
     const nip05Like = input.match(/^@?([^\s@]+@[^\s@]+|[^\s@]+\.[^\s@]+)$/);
     if (nip05Like) {
@@ -69,6 +75,9 @@ export async function resolveAuthorToNpub(author: string): Promise<string | null
     const input = (author || '').trim();
     if (!input) return null;
     if (/^npub1[0-9a-z]+$/i.test(input)) return input;
+    if (/^[0-9a-fA-F]{64}$/.test(input)) {
+      try { return nip19.npubEncode(input.toLowerCase()); } catch { return null; }
+    }
     const { pubkeyHex } = await resolveAuthor(input);
     if (!pubkeyHex) return null;
     try { return nip19.npubEncode(pubkeyHex); } catch { return null; }
