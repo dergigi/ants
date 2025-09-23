@@ -745,6 +745,10 @@ export async function searchEvents(
 
       if (terms && seedExpansions.length > 1) {
         // Fan out seeds in parallel, streaming partials
+        // Use global deduplication to prevent duplicate events across parallel searches
+        const globalSeen = new Set<string>();
+        const globalMutex = new Map<string, NDKEvent>();
+
         await Promise.allSettled(
           seedExpansions.map((seed) => {
             const searchQuery = buildSearchQueryWithExtensions(seed, nip50Extensions);
@@ -755,7 +759,19 @@ export async function searchEvents(
               maxResults: streamingOptions?.maxResults || 1000,
               onResults: (arr, isComplete) => {
                 console.log('Early author streaming results:', { seed, resultCount: arr.length, isComplete, sampleContent: arr.slice(0, 3).map(e => e.content?.substring(0, 100)) });
-                for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+                // Global deduplication across all parallel searches
+                const newEvents: NDKEvent[] = [];
+                for (const e of arr) {
+                  if (!globalSeen.has(e.id)) {
+                    globalSeen.add(e.id);
+                    globalMutex.set(e.id, e);
+                    newEvents.push(e);
+                  }
+                }
+                // Only add new events to seenMap for emission
+                for (const e of newEvents) {
+                  seenMap.set(e.id, e);
+                }
                 emitMerged(isComplete);
               },
               relaySet: chosenRelaySet,
@@ -1109,6 +1125,8 @@ export async function searchEvents(
         if (terms) {
           const seedExpansions3 = expandParenthesizedOr(terms);
           if (seedExpansions3.length > 1) {
+            // Use global deduplication for non-streaming path too
+            const globalSeen = new Set<string>();
             await Promise.allSettled(
               seedExpansions3.map((seed) => {
                 const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions) };
@@ -1116,7 +1134,18 @@ export async function searchEvents(
                   timeoutMs: streamingOptions?.timeoutMs || 30000,
                   maxResults: streamingOptions?.maxResults || 1000,
                   onResults: (arr, isComplete) => {
-                    for (const e of arr) { if (!seenMap.has(e.id)) seenMap.set(e.id, e); }
+                    // Global deduplication
+                    const newEvents: NDKEvent[] = [];
+                    for (const e of arr) {
+                      if (!globalSeen.has(e.id)) {
+                        globalSeen.add(e.id);
+                        newEvents.push(e);
+                      }
+                    }
+                    // Only add new events to seenMap
+                    for (const e of newEvents) {
+                      seenMap.set(e.id, e);
+                    }
                     emitMerged(isComplete);
                   },
                   relaySet: chosenRelaySet,
