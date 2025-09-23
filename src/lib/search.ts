@@ -307,104 +307,7 @@ async function subscribeAndStream(
   });
 }
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
-  return new Promise<NDKEvent[]>((resolve) => {
-    // Check if already aborted
-    if (abortSignal?.aborted) {
-      resolve([]);
-      return;
-    }
-
-    // Validate filter - ensure it has at least one meaningful property
-    if (!isValidFilter(filter)) {
-      console.warn('Invalid filter passed to subscribeAndCollect, returning empty results');
-      resolve([]);
-      return;
-    }
-
-    // Debug: log the filter being used
-    console.log('subscribeAndCollect called with filter:', filter);
-
-    const collected: Map<string, NDKEvent> = new Map();
-
-    // Debug: which relays are we querying?
-    try {
-      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
-                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
-      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
-        ? relaysContainer
-        : relaysContainer && (relaysContainer instanceof Set || relaysContainer instanceof Map)
-          ? Array.from((relaysContainer as Set<RelayObject> | Map<string, RelayObject>).values?.() ?? relaysContainer)
-          : [];
-      const relayUrls = relayEntries
-        .map((r: RelayObject) => r?.url || r?.relay?.url || r)
-        .filter((u: unknown): u is string => typeof u === 'string');
-      console.log('Subscribing with filter on relays:', { relayUrls, filter });
-    } catch {}
-
-    (async () => {
-      const rs = relaySet || await getSearchRelaySet();
-      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs });
-    
-      if (!sub) {
-        console.warn('Failed to create subscription in subscribeAndCollect');
-        resolve([]);
-        return;
-      }
-    const timer = setTimeout(() => {
-      try { sub.stop(); } catch {}
-      resolve(Array.from(collected.values()));
-    }, timeoutMs);
-
-    // Handle abort signal
-    const abortHandler = () => {
-      try { sub.stop(); } catch {}
-      clearTimeout(timer);
-      if (abortSignal) {
-        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
-      }
-      // Resolve with whatever we have so far (partial results) instead of rejecting
-      resolve(Array.from(collected.values()));
-    };
-
-    if (abortSignal) {
-      abortSignal.addEventListener('abort', abortHandler);
-    }
-
-      sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
-      const relayUrl = relay?.url || 'unknown';
-      // Mark this relay as active for robust connection status
-      if (relayUrl !== 'unknown') {
-        try { markRelayActivity(relayUrl); } catch {}
-      }
-      
-      if (!collected.has(event.id)) {
-        // First time seeing this event
-        const eventWithSource = event as NDKEventWithRelaySource;
-        eventWithSource.relaySource = relayUrl;
-        eventWithSource.relaySources = [relayUrl];
-        collected.set(event.id, eventWithSource);
-      } else {
-        // Event already exists, add this relay to the sources
-        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
-        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
-          existingEvent.relaySources.push(relayUrl);
-        }
-      }
-    });
-
-      sub.on('eose', () => {
-        clearTimeout(timer);
-        if (abortSignal) {
-          abortSignal.removeEventListener('abort', abortHandler);
-        }
-        resolve(Array.from(collected.values()));
-      });
-
-      sub.start();
-    })();
-  });
-}
+// Removed non-streaming subscribeAndCollect; all searches use streaming.
 
 async function searchByAnyTerms(
   terms: string[],
@@ -426,7 +329,7 @@ async function searchByAnyTerms(
         search: searchQuery,
         limit: Math.max(limit, 200)
       };
-      const res = await subscribeAndCollect(filter, 8000, relaySet, abortSignal);
+      const res = await subscribeAndStream(filter, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet, abortSignal });
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
       }
@@ -668,9 +571,12 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
-  // Check if this is a streaming search
-  const isStreaming = options && 'streaming' in options && options.streaming;
-  const streamingOptions = isStreaming ? options as StreamingSearchOptions : undefined;
+  // Force streaming for all searches
+  const streamingOptions: StreamingSearchOptions = {
+    ...(options as StreamingSearchOptions),
+    streaming: true
+  };
+  const isStreaming = true;
 
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
@@ -734,20 +640,20 @@ export async function searchEvents(
         return final;
       }
 
-      // Non-streaming: run in parallel and merge when all complete
-      const results = await Promise.allSettled(
-        expandedSeeds.map((seed) => searchEvents(seed, limit, options, chosenRelaySet, abortSignal))
+      // Always streaming: fan out and merge
+      const seenMap = new Map<string, NDKEvent>();
+      const emitMerged = (isComplete: boolean) => {
+        const mergedArr = Array.from(seenMap.values());
+        const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+        if (streamingOptions?.onResults) streamingOptions.onResults(sorted, isComplete);
+      };
+      await Promise.allSettled(
+        expandedSeeds.map((seed) =>
+          searchEvents(seed, limit, { ...streamingOptions, streaming: true }, chosenRelaySet, abortSignal)
+        )
       );
-      const merged: NDKEvent[] = [];
-      const seen = new Set<string>();
-      for (const r of results) {
-        if (r.status === 'fulfilled') {
-          for (const evt of r.value) {
-            if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
-          }
-        }
-      }
-      return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+      emitMerged(true);
+      return Array.from(seenMap.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
     }
   }
 
@@ -835,20 +741,6 @@ export async function searchEvents(
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
         return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
       }
-    } else {
-      // NON-STREAMING path (existing behavior)
-      if (terms && seedExpansions.length > 1) {
-        const seen = new Set<string>();
-        for (const seed of seedExpansions) {
-          try {
-            const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
-            const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
-            for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-          } catch {}
-        }
-      } else {
-        res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
-      }
     }
     const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
     const seedTerms: string[] = [];
@@ -862,15 +754,17 @@ export async function searchEvents(
     }
     const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
     const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-    if (res.length === 0) { res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal); }
+    if (res.length === 0) {
+      res = await subscribeAndStream(filters, { timeoutMs: 10000, maxResults: streamingOptions?.maxResults || 1000, relaySet: broadRelaySet, abortSignal });
+    }
     const termStr = terms.trim();
     const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
     if (res.length === 0 && termStr) {
-      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const authorOnly = await subscribeAndStream({ kinds: effectiveKinds, authors: [pubkey] }, { timeoutMs: 10000, maxResults: Math.max(limit, 600), relaySet: broadRelaySet, abortSignal });
       const needle = termStr.toLowerCase();
       res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
     } else if (res.length === 0 && hasShortToken) {
-      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+      const authorOnly = await subscribeAndStream({ kinds: effectiveKinds, authors: [pubkey] }, { timeoutMs: 10000, maxResults: Math.max(limit, 600), relaySet: broadRelaySet, abortSignal });
       const needle = termStr.toLowerCase();
       res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
     }
@@ -923,22 +817,18 @@ export async function searchEvents(
       return final;
     }
 
-    // Non-streaming: run all parts concurrently and merge
-    const results = await Promise.allSettled(
-      orParts.map((part) => searchEvents(part, limit, options, chosenRelaySet, abortSignal))
+    // Always streaming for OR without author
+    const seenMap = new Map<string, NDKEvent>();
+    const emitMerged = (isComplete: boolean) => {
+      const mergedArr = Array.from(seenMap.values());
+      const sorted = mergedArr.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+      if (streamingOptions?.onResults) streamingOptions.onResults(sorted, isComplete);
+    };
+    await Promise.allSettled(
+      orParts.map((part) => searchEvents(part, limit, { ...streamingOptions, streaming: true }, chosenRelaySet, abortSignal))
     );
-    const allResults: NDKEvent[] = [];
-    const seenIds = new Set<string>();
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        for (const event of r.value) {
-          if (!seenIds.has(event.id)) { seenIds.add(event.id); allResults.push(event); }
-        }
-      }
-    }
-    return allResults
-      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-      .slice(0, limit);
+    emitMerged(true);
+    return Array.from(seenMap.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
   }
 
   // URL search: always do exact (literal) match for http(s) URLs
@@ -946,22 +836,16 @@ export async function searchEvents(
     const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
-      const results = isStreaming 
-        ? await subscribeAndStream({
-            kinds: effectiveKinds,
-            search: searchQuery
-          }, {
-            timeoutMs: streamingOptions?.timeoutMs || 30000,
-            maxResults: streamingOptions?.maxResults || 1000,
-            onResults: streamingOptions?.onResults,
-            relaySet: chosenRelaySet,
-            abortSignal
-          })
-        : await subscribeAndCollect({
-            kinds: effectiveKinds,
-            search: searchQuery,
-            limit: Math.max(limit, 200)
-          }, 8000, chosenRelaySet, abortSignal);
+      const results = await subscribeAndStream({
+        kinds: effectiveKinds,
+        search: searchQuery
+      }, {
+        timeoutMs: streamingOptions?.timeoutMs || 30000,
+        maxResults: streamingOptions?.maxResults || 1000,
+        onResults: streamingOptions?.onResults,
+        relaySet: chosenRelaySet,
+        abortSignal
+      });
       const res = results;
       return sortEventsNewestFirst(res).slice(0, limit);
     }
@@ -987,7 +871,7 @@ export async function searchEvents(
       setsToTry.push(chosenRelaySet);
 
       for (const rs of setsToTry) {
-        const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, rs, abortSignal);
+        const byId = await subscribeAndStream({ ids: [data.id] }, { timeoutMs: 8000, maxResults: 1, relaySet: rs, abortSignal });
         if (byId.length > 0) return byId;
       }
       return [];
@@ -999,7 +883,7 @@ export async function searchEvents(
         chosenRelaySet
       ];
       for (const rs of setsToTry) {
-        const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, rs, abortSignal);
+        const byId = await subscribeAndStream({ ids: [id] }, { timeoutMs: 8000, maxResults: 1, relaySet: rs, abortSignal });
         if (byId.length > 0) return byId;
       }
       return [];
@@ -1019,15 +903,13 @@ export async function searchEvents(
     );
     const tagRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
 
-    const results = isStreaming
-      ? await subscribeAndStream(tagFilter, {
-          timeoutMs: streamingOptions?.timeoutMs || 30000,
-          maxResults: streamingOptions?.maxResults || 1000,
-          onResults: streamingOptions?.onResults,
-          relaySet: tagRelaySet,
-          abortSignal
-        })
-      : await subscribeAndCollect(tagFilter, 10000, tagRelaySet, abortSignal);
+    const results = await subscribeAndStream(tagFilter, {
+      timeoutMs: streamingOptions?.timeoutMs || 30000,
+      maxResults: streamingOptions?.maxResults || 1000,
+      onResults: streamingOptions?.onResults,
+      relaySet: tagRelaySet,
+      abortSignal
+    });
 
     let final = results;
     if (extensionFilters.length > 0) {
@@ -1076,11 +958,10 @@ export async function searchEvents(
       const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
-      const res = await subscribeAndCollect({
+      const res = await subscribeAndStream({
         kinds: effectiveKinds,
-        authors: [pubkey],
-        limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet, abortSignal);
+        authors: [pubkey]
+      }, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet: chosenRelaySet, abortSignal });
       return sortEventsNewestFirst(res).slice(0, limit);
     } catch (error) {
       console.error('Error processing npub query:', error);
@@ -1209,15 +1090,15 @@ export async function searchEvents(
             for (const seed of seedExpansions3) {
               try {
                 const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
-                const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+                const r = await subscribeAndStream(f, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet: chosenRelaySet, abortSignal });
                 for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
               } catch {}
             }
           } else {
-            res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+            res = await subscribeAndStream(filters, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet: chosenRelaySet, abortSignal });
           }
         } else {
-          res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+          res = await subscribeAndStream(filters, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet: chosenRelaySet, abortSignal });
         }
       }
 
@@ -1242,18 +1123,18 @@ export async function searchEvents(
       const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
       const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
       if (res.length === 0) {
-        res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+        res = await subscribeAndStream(filters, { timeoutMs: 10000, maxResults: Math.max(limit, 200), relaySet: broadRelaySet, abortSignal });
       }
       // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
       // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
       const termStr = terms.trim();
       const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
       if (res.length === 0 && termStr) {
-        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndStream({ kinds: effectiveKinds, authors: [pubkey] }, { timeoutMs: 10000, maxResults: Math.max(limit, 600), relaySet: broadRelaySet, abortSignal });
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       } else if (res.length === 0 && hasShortToken) {
-        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndStream({ kinds: effectiveKinds, authors: [pubkey] }, { timeoutMs: 10000, maxResults: Math.max(limit, 600), relaySet: broadRelaySet, abortSignal });
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
@@ -1285,7 +1166,7 @@ export async function searchEvents(
           relaySet: chosenRelaySet,
           abortSignal
         })
-      : await subscribeAndCollect({ kinds: effectiveKinds, search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+      : await subscribeAndStream({ kinds: effectiveKinds, search: searchQuery }, { timeoutMs: 8000, maxResults: Math.max(limit, 200), relaySet: chosenRelaySet, abortSignal });
     if (isStreaming) {
       console.log('Streaming completed:', {
         query: cleanedQuery,
