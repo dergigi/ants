@@ -62,7 +62,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       <button
         type="button"
         onClick={() => onAuthorClick && onAuthorClick(user.npub)}
-        className="hover:underline truncate max-w-[14rem] text-left"
+        className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
         title={value}
       >
         <span className="truncate max-w-[14rem]">{value}</span>
