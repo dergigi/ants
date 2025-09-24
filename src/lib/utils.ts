@@ -128,3 +128,47 @@ export function calculateAbsoluteMenuPosition(
   
   return { top, left };
 }
+
+/**
+ * Calculates positioning for banner menu (positioned relative to viewport, not document)
+ * @param buttonRect - The bounding rectangle of the button that triggered the menu
+ * @param menuWidth - The width of the menu (default: 224px for w-56)
+ * @param menuHeight - The height of the menu (default: auto)
+ * @returns Object with top and left positioning values
+ */
+export function calculateBannerMenuPosition(
+  buttonRect: DOMRect, 
+  menuWidth: number = 224, 
+  menuHeight: number = 200
+): { top: number; left: number } {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  // Calculate initial position (below and aligned with left edge of button)
+  let left = buttonRect.left;
+  let top = buttonRect.bottom + 4;
+  
+  // Adjust horizontal position if menu would go off-screen
+  if (left + menuWidth > viewportWidth) {
+    // Try positioning from the right edge of the button
+    left = buttonRect.right - menuWidth;
+    
+    // If still off-screen, position from the right edge of viewport
+    if (left < 0) {
+      left = viewportWidth - menuWidth - 8; // 8px margin from edge
+    }
+  }
+  
+  // Adjust vertical position if menu would go off-screen
+  if (top + menuHeight > viewportHeight) {
+    // Position above the button instead
+    top = buttonRect.top - menuHeight - 4;
+    
+    // If still off-screen, position at the top of viewport
+    if (top < 0) {
+      top = 8; // 8px margin from top
+    }
+  }
+  
+  return { top, left };
+}
