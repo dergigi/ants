@@ -13,6 +13,7 @@ import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-ic
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
+import { calculateMenuPosition } from '@/lib/utils';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
@@ -111,7 +112,8 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           onToggleMenu={() => {
             if (bottomButtonRef.current) {
               const rect = bottomButtonRef.current.getBoundingClientRect();
-              setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
+              const position = calculateMenuPosition(rect);
+              setMenuPositionBottom(position);
             }
             setShowPortalMenuBottom((v) => !v);
           }}
@@ -331,7 +333,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                   e.stopPropagation(); 
                   if (buttonRef.current) {
                     const rect = buttonRef.current.getBoundingClientRect();
-                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    const position = calculateMenuPosition(rect);
+                    setMenuPosition(position);
                   }
                   setShowPortalMenu((v) => !v); 
                 }}

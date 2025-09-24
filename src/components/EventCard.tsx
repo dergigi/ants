@@ -8,6 +8,7 @@ import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
+import { calculateMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
@@ -66,7 +67,8 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 onToggleMenu={() => {
                   if (portalButtonRef.current) {
                     const rect = portalButtonRef.current.getBoundingClientRect();
-                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    const position = calculateMenuPosition(rect);
+                    setMenuPosition(position);
                   }
                   setShowPortalMenu((v) => !v);
                 }}
