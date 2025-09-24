@@ -412,6 +412,21 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         </p>
       ) : null}
       </div>
+      <div className="mt-4 flex items-center justify-end">
+        <CardActions
+          eventId={event.id}
+          showRaw={showRaw}
+          onToggleRaw={() => setShowRaw(v => !v)}
+          onToggleMenu={() => {
+            if (buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+            }
+            setShowPortalMenu((v) => !v);
+          }}
+          menuButtonRef={buttonRef}
+        />
+      </div>
       <ProfileCreatedAt
         pubkey={event.author.pubkey}
         fallbackEventId={event.id}
