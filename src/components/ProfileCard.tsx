@@ -161,7 +161,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         document.body
       )}
     </div>
-    </div>
   );
 }
 
@@ -242,8 +241,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             >
               {part}
             </button>
-            </div>
-  );
+          );
         }
         return <span key={`bio-text-${idx}`}>{part}</span>;
       });
@@ -379,8 +377,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 unoptimized
               />
             </button>
-              </div>
-  );
+          );
           })()}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
