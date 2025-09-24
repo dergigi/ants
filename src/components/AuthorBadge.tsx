@@ -122,7 +122,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       >
         <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
       </button>
-      <span className="text-gray-400">no NIP-05</span>
+      <span className="text-gray-400 hidden sm:inline">no NIP-05</span>
     </span>
   );
 
