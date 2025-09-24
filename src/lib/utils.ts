@@ -82,3 +82,49 @@ export function calculateMenuPosition(
   
   return { top, left };
 }
+
+/**
+ * Calculates smart menu positioning for absolute positioning (relative to document)
+ * @param buttonRect - The bounding rectangle of the button that triggered the menu
+ * @param menuWidth - The width of the menu (default: 224px for w-56)
+ * @param menuHeight - The height of the menu (default: auto)
+ * @returns Object with top and left positioning values
+ */
+export function calculateAbsoluteMenuPosition(
+  buttonRect: DOMRect, 
+  menuWidth: number = 224, 
+  menuHeight: number = 200
+): { top: number; left: number } {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  
+  // Calculate initial position (below and aligned with left edge of button)
+  let left = buttonRect.left + scrollX;
+  let top = buttonRect.bottom + scrollY + 4;
+  
+  // Adjust horizontal position if menu would go off-screen
+  if (left + menuWidth > viewportWidth + scrollX) {
+    // Try positioning from the right edge of the button
+    left = buttonRect.right + scrollX - menuWidth;
+    
+    // If still off-screen, position from the right edge of viewport
+    if (left < scrollX) {
+      left = viewportWidth + scrollX - menuWidth - 8; // 8px margin from edge
+    }
+  }
+  
+  // Adjust vertical position if menu would go off-screen
+  if (top + menuHeight > viewportHeight + scrollY) {
+    // Position above the button instead
+    top = buttonRect.top + scrollY - menuHeight - 4;
+    
+    // If still off-screen, position at the top of viewport
+    if (top < scrollY) {
+      top = scrollY + 8; // 8px margin from top
+    }
+  }
+  
+  return { top, left };
+}

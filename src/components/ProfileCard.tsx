@@ -13,7 +13,7 @@ import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-ic
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
-import { calculateMenuPosition } from '@/lib/utils';
+import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
@@ -112,7 +112,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           onToggleMenu={() => {
             if (bottomButtonRef.current) {
               const rect = bottomButtonRef.current.getBoundingClientRect();
-              const position = calculateMenuPosition(rect);
+              const position = calculateAbsoluteMenuPosition(rect);
               setMenuPositionBottom(position);
             }
             setShowPortalMenuBottom((v) => !v);
@@ -127,7 +127,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             onClick={(e) => { e.preventDefault(); setShowPortalMenuBottom(false); }}
           />
           <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
             style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
             onClick={(e) => { e.stopPropagation(); }}
           >
@@ -333,7 +333,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                   e.stopPropagation(); 
                   if (buttonRef.current) {
                     const rect = buttonRef.current.getBoundingClientRect();
-                    const position = calculateMenuPosition(rect);
+                    const position = calculateAbsoluteMenuPosition(rect);
                     setMenuPosition(position);
                   }
                   setShowPortalMenu((v) => !v); 
@@ -419,7 +419,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
           />
           <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
             style={{ top: menuPosition.top, left: menuPosition.left }}
             onClick={(e) => { e.stopPropagation(); }}
           >
