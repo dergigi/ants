@@ -1,6 +1,8 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 
 export function Footer() {
   const router = useRouter();
@@ -20,6 +22,12 @@ export function Footer() {
     const params = new URLSearchParams(searchParams.toString());
     params.set('q', nextQuery);
     router.replace(`?${params.toString()}`);
+  };
+
+  const handleGitHubExternalClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open('https://github.com/dergigi/ants/issues/new', '_blank', 'noopener,noreferrer');
   };
 
   const handleSec04Click = (e: React.MouseEvent) => {
@@ -52,7 +60,17 @@ export function Footer() {
         Vibed by <a href="#" onClick={handleGigiClick} className="underline hover:text-gray-300">Gigi</a>.
       </p>
       <p className="mt-1">
-        <a href="#" onClick={handleGitHubClick} className="underline hover:text-gray-300">GitHub</a>
+        <a href="#" onClick={handleGitHubClick} className="underline hover:text-gray-300">
+          GitHub
+          <button
+            type="button"
+            onClick={handleGitHubExternalClick}
+            className="ml-1 text-gray-400 hover:text-gray-300"
+            title="Open GitHub issues"
+          >
+            <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+          </button>
+        </a>
         <span className="mx-2">·</span>
         <a href="#" onClick={handleNostrClick} className="underline hover:text-gray-300">Nostr</a>
         <span className="mx-2">·</span>
