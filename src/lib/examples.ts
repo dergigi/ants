@@ -6,6 +6,7 @@ export const searchExamples = [
   '#YESTR',
   '#SovEng',
   '#gratefulchain',
+  '#dogstr or #pugstr or #catstr or #horsestr or #goatstr',
   'nevent',
   
   // Author
