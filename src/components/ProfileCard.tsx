@@ -101,7 +101,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
       </div>
       <div className="ml-auto flex items-center gap-2">
         {updatedAt && updatedEventId ? (
-          <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
+          <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
         ) : (
           <span>{updatedLabel}</span>
         )}
