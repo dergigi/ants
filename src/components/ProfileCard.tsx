@@ -6,7 +6,7 @@ import AuthorBadge from '@/components/AuthorBadge';
 import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { shortenNpub } from '@/lib/utils';
@@ -25,6 +25,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLightningSearch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,7 +101,16 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
       </div>
       <div className="ml-auto flex items-center gap-2">
         {updatedAt && updatedEventId ? (
-          <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
+          pathname.startsWith('/p/') ? (
+            <button 
+              onClick={onToggleRaw}
+              className="hover:underline cursor-pointer"
+            >
+              {updatedLabel}
+            </button>
+          ) : (
+            <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
+          )
         ) : (
           <span>{updatedLabel}</span>
         )}
