@@ -23,7 +23,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -1510,7 +1510,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             )}
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
-            {loading ? (resolvingAuthor ? 'Resolving...' : 'Searching...') : 'Search'}
+            {loading ? (
+              resolvingAuthor ? (
+                <FontAwesomeIcon icon={faUser} className="animate-spin" />
+              ) : (
+                <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+              )
+            ) : (
+              <FontAwesomeIcon icon={faMagnifyingGlass} />
+            )}
           </button>
         </div>
         
