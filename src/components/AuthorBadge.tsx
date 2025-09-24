@@ -114,11 +114,11 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           e.stopPropagation();
           const current = searchParams ? searchParams.toString() : '';
           const params = new URLSearchParams(current);
-          params.set('q', 'no NIP-05');
+          params.set('q', 'nips/blob/master/05.md');
           router.push(`/?${params.toString()}`);
         }}
         className="hover:opacity-80 transition-opacity"
-        title="Search for 'no NIP-05'"
+        title="Search for NIP-05 specification"
       >
         <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
       </button>
