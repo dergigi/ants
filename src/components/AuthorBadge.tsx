@@ -58,7 +58,22 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
 
   const nip05Part = value ? (
     <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
-      <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!value) return;
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', value);
+          router.push(`/?${params.toString()}`);
+        }}
+        className="hover:opacity-80 transition-opacity"
+        title={`Search for ${value}`}
+      >
+        <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      </button>
       <button
         type="button"
         onClick={() => onAuthorClick && onAuthorClick(user.npub)}
@@ -92,7 +107,21 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
-      <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', 'no NIP-05');
+          router.push(`/?${params.toString()}`);
+        }}
+        className="hover:opacity-80 transition-opacity"
+        title="Search for 'no NIP-05'"
+      >
+        <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
+      </button>
       <span className="text-gray-400">no NIP-05</span>
     </span>
   );
