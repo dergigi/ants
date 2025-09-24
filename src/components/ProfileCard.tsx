@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { nip19 } from 'nostr-tools';
-import { getOldestProfileMetadata, getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
+import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,8 +18,6 @@ import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
-  const [createdAt, setCreatedAt] = useState<number | null>(null);
-  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -42,17 +40,11 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     let isMounted = true;
     (async () => {
       try {
-        const [oldest, newest] = await Promise.all([
-          getOldestProfileMetadata(pubkey),
-          getNewestProfileMetadata(pubkey)
-        ]);
+        const newest = await getNewestProfileMetadata(pubkey);
         if (!isMounted) return;
-        if (oldest) { setCreatedAt(oldest.created_at || null); setCreatedEventId(oldest.id || null); }
         if (newest) { setUpdatedAt(newest.created_at || null); setUpdatedEventId(newest.id || null); }
       } catch {
         if (!isMounted) return;
-        setCreatedAt(fallbackCreatedAt || null);
-        setCreatedEventId(fallbackEventId || null);
         setUpdatedAt(fallbackCreatedAt || null);
         setUpdatedEventId(fallbackEventId || null);
       }
@@ -77,9 +69,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return rtf.format(-seconds, 'second');
   };
 
-  const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
   // footer-specific state only
 
   return (
@@ -113,11 +103,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
         ) : (
           <span>{updatedLabel}</span>
-        )}
-        {createdAt && createdEventId ? (
-          <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
-        ) : (
-          <span>{sinceLabel}</span>
         )}
         <CardActions
           eventId={fallbackEventId}
