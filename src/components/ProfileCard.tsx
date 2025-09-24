@@ -411,7 +411,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
       ) : null}
-      </div>
       <div className="mt-4 flex items-center justify-end">
         <CardActions
           eventId={event.id}
