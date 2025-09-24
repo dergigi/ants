@@ -377,7 +377,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 unoptimized
               />
             </button>
-          );
+            );
           })()}
           <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
         </div>
@@ -411,20 +411,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           {renderBioWithHashtags(event.author?.profile?.about)}
         </p>
       ) : null}
-      <div className="mt-4 flex items-center justify-end">
-        <CardActions
-          eventId={event.id}
-          showRaw={showRaw}
-          onToggleRaw={() => setShowRaw(v => !v)}
-          onToggleMenu={() => {
-            if (buttonRef.current) {
-              const rect = buttonRef.current.getBoundingClientRect();
-              setMenuPosition({ top: rect.bottom + 4, left: rect.left });
-            }
-            setShowPortalMenu((v) => !v);
-          }}
-          menuButtonRef={buttonRef}
-        />
       </div>
       <ProfileCreatedAt
         pubkey={event.author.pubkey}
@@ -469,7 +455,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         </>,
         document.body
       )}
-    </div>
     </div>
   );
 }
