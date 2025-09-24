@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getNip05Domain } from '@/lib/nip05';
+import { cleanNip05Display } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
@@ -78,9 +79,9 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
         type="button"
         onClick={() => onAuthorClick && onAuthorClick(user.npub)}
         className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
-        title={value}
+        title={cleanNip05Display(value)}
       >
-        <span className="truncate max-w-[14rem]">{value}</span>
+        <span className="truncate max-w-[14rem]">{cleanNip05Display(value)}</span>
       </button>
       {/* External link removed */}
       {pathname?.startsWith('/p/') && (

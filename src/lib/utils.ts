@@ -84,6 +84,18 @@ export function calculateMenuPosition(
 }
 
 /**
+ * Cleans up NIP-05 display by removing implicit prefixes
+ * @param nip05 - The NIP-05 string to clean
+ * @returns The cleaned NIP-05 string without implicit prefixes
+ */
+export function cleanNip05Display(nip05: string): string {
+  if (!nip05) return nip05;
+  
+  // Remove "_@" prefix if present (implicit in NIP-05)
+  return nip05.replace(/^_@/, '');
+}
+
+/**
  * Calculates smart menu positioning for absolute positioning (relative to document)
  * @param buttonRect - The bounding rectangle of the button that triggered the menu
  * @param menuWidth - The width of the menu (default: 224px for w-56)
@@ -130,6 +142,18 @@ export function calculateAbsoluteMenuPosition(
 }
 
 /**
+ * Cleans up NIP-05 display by removing implicit prefixes
+ * @param nip05 - The NIP-05 string to clean
+ * @returns The cleaned NIP-05 string without implicit prefixes
+ */
+export function cleanNip05Display(nip05: string): string {
+  if (!nip05) return nip05;
+  
+  // Remove "_@" prefix if present (implicit in NIP-05)
+  return nip05.replace(/^_@/, '');
+}
+
+/**
  * Calculates positioning for banner menu (positioned relative to viewport, not document)
  * @param buttonRect - The bounding rectangle of the button that triggered the menu
  * @param menuWidth - The width of the menu (default: 224px for w-56)
@@ -171,4 +195,16 @@ export function calculateBannerMenuPosition(
   }
   
   return { top, left };
+}
+
+/**
+ * Cleans up NIP-05 display by removing implicit prefixes
+ * @param nip05 - The NIP-05 string to clean
+ * @returns The cleaned NIP-05 string without implicit prefixes
+ */
+export function cleanNip05Display(nip05: string): string {
+  if (!nip05) return nip05;
+  
+  // Remove "_@" prefix if present (implicit in NIP-05)
+  return nip05.replace(/^_@/, '');
 }
