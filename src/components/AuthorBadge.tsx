@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getNip05Domain } from '@/lib/nip05';
+import { cleanNip05Display } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck, faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
@@ -58,14 +59,29 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
 
   const nip05Part = value ? (
     <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
-      <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!value) return;
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', value);
+          router.push(`/?${params.toString()}`);
+        }}
+        className="hover:opacity-80 transition-opacity"
+        title={`Search for ${value}`}
+      >
+        <FontAwesomeIcon icon={effectiveVerified ? faCircleCheck : faCircleXmark} className="h-4 w-4" />
+      </button>
       <button
         type="button"
         onClick={() => onAuthorClick && onAuthorClick(user.npub)}
-        className="hover:underline truncate max-w-[14rem] text-left"
-        title={value}
+        className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
+        title={cleanNip05Display(value)}
       >
-        <span className="truncate max-w-[14rem]">{value}</span>
+        <span className="truncate max-w-[14rem]">{cleanNip05Display(value)}</span>
       </button>
       {/* External link removed */}
       {pathname?.startsWith('/p/') && (
@@ -92,8 +108,22 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-yellow-400">
-      <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
-      <span className="text-gray-400">no NIP-05</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', 'nips/blob/master/05.md');
+          router.push(`/?${params.toString()}`);
+        }}
+        className="hover:opacity-80 transition-opacity"
+        title="Search for NIP-05 specification"
+      >
+        <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
+      </button>
+      <span className="text-gray-400 hidden sm:inline">no NIP-05</span>
     </span>
   );
 

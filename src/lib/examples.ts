@@ -6,6 +6,7 @@ export const searchExamples = [
   '#YESTR',
   '#SovEng',
   '#gratefulchain',
+  '#dogstr or #pugstr or #catstr or #horsestr or #goatstr',
   'nevent',
   
   // Author
@@ -25,6 +26,7 @@ export const searchExamples = [
   'site:github by:fiatjaf',
   'by:dergigi site:yt',
   '#news site:rumble.com',
+  'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',

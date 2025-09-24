@@ -3,22 +3,21 @@
 import Image from 'next/image';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
-import { nip19 } from 'nostr-tools';
-import { getOldestProfileMetadata, getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
+import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
+import { calculateAbsoluteMenuPosition, calculateBannerMenuPosition } from '@/lib/utils';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
-  const [createdAt, setCreatedAt] = useState<number | null>(null);
-  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -26,6 +25,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLightningSearch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -41,17 +41,11 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     let isMounted = true;
     (async () => {
       try {
-        const [oldest, newest] = await Promise.all([
-          getOldestProfileMetadata(pubkey),
-          getNewestProfileMetadata(pubkey)
-        ]);
+        const newest = await getNewestProfileMetadata(pubkey);
         if (!isMounted) return;
-        if (oldest) { setCreatedAt(oldest.created_at || null); setCreatedEventId(oldest.id || null); }
         if (newest) { setUpdatedAt(newest.created_at || null); setUpdatedEventId(newest.id || null); }
       } catch {
         if (!isMounted) return;
-        setCreatedAt(fallbackCreatedAt || null);
-        setCreatedEventId(fallbackEventId || null);
         setUpdatedAt(fallbackCreatedAt || null);
         setUpdatedEventId(fallbackEventId || null);
       }
@@ -76,9 +70,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return rtf.format(-seconds, 'second');
   };
 
-  const monthYear = (ts: number) => new Date(ts * 1000).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  const sinceLabel = createdAt ? `On nostr since ${monthYear(createdAt)}.` : 'On nostr since unknown.';
   // footer-specific state only
 
   return (
@@ -109,14 +101,18 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
       </div>
       <div className="ml-auto flex items-center gap-2">
         {updatedAt && updatedEventId ? (
-          <a href={`https://njump.me/${nip19.neventEncode({ id: updatedEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{updatedLabel}</a>
+          pathname.startsWith('/p/') ? (
+            <button 
+              onClick={onToggleRaw}
+              className="hover:underline cursor-pointer"
+            >
+              {updatedLabel}
+            </button>
+          ) : (
+            <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
+          )
         ) : (
           <span>{updatedLabel}</span>
-        )}
-        {createdAt && createdEventId ? (
-          <a href={`https://njump.me/${nip19.neventEncode({ id: createdEventId })}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{sinceLabel}</a>
-        ) : (
-          <span>{sinceLabel}</span>
         )}
         <CardActions
           eventId={fallbackEventId}
@@ -125,7 +121,8 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           onToggleMenu={() => {
             if (bottomButtonRef.current) {
               const rect = bottomButtonRef.current.getBoundingClientRect();
-              setMenuPositionBottom({ top: rect.bottom + 4, left: rect.left });
+              const position = calculateAbsoluteMenuPosition(rect);
+              setMenuPositionBottom(position);
             }
             setShowPortalMenuBottom((v) => !v);
           }}
@@ -139,7 +136,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             onClick={(e) => { e.preventDefault(); setShowPortalMenuBottom(false); }}
           />
           <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
             style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
             onClick={(e) => { e.stopPropagation(); }}
           >
@@ -345,7 +342,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                   e.stopPropagation(); 
                   if (buttonRef.current) {
                     const rect = buttonRef.current.getBoundingClientRect();
-                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    const position = calculateBannerMenuPosition(rect);
+                    setMenuPosition(position);
                   }
                   setShowPortalMenu((v) => !v); 
                 }}
@@ -398,8 +396,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             >
               <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
             </button>
-            <a href={`/p/${event.author.npub}`} className="truncate hover:underline" title={event.author.npub}>
-              {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+            <a href={`/p/${event.author.npub}`} className="truncate hover:underline hidden sm:block" title={event.author.npub}>
+              {shortenNpub(event.author.npub)}
             </a>
           </div>
         )}

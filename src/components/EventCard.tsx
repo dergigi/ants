@@ -8,6 +8,7 @@ import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
+import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
@@ -66,7 +67,8 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 onToggleMenu={() => {
                   if (portalButtonRef.current) {
                     const rect = portalButtonRef.current.getBoundingClientRect();
-                    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+                    const position = calculateAbsoluteMenuPosition(rect);
+                    setMenuPosition(position);
                   }
                   setShowPortalMenu((v) => !v);
                 }}
@@ -83,7 +85,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
           />
           <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
             style={{ top: menuPosition.top, left: menuPosition.left }}
             onClick={(e) => { e.stopPropagation(); }}
           >

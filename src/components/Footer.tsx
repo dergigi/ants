@@ -1,64 +1,50 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 
 export function Footer() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const handleNostrClick = (e: React.MouseEvent) => {
+  // DRY: Reusable function for search navigation
+  const handleSearchClick = (query: string) => (e: React.MouseEvent) => {
     e.preventDefault();
-    const nextQuery = 'p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
     const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
+    params.set('q', query);
     router.replace(`?${params.toString()}`);
   };
 
-  const handleGitHubClick = (e: React.MouseEvent) => {
+  const handleGitHubExternalClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const nextQuery = '"dergigi/ants"';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
-  };
-
-  const handleSec04Click = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const nextQuery = '#SovEng';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
-  };
-
-  const handleVertexClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const nextQuery = 'p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
-  };
-
-  const handleGigiClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const nextQuery = 'dergigi.com';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', nextQuery);
-    router.replace(`?${params.toString()}`);
+    e.stopPropagation();
+    window.open('https://github.com/dergigi/ants/issues/new', '_blank', 'noopener,noreferrer');
   };
 
   return (
     <footer className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">
       <p>
-        Vibed by <a href="#" onClick={handleGigiClick} className="underline hover:text-gray-300">Gigi</a>.
+        Vibed by <a href="#" onClick={handleSearchClick('dergigi.com')} className="underline hover:text-gray-300">Gigi</a>.
       </p>
       <p className="mt-1">
-        <a href="#" onClick={handleGitHubClick} className="underline hover:text-gray-300">GitHub</a>
+        <a href="#" onClick={handleSearchClick('"dergigi/ants"')} className="underline hover:text-gray-300">
+          GitHub
+          <button
+            type="button"
+            onClick={handleGitHubExternalClick}
+            className="ml-1 text-gray-400 hover:text-gray-300"
+            title="Open GitHub issues"
+          >
+            <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+          </button>
+        </a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleNostrClick} className="underline hover:text-gray-300">Nostr</a>
+        <a href="#" onClick={handleSearchClick('p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc')} className="underline hover:text-gray-300">Nostr</a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleSec04Click} className="underline hover:text-gray-300">Birthed during SEC-04</a>
+        <a href="#" onClick={handleSearchClick('#SovEng')} className="underline hover:text-gray-300">Birthed during SEC-04</a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleVertexClick} className="underline hover:text-gray-300">Using Vertex</a>
+        <a href="#" onClick={handleSearchClick('p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz')} className="underline hover:text-gray-300">Using Vertex</a>
       </p>
     </footer>
   );
