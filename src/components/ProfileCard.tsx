@@ -387,7 +387,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             >
               <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
             </button>
-            <a href={`/p/${event.author.npub}`} className="truncate hover:underline" title={event.author.npub}>
+            <a href={`/p/${event.author.npub}`} className="truncate hover:underline hidden sm:block" title={event.author.npub}>
               {shortenNpub(event.author.npub)}
             </a>
           </div>
