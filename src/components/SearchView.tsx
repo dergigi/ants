@@ -22,6 +22,7 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
@@ -1023,7 +1024,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const display = profile?.displayName || profile?.display || profile?.name || '';
               const npubVal = nip19.npubEncode(pubkey);
               setNpub(npubVal);
-              setLabel(display || `npub:${npubVal.slice(0, 8)}…${npubVal.slice(-4)}`);
+              setLabel(display || `npub:${shortenNpub(npubVal)}`);
             } catch {
               if (!isMounted) return;
               setLabel(token);
@@ -1414,7 +1415,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       return (
         <div className={barClasses}>
           <button type="button" onClick={handleToggle} className="w-full text-left">
-            {isLoading ? 'Loading parent…' : `Replying to: ${nip19.neventEncode({ id: parentId })}`}
+            {isLoading ? 'Loading parent…' : `Replying to: ${shortenNevent(nip19.neventEncode({ id: parentId }))}`}
           </button>
         </div>
       );

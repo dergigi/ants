@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { getIsKindTokens } from '@/lib/search/replacements';
@@ -399,7 +400,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
             </button>
             <a href={`/p/${event.author.npub}`} className="truncate hover:underline" title={event.author.npub}>
-              {`${event.author.npub.slice(0, 10)}…${event.author.npub.slice(-3)}`}
+              {shortenNpub(event.author.npub)}
             </a>
           </div>
         )}

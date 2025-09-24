@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { shortenNpub } from '@/lib/utils';
 
 function getDisplayName(user: NDKUser): string {
   if (!user) return '';
@@ -20,7 +21,7 @@ function getDisplayName(user: NDKUser): string {
   
   // Fallback to shortened npub
   const npub = user.npub;
-  return `${npub.substring(0, 10)}...${npub.substring(npub.length - 3)}`;
+  return shortenNpub(npub);
 }
 
 export function LoginButton() {
