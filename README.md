@@ -7,6 +7,7 @@ A simple search interface for Nostr events.
 ### Basic Search
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - Find events containing "vibe coding"
+- [`nicolas-cage.gif`](https://search.dergigi.com/?q=nicolas-cage.gif) - Find events containing "nicolas-cage.gif"
 - [`#PenisButter`](https://search.dergigi.com/?q=%23PenisButter) - Find events with specific hashtag
 - [`#YESTR`](https://search.dergigi.com/?q=%23YESTR) - Find events with specific hashtag
 - [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - Find events with specific hashtag
@@ -35,10 +36,10 @@ A simple search interface for Nostr events.
 - [`https://dergigi.com/vew`](https://search.dergigi.com/?q=https%3A//dergigi.com/vew) - Exact URL match
 - [`has:image`](https://search.dergigi.com/?q=has%3Aimage) - Notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
 - [`is:image`](https://search.dergigi.com/?q=is%3Aimage) - Notes that are just a single image
+- [`has:image OR is:image`](https://search.dergigi.com/?q=has%3Aimage%20OR%20is%3Aimage) - Notes with any image OR notes that are just a single image
 - [`has:video`](https://search.dergigi.com/?q=has%3Avideo) - Notes with any video (mp4, webm, ogg, ogv, mov, m4v)
 - [`is:video`](https://search.dergigi.com/?q=is%3Avideo) - Notes that are just a single video
 - [`has:gif`](https://search.dergigi.com/?q=has%3Agif) - Notes with gif/gifs/apng
-- [`is:gif`](https://search.dergigi.com/?q=is%3Agif) - Notes that are just a single gif/apng
 - [`is:quote`](https://search.dergigi.com/?q=is%3Aquote) - Notes that quote other nostr events
 - [`is:mention`](https://search.dergigi.com/?q=is%3Amention) - Notes that mention other nostr profiles
 - [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - Boolean OR plus media filter scoped to author
