@@ -68,13 +68,16 @@ function ReverseImageSearchButton({
     <button
       type="button"
       className={`absolute top-1.5 right-9 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200 ${className}`}
-      title="Reverse image search with Google Lens"
+      title="Reverse image search with Google Lens (external)"
       onClick={(e) => {
         e.stopPropagation();
         handleReverseSearch();
       }}
     >
-      <FontAwesomeIcon icon={faEye} className="w-3 h-3" />
+      <div className="relative">
+        <FontAwesomeIcon icon={faEye} className="w-3 h-3" />
+        <FontAwesomeIcon icon={faExternalLink} className="absolute -top-1 -right-1 w-2 h-2 text-gray-400" />
+      </div>
     </button>
   );
 }
