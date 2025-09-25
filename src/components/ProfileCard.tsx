@@ -23,7 +23,8 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
   const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
-  const bottomItems = useMemo(() => createProfileExplorerItems(npub), [npub]);
+  const bottomItems = useMemo(() => createProfileExplorerItems(npub, pubkey), [npub, pubkey]);
+  const nativeAppHref = useMemo(() => bottomItems.find((item) => item.name === 'Native App')?.href, [bottomItems]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -71,7 +72,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   };
 
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  // footer-specific state only
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -100,34 +100,47 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
         {/* NIP-05 controls moved to AuthorBadge next to the name */}
       </div>
       <div className="ml-auto flex items-center gap-2">
-        {updatedAt && updatedEventId ? (
-          pathname.startsWith('/p/') ? (
-            <button 
-              onClick={onToggleRaw}
-              className="hover:underline cursor-pointer"
-            >
-              {updatedLabel}
-            </button>
+        <div className="flex items-center gap-2">
+          {updatedAt && updatedEventId ? (
+            pathname.startsWith('/p/') ? (
+              <button
+                onClick={onToggleRaw}
+                className="hover:underline cursor-pointer"
+              >
+                {updatedLabel}
+              </button>
+            ) : (
+              <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
+            )
           ) : (
-            <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
-          )
-        ) : (
-          <span>{updatedLabel}</span>
-        )}
-        <CardActions
-          eventId={fallbackEventId}
-          showRaw={showRaw}
-          onToggleRaw={onToggleRaw}
-          onToggleMenu={() => {
-            if (bottomButtonRef.current) {
-              const rect = bottomButtonRef.current.getBoundingClientRect();
-              const position = calculateAbsoluteMenuPosition(rect);
-              setMenuPositionBottom(position);
-            }
-            setShowPortalMenuBottom((v) => !v);
-          }}
-          menuButtonRef={bottomButtonRef}
-        />
+            <span>{updatedLabel}</span>
+          )}
+          <CardActions
+            eventId={fallbackEventId}
+            showRaw={showRaw}
+            onToggleRaw={onToggleRaw}
+            onToggleMenu={() => {
+              if (bottomButtonRef.current) {
+                const rect = bottomButtonRef.current.getBoundingClientRect();
+                const position = calculateAbsoluteMenuPosition(rect);
+                setMenuPositionBottom(position);
+              }
+              setShowPortalMenuBottom((v) => !v);
+            }}
+            menuButtonRef={bottomButtonRef}
+            externalHref={nativeAppHref}
+            externalTitle="Open in native app"
+            externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
+            externalRel={nativeAppHref?.startsWith('http') ? 'noopener noreferrer' : undefined}
+            onExternalClick={(e) => {
+              if (!nativeAppHref) return;
+              if (nativeAppHref.startsWith('/')) {
+                e.preventDefault();
+                router.push(nativeAppHref);
+              }
+            }}
+          />
+        </div>
       </div>
       {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
         <>
