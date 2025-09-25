@@ -25,7 +25,24 @@ export function Footer() {
   return (
     <footer className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">
       <p>
-        Vibed by <a href="#" onClick={handleSearchClick('dergigi.com')} className="underline hover:text-gray-300">Gigi</a>.
+        Vibed by{' '}
+        <a href="#" onClick={handleSearchClick('dergigi.com')} className="underline hover:text-gray-300">
+          Gigi
+        </a>
+        <span className="mx-2">·</span>
+        Birthed during{' '}
+        <a
+          href="#"
+          onClick={handleSearchClick('(#SovEng OR by:sovereignengineering.io)')}
+          className="underline hover:text-gray-300"
+        >
+          SEC-04
+        </a>
+        <span className="mx-2">·</span>
+        Using{' '}
+        <a href="#" onClick={handleSearchClick('p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz')} className="underline hover:text-gray-300">
+          Vertex
+        </a>
       </p>
       <p className="mt-1">
         <a href="#" onClick={handleSearchClick('"dergigi/ants"')} className="underline hover:text-gray-300">
@@ -40,11 +57,9 @@ export function Footer() {
           </button>
         </a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleSearchClick('p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc')} className="underline hover:text-gray-300">Nostr</a>
-        <span className="mx-2">·</span>
-        <a href="#" onClick={handleSearchClick('#SovEng')} className="underline hover:text-gray-300">Birthed during SEC-04</a>
-        <span className="mx-2">·</span>
-        <a href="#" onClick={handleSearchClick('p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz')} className="underline hover:text-gray-300">Using Vertex</a>
+        <a href="#" onClick={handleSearchClick('p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc')} className="underline hover:text-gray-300">
+          Nostr
+        </a>
       </p>
     </footer>
   );
