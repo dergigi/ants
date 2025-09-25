@@ -55,7 +55,7 @@ export function Footer() {
             <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
           </button>
         </a>
-        {'   '}
+        <span className="mx-2">·</span>
         <a href="#" onClick={handleSearchClick('p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc')} className="underline hover:text-gray-300">
           Nostr
         </a>
