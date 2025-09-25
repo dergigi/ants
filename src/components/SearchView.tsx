@@ -24,7 +24,7 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -47,6 +47,34 @@ function SearchIconButton({
       }}
     >
       <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
+    </button>
+  );
+}
+
+// Reusable reverse image search button component
+function ReverseImageSearchButton({ 
+  imageUrl, 
+  className = "" 
+}: { 
+  imageUrl: string; 
+  className?: string; 
+}) {
+  const handleReverseSearch = () => {
+    const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+    window.open(lensUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <button
+      type="button"
+      className={`absolute top-1.5 right-8 z-10 p-1 text-gray-500 hover:text-gray-300 bg-black/20 hover:bg-black/40 border border-gray-600/30 hover:border-gray-500/50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${className}`}
+      title="Reverse image search with Google Lens"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleReverseSearch();
+      }}
+    >
+      <FontAwesomeIcon icon={faEye} className="w-3 h-3" />
     </button>
   );
 }
@@ -177,6 +205,13 @@ function ImageWithBlurhash({
           title="Search for this image"
         />
       )}
+      
+      {/* Reverse image search button - only show when image is loaded */}
+      {imageLoaded && !imageError && (
+        <ReverseImageSearchButton
+          imageUrl={src}
+        />
+      )}
     </div>
   );
 }
@@ -287,6 +322,13 @@ function VideoWithBlurhash({
         <SearchIconButton
           onClick={onClickSearch}
           title="Search for this video"
+        />
+      )}
+      
+      {/* Reverse image search button - only show when video is loaded */}
+      {videoLoaded && !videoError && (
+        <ReverseImageSearchButton
+          imageUrl={src}
         />
       )}
     </div>
@@ -1367,6 +1409,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       })();
                     }}
                     title={`Search for ${getFilenameFromUrl(src)}`}
+                  />
+                  <ReverseImageSearchButton
+                    imageUrl={src}
                   />
                 </>
               ) : null}
