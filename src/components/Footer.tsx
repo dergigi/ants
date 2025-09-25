@@ -29,7 +29,8 @@ export function Footer() {
         <a href="#" onClick={handleSearchClick('dergigi.com')} className="underline hover:text-gray-300">
           Gigi
         </a>
-        . Birthed during{' '}
+        <span className="mx-2">·</span>
+        Birthed during{' '}
         <a
           href="#"
           onClick={handleSearchClick('(#SovEng OR by:sovereignengineering.io)')}
@@ -37,11 +38,11 @@ export function Footer() {
         >
           SEC-04
         </a>
-        . Using{' '}
+        <span className="mx-2">·</span>
+        Using{' '}
         <a href="#" onClick={handleSearchClick('p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz')} className="underline hover:text-gray-300">
           Vertex
         </a>
-        .
       </p>
       <p className="mt-1">
         <a href="#" onClick={handleSearchClick('"dergigi/ants"')} className="underline hover:text-gray-300">
