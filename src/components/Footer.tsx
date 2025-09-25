@@ -42,7 +42,13 @@ export function Footer() {
         <span className="mx-2">·</span>
         <a href="#" onClick={handleSearchClick('p:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc')} className="underline hover:text-gray-300">Nostr</a>
         <span className="mx-2">·</span>
-        <a href="#" onClick={handleSearchClick('#SovEng')} className="underline hover:text-gray-300">Birthed during SEC-04</a>
+        <a
+          href="#"
+          onClick={handleSearchClick('(#SovEng OR by:sovereignengineering.io)')}
+          className="underline hover:text-gray-300"
+        >
+          Birthed during SEC-04
+        </a>
         <span className="mx-2">·</span>
         <a href="#" onClick={handleSearchClick('p:npub1kpt95rv4q3mcz8e4lamwtxq7men6jprf49l7asfac9lnv2gda0lqdknhmz')} className="underline hover:text-gray-300">Using Vertex</a>
       </p>
