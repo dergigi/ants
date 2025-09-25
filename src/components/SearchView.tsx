@@ -127,7 +127,7 @@ function ImageWithBlurhash({
       <Image 
         src={src} 
         alt={alt}
-        width={width} 
+        width={width}
         height={height} 
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
@@ -143,8 +143,22 @@ function ImageWithBlurhash({
             }).catch(() => setStatusCode(null));
           } catch { setStatusCode(null); }
         }}
-        onClick={() => { if (onClickSearch) onClickSearch(); }}
       />
+      
+      {/* Search icon button - only show when image is loaded and onClickSearch is provided */}
+      {imageLoaded && !imageError && onClickSearch && (
+        <button
+          type="button"
+          className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
+          title="Search for this image"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickSearch();
+          }}
+        >
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -245,11 +259,25 @@ function VideoWithBlurhash({
             }).catch(() => setStatusCode(null));
           } catch { setStatusCode(null); }
         }}
-        onClick={() => { if (onClickSearch) onClickSearch(); }}
       >
         <source src={src} />
         Your browser does not support the video tag.
       </video>
+      
+      {/* Search icon button - only show when video is loaded and onClickSearch is provided */}
+      {videoLoaded && !videoError && onClickSearch && (
+        <button
+          type="button"
+          className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
+          title="Search for this video"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickSearch();
+          }}
+        >
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -1294,41 +1322,49 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(content).map((src) => (
-            <button
+            <div
               key={src}
-              type="button"
-              title={getFilenameFromUrl(src)}
-              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
-              onClick={() => {
-                const filename = getFilenameFromUrl(src);
-                const nextQuery = filename;
-                setQuery(filename);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', filename);
-                  router.replace(`?${params.toString()}`);
-                }
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
-              }}
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
             >
               {isAbsoluteHttpUrl(src) ? (
-                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
+                <>
+                  <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
+                  <button
+                    type="button"
+                    className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
+                    title={`Search for ${getFilenameFromUrl(src)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const filename = getFilenameFromUrl(src);
+                      const nextQuery = filename;
+                      setQuery(filename);
+                      if (manageUrl) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('q', filename);
+                        router.replace(`?${params.toString()}`);
+                      }
+                      (async () => {
+                        setLoading(true);
+                        try {
+                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                          setResults(searchResults);
+                        } catch (error) {
+                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                            return;
+                          }
+                          console.error('Search error:', error);
+                          setResults([]);
+                        } finally {
+                          setLoading(false);
+                        }
+                      })();
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
+                  </button>
+                </>
               ) : null}
-            </button>
+            </div>
           ))}
         </div>
       )}
