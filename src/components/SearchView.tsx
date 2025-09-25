@@ -39,7 +39,7 @@ function SearchIconButton({
   return (
     <button
       type="button"
-      className={`absolute top-1.5 right-1.5 z-10 p-1 text-gray-500 hover:text-gray-300 bg-black/20 hover:bg-black/40 border border-gray-600/30 hover:border-gray-500/50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${className}`}
+      className={`absolute top-1.5 right-1.5 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200 ${className}`}
       title={title}
       onClick={(e) => {
         e.stopPropagation();
@@ -67,7 +67,7 @@ function ReverseImageSearchButton({
   return (
     <button
       type="button"
-      className={`absolute top-1.5 right-8 z-10 p-1 text-gray-500 hover:text-gray-300 bg-black/20 hover:bg-black/40 border border-gray-600/30 hover:border-gray-500/50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${className}`}
+      className={`absolute top-1.5 right-9 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200 ${className}`}
       title="Reverse image search with Google Lens"
       onClick={(e) => {
         e.stopPropagation();
