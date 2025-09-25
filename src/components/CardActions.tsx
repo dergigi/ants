@@ -10,16 +10,40 @@ type Props = {
   eventId?: string;
   showRaw: boolean;
   onToggleRaw: () => void;
-  onToggleMenu: () => void;
+  onToggleMenu?: () => void;
   menuButtonRef?: React.RefObject<HTMLButtonElement | null>;
   className?: string;
+  externalHref?: string;
+  externalTitle?: string;
+  externalTarget?: '_blank' | '_self' | '_parent' | '_top';
+  externalRel?: string;
+  onExternalClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
 const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
-  { eventId, showRaw, onToggleRaw, onToggleMenu, menuButtonRef, className }: Props,
+  {
+    eventId,
+    showRaw,
+    onToggleRaw,
+    onToggleMenu,
+    menuButtonRef,
+    className,
+    externalHref,
+    externalTitle,
+    externalTarget,
+    externalRel,
+    onExternalClick,
+  }: Props,
   ref
 ) {
-  if (!eventId) return null;
+  const neventHref = eventId ? `nostr:${nip19.neventEncode({ id: eventId })}` : undefined;
+  const fallbackTitle = eventId ? 'Open in native client' : 'Open external';
+  const href = externalHref || neventHref;
+  const title = externalTitle || fallbackTitle;
+  const target = externalTarget || (href && href.startsWith('http') ? '_blank' : undefined);
+  const rel = externalRel || (target === '_blank' ? 'noopener noreferrer' : undefined);
+
+  const isMenuVisible = typeof onToggleMenu === 'function';
 
   return (
     <div ref={ref} className={`flex items-center gap-2 ${className || ''}`.trim()}>
@@ -30,26 +54,35 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
       >
         <FontAwesomeIcon icon={faCode} className="text-xs" />
       </IconButton>
-      <IconButton
-        ref={menuButtonRef}
-        title="Open in portals"
-        ariaLabel="Open in portals"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggleMenu();
-        }}
-      >
-        ⋯
-      </IconButton>
-      <a
-        href={`nostr:${nip19.neventEncode({ id: eventId })}`}
-        title="Open in native client"
-        className="text-gray-400 hover:text-gray-200"
-        onClick={(e) => { e.stopPropagation(); }}
-      >
-        <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-      </a>
+      {isMenuVisible ? (
+        <IconButton
+          ref={menuButtonRef}
+          title="Open in portals"
+          ariaLabel="Open in portals"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleMenu();
+          }}
+        >
+          ⋯
+        </IconButton>
+      ) : null}
+      {href ? (
+        <a
+          href={href}
+          title={title}
+          className="text-gray-400 hover:text-gray-200"
+          target={target}
+          rel={rel}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onExternalClick) onExternalClick(e);
+          }}
+        >
+          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+        </a>
+      ) : null}
     </div>
   );
 });
