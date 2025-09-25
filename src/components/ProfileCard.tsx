@@ -24,6 +24,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
   const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub, pubkey), [npub, pubkey]);
+  const nativeAppHref = useMemo(() => bottomItems.find((item) => item.name === 'Native App')?.href, [bottomItems]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -71,7 +72,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   };
 
   const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
-  const explorerItems = bottomItems;
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -128,15 +128,16 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               setShowPortalMenuBottom((v) => !v);
             }}
             menuButtonRef={bottomButtonRef}
-            externalHref={bottomItems[0]?.href}
-            externalTitle={`Open ${bottomItems[0]?.name}`}
-            externalTarget={bottomItems[0]?.href?.startsWith('http') ? '_blank' : undefined}
-            externalRel={bottomItems[0]?.href?.startsWith('http') ? 'noopener noreferrer' : undefined}
+            externalHref={nativeAppHref}
+            externalTitle="Open in native app"
+            externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
+            externalRel={nativeAppHref?.startsWith('http') ? 'noopener noreferrer' : undefined}
             onExternalClick={(e) => {
-              if (!bottomItems.length) return;
-              if (bottomItems[0]?.href?.startsWith('http')) return;
-              e.preventDefault();
-              router.push(bottomItems[0]?.href || '#');
+              if (!nativeAppHref) return;
+              if (nativeAppHref.startsWith('/')) {
+                e.preventDefault();
+                router.push(nativeAppHref);
+              }
             }}
           />
         </div>
