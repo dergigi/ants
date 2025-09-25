@@ -60,7 +60,9 @@ function ReverseImageSearchButton({
   className?: string; 
 }) {
   const handleReverseSearch = () => {
+    console.log('Reverse search URL:', imageUrl);
     const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+    console.log('Google Lens URL:', lensUrl);
     window.open(lensUrl, '_blank', 'noopener,noreferrer');
   };
 
