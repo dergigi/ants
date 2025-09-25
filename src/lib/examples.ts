@@ -2,6 +2,7 @@
 export const searchExamples = [
   // Basic
   'vibe coding',
+  'nicolas-cage.gif',
   '#PenisButter',
   '#YESTR',
   '#SovEng',
@@ -48,10 +49,10 @@ export const searchExamples = [
   'https://dergigi.com/vew',
   'has:image',
   'is:image',
+  'has:image OR is:image',
   'has:video',
   'is:video',
   'has:gif',
-  'is:gif',
 
   // Mixed media + text
   'GM has:video',
@@ -75,7 +76,6 @@ export const searchExamples = [
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
-  '(by:gregzaj OR by:yellow) is:gif',
 
   // NIP-50 extensions
   'bitcoin include:spam',

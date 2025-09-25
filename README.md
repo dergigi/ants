@@ -71,7 +71,6 @@ A simple search interface for Nostr events.
 ### Multiple Authors
 
 - [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - Search across multiple authors
-- [`(by:gregzaj OR by:yellow) is:gif`](https://search.dergigi.com/?q=%28by%3Agregzaj%20OR%20by%3Ayellow%29%20is%3Agif) - Multiple authors with media type
 
 ### Direct NPUB Search
 
