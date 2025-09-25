@@ -24,7 +24,63 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
+
+// Reusable search icon button component
+function SearchIconButton({ 
+  onClick, 
+  title, 
+  className = "" 
+}: { 
+  onClick: () => void; 
+  title: string; 
+  className?: string; 
+}) {
+  return (
+    <button
+      type="button"
+      className={`absolute top-1.5 right-1.5 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200 ${className}`}
+      title={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
+    </button>
+  );
+}
+
+// Reusable reverse image search button component
+function ReverseImageSearchButton({ 
+  imageUrl, 
+  className = "" 
+}: { 
+  imageUrl: string; 
+  className?: string; 
+}) {
+  const handleReverseSearch = () => {
+    const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+    window.open(lensUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <button
+      type="button"
+      className={`absolute top-1.5 left-1.5 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200 ${className}`}
+      title="Reverse image search with Google Lens (external)"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleReverseSearch();
+      }}
+    >
+      <div className="relative">
+        <FontAwesomeIcon icon={faEye} className="w-3 h-3" />
+        <FontAwesomeIcon icon={faExternalLink} className="absolute -top-1 -right-1 w-2 h-2 text-gray-400" />
+      </div>
+    </button>
+  );
+}
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -75,7 +131,7 @@ function ImageWithBlurhash({
 
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
@@ -127,7 +183,7 @@ function ImageWithBlurhash({
       <Image 
         src={src} 
         alt={alt}
-        width={width} 
+        width={width}
         height={height} 
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
@@ -143,8 +199,22 @@ function ImageWithBlurhash({
             }).catch(() => setStatusCode(null));
           } catch { setStatusCode(null); }
         }}
-        onClick={() => { if (onClickSearch) onClickSearch(); }}
       />
+      
+      {/* Search icon button - only show when image is loaded and onClickSearch is provided */}
+      {imageLoaded && !imageError && onClickSearch && (
+        <SearchIconButton
+          onClick={onClickSearch}
+          title="Search for this image"
+        />
+      )}
+      
+      {/* Reverse image search button - only show when image is loaded */}
+      {imageLoaded && !imageError && (
+        <ReverseImageSearchButton
+          imageUrl={src}
+        />
+      )}
     </div>
   );
 }
@@ -180,7 +250,7 @@ function VideoWithBlurhash({
 
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
@@ -245,11 +315,25 @@ function VideoWithBlurhash({
             }).catch(() => setStatusCode(null));
           } catch { setStatusCode(null); }
         }}
-        onClick={() => { if (onClickSearch) onClickSearch(); }}
       >
         <source src={src} />
         Your browser does not support the video tag.
       </video>
+      
+      {/* Search icon button - only show when video is loaded and onClickSearch is provided */}
+      {videoLoaded && !videoError && onClickSearch && (
+        <SearchIconButton
+          onClick={onClickSearch}
+          title="Search for this video"
+        />
+      )}
+      
+      {/* Reverse image search button - only show when video is loaded */}
+      {videoLoaded && !videoError && (
+        <ReverseImageSearchButton
+          imageUrl={src}
+        />
+      )}
     </div>
   );
 }
@@ -1294,41 +1378,47 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(content).map((src) => (
-            <button
+            <div
               key={src}
-              type="button"
-              title={getFilenameFromUrl(src)}
-              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] text-left cursor-pointer"
-              onClick={() => {
-                const filename = getFilenameFromUrl(src);
-                const nextQuery = filename;
-                setQuery(filename);
-                if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', filename);
-                  router.replace(`?${params.toString()}`);
-                }
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
-              }}
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
             >
               {isAbsoluteHttpUrl(src) ? (
-                <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
+                <>
+                  <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
+                  <SearchIconButton
+                    onClick={() => {
+                      const filename = getFilenameFromUrl(src);
+                      const nextQuery = filename;
+                      setQuery(filename);
+                      if (manageUrl) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('q', filename);
+                        router.replace(`?${params.toString()}`);
+                      }
+                      (async () => {
+                        setLoading(true);
+                        try {
+                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                          setResults(searchResults);
+                        } catch (error) {
+                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                            return;
+                          }
+                          console.error('Search error:', error);
+                          setResults([]);
+                        } finally {
+                          setLoading(false);
+                        }
+                      })();
+                    }}
+                    title={`Search for ${getFilenameFromUrl(src)}`}
+                  />
+                  <ReverseImageSearchButton
+                    imageUrl={src}
+                  />
+                </>
               ) : null}
-            </button>
+            </div>
           ))}
         </div>
       )}
