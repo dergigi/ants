@@ -25,6 +25,31 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
+
+// Reusable search icon button component
+function SearchIconButton({ 
+  onClick, 
+  title, 
+  className = "" 
+}: { 
+  onClick: () => void; 
+  title: string; 
+  className?: string; 
+}) {
+  return (
+    <button
+      type="button"
+      className={`absolute top-1.5 right-1.5 z-10 p-1 text-gray-500 hover:text-gray-300 bg-black/20 hover:bg-black/40 border border-gray-600/30 hover:border-gray-500/50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${className}`}
+      title={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
+    </button>
+  );
+}
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
@@ -75,7 +100,7 @@ function ImageWithBlurhash({
 
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
@@ -147,17 +172,10 @@ function ImageWithBlurhash({
       
       {/* Search icon button - only show when image is loaded and onClickSearch is provided */}
       {imageLoaded && !imageError && onClickSearch && (
-        <button
-          type="button"
-          className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
+        <SearchIconButton
+          onClick={onClickSearch}
           title="Search for this image"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClickSearch();
-          }}
-        >
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
-        </button>
+        />
       )}
     </div>
   );
@@ -194,7 +212,7 @@ function VideoWithBlurhash({
 
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
@@ -266,17 +284,10 @@ function VideoWithBlurhash({
       
       {/* Search icon button - only show when video is loaded and onClickSearch is provided */}
       {videoLoaded && !videoError && onClickSearch && (
-        <button
-          type="button"
-          className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
+        <SearchIconButton
+          onClick={onClickSearch}
           title="Search for this video"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClickSearch();
-          }}
-        >
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
-        </button>
+        />
       )}
     </div>
   );
@@ -1324,17 +1335,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           {extractImageUrls(content).map((src) => (
             <div
               key={src}
-              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]"
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
             >
               {isAbsoluteHttpUrl(src) ? (
                 <>
                   <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
-                  <button
-                    type="button"
-                    className="absolute top-2 right-2 z-10 p-1.5 text-gray-400 hover:text-gray-200 bg-black/40 hover:bg-black/60 border border-[#3d3d3d] rounded-md opacity-60 hover:opacity-100 transition-all"
-                    title={`Search for ${getFilenameFromUrl(src)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  <SearchIconButton
+                    onClick={() => {
                       const filename = getFilenameFromUrl(src);
                       const nextQuery = filename;
                       setQuery(filename);
@@ -1359,9 +1366,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         }
                       })();
                     }}
-                  >
-                    <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5" />
-                  </button>
+                    title={`Search for ${getFilenameFromUrl(src)}`}
+                  />
                 </>
               ) : null}
             </div>
