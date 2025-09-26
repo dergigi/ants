@@ -21,8 +21,9 @@ import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
+import Nip05Display from '@/components/Nip05Display';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: any }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -73,6 +74,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-h-[1rem]">
+        {user && <Nip05Display user={user} />}
         {lightning ? (
           <div className="inline-flex items-center gap-1">
             <button
@@ -491,6 +493,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
         showRaw={showRaw}
+        user={event.author}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <>
