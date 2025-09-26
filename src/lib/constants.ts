@@ -29,6 +29,27 @@ export const UI_CONFIG = {
     
     // Maximum video duration in seconds
     MAX_VIDEO_DURATION: 300
+  },
+  
+  // Search & Results settings
+  SEARCH: {
+    // Maximum number of results to return
+    MAX_RESULTS: 1000,
+    
+    // Maximum results for streaming queries
+    MAX_RESULTS_STREAMING: 200,
+    
+    // Default search timeout in milliseconds
+    DEFAULT_TIMEOUT: 30000,
+    
+    // Timeout for hinted relay queries
+    HINTED_TIMEOUT: 5000,
+    
+    // Timeout for fallback relay queries
+    FALLBACK_TIMEOUT: 8000,
+    
+    // NIP-05 resolution timeout
+    NIP05_TIMEOUT: 4000
   }
 } as const;
 
@@ -36,3 +57,11 @@ export const UI_CONFIG = {
 export const TEXT_MAX_LENGTH = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH;
 export const TEXT_MAX_LENGTH_INLINE = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH_INLINE;
 export const TEXT_MAX_LENGTH_PROFILE = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH_PROFILE;
+
+// Search constants
+export const SEARCH_MAX_RESULTS = UI_CONFIG.SEARCH.MAX_RESULTS;
+export const SEARCH_MAX_RESULTS_STREAMING = UI_CONFIG.SEARCH.MAX_RESULTS_STREAMING;
+export const SEARCH_DEFAULT_TIMEOUT = UI_CONFIG.SEARCH.DEFAULT_TIMEOUT;
+export const SEARCH_HINTED_TIMEOUT = UI_CONFIG.SEARCH.HINTED_TIMEOUT;
+export const SEARCH_FALLBACK_TIMEOUT = UI_CONFIG.SEARCH.FALLBACK_TIMEOUT;
+export const SEARCH_NIP05_TIMEOUT = UI_CONFIG.SEARCH.NIP05_TIMEOUT;
