@@ -7,7 +7,7 @@ import {
   computeMatchScore 
 } from './utils';
 import { queryVertexDVM } from './dvm-core';
-import { verifyNip05 } from './nip05';
+import { verifyNip05, isRootNip05 } from './nip05';
 import { getCachedNip05Result } from './cache';
 
 // Full-text profile search with ranking
@@ -125,6 +125,8 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
     let score = row.baseScore;
     if (verified) score += 100;
+    // Additional bonus for verified root NIP-05s (double checkmark)
+    if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
     if (row.isFriend) score += 50;
     row.finalScore = score;
     row.verified = verified;
