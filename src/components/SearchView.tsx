@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
@@ -1087,6 +1087,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
     const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
+    const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -1195,8 +1196,60 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         );
       }
 
-      // Inline component to render an embedded/quoted nevent
-      function InlineNevent({ token }: { token: string }) {
+      const fetchWithRelayHints = async (filters: NDKFilter[], relayUrls?: string[], hintedTimeout = 5000, fallbackTimeout = 8000): Promise<NDKEvent | null> => {
+        const attempt = async (options: { relaySet?: NDKRelaySet | null; timeout: number }): Promise<NDKEvent | null> => {
+          return new Promise<NDKEvent | null>((resolve) => {
+            const sub = safeSubscribe(filters, { closeOnEose: true, relaySet: options.relaySet ?? undefined });
+            if (!sub) {
+              resolve(null);
+              return;
+            }
+            let resolved = false;
+            const finish = (result: NDKEvent | null) => {
+              if (resolved) return;
+              resolved = true;
+              try { sub.stop(); } catch {}
+              resolve(result);
+            };
+            const timer = setTimeout(() => finish(null), options.timeout);
+            sub.on('event', (evt: NDKEvent) => {
+              clearTimeout(timer);
+              finish(evt);
+            });
+            sub.on('eose', () => {
+              clearTimeout(timer);
+              finish(null);
+            });
+            sub.start();
+          });
+        };
+
+        const hintedRelays = Array.isArray(relayUrls)
+          ? Array.from(
+              new Set(
+                relayUrls
+                  .map((r) => (typeof r === 'string' ? r.trim() : ''))
+                  .filter(Boolean)
+                  .map((r) => (/^wss?:\/\//i.test(r) ? r : `wss://${r}`))
+              )
+            )
+          : [];
+
+        if (hintedRelays.length > 0) {
+          try {
+            const relaySet = NDKRelaySet.fromRelayUrls(hintedRelays, ndk);
+            const viaHints = await attempt({ relaySet, timeout: hintedTimeout });
+            if (viaHints) return viaHints;
+          } catch {
+            // Ignore relay set creation issues and fall back
+          }
+        }
+
+        return attempt({ relaySet: null, timeout: fallbackTimeout });
+      };
+
+      // Inline component to render embedded/quoted nevent or naddr pointer
+      function InlineNostrReference({ token }: { token: string }) {
         const [embedded, setEmbedded] = useState<NDKEvent | null>(null);
         const [loading, setLoading] = useState<boolean>(true);
         const [error, setError] = useState<string | null>(null);
@@ -1205,60 +1258,38 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           let isMounted = true;
           (async () => {
             try {
-              const m = token.match(/^(nostr:nevent1[0-9a-z]+)([),.;]*)$/i);
-              const core = (m ? m[1] : token).replace(/^nostr:/i, '');
-              const decoded = nip19.decode(core);
-              if (decoded?.type !== 'nevent') {
-                throw new Error('Not nevent');
+              const m = token.match(/^(nostr:(?:nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+              const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
+              const decoded = nip19.decode(coreToken);
+              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr')) {
+                throw new Error('Unsupported pointer');
               }
-              const data = decoded.data as { id: string; relays?: string[] };
-              const id = data.id;
-              const relays = Array.isArray(data.relays) ? data.relays.filter((r) => typeof r === 'string') : [];
-              // Prefer hinted relays if present
-              let found: NDKEvent | null = null;
-              if (relays.length > 0) {
-                try {
-                  const relaySet = NDKRelaySet.fromRelayUrls(
-                    Array.from(new Set(relays.map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`))),
-                    ndk
-                  );
-                  await new Promise<void>((resolve) => {
-                    const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true, relaySet });
-                    if (!sub) {
-                      resolve();
-                      return;
-                    }
-                    const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 5000);
-                    sub.on('event', (evt: NDKEvent) => { found = evt; });
-                    sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
-                    sub.start();
-                  });
-                } catch {}
-              }
-              // Fallback: try without relay hints if not found
-              if (!found) {
-                await new Promise<void>((resolve) => {
-                  const sub = safeSubscribe([{ ids: [id] }], { closeOnEose: true });
-                  if (!sub) {
-                    resolve();
-                    return;
-                  }
-                  const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(); }, 8000);
-                  sub.on('event', (evt: NDKEvent) => { found = evt; });
-                  sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(); });
-                  sub.start();
-                });
+
+              let fetched: NDKEvent | null = null;
+              if (decoded.type === 'nevent') {
+                const data = decoded.data as { id: string; relays?: string[] };
+                const { id, relays } = data;
+                fetched = await fetchWithRelayHints([{ ids: [id] }], relays ?? []);
+              } else if (decoded.type === 'naddr') {
+                const data = decoded.data as { pubkey: string; identifier: string; kind: number; relays?: string[] };
+                const filter: NDKFilter = {
+                  kinds: [data.kind],
+                  authors: [data.pubkey],
+                  '#d': [data.identifier],
+                  limit: 1
+                };
+                fetched = await fetchWithRelayHints([filter], data.relays ?? []);
               }
 
               if (!isMounted) return;
-              if (found) {
-                setEmbedded(found);
+              if (fetched) {
+                setEmbedded(fetched);
               } else {
                 setError('Not found');
               }
-            } catch {
+            } catch (err) {
               if (!isMounted) return;
-              setError('Invalid nevent');
+              setError(err instanceof Error ? err.message : 'Invalid reference');
             } finally {
               if (isMounted) setLoading(false);
             }
@@ -1277,6 +1308,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           );
         }
 
+        const createdAt = embedded.created_at;
+
         return (
           <div className="w-full">
             <EventCard
@@ -1288,26 +1321,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </div>
               )}
               variant="inline"
-              footerRight={embedded.created_at ? (
+              footerRight={createdAt ? (
                 <button
                   type="button"
                   className="text-xs hover:underline opacity-80"
-                  title="Search this nevent"
+                  title="Search this reference"
                   onClick={() => {
-                    try {
-                      const nevent = nip19.neventEncode({ id: embedded.id });
-                      const q = nevent;
-                      setQuery(q);
-                      if (manageUrl) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set('q', q);
-                        router.replace(`?${params.toString()}`);
-                      }
-                      handleSearch(q);
-                    } catch {}
+                    const q = token;
+                    setQuery(q);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', q);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    handleSearch(q);
                   }}
                 >
-                  {formatRelativeTimeAuto(embedded.created_at)}
+                  {formatRelativeTimeAuto(createdAt)}
                 </button>
               ) : null}
             />
@@ -1331,23 +1361,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         }
 
         // Now split this chunk for nevent tokens if enabled
-        const neventSplit = (options?.disableNevent ? [chunk] : chunk.split(nostrEventRegex));
-        neventSplit.forEach((sub, subIdx) => {
-          const isNostrEventToken = /^nostr:nevent1[0-9a-z]+[),.;]*$/i.test(sub);
-          if (!options?.disableNevent && isNostrEventToken) {
-            const m2 = sub.match(/^(nostr:nevent1[0-9a-z]+)([),.;]*)$/i);
-            const coreToken2 = m2 ? m2[1] : sub;
-            const trailing2 = (m2 && m2[2]) || '';
-            finalNodes.push(
-              <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
-                <InlineNevent token={coreToken2} />
-              </div>
-            );
-            if (trailing2) finalNodes.push(trailing2);
+        const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}`;
+        const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
+        const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
+        nostrSplit.forEach((sub, subIdx) => {
+          const isNostrToken = combinedRegex.test(sub);
+          if (!options?.disableNevent && isNostrToken) {
+            const match = sub.match(/^(nostr:(nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+            const coreToken = match ? match[1] : sub;
+            const type = match ? match[2] : '';
+            const trailing = (match && match[3]) || '';
+            if (type?.toLowerCase().startsWith('nevent')) {
+              finalNodes.push(
+                <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
+                  <InlineNostrReference token={coreToken} />
+                </div>
+              );
+            } else if (type?.toLowerCase().startsWith('naddr')) {
+              finalNodes.push(
+                <div key={`naddr-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
+                  <InlineNostrReference token={coreToken} />
+                </div>
+              );
+            }
+            if (trailing) finalNodes.push(trailing);
             return;
           }
 
-          // Process hashtags and emojis within the remaining non-nevent text
+          // Process hashtags and emojis within the remaining text
           const parts = sub.split(/(#\w+)/g);
           parts.forEach((part, index) => {
             if (part.startsWith('#')) {
