@@ -78,19 +78,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleLightningSearch}
-              className="inline-flex items-center gap-1 hover:underline"
+              className="inline-flex items-center gap-1 hover:underline p-1 rounded"
               title={`Search for ${lightning}`}
             >
-              <FontAwesomeIcon icon={faBoltLightning} className="text-yellow-400 h-3 w-3" />
+              <FontAwesomeIcon icon={faBoltLightning} className="h-4 w-4" />
               <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
-              className="text-gray-400 hover:text-gray-200"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-4 w-4" />
             </a>
           </div>
         ) : null}
@@ -99,22 +99,21 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleWebsiteSearch}
-              className="inline-flex items-center gap-1 hover:underline"
+              className="inline-flex items-center gap-1 hover:underline p-1 rounded"
               title={`Search for ${website}`}
             >
-              <FontAwesomeIcon icon={faHouseUser} className="text-blue-400 h-3 w-3 hidden sm:inline" />
+              <FontAwesomeIcon icon={faHouseUser} className="h-4 w-4" />
               <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
-              <FontAwesomeIcon icon={faHouseUser} className="text-blue-400 h-3 w-3 sm:hidden" />
             </button>
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
               title={`Open ${website} externally`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-4 w-4" />
             </a>
           </span>
         ) : null}
