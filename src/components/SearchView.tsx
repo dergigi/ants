@@ -72,7 +72,33 @@ function TruncatedText({
   
   if (!content) return null;
   
-  const shouldTruncate = content.length > maxLength;
+  // Calculate effective length considering links as 10 characters each
+  const calculateEffectiveLength = (text: string): number => {
+    // Regex patterns for different types of links
+    const urlPattern = /https?:\/\/[^\s]+/g;
+    const nostrPattern = /(nevent|naddr|nprofile|npub|nsec|note)1[a-z0-9]+/g;
+    
+    let effectiveLength = text.length;
+    
+    // Replace URLs with 10 character placeholder
+    const urls = text.match(urlPattern) || [];
+    urls.forEach(url => {
+      effectiveLength = effectiveLength - url.length + 10;
+    });
+    
+    // Replace nostr-native links with 10 character placeholder
+    const nostrLinks = text.match(nostrPattern) || [];
+    nostrLinks.forEach(link => {
+      effectiveLength = effectiveLength - link.length + 10;
+    });
+    
+    return effectiveLength;
+  };
+  
+  const effectiveLength = calculateEffectiveLength(content);
+  const shouldTruncate = effectiveLength > maxLength;
+  
+  // For display, we still need to truncate the actual text
   const displayText = isExpanded || !shouldTruncate ? content : content.slice(0, maxLength);
   
   return (
