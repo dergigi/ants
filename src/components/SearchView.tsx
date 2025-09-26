@@ -354,7 +354,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
-  const [placeholder, setPlaceholder] = useState('');
+  const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
@@ -629,7 +629,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       setIsConnecting(true);
       setConnectionStatus('connecting');
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
-      setPlaceholder(getCurrentExample());
       setIsConnecting(false);
       setConnectionDetails(connectionResult);
       
@@ -1538,7 +1537,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               type="text"
               value={query}
               onChange={handleInputChange}
-              placeholder={isConnecting ? '/examples' : placeholder}
+              placeholder={placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
               style={{ paddingRight: '3rem' }}
             />
