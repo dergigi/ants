@@ -18,7 +18,6 @@ export function useNostrUser(npub: string | undefined) {
       try {
         const { data } = nip19.decode(npub);
         const pk = data as string;
-        console.log('🔥 useNostrUser decoded pubkey:', pk);
         setPubkey(pk);
         const u = new NDKUser({ pubkey: pk });
         u.ndk = ndk;
@@ -28,21 +27,17 @@ export function useNostrUser(npub: string | undefined) {
         const prefetched = getPrefetchedProfile(pk);
         console.log('🔥 useNostrUser prefetched result:', !!prefetched);
         if (prefetched) {
-          console.log('🔥 useNostrUser found prefetched, preparing...');
           const prepared = prepareProfileEventForPrefetch(prefetched);
           // Copy prepared author's profile into the new user before attaching
           try {
             const existingProfile = prepared.author && (prepared.author as unknown as { profile?: unknown }).profile;
-            console.log('🔥 useNostrUser existingProfile:', existingProfile);
             if (existingProfile) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (u as any).profile = existingProfile as any;
-              console.log('🔥 useNostrUser applied profile to user, user.profile now:', u.profile);
             }
           } catch {}
           prepared.author = u;
           setProfileEvent(prepared);
-          console.log('🔥 useNostrUser set profile event with prefetched data');
           clearPrefetchedProfile(pk);
         } else {
           const placeholder = new NDKEvent(ndk, {

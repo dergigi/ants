@@ -559,7 +559,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Seed profile prefetch for visible profile cards as soon as results materialize
   useEffect(() => {
-    console.log('🔥 SearchView seeding prefetch for', fuseFilteredResults.length, 'results');
     try {
       for (const ev of fuseFilteredResults) {
         if (ev.kind === 0) {
