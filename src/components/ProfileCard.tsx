@@ -20,6 +20,7 @@ import { calculateAbsoluteMenuPosition, calculateBannerMenuPosition } from '@/li
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
+import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -67,24 +68,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return () => { isMounted = false; };
   }, [pubkey, fallbackEventId, fallbackCreatedAt]);
 
-  const relative = (fromTs: number) => {
-    const diffMs = Date.now() - fromTs * 1000;
-    const seconds = Math.round(diffMs / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-    const months = Math.round(days / 30);
-    const years = Math.round(days / 365);
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-    if (Math.abs(years) >= 1) return rtf.format(-years, 'year');
-    if (Math.abs(months) >= 1) return rtf.format(-months, 'month');
-    if (Math.abs(days) >= 1) return rtf.format(-days, 'day');
-    if (Math.abs(hours) >= 1) return rtf.format(-hours, 'hour');
-    if (Math.abs(minutes) >= 1) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-  };
-
-  const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
+  const updatedLabel = updatedAt ? `Updated ${formatRelativeTimeAuto(updatedAt)}.` : 'Updated unknown.';
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">

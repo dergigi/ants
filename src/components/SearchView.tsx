@@ -27,6 +27,7 @@ import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
+import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -973,7 +974,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     router.push(`/p/${npub}`);
   }, [router]);
 
-  const formatDate = (timestamp: number) => new Date(timestamp * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatDate = (timestamp: number) => formatRelativeTimeAuto(timestamp);
 
   const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
     if (!details) return 'Connection status unknown';
@@ -1306,7 +1307,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     } catch {}
                   }}
                 >
-                  {new Date(embedded.created_at * 1000).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  {formatRelativeTimeAuto(embedded.created_at)}
                 </button>
               ) : null}
             />
