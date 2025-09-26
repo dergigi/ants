@@ -71,7 +71,7 @@ export const searchExamples = [
   'PressReader by:Bouma',
   '#runstr OR #plebwalk OR by:bitcoinwalk',
   'PV or 🤙',
-  '😌 or 🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
+  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
   '😂 or 🤣 or lol or lmao',
   'Liotta .gif',
   '#plebchain or #introductions',
