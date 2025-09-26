@@ -365,6 +365,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const searchRowRef = useRef<HTMLFormElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
+  const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
@@ -701,7 +702,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     rafId = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(rafId); };
-  }, [query, loading]);
+  }, [query, loading, rotationSeed]);
 
   // Dynamically add right padding only when the fixed header avatar overlaps the search row
   useEffect(() => {
@@ -1566,12 +1567,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             )}
             {!query && !loading && (
-              <button
+            <button
                 type="button"
                 aria-label="Next example"
                 title="Show next example"
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 cursor-pointer"
-                onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); }}
+              onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); setRotationSeed((s) => s + 1); }}
               >
                 <svg viewBox="0 0 36 36" className="w-5 h-5">
                   <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
