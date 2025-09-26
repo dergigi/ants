@@ -1365,6 +1365,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
         const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
         nostrSplit.forEach((sub, subIdx) => {
+          if (!sub) return;
           const isNostrToken = combinedRegex.test(sub);
           if (!options?.disableNevent && isNostrToken) {
             const match = sub.match(/^(nostr:(nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
@@ -1389,7 +1390,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           }
 
           // Process hashtags and emojis within the remaining text
-          const parts = sub.split(/(#\w+)/g);
+          const parts = (sub || '').split(/(#\w+)/g);
           parts.forEach((part, index) => {
             if (part.startsWith('#')) {
               finalNodes.push(
