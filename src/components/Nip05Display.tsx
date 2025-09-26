@@ -4,6 +4,20 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getNip05Domain, isRootNip05 } from '@/lib/nip05';
 import { cleanNip05Display } from '@/lib/utils';
+
+// Extract domain part without TLD for mobile display
+function getDomainWithoutTld(nip05?: string): string {
+  if (!nip05) return '';
+  const domain = getNip05Domain(nip05);
+  if (!domain) return '';
+  
+  // Split by dots and take everything except the last part (TLD)
+  const parts = domain.split('.');
+  if (parts.length <= 1) return domain;
+  
+  // Return all parts except the last one (TLD)
+  return parts.slice(0, -1).join('.');
+}
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleXmark, faCircleExclamation, faUserGroup, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
@@ -95,6 +109,14 @@ export default function Nip05Display({ user }: { user: NDKUser }) {
       >
         <span className="truncate max-w-[14rem]">{cleanNip05Display(value) || value}</span>
       </button>
+      {/* Mobile view: show only domain part without TLD */}
+      <button
+        type="button"
+        className="hover:underline truncate max-w-[8rem] text-left sm:hidden"
+        title={cleanNip05Display(value) || undefined}
+      >
+        <span className="truncate max-w-[8rem]">{getDomainWithoutTld(value)}</span>
+      </button>
       {pathname?.startsWith('/p/') && (
       <button
         type="button"
@@ -145,6 +167,22 @@ export default function Nip05Display({ user }: { user: NDKUser }) {
           router.push(`/?${params.toString()}`);
         }}
         className="text-gray-400 hidden sm:inline hover:underline"
+        title="Search for NIP-05 specification"
+      >
+        no NIP-05
+      </button>
+      {/* Mobile view: show shorter text */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', 'nip:05');
+          router.push(`/?${params.toString()}`);
+        }}
+        className="text-gray-400 sm:hidden hover:underline"
         title="Search for NIP-05 specification"
       >
         no NIP-05
