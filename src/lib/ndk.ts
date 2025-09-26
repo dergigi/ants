@@ -3,6 +3,7 @@ import NDKCacheAdapterSqliteWasm from '@nostr-dev-kit/ndk-cache-sqlite-wasm';
 import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
+import { isBrowser } from './utils/ssr';
 
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
@@ -14,7 +15,7 @@ let cacheInitialized = false;
 export async function ensureCacheInitialized(): Promise<void> {
   if (cacheInitialized) return;
   // Avoid initializing in SSR environments
-  if (typeof window === 'undefined') { cacheInitialized = true; return; }
+  if (!isBrowser()) { cacheInitialized = true; return; }
   try {
     // ndk-cache-sqlite-wasm v0.5.x exposes initializeAsync()
     await cacheAdapter.initializeAsync();

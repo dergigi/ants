@@ -1,5 +1,6 @@
 import RelativeTimeFormat from 'relative-time-format';
 import en from 'relative-time-format/locale/en.json';
+import { isBrowser } from '@/lib/utils/ssr';
 
 // Add the English locale data
 RelativeTimeFormat.addLocale(en);
@@ -23,7 +24,7 @@ const formatters = {
  * @returns boolean indicating if the viewport is mobile
  */
 function isMobileViewport(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (!isBrowser()) return false;
   return window.innerWidth < MOBILE_BREAKPOINT;
 }
 

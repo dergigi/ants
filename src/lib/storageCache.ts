@@ -1,8 +1,10 @@
 // Lightweight unified helpers for localStorage-backed Map caches
 // Safe to import in SSR; each function guards for browser presence.
 
+import { isBrowser } from './utils/ssr';
+
 export function hasLocalStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  return isBrowser() && typeof window.localStorage !== 'undefined';
 }
 
 export function loadMapFromStorage<T>(storageKey: string): Map<string, T> {
