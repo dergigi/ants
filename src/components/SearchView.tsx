@@ -84,17 +84,16 @@ function TruncatedText({
         )}
       </div>
       {shouldTruncate && (
-        <div className="flex justify-center mt-2">
+        <div className="flex justify-center mt-1">
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors text-sm"
+            className="text-gray-400 hover:text-gray-200 transition-colors"
           >
             <FontAwesomeIcon 
               icon={isExpanded ? faChevronUp : faChevronDown} 
               className="w-3 h-3" 
             />
-            <span>{isExpanded ? 'Show less' : 'Show more'}</span>
           </button>
         </div>
       )}
