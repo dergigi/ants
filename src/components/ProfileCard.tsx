@@ -431,7 +431,12 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                   }
                 } catch {}
               }
-              // Otherwise, go to the author's profile
+              // Otherwise, go to the author's profile; seed prefetch first
+              try {
+                const { data } = nip19.decode(event.author.npub);
+                const pk = data as string;
+                setPrefetchedProfile(pk, event);
+              } catch {}
               if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
             };
             return (

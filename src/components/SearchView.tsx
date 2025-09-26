@@ -557,6 +557,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
+  // Seed profile prefetch for visible profile cards as soon as results materialize
+  useEffect(() => {
+    try {
+      for (const ev of fuseFilteredResults) {
+        if (ev.kind === 0 && ev.pubkey) {
+          setPrefetchedProfile(ev.pubkey, ev);
+        }
+      }
+    } catch {}
+  }, [fuseFilteredResults]);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
     // Rely solely on replacements.txt expansion upstream; no client-side media seeding
