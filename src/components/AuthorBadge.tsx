@@ -79,9 +79,9 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
         type="button"
         onClick={() => onAuthorClick && onAuthorClick(user.npub)}
         className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
-        title={cleanNip05Display(value)}
+        title={cleanNip05Display(value) || undefined}
       >
-        <span className="truncate max-w-[14rem]">{cleanNip05Display(value)}</span>
+        <span className="truncate max-w-[14rem]">{cleanNip05Display(value) || value}</span>
       </button>
       {/* External link removed */}
       {pathname?.startsWith('/p/') && (
