@@ -375,10 +375,31 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             const avatarUrl = (event.author?.profile as unknown as { image?: string } | undefined)?.image;
             const showAvatar = typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl);
             if (!showAvatar) return null;
+            const handleAvatarClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = avatarUrl as string;
+              try {
+                // Extract filename from URL path
+                const parsed = new URL(url);
+                const pathname = parsed.pathname;
+                const segments = pathname.split('/').filter(Boolean);
+                const last = segments[segments.length - 1] || '';
+                const filename = last.split('?')[0];
+                if (filename) {
+                  const params = new URLSearchParams();
+                  params.set('q', filename);
+                  router.push(`/?${params.toString()}`);
+                  return;
+                }
+              } catch {}
+              // Fallback: navigate to author profile if parsing fails
+              if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
+            };
             return (
             <button
               type="button"
-              onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
+              onClick={handleAvatarClick}
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
             >
               <Image
