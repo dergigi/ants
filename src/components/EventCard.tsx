@@ -63,6 +63,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               <CardActions
                 eventId={event?.id}
                 profilePubkey={event?.author?.pubkey}
+                eventKind={event?.kind}
                 showRaw={showRaw}
                 onToggleRaw={() => setShowRaw(v => !v)}
                 onToggleMenu={() => {

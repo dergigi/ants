@@ -10,6 +10,7 @@ import CopyButton from '@/components/CopyButton';
 type Props = {
   eventId?: string;
   profilePubkey?: string;
+  eventKind?: number;
   showRaw: boolean;
   onToggleRaw: () => void;
   onToggleMenu?: () => void;
@@ -26,6 +27,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   {
     eventId,
     profilePubkey,
+    eventKind,
     showRaw,
     onToggleRaw,
     onToggleMenu,
@@ -58,7 +60,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
       >
         <FontAwesomeIcon icon={faCode} className="text-xs" />
       </IconButton>
-      {nprofile ? (
+      {eventKind === 0 && nprofile ? (
         <CopyButton
           text={`nostr:${nprofile}`}
           title="Copy nprofile"
