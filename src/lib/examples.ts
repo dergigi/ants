@@ -65,6 +65,13 @@ export const searchExamples = [
   'by:gregzaj has:gif',
   '(GM OR GN) by:dergigi has:image',
   'is:image #Olas365',
+  'PressReader by:Bouma',
+  '#runstr OR #plebwalk OR by:bitcoinwalk',
+  'PV or 🤙',
+  '😌 or 🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
+  '😂 or 🤣 or lol or lmao',
+  'Liotta .gif',
+  '#plebchain or #introductions',
 
   // Kinds filter examples
   'is:muted by:fiatjaf',
