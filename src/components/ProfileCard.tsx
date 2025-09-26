@@ -381,6 +381,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               ⋯
             </TitleBarButton>
           </div>
+          <div className="absolute top-1 right-1 flex gap-1">
+            <TitleBarButton
+              title="Close"
+              textSize="text-[10px]"
+              onClick={() => router.push('/')}
+            >
+              ×
+            </TitleBarButton>
+          </div>
         </div>
       )}
       <div className="p-4">
