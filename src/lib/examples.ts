@@ -41,6 +41,9 @@ export const searchExamples = [
   'p:zaps.lol',
   'p:nostrplebs.com',
   'p:dave',
+  'p:NewsBot or p:RSS',
+  'p:twentyone.world',
+  'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
   '(p:dad OR p:husband OR p:father)',
 
@@ -68,7 +71,7 @@ export const searchExamples = [
   'PressReader by:Bouma',
   '#runstr OR #plebwalk OR by:bitcoinwalk',
   'PV or 🤙',
-  '😌 or 🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
+  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
   '😂 or 🤣 or lol or lmao',
   'Liotta .gif',
   '#plebchain or #introductions',
@@ -86,9 +89,11 @@ export const searchExamples = [
 
   // NIP-50 extensions
   'bitcoin include:spam',
+  'nip:03',
 
   // Slash Commands
   '/help',
+  '/examples',
 ] as const;
 
 // Examples that require login to work properly

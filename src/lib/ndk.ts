@@ -39,16 +39,19 @@ export const ndk = new NDK({
 let currentSearchExample: string;
 
 export const getCurrentExample = () => {
-  // If no example is set yet, get one now
+  // Always prioritize '/examples' as the initial example
   if (!currentSearchExample) {
-    return nextExample();
+    currentSearchExample = '/examples';
+    return currentSearchExample;
   }
   return currentSearchExample;
 };
 
 export const nextExample = (): string => {
   const filteredExamples = getFilteredExamples(isLoggedIn());
-  currentSearchExample = filteredExamples[Math.floor(Math.random() * filteredExamples.length)];
+  // Avoid rotating to '/examples' if already set as the initial item
+  const rotationPool = filteredExamples.filter((ex) => ex !== '/examples');
+  currentSearchExample = rotationPool[Math.floor(Math.random() * rotationPool.length)] || '/examples';
   return currentSearchExample;
 };
 
@@ -238,7 +241,7 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
 
     // Check which relays actually connected
     const status = checkRelayStatus();
-    nextExample(); // Select a random example when we connect
+    // Do not change the example on connect; keep current selection
     console.log('Connected to relays:', { connected: status.connectedRelays, connecting: status.connectingRelays, failed: status.failedRelays, example: currentSearchExample });
     
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false);
@@ -248,7 +251,7 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     
     // Check which relays we can still access
     const status = checkRelayStatus();
-    nextExample(); // Still select an example even if connection failed
+    // Do not change the example on failed connect either
     console.log('Using fallback example:', currentSearchExample);
     
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, getCurrentExample, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
+import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -20,6 +20,7 @@ import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
+import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
@@ -115,18 +116,21 @@ function ImageWithBlurhash({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [statusCode, setStatusCode] = useState<number | null>(null);
+  const [measuredDim, setMeasuredDim] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
     setImageLoaded(false);
     setImageError(false);
+    setMeasuredDim(null);
   }, [src]);
 
   if (!isAbsoluteHttpUrl(src)) {
     return null;
   }
 
-  const aspectStyle = dim && dim.width > 0 && dim.height > 0
-    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+  const effectiveDim = dim && dim.width > 0 && dim.height > 0 ? dim : measuredDim;
+  const aspectStyle = effectiveDim
+    ? { aspectRatio: `${effectiveDim.width} / ${effectiveDim.height}` }
     : { minHeight: '200px' as const };
 
   return (
@@ -185,11 +189,20 @@ function ImageWithBlurhash({
         alt={alt}
         width={width}
         height={height} 
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
-        onLoad={() => { setImageLoaded(true); setStatusCode(200); }}
+        onLoad={(e) => { 
+          setImageLoaded(true); 
+          setStatusCode(200); 
+          try {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!effectiveDim && img?.naturalWidth && img?.naturalHeight) {
+              setMeasuredDim({ width: img.naturalWidth, height: img.naturalHeight });
+            }
+          } catch {}
+        }}
         onError={() => {
           setImageError(true);
           try {
@@ -214,6 +227,32 @@ function ImageWithBlurhash({
         <ReverseImageSearchButton
           imageUrl={src}
         />
+      )}
+
+      {/* Copy image URL button - bottom right */}
+      {imageLoaded && !imageError && (
+        <div className="absolute bottom-1.5 right-1.5 z-10">
+          <CopyButton 
+            text={src} 
+            title="Copy image URL" 
+            className="w-7 h-7 text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200"
+          />
+        </div>
+      )}
+
+      {/* Open external button - bottom left */}
+      {imageLoaded && !imageError && (
+        <button
+          type="button"
+          className="absolute bottom-1.5 left-1.5 z-10 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 bg-black/30 hover:bg-black/50 border border-gray-600/40 hover:border-gray-500/60 rounded-sm opacity-60 hover:opacity-100 transition-all duration-200"
+          title="Open image in new tab"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(src, '_blank', 'noopener,noreferrer');
+          }}
+        >
+          <FontAwesomeIcon icon={faExternalLink} className="w-3 h-3" />
+        </button>
       )}
     </div>
   );
@@ -354,11 +393,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
-  const [placeholder, setPlaceholder] = useState('');
+  const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
-  const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
@@ -366,6 +404,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const searchRowRef = useRef<HTMLFormElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
+  const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
@@ -623,20 +662,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   }, [pathname, router, isSlashCommand]);
 
-  useEffect(() => {
-    if (!isConnecting) return;
-    const id = setInterval(() => {
-      setLoadingDots((prev) => (prev === '...' ? '.' : prev === '.' ? '..' : '...'));
-    }, 21);
-    return () => clearInterval(id);
-  }, [isConnecting]);
+  // While connecting, show a static placeholder; remove animated loading dots
 
   useEffect(() => {
     const initializeNDK = async () => {
       setIsConnecting(true);
       setConnectionStatus('connecting');
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
-      setPlaceholder(getCurrentExample());
       setIsConnecting(false);
       setConnectionDetails(connectionResult);
       
@@ -709,7 +741,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     };
     rafId = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(rafId); };
-  }, [query, loading]);
+  }, [query, loading, rotationSeed]);
 
   // Dynamically add right padding only when the fixed header avatar overlaps the search row
   useEffect(() => {
@@ -762,7 +794,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const raw = query.trim() || placeholder;
+    const effectivePlaceholder = isConnecting ? '/examples' : placeholder;
+    const raw = query.trim() || effectivePlaceholder;
     
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
@@ -1384,45 +1417,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(content).map((src) => (
-            <div
-              key={src}
-              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
-            >
+            <div key={src} className="relative">
               {isAbsoluteHttpUrl(src) ? (
-                <>
-                  <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
-                  <SearchIconButton
-                    onClick={() => {
-                      const filename = getFilenameFromUrl(src);
-                      const nextQuery = filename;
-                      setQuery(filename);
-                      if (manageUrl) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set('q', filename);
-                        router.replace(`?${params.toString()}`);
-                      }
-                      (async () => {
-                        setLoading(true);
-                        try {
-                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                          setResults(searchResults);
-                        } catch (error) {
-                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                            return;
-                          }
-                          console.error('Search error:', error);
-                          setResults([]);
-                        } finally {
-                          setLoading(false);
+                <ImageWithBlurhash
+                  src={src}
+                  alt="linked media"
+                  width={1024}
+                  height={1024}
+                  dim={null}
+                  onClickSearch={() => {
+                    const filename = getFilenameFromUrl(src);
+                    const nextQuery = filename;
+                    setQuery(filename);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', filename);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    (async () => {
+                      setLoading(true);
+                      try {
+                        const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                        setResults(searchResults);
+                      } catch (error) {
+                        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                          return;
                         }
-                      })();
-                    }}
-                    title={`Search for ${getFilenameFromUrl(src)}`}
-                  />
-                  <ReverseImageSearchButton
-                    imageUrl={src}
-                  />
-                </>
+                        console.error('Search error:', error);
+                        setResults([]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    })();
+                  }}
+                />
               ) : null}
             </div>
           ))}
@@ -1544,7 +1572,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               type="text"
               value={query}
               onChange={handleInputChange}
-              placeholder={isConnecting ? loadingDots : placeholder}
+              placeholder={placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
               style={{ paddingRight: '3rem' }}
             />
@@ -1573,12 +1601,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </button>
             )}
             {!query && !loading && (
-              <button
+            <button
                 type="button"
                 aria-label="Next example"
                 title="Show next example"
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 cursor-pointer"
-                onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); }}
+              onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); setRotationSeed((s) => s + 1); }}
               >
                 <svg viewBox="0 0 36 36" className="w-5 h-5">
                   <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
@@ -1587,24 +1615,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </svg>
               </button>
             )}
-            {/* Connection status indicator */}
-            {!loading && connectionStatus !== 'connecting' && (
-              <button
-                type="button"
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
-                onClick={() => setShowConnectionDetails(!showConnectionDetails)}
-                title={formatConnectionTooltip(connectionDetails)}
-              >
-                <div className="relative w-3 h-3">
-                  {/* Mask to hide underlying text/underline */}
-                  <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
-                  <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                    connectionStatus === 'connected' ? 'bg-green-400' : 
-                    connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                  }`} />
-                </div>
-              </button>
-            )}
+            {/* Connection status indicator - always visible */}
+            <button
+              type="button"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
+              onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+              title={formatConnectionTooltip(connectionDetails)}
+            >
+              <div className="relative w-3 h-3">
+                {/* Mask to hide underlying text/underline */}
+                <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
+                <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
+                  connectionStatus === 'connected' ? 'bg-green-400' : 
+                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                }`} />
+              </div>
+            </button>
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
             {loading ? (
