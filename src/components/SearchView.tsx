@@ -440,7 +440,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const toVerify: Array<{ pubkey: string; nip05: string }> = [];
     for (const evt of results.slice(0, 50)) {
       const pubkey = (evt.pubkey || evt.author?.pubkey) as string | undefined;
-      const nip05 = (evt.author?.profile as { nip05?: string } | undefined)?.nip05;
+      const profile = evt.author?.profile as { nip05?: string | { url?: string; verified?: boolean } } | undefined;
+      const raw = profile?.nip05;
+      const nip05 = typeof raw === 'string' ? raw : raw?.url;
+      const verifiedHint = typeof raw === 'object' && raw ? raw.verified : undefined;
+      if (pubkey && verifiedHint === true) {
+        verifiedMapRef.current.set(pubkey, true);
+      }
       if (!pubkey || !nip05) continue;
       if (!verifiedMapRef.current.has(pubkey)) toVerify.push({ pubkey, nip05 });
     }

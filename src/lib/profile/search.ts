@@ -55,11 +55,16 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     verifyPromise: Promise<boolean> | null;
     finalScore?: number;
     verified?: boolean;
+    verifyHint?: boolean;
   };
 
   const enriched: EnrichedRow[] = candidates.map((evt, idx) => {
     const pubkey = evt.pubkey || evt.author?.pubkey || '';
-    const { name, display, about, nip05, image } = extractProfileFields(evt);
+    const { name, display, about, nip05, nip05VerifiedHint: extractedVerifiedHint, image } = extractProfileFields(evt);
+    const profile = evt.author?.profile as { nip05?: string | { url?: string; verified?: boolean } } | undefined;
+    const rawNip05 = profile?.nip05;
+    const nip05Value = typeof rawNip05 === 'string' ? rawNip05 : nip05;
+    const nip05VerifiedHint = typeof rawNip05 === 'object' && rawNip05 !== null ? rawNip05.verified : extractedVerifiedHint;
     const nameForAuthor = display || name || '';
 
     // Ensure author is set for UI
@@ -70,7 +75,7 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
         name: name,
         displayName: display,
         about,
-        nip05,
+        nip05: nip05Value,
         image
       };
       evt.author = user;
@@ -81,21 +86,21 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
           name: name,
           displayName: display,
           about,
-          nip05,
+          nip05: nip05Value,
           image
         };
       }
     }
 
-    const baseScore = computeMatchScore(termLower, name, display, about, nip05);
+    const baseScore = computeMatchScore(termLower, name, display, about, nip05Value);
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
 
     let verifyPromise: Promise<boolean> | null = null;
     // Use cached result immediately for scoring, and schedule background verification for a subset
-    const cached = pubkey ? getCachedNip05Result(pubkey, nip05) : null;
-    if (idx < verificationLimit && cached === null && pubkey) {
+    const cached = pubkey && nip05Value ? getCachedNip05Result(pubkey, nip05Value) : null;
+    if (idx < verificationLimit && cached === null && pubkey && nip05Value) {
       // Fire and forget; don't await in ranking path
-      verifyPromise = verifyNip05(pubkey, nip05);
+      verifyPromise = verifyNip05(pubkey, nip05Value);
       verifications.push(verifyPromise.catch(() => false));
     }
 
@@ -105,8 +110,9 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       name: nameForAuthor,
       baseScore,
       isFriend,
-      nip05,
-      verifyPromise
+      nip05: nip05Value,
+      verifyPromise,
+      verifyHint: nip05VerifiedHint
     };
   });
 
@@ -114,7 +120,9 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
 
   // Step 4: assign final score and sort
   for (const row of enriched) {
-    const verified = (row.pubkey ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
+    const verified = row.verifyHint === true
+      ? true
+      : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
     let score = row.baseScore;
     if (verified) score += 100;
     if (row.isFriend) score += 50;
