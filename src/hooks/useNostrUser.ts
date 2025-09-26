@@ -26,15 +26,15 @@ export function useNostrUser(npub: string | undefined) {
         setUser(u);
         const prefetched = getPrefetchedProfile(pk);
         if (prefetched) {
-          // Preserve existing profile metadata so avatar/banner show instantly
+          const prepared = prepareProfileEventForPrefetch(prefetched);
+          // Copy prepared author's profile into the new user before attaching
           try {
-            const existingAuthor = prefetched.author as unknown as { profile?: unknown } | null;
-            if (existingAuthor && typeof existingAuthor === 'object' && 'profile' in existingAuthor) {
+            const existingProfile = prepared.author && (prepared.author as unknown as { profile?: unknown }).profile;
+            if (existingProfile) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (u as any).profile = (existingAuthor as any).profile;
+              (u as any).profile = existingProfile as any;
             }
           } catch {}
-          const prepared = prepareProfileEventForPrefetch(prefetched);
           prepared.author = u;
           setProfileEvent(prepared);
           clearPrefetchedProfile(pk);
