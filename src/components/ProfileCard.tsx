@@ -472,7 +472,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             <CopyButton
               text={event.author.npub}
               title="Copy npub"
-              className="p-1 rounded hover:bg-[#3a3a3a]"
+              className="p-1 rounded border-0 hover:bg-[#3a3a3a]"
             />
           </div>
         )}
