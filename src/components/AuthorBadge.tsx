@@ -66,6 +66,10 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
 
   useEffect(() => {
     let isMounted = true;
+    // Use any already-known profile data immediately
+    const initial = user.profile?.displayName || user.profile?.name || '';
+    setName(initial);
+    setLoaded(true);
     (async () => {
       try {
         await user.fetchProfile();
@@ -73,7 +77,6 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       if (!isMounted) return;
       const display = user.profile?.displayName || user.profile?.name || '';
       setName(display);
-      setLoaded(true);
     })();
     return () => { isMounted = false; };
   }, [user]);

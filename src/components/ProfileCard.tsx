@@ -11,6 +11,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
+import { nip19 } from 'nostr-tools';
+import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { createProfileExplorerItems } from '@/lib/portals';
 import { calculateAbsoluteMenuPosition, calculateBannerMenuPosition } from '@/lib/utils';
 import { getIsKindTokens } from '@/lib/search/replacements';
@@ -295,6 +297,8 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   }, [onHashtagClick, router]);
   return (
     <div className={noteCardClasses}>
+      {/* Centralized preseed: whenever a ProfileCard renders, ensure its event is prepared and seeded */}
+      {(() => { try { if (event?.kind === 0 && event?.author?.pubkey) { setPrefetchedProfile(event.author.pubkey, prepareProfileEventForPrefetch(event)); } } catch {} return null; })()}
       {showBanner && safeBannerUrl && (
         <div
           role="button"
@@ -429,7 +433,12 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                   }
                 } catch {}
               }
-              // Otherwise, go to the author's profile
+              // Otherwise, go to the author's profile; seed prefetch first
+              try {
+                const { data } = nip19.decode(event.author.npub);
+                const pk = data as string;
+                setPrefetchedProfile(pk, prepareProfileEventForPrefetch(event));
+              } catch {}
               if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
             };
             return (
@@ -466,7 +475,19 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             >
               <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
             </button>
-            <a href={`/p/${event.author.npub}`} className="truncate hover:underline hidden sm:block" title={event.author.npub}>
+            <a
+              href={`/p/${event.author.npub}`}
+              className="truncate hover:underline hidden sm:block"
+              title={event.author.npub}
+              onClick={() => {
+                try {
+                  const { data } = nip19.decode(event.author.npub);
+                  const pk = data as string;
+                  setPrefetchedProfile(pk, event);
+                } catch {}
+                // Allow default navigation
+              }}
+            >
               {shortenNpub(event.author.npub)}
             </a>
           </div>

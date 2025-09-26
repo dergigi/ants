@@ -26,6 +26,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
+import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -556,6 +557,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
 
+  // Seed profile prefetch for visible profile cards as soon as results materialize
+  useEffect(() => {
+    try {
+      for (const ev of fuseFilteredResults) {
+        if (ev.kind === 0) {
+          // Use author.pubkey if available, fallback to event.pubkey
+          const pubkey = ev.author?.pubkey || ev.pubkey;
+          if (pubkey) {
+            setPrefetchedProfile(pubkey, prepareProfileEventForPrefetch(ev));
+          }
+        }
+      }
+    } catch {}
+  }, [fuseFilteredResults]);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
     // Rely solely on replacements.txt expansion upstream; no client-side media seeding
@@ -946,7 +962,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return () => { cancelled = true; clearTimeout(id); };
   }, [query]);
 
-  const goToProfile = useCallback((npub: string) => {
+  const goToProfile = useCallback((npub: string, prefetchEvent?: NDKEvent) => {
+    try {
+      if (prefetchEvent) {
+        const { data } = nip19.decode(npub);
+        const pk = data as string;
+        setPrefetchedProfile(pk, prepareProfileEventForPrefetch(prefetchEvent));
+      }
+    } catch {}
     router.push(`/p/${npub}`);
   }, [router]);
 
@@ -1817,7 +1840,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 <div key={key}>
                   {parentId && renderParentChain(event)}
                   {event.kind === 0 ? (
-                    <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
+                    <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
                     <EventCard
                       event={event}
