@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy, faExternalLink, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import TitleBarButton from '@/components/TitleBarButton';
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { nip19 } from 'nostr-tools';
@@ -322,71 +323,50 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               <Image src={safeBannerUrl} alt="Banner" fill className="object-cover" unoptimized />
             </div>
             <div className="absolute top-1 left-1 z-50 flex gap-1">
-              <button
-                type="button"
-                aria-label="Go back"
-                onClick={(e) => { 
-                  e.preventDefault(); 
-                  e.stopPropagation(); 
-                  router.back();
-                }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
-              >
-                <FontAwesomeIcon icon={faArrowLeft} className="text-xs" />
-              </button>
-              <button
+              <TitleBarButton
+                icon={faArrowLeft}
+                title="Go back"
+                onClick={() => router.back()}
+              />
+              <TitleBarButton
                 ref={buttonRef}
-                type="button"
-                aria-label="Open portals menu"
-                onClick={(e) => { 
-                  e.preventDefault(); 
-                  e.stopPropagation(); 
+                title="Open portals menu"
+                onClick={() => {
                   if (buttonRef.current) {
                     const rect = buttonRef.current.getBoundingClientRect();
                     const position = calculateAbsoluteMenuPosition(rect);
                     setMenuPosition(position);
                   }
-                  setShowPortalMenu((v) => !v); 
+                  setShowPortalMenu((v) => !v);
                 }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ⋯
-              </button>
+              </TitleBarButton>
             </div>
             <div className="absolute top-1 right-1 flex gap-1">
-              <button
-                type="button"
-                aria-label="Minimize"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerExpanded(false); }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+              <TitleBarButton
+                title="Minimize"
+                textSize="text-[10px]"
+                onClick={() => setBannerExpanded(false)}
               >
                 –
-              </button>
-              <button
-                type="button"
-                aria-label="Maximize"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+              </TitleBarButton>
+              <TitleBarButton
+                title="Maximize"
+                textSize="text-[10px]"
+                onClick={() => {
                   if (safeBannerUrl) window.open(safeBannerUrl, '_blank', 'noopener,noreferrer');
                 }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
               >
                 ▢
-              </button>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Clear search by navigating to landing page
-                  router.push('/');
-                }}
-                className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[10px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
+              </TitleBarButton>
+              <TitleBarButton
+                title="Close"
+                textSize="text-[10px]"
+                onClick={() => router.push('/')}
               >
                 ×
-              </button>
+              </TitleBarButton>
             </div>
           </div>
         </div>
@@ -394,36 +374,25 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
       {showBanner && !bannerUrl && (
         <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d]" style={{ height: 32 }}>
           <div className="absolute top-1 left-1 z-50 flex gap-1">
-            <button
-              type="button"
-              aria-label="Go back"
-              onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                router.back();
-              }}
-              className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} className="text-xs" />
-            </button>
-            <button
+            <TitleBarButton
+              icon={faArrowLeft}
+              title="Go back"
+              onClick={() => router.back()}
+            />
+            <TitleBarButton
               ref={buttonRef}
-              type="button"
-              aria-label="Open portals menu"
-              onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
+              title="Open portals menu"
+              onClick={() => {
                 if (buttonRef.current) {
                   const rect = buttonRef.current.getBoundingClientRect();
                   const position = calculateBannerMenuPosition(rect);
                   setMenuPosition(position);
                 }
-                setShowPortalMenu((v) => !v); 
+                setShowPortalMenu((v) => !v);
               }}
-              className="w-5 h-5 rounded-md bg-[#2a2a2a]/70 text-gray-200 border border-[#4a4a4a]/70 shadow-sm flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]/80 hover:border-[#5a5a5a]/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#5a5a5a]/40"
             >
               ⋯
-            </button>
+            </TitleBarButton>
           </div>
         </div>
       )}
