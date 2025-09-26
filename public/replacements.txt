@@ -48,3 +48,12 @@ is:zap => kind:9735
 is:muted => kind:10000
 is:pin => kind:10001
 is:bookmark => kind:10003
+
+# --- NIPS ---
+nip:01 => nips/blob/master/01.md
+nip:02 => nips/blob/master/02.md
+nip:03 => nips/blob/master/03.md
+nip:04 => nips/blob/master/04.md
+nip:05 => nips/blob/master/05.md
+nip:06 => nips/blob/master/06.md
+nip:34 => nips/blob/master/34.md
