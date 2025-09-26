@@ -409,22 +409,25 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             const handleAvatarClick = (e: React.MouseEvent<HTMLButtonElement>) => {
               e.preventDefault();
               e.stopPropagation();
-              const url = avatarUrl as string;
-              try {
-                // Extract filename from URL path
-                const parsed = new URL(url);
-                const pathname = parsed.pathname;
-                const segments = pathname.split('/').filter(Boolean);
-                const last = segments[segments.length - 1] || '';
-                const filename = last.split('?')[0];
-                if (filename) {
-                  const params = new URLSearchParams();
-                  params.set('q', filename);
-                  router.push(`/?${params.toString()}`);
-                  return;
-                }
-              } catch {}
-              // Fallback: navigate to author profile if parsing fails
+              // Only run profile-picture search from profile pages
+              if (pathname.startsWith('/p/')) {
+                const url = avatarUrl as string;
+                try {
+                  // Extract filename from URL path
+                  const parsed = new URL(url);
+                  const p = parsed.pathname;
+                  const segments = p.split('/').filter(Boolean);
+                  const last = segments[segments.length - 1] || '';
+                  const filename = last.split('?')[0];
+                  if (filename) {
+                    const params = new URLSearchParams();
+                    params.set('q', filename);
+                    router.push(`/?${params.toString()}`);
+                    return;
+                  }
+                } catch {}
+              }
+              // Otherwise, go to the author's profile
               if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
             };
             return (
