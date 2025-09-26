@@ -28,6 +28,7 @@ export const searchExamples = [
   'by:dergigi site:yt',
   '#news site:rumble.com',
   'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
+  '"car crash" by:dergigi',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
