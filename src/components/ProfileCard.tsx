@@ -298,7 +298,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   return (
     <div className={noteCardClasses}>
       {/* Centralized preseed: whenever a ProfileCard renders, ensure its event is prepared and seeded */}
-      {(() => { try { if (event?.kind === 0 && event?.author?.pubkey) { console.log('🔥 ProfileCard seeding with pubkey:', event.author.pubkey); setPrefetchedProfile(event.author.pubkey, prepareProfileEventForPrefetch(event)); } } catch {} return null; })()}
+      {(() => { try { if (event?.kind === 0 && event?.author?.pubkey) { setPrefetchedProfile(event.author.pubkey, prepareProfileEventForPrefetch(event)); } } catch {} return null; })()}
       {showBanner && safeBannerUrl && (
         <div
           role="button"

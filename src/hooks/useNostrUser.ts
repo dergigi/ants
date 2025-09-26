@@ -25,7 +25,6 @@ export function useNostrUser(npub: string | undefined) {
         // Use prefetched event if available for instant UI; otherwise show placeholder
         setUser(u);
         const prefetched = getPrefetchedProfile(pk);
-        console.log('🔥 useNostrUser prefetched result:', !!prefetched);
         if (prefetched) {
           const prepared = prepareProfileEventForPrefetch(prefetched);
           // Copy prepared author's profile into the new user before attaching

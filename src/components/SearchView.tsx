@@ -565,7 +565,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           // Use author.pubkey if available, fallback to event.pubkey
           const pubkey = ev.author?.pubkey || ev.pubkey;
           if (pubkey) {
-            console.log('🔥 SearchView seeding profile with pubkey:', pubkey);
             setPrefetchedProfile(pubkey, prepareProfileEventForPrefetch(ev));
           }
         }

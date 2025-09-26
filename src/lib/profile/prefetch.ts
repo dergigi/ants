@@ -81,9 +81,7 @@ export function setPrefetchedProfile(pubkeyHex: string, event: NDKEvent): void {
 }
 
 export function getPrefetchedProfile(pubkeyHex: string): NDKEvent | null {
-  console.log('🔥 getPrefetchedProfile called for:', pubkeyHex);
   const entry = profilePrefetch.get(pubkeyHex);
-  console.log('🔥 getPrefetchedProfile found entry:', !!entry, entry ? 'age:' + (Date.now() - entry.timestamp) + 'ms' : '');
   if (!entry) return null;
   const isExpired = Date.now() - entry.timestamp > PROFILE_PREFETCH_TTL_MS;
   if (isExpired) {
