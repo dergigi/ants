@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { getNip05Domain } from '@/lib/nip05';
+import { getNip05Domain, isRootNip05 } from '@/lib/nip05';
 import { cleanNip05Display } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
+import { faCircleXmark, faCircleExclamation, faUserGroup, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
 import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
@@ -99,7 +99,11 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
         className="hover:opacity-80 transition-opacity"
         title={`Search for ${value}`}
       >
-        <FontAwesomeIcon icon={effectiveVerified ? faIdBadge : faCircleXmark} className="h-4 w-4" />
+        {effectiveVerified && isRootNip05(value) ? (
+          <FontAwesomeIcon icon={faCheckDouble} className="h-4 w-4" />
+        ) : (
+          <FontAwesomeIcon icon={effectiveVerified ? faIdBadge : faCircleXmark} className="h-4 w-4" />
+        )}
       </button>
       <button
         type="button"

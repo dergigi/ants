@@ -22,6 +22,16 @@ export function getNip05Domain(input: string): string {
   return (parts[1] || '').trim();
 }
 
+export function isRootNip05(nip05?: string): boolean {
+  if (!nip05) return false;
+  const normalized = normalizeNip05String(nip05);
+  if (!normalized) return false;
+  
+  const [localPart] = normalized.split('@');
+  // Root NIP-05 is when local part is '_' or empty (which gets normalized to '_')
+  return localPart === '_';
+}
+
 const nip05Cache = new Map<string, boolean>();
 
 export async function verifyNip05(pubkeyHex: string | undefined, nip05?: string, timeoutMs: number = 4000): Promise<boolean> {
