@@ -26,6 +26,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
+import { setPrefetchedProfile } from '@/lib/profile/prefetch';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -951,9 +952,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (prefetchEvent) {
         const { data } = nip19.decode(npub);
         const pk = data as string;
-        // Lazy import to avoid circular deps at module init
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { setPrefetchedProfile } = require('@/lib/profile/prefetch');
         setPrefetchedProfile(pk, prefetchEvent);
       }
     } catch {}
