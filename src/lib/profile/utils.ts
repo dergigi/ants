@@ -9,15 +9,20 @@ export function extractProfileFields(event: NDKEvent): {
   display?: string; 
   about?: string; 
   nip05?: string; 
+  nip05VerifiedHint?: boolean;
   image?: string 
 } {
   try {
     const content = JSON.parse(event.content || '{}');
+    const nip05Raw = content.nip05 as { url?: string; verified?: boolean } | string | undefined;
+    const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+    const nip05VerifiedHint = typeof nip05Raw === 'object' && nip05Raw !== null ? nip05Raw.verified : undefined;
     return {
       name: content.name,
       display: content.display_name || content.displayName,
       about: content.about,
-      nip05: content.nip05,
+      nip05,
+      nip05VerifiedHint,
       image: content.image || content.picture
     };
   } catch {

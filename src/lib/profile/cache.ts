@@ -71,7 +71,7 @@ export function deserializeDvmEvents(records: DvmStoredRecord[]): NDKEvent[] {
     const user = new NDKUser({ pubkey: rec.pubkey });
     user.ndk = ndk;
     if (rec.profile) {
-      (user as NDKUser & { profile: typeof rec.profile }).profile = { ...rec.profile } as typeof rec.profile;
+    (user as NDKUser & { profile: typeof rec.profile }).profile = { ...rec.profile } as typeof rec.profile;
     }
     const plain = {
       kind: 0,

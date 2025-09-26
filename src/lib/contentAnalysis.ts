@@ -57,7 +57,9 @@ export function isNsfwText(text: string): boolean {
 /**
  * Apply client-side filters to a list of events based on emoji and hashtag counts
  */
-export function applyContentFilters<T extends { id?: string; content?: string; author?: { profile?: { nip05?: string; bot?: boolean; is_bot?: boolean; about?: string }, pubkey?: string }; pubkey?: string }>(
+type Nip05Value = string | { url?: string; verified?: boolean } | undefined;
+
+export function applyContentFilters<T extends { id?: string; content?: string; author?: { profile?: { nip05?: Nip05Value; bot?: boolean; is_bot?: boolean; about?: string }, pubkey?: string }; pubkey?: string }>(
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
@@ -114,8 +116,16 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
   // Only include events whose authors are actually verified according to verifyCheck map.
   return base.filter((evt) => {
     const pubkey = (evt.pubkey || evt.author?.pubkey) as string | undefined;
-    const nip05 = evt.author?.profile?.nip05;
-    if (!pubkey || !nip05) return false;
+    const nip05Raw = evt.author?.profile?.nip05 as Nip05Value;
+    const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+    const hintedVerified =
+      typeof nip05Raw === 'object' && nip05Raw !== null && typeof nip05Raw.verified === 'boolean'
+        ? nip05Raw.verified
+        : undefined;
+    if (!pubkey || !nip05) {
+      return Boolean(hintedVerified === true);
+    }
+    if (hintedVerified === true) return true;
     if (verifyCheck) {
       return verifyCheck(pubkey, nip05) === true;
     }
