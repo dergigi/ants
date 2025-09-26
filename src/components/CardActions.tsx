@@ -2,9 +2,10 @@
 
 import React, { forwardRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCode, faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faCode, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { nip19 } from 'nostr-tools';
 import IconButton from '@/components/IconButton';
+import CopyButton from '@/components/CopyButton';
 
 type Props = {
   eventId?: string;
@@ -58,21 +59,17 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         <FontAwesomeIcon icon={faCode} className="text-xs" />
       </IconButton>
       {nprofile ? (
-        <IconButton
+        <CopyButton
+          text={`nostr:${nprofile}`}
           title="Copy nprofile"
-          ariaLabel="Copy nprofile"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { void navigator.clipboard.writeText(`nostr:${nprofile}`); } catch {} }}
-        >
-          <FontAwesomeIcon icon={faCopy} className="text-xs" />
-        </IconButton>
+          className="w-5 h-5 rounded-md text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+        />
       ) : eventId ? (
-        <IconButton
+        <CopyButton
+          text={String(neventHref)}
           title="Copy nevent"
-          ariaLabel="Copy nevent"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { void navigator.clipboard.writeText(String(neventHref)); } catch {} }}
-        >
-          <FontAwesomeIcon icon={faCopy} className="text-xs" />
-        </IconButton>
+          className="w-5 h-5 rounded-md text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+        />
       ) : null}
       {href ? (
         <a
