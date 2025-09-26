@@ -946,7 +946,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return () => { cancelled = true; clearTimeout(id); };
   }, [query]);
 
-  const goToProfile = useCallback((npub: string) => {
+  const goToProfile = useCallback((npub: string, prefetchEvent?: NDKEvent) => {
+    try {
+      if (prefetchEvent) {
+        const { data } = nip19.decode(npub);
+        const pk = data as string;
+        // Lazy import to avoid circular deps at module init
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { setPrefetchedProfile } = require('@/lib/profile/prefetch');
+        setPrefetchedProfile(pk, prefetchEvent);
+      }
+    } catch {}
     router.push(`/p/${npub}`);
   }, [router]);
 
@@ -1817,7 +1827,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 <div key={key}>
                   {parentId && renderParentChain(event)}
                   {event.kind === 0 ? (
-                    <ProfileCard event={event} onAuthorClick={goToProfile} showBanner={false} />
+                    <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
                     <EventCard
                       event={event}
