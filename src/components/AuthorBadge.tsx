@@ -138,7 +138,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           e.stopPropagation();
           const current = searchParams ? searchParams.toString() : '';
           const params = new URLSearchParams(current);
-          params.set('q', 'nips/blob/master/05.md');
+          params.set('q', 'nip:05');
           router.push(`/?${params.toString()}`);
         }}
         className="hover:opacity-80 transition-opacity"
@@ -146,7 +146,21 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       >
         <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
       </button>
-      <span className="text-gray-400 hidden sm:inline">no NIP-05</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', 'nip:05');
+          router.push(`/?${params.toString()}`);
+        }}
+        className="text-gray-400 hidden sm:inline hover:underline"
+        title="Search for NIP-05 specification"
+      >
+        no NIP-05
+      </button>
     </span>
   );
 
