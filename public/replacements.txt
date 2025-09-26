@@ -152,3 +152,6 @@ nip:99 => nips/blob/master/99.md
 nip:B0 => nips/blob/master/B0.md
 nip:C0 => nips/blob/master/C0.md
 nip:EE => nips/blob/master/EE.md
+nip:A0 => nips/blob/master/A0.md
+nip:C7 => nips/blob/master/C7.md
+nip:7D => nips/blob/master/7D.md
