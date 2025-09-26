@@ -41,6 +41,9 @@ export const searchExamples = [
   'p:zaps.lol',
   'p:nostrplebs.com',
   'p:dave',
+  'p:NewsBot or p:RSS',
+  'p:twentyone.world',
+  'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
   '(p:dad OR p:husband OR p:father)',
 
