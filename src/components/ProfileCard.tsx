@@ -430,7 +430,14 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 } catch {}
               }
               // Otherwise, go to the author's profile
-              if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
+              if (onAuthorClick && event.author?.npub) {
+                // Seed boot cache with current inline profile event to avoid blank state on /p
+                try {
+                  const { setBootProfileEvent } = await import('@/lib/profile/boot-cache');
+                  setBootProfileEvent(event.author.npub, event);
+                } catch {}
+                onAuthorClick(event.author.npub);
+              }
             };
             return (
             <button
