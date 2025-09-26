@@ -114,8 +114,21 @@ export function prepareProfileEventForPrefetch(event: NDKEvent): NDKEvent {
     if (!author.profile && event.kind === 0) {
       try {
         const parsed = JSON.parse(event.content || '{}');
+        const normalized: Record<string, unknown> = { ...parsed };
+        // Normalize common fields our UI expects
+        // picture -> image
+        if (typeof parsed?.picture === 'string') normalized.image = parsed.picture;
+        // display_name -> displayName
+        if (typeof parsed?.display_name === 'string') normalized.displayName = parsed.display_name;
+        // username often maps to name if name is missing
+        if (!parsed?.name && typeof parsed?.username === 'string') normalized.name = parsed.username;
+        // website also available as url
+        if (typeof parsed?.website === 'string' && !parsed?.url) normalized.url = parsed.website;
+        // Keep banner/cover/header as-is; UI already checks these keys
+        // Ensure nip05 is preserved
+        if (typeof parsed?.nip05 === 'string') normalized.nip05 = parsed.nip05;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (author as any).profile = parsed || {};
+        (author as any).profile = normalized;
       } catch {}
     }
     event.author = author;

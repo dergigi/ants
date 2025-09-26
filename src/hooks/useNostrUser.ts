@@ -52,22 +52,23 @@ export function useNostrUser(npub: string | undefined) {
           setProfileEvent(placeholder);
         }
 
-        // Load connection and fetch profile
-        try { await connect(); } catch {}
-        try { await u.fetchProfile(); } catch {}
-        if (cancelled) return;
-
-        const filled = new NDKEvent(ndk, {
-          kind: 0,
-          created_at: Math.floor(Date.now() / 1000),
-          content: JSON.stringify(u.profile || {}),
-          pubkey: pk,
-          tags: [],
-          id: '',
-          sig: ''
-        });
-        filled.author = u;
-        setProfileEvent(filled);
+        // Load connection and fetch profile to refresh in background
+        ;(async () => {
+          try { await connect(); } catch {}
+          try { await u.fetchProfile(); } catch {}
+          if (cancelled) return;
+          const filled = new NDKEvent(ndk, {
+            kind: 0,
+            created_at: Math.floor(Date.now() / 1000),
+            content: JSON.stringify(u.profile || {}),
+            pubkey: pk,
+            tags: [],
+            id: '',
+            sig: ''
+          });
+          filled.author = u;
+          setProfileEvent(filled);
+        })();
       } catch {
         if (cancelled) return;
         setUser(null);
