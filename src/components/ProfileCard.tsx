@@ -10,6 +10,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCopy, faExternalLink, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
+import CopyButton from '@/components/CopyButton';
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { nip19 } from 'nostr-tools';
@@ -453,19 +454,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         </div>
         {event.author?.npub && (
           <div className="flex items-center gap-2 max-w-[50%] text-right text-sm text-gray-400">
-            <button
-              type="button"
-              aria-label="Copy npub"
-              title="Copy npub"
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try { await navigator.clipboard.writeText(event.author.npub); } catch {}
-              }}
-              className="p-1 rounded hover:bg-[#3a3a3a]"
-            >
-              <FontAwesomeIcon icon={faCopy} className="text-gray-400 text-xs" />
-            </button>
             <a
               href={`/p/${event.author.npub}`}
               className="truncate hover:underline hidden sm:block"
@@ -481,6 +469,11 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             >
               {shortenNpub(event.author.npub)}
             </a>
+            <CopyButton
+              text={event.author.npub}
+              title="Copy npub"
+              className="p-1 rounded hover:bg-[#3a3a3a]"
+            />
           </div>
         )}
       </div>
