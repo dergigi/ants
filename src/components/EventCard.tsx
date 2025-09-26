@@ -12,6 +12,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
+
 type Props = {
   event: NDKEvent;
   onAuthorClick?: (npub: string) => void;

@@ -25,10 +25,11 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
+import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -52,6 +53,77 @@ function SearchIconButton({
     >
       <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3 h-3" />
     </button>
+  );
+}
+
+// Component for truncating long text with fade effect and expand arrow
+function TruncatedText({ 
+  content, 
+  maxLength = TEXT_MAX_LENGTH, 
+  className = '',
+  renderContentWithClickableHashtags
+}: { 
+  content: string; 
+  maxLength?: number; 
+  className?: string;
+  renderContentWithClickableHashtags: (content: string) => React.ReactNode;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!content) return null;
+  
+  // Calculate effective length considering links as 10 characters each
+  const calculateEffectiveLength = (text: string): number => {
+    // Regex patterns for different types of links
+    const urlPattern = /https?:\/\/[^\s]+/g;
+    const nostrPattern = /(nevent|naddr|nprofile|npub|nsec|note)1[a-z0-9]+/g;
+    
+    let effectiveLength = text.length;
+    
+    // Replace URLs with configured character count
+    const urls = text.match(urlPattern) || [];
+    urls.forEach(url => {
+      effectiveLength = effectiveLength - url.length + TEXT_LINK_CHAR_COUNT;
+    });
+    
+    // Replace nostr-native links with configured character count
+    const nostrLinks = text.match(nostrPattern) || [];
+    nostrLinks.forEach(link => {
+      effectiveLength = effectiveLength - link.length + TEXT_LINK_CHAR_COUNT;
+    });
+    
+    return effectiveLength;
+  };
+  
+  const effectiveLength = calculateEffectiveLength(content);
+  const shouldTruncate = effectiveLength > maxLength;
+  
+  // For display, we still need to truncate the actual text
+  const displayText = isExpanded || !shouldTruncate ? content : content.slice(0, maxLength);
+  
+  return (
+    <div className={`relative ${className}`}>
+      <div className={shouldTruncate && !isExpanded ? 'relative' : ''}>
+        {renderContentWithClickableHashtags(displayText)}
+        {shouldTruncate && !isExpanded && (
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#2d2d2d] to-transparent pointer-events-none" />
+        )}
+      </div>
+      {shouldTruncate && (
+        <div className="mt-0.5">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-center text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            <FontAwesomeIcon 
+              icon={isExpanded ? faChevronUp : faChevronDown} 
+              className="w-3 h-3" 
+            />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -425,7 +497,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'help') {
       const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(null);
+      setTopExamples(SLASH_COMMANDS.map(c => c.label));
       return;
     }
     if (cmd === 'examples') {
@@ -1316,9 +1388,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               event={embedded}
               onAuthorClick={goToProfile}
               renderContent={(text) => (
-                <div className="text-gray-100 whitespace-pre-wrap break-words">
-                  {renderContentWithClickableHashtags(text, { disableNevent: true })}
-                </div>
+                <TruncatedText 
+                  content={text} 
+                  maxLength={TEXT_MAX_LENGTH}
+                  className="text-gray-100 whitespace-pre-wrap break-words"
+                  renderContentWithClickableHashtags={(content) => renderContentWithClickableHashtags(content, { disableNevent: true })}
+                />
               )}
               variant="inline"
               footerRight={createdAt ? (
@@ -1619,7 +1694,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             event={parentEvent}
             onAuthorClick={goToProfile}
             renderContent={(text) => (
-              <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+              <TruncatedText 
+                content={text} 
+                maxLength={TEXT_MAX_LENGTH}
+                className="text-gray-100 whitespace-pre-wrap break-words"
+                renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+              />
             )}
             mediaRenderer={renderNoteMedia}
             className="p-0 border-0 bg-transparent"
@@ -1889,7 +1969,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       event={event}
                       onAuthorClick={goToProfile}
                       renderContent={(text) => (
-                        <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+                        <TruncatedText 
+                          content={text} 
+                          maxLength={TEXT_MAX_LENGTH}
+                          className="text-gray-100 whitespace-pre-wrap break-words"
+                          renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+                        />
                       )}
                       mediaRenderer={renderNoteMedia}
                       footerRight={(
