@@ -65,8 +65,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         >
           <FontAwesomeIcon icon={faCopy} className="text-xs" />
         </IconButton>
-      ) : null}
-      {eventId ? (
+      ) : eventId ? (
         <IconButton
           title="Copy nevent"
           ariaLabel="Copy nevent"
