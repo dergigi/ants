@@ -88,7 +88,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             </button>
             <a
               href={`lightning:${lightning}`}
-              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 hidden sm:block"
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -111,7 +111,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 hidden sm:block"
               title={`Open ${website} externally`}
               onClick={(e) => e.stopPropagation()}
             >
