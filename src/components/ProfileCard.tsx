@@ -102,7 +102,9 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               className="inline-flex items-center gap-1 hover:underline"
               title={`Search for ${website}`}
             >
-              <span className="text-blue-400">🌐</span>
+              <span className="text-blue-400 hidden sm:inline">🌐</span>
+              <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
+              <span className="text-blue-400 sm:hidden">🌐</span>
             </button>
             <a
               href={website}
