@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub } from '@/lib/utils';
@@ -102,9 +102,9 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               className="inline-flex items-center gap-1 hover:underline"
               title={`Search for ${website}`}
             >
-              <FontAwesomeIcon icon={faGlobe} className="text-blue-400 h-3 w-3 hidden sm:inline" />
+              <FontAwesomeIcon icon={faHouseUser} className="text-blue-400 h-3 w-3 hidden sm:inline" />
               <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
-              <FontAwesomeIcon icon={faGlobe} className="text-blue-400 h-3 w-3 sm:hidden" />
+              <FontAwesomeIcon icon={faHouseUser} className="text-blue-400 h-3 w-3 sm:hidden" />
             </button>
             <a
               href={website}
