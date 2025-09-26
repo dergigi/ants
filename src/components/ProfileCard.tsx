@@ -82,7 +82,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Search for ${lightning}`}
             >
               <span className="text-yellow-400">⚡</span>
-              <span className="truncate max-w-[14rem]">{lightning}</span>
+              <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
