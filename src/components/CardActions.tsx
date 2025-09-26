@@ -57,20 +57,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
       >
         <FontAwesomeIcon icon={faCode} className="text-xs" />
       </IconButton>
-      {isMenuVisible ? (
-        <IconButton
-          ref={menuButtonRef}
-          title="Open in portals"
-          ariaLabel="Open in portals"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleMenu();
-          }}
-        >
-          ⋯
-        </IconButton>
-      ) : null}
       {nprofile ? (
         <IconButton
           title="Copy nprofile"
@@ -103,6 +89,20 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         >
           <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
         </a>
+      ) : null}
+      {isMenuVisible ? (
+        <IconButton
+          ref={menuButtonRef}
+          title="Open in portals"
+          ariaLabel="Open in portals"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleMenu();
+          }}
+        >
+          ⋯
+        </IconButton>
       ) : null}
     </div>
   );
