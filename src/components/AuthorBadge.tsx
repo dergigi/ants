@@ -100,7 +100,10 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
         title={`Search for ${value}`}
       >
         {effectiveVerified && isRootNip05(value) ? (
-          <FontAwesomeIcon icon={faCheckDouble} className="h-4 w-4" />
+          <>
+            <FontAwesomeIcon icon={faCheckDouble} className="h-4 w-4" />
+            <FontAwesomeIcon icon={faIdBadge} className="h-4 w-4" />
+          </>
         ) : (
           <FontAwesomeIcon icon={effectiveVerified ? faIdBadge : faCircleXmark} className="h-4 w-4" />
         )}
