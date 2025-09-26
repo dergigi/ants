@@ -1386,48 +1386,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {extractImageUrls(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
           {extractImageUrls(content).map((src) => (
-            <div
-              key={src}
-              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
-            >
+            <div key={src} className="relative">
               {isAbsoluteHttpUrl(src) ? (
-                <>
-                  <Image src={src} alt="linked media" width={1024} height={1024} className="h-auto w-full object-cover" unoptimized />
-                  <SearchIconButton
-                    onClick={() => {
-                      const filename = getFilenameFromUrl(src);
-                      const nextQuery = filename;
-                      setQuery(filename);
-                      if (manageUrl) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set('q', filename);
-                        router.replace(`?${params.toString()}`);
-                      }
-                      (async () => {
-                        setLoading(true);
-                        try {
-                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                          setResults(searchResults);
-                        } catch (error) {
-                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                            return;
-                          }
-                          console.error('Search error:', error);
-                          setResults([]);
-                        } finally {
-                          setLoading(false);
+                <ImageWithBlurhash
+                  src={src}
+                  alt="linked media"
+                  width={1024}
+                  height={1024}
+                  dim={null}
+                  onClickSearch={() => {
+                    const filename = getFilenameFromUrl(src);
+                    const nextQuery = filename;
+                    setQuery(filename);
+                    if (manageUrl) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('q', filename);
+                      router.replace(`?${params.toString()}`);
+                    }
+                    (async () => {
+                      setLoading(true);
+                      try {
+                        const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+                        setResults(searchResults);
+                      } catch (error) {
+                        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+                          return;
                         }
-                      })();
-                    }}
-                    title={`Search for ${getFilenameFromUrl(src)}`}
-                  />
-                  <ReverseImageSearchButton
-                    imageUrl={src}
-                  />
-                  <div className="absolute bottom-1.5 right-1.5 z-10">
-                    <CopyButton text={src} title="Copy image URL" />
-                  </div>
-                </>
+                        console.error('Search error:', error);
+                        setResults([]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    })();
+                  }}
+                />
               ) : null}
             </div>
           ))}
