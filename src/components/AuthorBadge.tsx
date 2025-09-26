@@ -6,7 +6,8 @@ import { getNip05Domain } from '@/lib/nip05';
 import { cleanNip05Display } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faIdBadge, faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
+import { faCircleXmark, faCircleExclamation, faUserGroup } from '@fortawesome/free-solid-svg-icons';
+import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
@@ -80,7 +81,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
   const effectiveVerified = isVerified;
 
   const nip05Part = value ? (
-    <span className={`inline-flex items-center gap-2 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
+    <span className={`inline-flex items-center gap-1 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
       <button
         type="button"
         onClick={(e) => {

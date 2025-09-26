@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilter, faChevronDown, faChevronUp, faIdBadge } from '@fortawesome/free-solid-svg-icons';
+import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
 
 export interface FilterSettings {
   maxEmojis: number | null;
