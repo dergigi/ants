@@ -173,6 +173,7 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
 
   return (
     <div className="flex items-center gap-2">
+      <span className="text-sm truncate">{nip05Part}</span>
       {loaded ? (
         <button
           type="button"
@@ -185,7 +186,6 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       ) : (
         <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
       )}
-      <span className="text-sm truncate">{nip05Part}</span>
     </div>
   );
 }
