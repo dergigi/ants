@@ -562,9 +562,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     console.log('🔥 SearchView seeding prefetch for', fuseFilteredResults.length, 'results');
     try {
       for (const ev of fuseFilteredResults) {
-        if (ev.kind === 0 && ev.pubkey) {
-          console.log('🔥 SearchView seeding profile with pubkey:', ev.pubkey);
-          setPrefetchedProfile(ev.pubkey, prepareProfileEventForPrefetch(ev));
+        if (ev.kind === 0) {
+          // Use author.pubkey if available, fallback to event.pubkey
+          const pubkey = ev.author?.pubkey || ev.pubkey;
+          if (pubkey) {
+            console.log('🔥 SearchView seeding profile with pubkey:', pubkey);
+            setPrefetchedProfile(pubkey, prepareProfileEventForPrefetch(ev));
+          }
         }
       }
     } catch {}
