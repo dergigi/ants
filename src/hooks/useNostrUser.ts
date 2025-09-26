@@ -18,6 +18,7 @@ export function useNostrUser(npub: string | undefined) {
       try {
         const { data } = nip19.decode(npub);
         const pk = data as string;
+        console.log('🔥 useNostrUser decoded pubkey:', pk);
         setPubkey(pk);
         const u = new NDKUser({ pubkey: pk });
         u.ndk = ndk;
