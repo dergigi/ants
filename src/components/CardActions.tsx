@@ -62,13 +62,13 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         <CopyButton
           text={`nostr:${nprofile}`}
           title="Copy nprofile"
-          className="w-5 h-5 rounded-md text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+          className="w-5 h-5 rounded-md border-0 text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
         />
       ) : eventId ? (
         <CopyButton
           text={String(neventHref)}
           title="Copy nevent"
-          className="w-5 h-5 rounded-md text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+          className="w-5 h-5 rounded-md border-0 text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
         />
       ) : null}
       {href ? (
