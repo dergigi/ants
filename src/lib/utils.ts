@@ -178,9 +178,12 @@ export function calculateBannerMenuPosition(
  * @param nip05 - The NIP-05 string to clean
  * @returns The cleaned NIP-05 string without implicit prefixes
  */
-export function cleanNip05Display(nip05: string): string {
-  if (!nip05) return nip05;
-  
+export function cleanNip05Display(nip05?: string | null): string {
+  if (typeof nip05 !== 'string') return '';
+
+  const normalized = nip05.trim();
+  if (!normalized) return '';
+
   // Remove "_@" prefix if present (implicit in NIP-05)
-  return nip05.replace(/^_@/, '');
+  return normalized.replace(/^_@/, '');
 }
