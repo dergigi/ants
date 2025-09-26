@@ -15,7 +15,7 @@ const DAYS_IN_YEAR = 365;
 
 // Cache formatters to avoid recreating them
 const formatters = {
-  short: new RelativeTimeFormat('en', { style: 'short' }),
+  narrow: new RelativeTimeFormat('en', { style: 'narrow' }),
   long: new RelativeTimeFormat('en', { style: 'long' })
 };
 
@@ -49,12 +49,12 @@ function calculateTimeDifferences(timestamp: number) {
 /**
  * Formats a timestamp as relative time with responsive formatting
  * @param timestamp - Unix timestamp in seconds
- * @param isMobile - Whether to use short format (mobile) or long format (desktop)
+ * @param isMobile - Whether to use narrow format (mobile) or long format (desktop)
  * @returns Formatted relative time string
  */
 export function formatRelativeTime(timestamp: number, isMobile: boolean = false): string {
   const { diffSeconds, diffMinutes, diffHours, diffDays, diffMonths, diffYears } = calculateTimeDifferences(timestamp);
-  const formatter = isMobile ? formatters.short : formatters.long;
+  const formatter = isMobile ? formatters.narrow : formatters.long;
 
   if (Math.abs(diffYears) >= 1) {
     return formatter.format(-diffYears, 'year');
