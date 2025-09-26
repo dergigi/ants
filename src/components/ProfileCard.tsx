@@ -148,7 +148,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           )}
           <CardActions
             eventId={fallbackEventId}
-            profilePubkey={event.author.pubkey}
+            profilePubkey={pubkey}
             showRaw={showRaw}
             onToggleRaw={onToggleRaw}
             onToggleMenu={() => {
