@@ -57,3 +57,6 @@ nip:04 => nips/blob/master/04.md
 nip:05 => nips/blob/master/05.md
 nip:06 => nips/blob/master/06.md
 nip:34 => nips/blob/master/34.md
+nip:EE => nips/blob/master/EE.md
+nip:B0 => nips/blob/master/B0.md
+nip:C0 => nips/blob/master/C0.md

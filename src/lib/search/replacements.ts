@@ -55,7 +55,20 @@ export async function applySimpleReplacements(input: string): Promise<string> {
   q = q.replace(/(^|\s)([a-zA-Z0-9_-]+):([^\s,]+)(?=\s|$)/g, (full, lead: string, kind: string, key: string) => {
     const kindLower = kind.toLowerCase();
     const rule = rules.find((r) => r.kind === kindLower && r.key.toLowerCase() === key.toLowerCase());
-    return rule ? `${lead}${rule.expansion}` : full;
+    if (rule) return `${lead}${rule.expansion}`;
+    // Default support for nip: tokens if not explicitly listed in replacements file.
+    if (kindLower === 'nip') {
+      const formatted = (() => {
+        const clean = key.trim();
+        if (/^\d+$/.test(clean)) {
+          if (clean.length === 1) return `0${clean}`;
+          return clean;
+        }
+        return clean.toUpperCase();
+      })();
+      return `${lead}nips/blob/master/${formatted}.md`;
+    }
+    return full;
   });
 
   return q.replace(/\s{2,}/g, ' ').trim();
