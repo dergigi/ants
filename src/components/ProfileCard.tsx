@@ -68,7 +68,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return () => { isMounted = false; };
   }, [pubkey, fallbackEventId, fallbackCreatedAt]);
 
-  const updatedLabel = updatedAt ? `Updated ${formatRelativeTimeAuto(updatedAt)}.` : 'Updated unknown.';
+  const updatedLabel = updatedAt ? formatRelativeTimeAuto(updatedAt) : 'Unknown';
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -102,7 +102,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               className="inline-flex items-center gap-1 hover:underline"
               title={`Search for ${website}`}
             >
-              <span className="truncate max-w-[14rem]">{website}</span>
+              <span className="text-blue-400">🌐</span>
             </button>
             <a
               href={website}
