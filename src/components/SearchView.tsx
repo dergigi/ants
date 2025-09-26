@@ -425,7 +425,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (cmd === 'help') {
       const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(null);
+      setTopExamples(SLASH_COMMANDS.map(c => c.label));
       return;
     }
     if (cmd === 'examples') {
