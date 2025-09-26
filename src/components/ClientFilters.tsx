@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilter, faChevronDown, faChevronUp, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { faFilter, faChevronDown, faChevronUp, faIdBadge } from '@fortawesome/free-solid-svg-icons';
 
 export interface FilterSettings {
   maxEmojis: number | null;
@@ -124,7 +124,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 className="accent-[#4a4a4a]"
               />
               <span>Valid NIP-05</span>
-              <FontAwesomeIcon icon={faCircleCheck} className="w-3 h-3 text-green-400" />
+              <FontAwesomeIcon icon={faIdBadge} className="w-3 h-3 text-green-400" />
             </label>
 
             {/* Hide more than X emojis */}
