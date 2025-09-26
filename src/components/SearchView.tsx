@@ -29,6 +29,7 @@ import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fort
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
+import { TEXT_MAX_LENGTH } from '@/lib/constants';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -58,7 +59,7 @@ function SearchIconButton({
 // Component for truncating long text with show more/less functionality
 function TruncatedText({ 
   content, 
-  maxLength = 500, 
+  maxLength = TEXT_MAX_LENGTH, 
   className = '',
   renderContentWithClickableHashtags
 }: { 
@@ -1353,7 +1354,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               renderContent={(text) => (
                 <TruncatedText 
                   content={text} 
-                  maxLength={500}
+                  maxLength={TEXT_MAX_LENGTH}
                   className="text-gray-100 whitespace-pre-wrap break-words"
                   renderContentWithClickableHashtags={(content) => renderContentWithClickableHashtags(content, { disableNevent: true })}
                 />
@@ -1659,7 +1660,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             renderContent={(text) => (
               <TruncatedText 
                 content={text} 
-                maxLength={500}
+                maxLength={TEXT_MAX_LENGTH}
                 className="text-gray-100 whitespace-pre-wrap break-words"
                 renderContentWithClickableHashtags={renderContentWithClickableHashtags}
               />
@@ -1934,7 +1935,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       renderContent={(text) => (
                         <TruncatedText 
                           content={text} 
-                          maxLength={500}
+                          maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
                           renderContentWithClickableHashtags={renderContentWithClickableHashtags}
                         />
