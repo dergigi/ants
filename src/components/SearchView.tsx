@@ -25,7 +25,7 @@ import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -56,7 +56,7 @@ function SearchIconButton({
   );
 }
 
-// Component for truncating long text with show more/less functionality
+// Component for truncating long text with fade effect and expand arrow
 function TruncatedText({ 
   content, 
   maxLength = TEXT_MAX_LENGTH, 
@@ -76,16 +76,27 @@ function TruncatedText({
   const displayText = isExpanded || !shouldTruncate ? content : content.slice(0, maxLength);
   
   return (
-    <div className={className}>
-      {renderContentWithClickableHashtags(displayText)}
+    <div className={`relative ${className}`}>
+      <div className={shouldTruncate && !isExpanded ? 'relative' : ''}>
+        {renderContentWithClickableHashtags(displayText)}
+        {shouldTruncate && !isExpanded && (
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#2d2d2d] to-transparent pointer-events-none" />
+        )}
+      </div>
       {shouldTruncate && (
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="ml-2 text-blue-400 hover:text-blue-300 underline text-sm"
-        >
-          {isExpanded ? 'show less' : 'show more'}
-        </button>
+        <div className="flex justify-center mt-2">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors text-sm"
+          >
+            <FontAwesomeIcon 
+              icon={isExpanded ? faChevronUp : faChevronDown} 
+              className="w-3 h-3" 
+            />
+            <span>{isExpanded ? 'Show less' : 'Show more'}</span>
+          </button>
+        </div>
       )}
     </div>
   );
