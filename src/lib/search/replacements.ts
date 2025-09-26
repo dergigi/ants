@@ -1,23 +1,28 @@
-let cachedRules: Array<{ kind: 'site' | 'is' | 'has'; key: string; expansion: string }> | null = null;
+let cachedRules: Array<{ kind: string; key: string; expansion: string }> | null = null;
 
-function parseLine(line: string): { kind: 'site' | 'is' | 'has'; key: string; expansion: string } | null {
+function parseLine(line: string): { kind: string; key: string; expansion: string } | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith('#')) return null;
-  const m = trimmed.match(/^(site|is|has):([^\s]+)\s*=>\s*(.+)$/i);
-  if (!m) return null;
-  const kind = m[1].toLowerCase() as 'site' | 'is' | 'has';
-  const key = m[2].trim();
-  const expansion = m[3].trim();
+  const arrowIdx = trimmed.indexOf('=>');
+  if (arrowIdx === -1) return null;
+  const left = trimmed.slice(0, arrowIdx).trim();
+  const right = trimmed.slice(arrowIdx + 2).trim();
+  const colonIdx = left.indexOf(':');
+  if (colonIdx === -1) return null;
+  const kind = left.slice(0, colonIdx).trim().toLowerCase();
+  const key = left.slice(colonIdx + 1).trim();
+  const expansion = right;
+  if (!kind || !key || !expansion) return null;
   return { kind, key, expansion };
 }
 
-async function loadRules(): Promise<Array<{ kind: 'site' | 'is' | 'has'; key: string; expansion: string }>> {
+async function loadRules(): Promise<Array<{ kind: string; key: string; expansion: string }>> {
   if (cachedRules) return cachedRules;
   try {
     const res = await fetch('/replacements.txt', { cache: 'no-store' });
     if (!res.ok) throw new Error('failed');
     const txt = await res.text();
-    const rules: Array<{ kind: 'site' | 'is' | 'has'; key: string; expansion: string }> = [];
+    const rules: Array<{ kind: string; key: string; expansion: string }> = [];
     for (const raw of txt.split(/\r?\n/)) {
       const r = parseLine(raw);
       if (r) rules.push(r);
@@ -46,9 +51,10 @@ export async function applySimpleReplacements(input: string): Promise<string> {
     return `${lead}${combined}`;
   });
 
-  // Replace exact is:/has: tokens (single, no commas)
-  q = q.replace(/(^|\s)(is|has):([^\s,]+)(?=\s|$)/gi, (full, lead: string, kind: string, key: string) => {
-    const rule = rules.find((r) => r.kind === (kind.toLowerCase() as 'is' | 'has') && r.key.toLowerCase() === key.toLowerCase());
+  // Replace any kind:key token (single, no commas). Keep site handled above for comma lists.
+  q = q.replace(/(^|\s)([a-zA-Z0-9_-]+):([^\s,]+)(?=\s|$)/g, (full, lead: string, kind: string, key: string) => {
+    const kindLower = kind.toLowerCase();
+    const rule = rules.find((r) => r.kind === kindLower && r.key.toLowerCase() === key.toLowerCase());
     return rule ? `${lead}${rule.expansion}` : full;
   });
 

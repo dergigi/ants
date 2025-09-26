@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
@@ -17,7 +17,7 @@ import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -35,6 +35,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     const searchQuery = `(kind:0 OR kind:1) ${lightning}`;
     const params = new URLSearchParams();
     params.set('q', searchQuery);
+    router.push(`/?${params.toString()}`);
+  };
+
+  const handleWebsiteSearch = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!website) return;
+    const params = new URLSearchParams();
+    params.set('q', website);
     router.push(`/?${params.toString()}`);
   };
 
@@ -93,9 +102,31 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
             </a>
           </div>
+        ) : null}
+        {website && isAbsoluteHttpUrl(website) ? (
+          <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleWebsiteSearch}
+              className="inline-flex items-center gap-1 hover:underline"
+              title={`Search for ${website}`}
+            >
+              <span className="truncate max-w-[14rem]">{website}</span>
+            </button>
+            <a
+              href={website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-gray-200"
+              title={`Open ${website} externally`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+            </a>
+          </span>
         ) : null}
         {/* NIP-05 controls moved to AuthorBadge next to the name */}
       </div>
@@ -186,7 +217,7 @@ type ProfileCardProps = {
 
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
-  type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string } | undefined;
+  type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string; website?: string; url?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
   const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
@@ -375,10 +406,31 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             const avatarUrl = (event.author?.profile as unknown as { image?: string } | undefined)?.image;
             const showAvatar = typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl);
             if (!showAvatar) return null;
+            const handleAvatarClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = avatarUrl as string;
+              try {
+                // Extract filename from URL path
+                const parsed = new URL(url);
+                const pathname = parsed.pathname;
+                const segments = pathname.split('/').filter(Boolean);
+                const last = segments[segments.length - 1] || '';
+                const filename = last.split('?')[0];
+                if (filename) {
+                  const params = new URLSearchParams();
+                  params.set('q', filename);
+                  router.push(`/?${params.toString()}`);
+                  return;
+                }
+              } catch {}
+              // Fallback: navigate to author profile if parsing fails
+              if (onAuthorClick && event.author?.npub) onAuthorClick(event.author.npub);
+            };
             return (
             <button
               type="button"
-              onClick={() => onAuthorClick && event.author?.npub && onAuthorClick(event.author.npub)}
+              onClick={handleAvatarClick}
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
             >
               <Image
@@ -430,6 +482,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
         lightning={profile?.lud16}
+        website={(profile?.website || profile?.url) as string | undefined}
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
         showRaw={showRaw}
