@@ -224,6 +224,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
