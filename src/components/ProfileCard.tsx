@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
@@ -23,7 +23,7 @@ import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: any }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
