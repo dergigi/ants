@@ -58,8 +58,10 @@ try {
 
 export function setPrefetchedProfile(pubkeyHex: string, event: NDKEvent): void {
   if (!pubkeyHex || !event) return;
+  console.log('🔥 setPrefetchedProfile called:', { pubkeyHex, eventKind: event.kind, hasAuthor: !!event.author, authorProfile: event.author?.profile });
   const ts = Date.now();
   profilePrefetch.set(pubkeyHex, { event, timestamp: ts });
+  console.log('🔥 setPrefetchedProfile stored, map size:', profilePrefetch.size);
   // Persist minimal data so handoff works across reloads/dev refreshes
   try {
     if (!hasLocalStorage()) return;
@@ -81,13 +83,17 @@ export function setPrefetchedProfile(pubkeyHex: string, event: NDKEvent): void {
 }
 
 export function getPrefetchedProfile(pubkeyHex: string): NDKEvent | null {
+  console.log('🔥 getPrefetchedProfile called for:', pubkeyHex);
   const entry = profilePrefetch.get(pubkeyHex);
+  console.log('🔥 getPrefetchedProfile found entry:', !!entry, entry ? 'age:' + (Date.now() - entry.timestamp) + 'ms' : '');
   if (!entry) return null;
   const isExpired = Date.now() - entry.timestamp > PROFILE_PREFETCH_TTL_MS;
   if (isExpired) {
+    console.log('🔥 getPrefetchedProfile expired, removing');
     profilePrefetch.delete(pubkeyHex);
     return null;
   }
+  console.log('🔥 getPrefetchedProfile returning event with author profile:', entry.event.author?.profile);
   return entry.event;
 }
 
@@ -106,14 +112,17 @@ export function clearPrefetchedProfile(pubkeyHex: string): void {
 
 // Ensure the event has an author with profile attached from content (kind:0)
 export function prepareProfileEventForPrefetch(event: NDKEvent): NDKEvent {
+  console.log('🔥 prepareProfileEventForPrefetch called:', { eventKind: event.kind, content: event.content?.substring(0, 100) });
   try {
     if (!event) return event;
     const author = event.author || new NDKUser({ pubkey: event.pubkey });
     author.ndk = ndk;
     // If no profile on author but content looks like a profile JSON, attach it
     if (!author.profile && event.kind === 0) {
+      console.log('🔥 prepareProfileEventForPrefetch parsing content for profile');
       try {
         const parsed = JSON.parse(event.content || '{}');
+        console.log('🔥 prepareProfileEventForPrefetch parsed:', parsed);
         const normalized: Record<string, unknown> = { ...parsed };
         // Normalize common fields our UI expects
         // picture -> image
