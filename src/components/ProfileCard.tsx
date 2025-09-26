@@ -468,9 +468,9 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
           <RawEventJson event={rawProfileEvent || event} loading={rawLoading} parseContent={true} />
         </div>
       ) : event.author?.profile?.about ? (
-        <p className="mt-4 text-gray-300 break-words">
+        <div className="mt-4 text-gray-300 break-words">
           {renderBioWithHashtags(event.author?.profile?.about)}
-        </p>
+        </div>
       ) : null}
       </div>
       <ProfileCreatedAt
