@@ -22,23 +22,24 @@ export function formatRelativeTime(timestamp: number, isMobile: boolean = false)
 
   // Use short format for mobile, long format for desktop
   const style = isMobile ? 'short' : 'long';
+  const rtf = new RelativeTimeFormat('en', { style });
 
   if (Math.abs(diffYears) >= 1) {
-    return rtf.format(-diffYears, 'year', { style });
+    return rtf.format(-diffYears, 'year');
   }
   if (Math.abs(diffMonths) >= 1) {
-    return rtf.format(-diffMonths, 'month', { style });
+    return rtf.format(-diffMonths, 'month');
   }
   if (Math.abs(diffDays) >= 1) {
-    return rtf.format(-diffDays, 'day', { style });
+    return rtf.format(-diffDays, 'day');
   }
   if (Math.abs(diffHours) >= 1) {
-    return rtf.format(-diffHours, 'hour', { style });
+    return rtf.format(-diffHours, 'hour');
   }
   if (Math.abs(diffMinutes) >= 1) {
-    return rtf.format(-diffMinutes, 'minute', { style });
+    return rtf.format(-diffMinutes, 'minute');
   }
-  return rtf.format(-diffSeconds, 'second', { style });
+  return rtf.format(-diffSeconds, 'second');
 }
 
 /**
