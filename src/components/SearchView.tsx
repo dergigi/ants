@@ -358,7 +358,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
-  const [loadingDots, setLoadingDots] = useState('...');
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
@@ -623,13 +622,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   }, [pathname, router, isSlashCommand]);
 
-  useEffect(() => {
-    if (!isConnecting) return;
-    const id = setInterval(() => {
-      setLoadingDots((prev) => (prev === '...' ? '.' : prev === '.' ? '..' : '...'));
-    }, 21);
-    return () => clearInterval(id);
-  }, [isConnecting]);
+  // While connecting, show a static placeholder; remove animated loading dots
 
   useEffect(() => {
     const initializeNDK = async () => {
@@ -1544,7 +1537,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               type="text"
               value={query}
               onChange={handleInputChange}
-              placeholder={isConnecting ? loadingDots : placeholder}
+              placeholder={isConnecting ? '/examples' : placeholder}
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
               style={{ paddingRight: '3rem' }}
             />
