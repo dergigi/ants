@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub } from '@/lib/utils';
@@ -81,7 +81,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               className="inline-flex items-center gap-1 hover:underline"
               title={`Search for ${lightning}`}
             >
-              <span className="text-yellow-400">⚡</span>
+              <FontAwesomeIcon icon={faBoltLightning} className="text-yellow-400 h-3 w-3" />
               <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
