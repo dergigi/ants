@@ -38,7 +38,8 @@ export function useNostrUser(npub: string | undefined) {
           } catch {}
           prepared.author = u;
           setProfileEvent(prepared);
-          clearPrefetchedProfile(pk);
+          // Clear prefetch after a small delay to handle React StrictMode double-mounting
+          setTimeout(() => clearPrefetchedProfile(pk), 100);
         } else {
           const placeholder = new NDKEvent(ndk, {
             kind: 0,
