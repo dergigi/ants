@@ -11,16 +11,38 @@ import { faCircleCheck, faCircleXmark, faCircleExclamation, faUserGroup } from '
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
 function useNip05Status(user: NDKUser): Nip05CheckResult {
-  const [verified, setVerified] = useState(false);
-  const nip05 = user.profile?.nip05;
+  const nip05Raw = user.profile?.nip05 as
+    | string
+    | { url?: string; verified?: boolean }
+    | undefined;
+  const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+  const hintedVerified =
+    typeof nip05Raw === 'object' && nip05Raw !== null && typeof nip05Raw.verified === 'boolean'
+      ? nip05Raw.verified
+      : undefined;
+  const [verified, setVerified] = useState(Boolean(hintedVerified));
   const pubkey = user.pubkey;
 
   useEffect(() => {
+    if (typeof hintedVerified === 'boolean') {
+      setVerified(hintedVerified);
+    } else if (!nip05) {
+      setVerified(false);
+    }
+  }, [hintedVerified, nip05]);
+
+  useEffect(() => {
     let isMounted = true;
+    if (!nip05) {
+      setVerified(false);
+      return () => {
+        isMounted = false;
+      };
+    }
     (async () => {
       try {
         const { checkNip05 } = await import('@/lib/vertex');
-        const result = await checkNip05(pubkey, nip05 || '');
+        const result = await checkNip05(pubkey, nip05);
         if (isMounted) setVerified(Boolean(result));
       } catch {
         if (isMounted) setVerified(false);
