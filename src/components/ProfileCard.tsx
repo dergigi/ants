@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faCopy, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCopy, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { shortenNpub } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { createProfileExplorerItems } from '@/lib/portals';
@@ -102,30 +102,30 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
             </a>
           </div>
         ) : null}
         {website && isAbsoluteHttpUrl(website) ? (
           <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleWebsiteSearch}
+              className="inline-flex items-center gap-1 hover:underline"
+              title={`Search for ${website}`}
+            >
+              <span className="truncate max-w-[14rem]">{website}</span>
+            </button>
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:underline truncate max-w-[14rem]"
-              title={website}
+              className="text-gray-400 hover:text-gray-200"
+              title={`Open ${website} externally`}
               onClick={(e) => e.stopPropagation()}
             >
-              {website}
+              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
             </a>
-            <button
-              type="button"
-              title="Search for this URL"
-              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
-              onClick={handleWebsiteSearch}
-            >
-              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
-            </button>
           </span>
         ) : null}
         {/* NIP-05 controls moved to AuthorBadge next to the name */}
