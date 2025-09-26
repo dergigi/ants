@@ -24,7 +24,8 @@
     "prism-react-renderer": "2.4.1",
     "react": "^19.0.0",
     "react-blurhash": "^0.3.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "relative-time-format": "^1.1.11"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

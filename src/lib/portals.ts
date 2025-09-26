@@ -16,6 +16,7 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'zaplife.lol', base: 'https://zaplife.lol/p/' },
   { name: 'nostx.io', base: 'https://nostx.io/' },
   { name: 'slidestr.net', base: 'https://slidestr.net/p/' },
+  { name: 'zapper.nostrapps.org', base: 'https://zapper.nostrapps.org/zap?id=' },
 ] as const;
 
 export const EVENT_EXPLORERS: readonly ExplorerLink[] = [

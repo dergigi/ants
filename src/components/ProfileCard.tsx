@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { calculateAbsoluteMenuPosition, calculateBannerMenuPosition } from '@/li
 import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
+import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -67,24 +68,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
     return () => { isMounted = false; };
   }, [pubkey, fallbackEventId, fallbackCreatedAt]);
 
-  const relative = (fromTs: number) => {
-    const diffMs = Date.now() - fromTs * 1000;
-    const seconds = Math.round(diffMs / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-    const months = Math.round(days / 30);
-    const years = Math.round(days / 365);
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-    if (Math.abs(years) >= 1) return rtf.format(-years, 'year');
-    if (Math.abs(months) >= 1) return rtf.format(-months, 'month');
-    if (Math.abs(days) >= 1) return rtf.format(-days, 'day');
-    if (Math.abs(hours) >= 1) return rtf.format(-hours, 'hour');
-    if (Math.abs(minutes) >= 1) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-  };
-
-  const updatedLabel = updatedAt ? `Updated ${relative(updatedAt)}.` : 'Updated unknown.';
+  const updatedLabel = updatedAt ? formatRelativeTimeAuto(updatedAt) : 'Unknown';
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -94,19 +78,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleLightningSearch}
-              className="inline-flex items-center gap-1 hover:underline"
+              className="inline-flex items-center gap-1 hover:underline p-1 rounded"
               title={`Search for ${lightning}`}
             >
-              <span className="text-yellow-400">⚡</span>
-              <span className="truncate max-w-[14rem]">{lightning}</span>
+              <FontAwesomeIcon icon={faBoltLightning} className="h-4 w-4" />
+              <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
-              className="text-gray-400 hover:text-gray-200"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-4 w-4" />
             </a>
           </div>
         ) : null}
@@ -115,20 +99,21 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleWebsiteSearch}
-              className="inline-flex items-center gap-1 hover:underline"
+              className="inline-flex items-center gap-1 hover:underline p-1 rounded"
               title={`Search for ${website}`}
             >
-              <span className="truncate max-w-[14rem]">{website}</span>
+              <FontAwesomeIcon icon={faHouseUser} className="h-4 w-4" />
+              <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
             </button>
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
               title={`Open ${website} externally`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className="h-3 w-3" />
+              <FontAwesomeIcon icon={faExternalLink} className="h-4 w-4" />
             </a>
           </span>
         ) : null}
@@ -153,6 +138,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           <CardActions
             eventId={fallbackEventId}
             profilePubkey={pubkey}
+            eventKind={0}
             showRaw={showRaw}
             onToggleRaw={onToggleRaw}
             onToggleMenu={() => {
