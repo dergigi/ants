@@ -1,6 +1,7 @@
 'use client';
 
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import { ndk } from '@/lib/ndk';
 
 // Simple in-memory prefetch store for profile events keyed by hex pubkey
 // Not persisted; short TTL to avoid stale UI
@@ -29,6 +30,27 @@ export function getPrefetchedProfile(pubkeyHex: string): NDKEvent | null {
 export function clearPrefetchedProfile(pubkeyHex: string): void {
   if (!pubkeyHex) return;
   profilePrefetch.delete(pubkeyHex);
+}
+
+// Ensure the event has an author with profile attached from content (kind:0)
+export function prepareProfileEventForPrefetch(event: NDKEvent): NDKEvent {
+  try {
+    if (!event) return event;
+    const author = event.author || new NDKUser({ pubkey: event.pubkey });
+    author.ndk = ndk;
+    // If no profile on author but content looks like a profile JSON, attach it
+    if (!author.profile && event.kind === 0) {
+      try {
+        const parsed = JSON.parse(event.content || '{}');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (author as any).profile = parsed || {};
+      } catch {}
+    }
+    event.author = author;
+    return event;
+  } catch {
+    return event;
+  }
 }
 
 

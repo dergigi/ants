@@ -26,7 +26,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye } from '@fortawesome/free-solid-svg-icons';
-import { setPrefetchedProfile } from '@/lib/profile/prefetch';
+import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -562,7 +562,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     try {
       for (const ev of fuseFilteredResults) {
         if (ev.kind === 0 && ev.pubkey) {
-          setPrefetchedProfile(ev.pubkey, ev);
+          setPrefetchedProfile(ev.pubkey, prepareProfileEventForPrefetch(ev));
         }
       }
     } catch {}
@@ -963,7 +963,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       if (prefetchEvent) {
         const { data } = nip19.decode(npub);
         const pk = data as string;
-        setPrefetchedProfile(pk, prefetchEvent);
+        setPrefetchedProfile(pk, prepareProfileEventForPrefetch(prefetchEvent));
       }
     } catch {}
     router.push(`/p/${npub}`);

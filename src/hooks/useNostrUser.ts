@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { ndk, connect } from '@/lib/ndk';
-import { getPrefetchedProfile, clearPrefetchedProfile } from '@/lib/profile/prefetch';
+import { getPrefetchedProfile, clearPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 
 export function useNostrUser(npub: string | undefined) {
   const [user, setUser] = useState<NDKUser | null>(null);
@@ -34,8 +34,9 @@ export function useNostrUser(npub: string | undefined) {
               (u as any).profile = (existingAuthor as any).profile;
             }
           } catch {}
-          prefetched.author = u;
-          setProfileEvent(prefetched);
+          const prepared = prepareProfileEventForPrefetch(prefetched);
+          prepared.author = u;
+          setProfileEvent(prepared);
           clearPrefetchedProfile(pk);
         } else {
           const placeholder = new NDKEvent(ndk, {
