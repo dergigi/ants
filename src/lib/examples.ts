@@ -89,6 +89,7 @@ export const searchExamples = [
 
   // NIP-50 extensions
   'bitcoin include:spam',
+  'nip:03',
 
   // Slash Commands
   '/help',
