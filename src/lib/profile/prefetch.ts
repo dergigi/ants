@@ -64,13 +64,14 @@ export function setPrefetchedProfile(pubkeyHex: string, event: NDKEvent): void {
   try {
     if (!hasLocalStorage()) return;
     const current = loadMapFromStorage<StoredProfileEvent & { timestamp: number }>(STORAGE_KEY);
+    const authorProfile: unknown = event.author && (event.author as unknown as { profile?: unknown }).profile;
     const stored: StoredProfileEvent & { timestamp: number } = {
       kind: 0,
       content: event.content || '{}',
       pubkey: pubkeyHex,
       created_at: event.created_at,
       id: event.id,
-      author: event.author ? { pubkey: event.author.pubkey, /* eslint-disable-next-line @typescript-eslint/no-explicit-any */ profile: (event.author as any).profile } : { pubkey: pubkeyHex },
+      author: event.author ? { pubkey: event.author.pubkey, profile: authorProfile } : { pubkey: pubkeyHex },
       timestamp: ts
     };
     current.set(pubkeyHex, stored);

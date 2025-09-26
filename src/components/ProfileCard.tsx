@@ -479,7 +479,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               href={`/p/${event.author.npub}`}
               className="truncate hover:underline hidden sm:block"
               title={event.author.npub}
-              onClick={(e) => {
+              onClick={() => {
                 try {
                   const { data } = nip19.decode(event.author.npub);
                   const pk = data as string;
