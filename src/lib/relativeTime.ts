@@ -4,6 +4,47 @@ import en from 'relative-time-format/locale/en.json';
 // Add the English locale data
 RelativeTimeFormat.addLocale(en);
 
+// Constants for time calculations
+const MOBILE_BREAKPOINT = 768;
+const SECONDS_IN_MINUTE = 60;
+const MINUTES_IN_HOUR = 60;
+const HOURS_IN_DAY = 24;
+const DAYS_IN_MONTH = 30;
+const DAYS_IN_YEAR = 365;
+
+// Cache formatters to avoid recreating them
+const formatters = {
+  short: new RelativeTimeFormat('en', { style: 'short' }),
+  long: new RelativeTimeFormat('en', { style: 'long' })
+};
+
+/**
+ * Detects if the current viewport is mobile
+ * @returns boolean indicating if the viewport is mobile
+ */
+function isMobileViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < MOBILE_BREAKPOINT;
+}
+
+/**
+ * Calculates time differences from a timestamp
+ * @param timestamp - Unix timestamp in seconds
+ * @returns Object with time differences in various units
+ */
+function calculateTimeDifferences(timestamp: number) {
+  const now = Date.now();
+  const diffMs = now - timestamp * 1000;
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / SECONDS_IN_MINUTE);
+  const diffHours = Math.round(diffMinutes / MINUTES_IN_HOUR);
+  const diffDays = Math.round(diffHours / HOURS_IN_DAY);
+  const diffMonths = Math.round(diffDays / DAYS_IN_MONTH);
+  const diffYears = Math.round(diffDays / DAYS_IN_YEAR);
+
+  return { diffSeconds, diffMinutes, diffHours, diffDays, diffMonths, diffYears };
+}
+
 /**
  * Formats a timestamp as relative time with responsive formatting
  * @param timestamp - Unix timestamp in seconds
@@ -11,35 +52,25 @@ RelativeTimeFormat.addLocale(en);
  * @returns Formatted relative time string
  */
 export function formatRelativeTime(timestamp: number, isMobile: boolean = false): string {
-  const now = Date.now();
-  const diffMs = now - timestamp * 1000;
-  const diffSeconds = Math.round(diffMs / 1000);
-  const diffMinutes = Math.round(diffSeconds / 60);
-  const diffHours = Math.round(diffMinutes / 60);
-  const diffDays = Math.round(diffHours / 24);
-  const diffMonths = Math.round(diffDays / 30);
-  const diffYears = Math.round(diffDays / 365);
-
-  // Use short format for mobile, long format for desktop
-  const style = isMobile ? 'short' : 'long';
-  const rtf = new RelativeTimeFormat('en', { style });
+  const { diffSeconds, diffMinutes, diffHours, diffDays, diffMonths, diffYears } = calculateTimeDifferences(timestamp);
+  const formatter = isMobile ? formatters.short : formatters.long;
 
   if (Math.abs(diffYears) >= 1) {
-    return rtf.format(-diffYears, 'year');
+    return formatter.format(-diffYears, 'year');
   }
   if (Math.abs(diffMonths) >= 1) {
-    return rtf.format(-diffMonths, 'month');
+    return formatter.format(-diffMonths, 'month');
   }
   if (Math.abs(diffDays) >= 1) {
-    return rtf.format(-diffDays, 'day');
+    return formatter.format(-diffDays, 'day');
   }
   if (Math.abs(diffHours) >= 1) {
-    return rtf.format(-diffHours, 'hour');
+    return formatter.format(-diffHours, 'hour');
   }
   if (Math.abs(diffMinutes) >= 1) {
-    return rtf.format(-diffMinutes, 'minute');
+    return formatter.format(-diffMinutes, 'minute');
   }
-  return rtf.format(-diffSeconds, 'second');
+  return formatter.format(-diffSeconds, 'second');
 }
 
 /**
@@ -47,10 +78,7 @@ export function formatRelativeTime(timestamp: number, isMobile: boolean = false)
  * @returns boolean indicating if the viewport is mobile
  */
 export function useIsMobile(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  // Check if window width is below mobile breakpoint (typically 768px)
-  return window.innerWidth < 768;
+  return isMobileViewport();
 }
 
 /**
@@ -59,6 +87,5 @@ export function useIsMobile(): boolean {
  * @returns Formatted relative time string
  */
 export function formatRelativeTimeAuto(timestamp: number): string {
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  return formatRelativeTime(timestamp, isMobile);
+  return formatRelativeTime(timestamp, isMobileViewport());
 }
