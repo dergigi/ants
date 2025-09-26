@@ -20,6 +20,7 @@ import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
+import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
@@ -214,6 +215,13 @@ function ImageWithBlurhash({
         <ReverseImageSearchButton
           imageUrl={src}
         />
+      )}
+
+      {/* Copy image URL button - bottom right */}
+      {imageLoaded && !imageError && (
+        <div className="absolute bottom-1.5 right-1.5 z-10">
+          <CopyButton text={src} title="Copy image URL" />
+        </div>
       )}
     </div>
   );
@@ -1416,6 +1424,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   <ReverseImageSearchButton
                     imageUrl={src}
                   />
+                  <div className="absolute bottom-1.5 right-1.5 z-10">
+                    <CopyButton text={src} title="Copy image URL" />
+                  </div>
                 </>
               ) : null}
             </div>
