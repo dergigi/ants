@@ -755,7 +755,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const raw = query.trim() || placeholder;
+    const effectivePlaceholder = isConnecting ? '/examples' : placeholder;
+    const raw = query.trim() || effectivePlaceholder;
     
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
