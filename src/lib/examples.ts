@@ -92,6 +92,7 @@ export const searchExamples = [
 
   // Slash Commands
   '/help',
+  '/examples',
 ] as const;
 
 // Examples that require login to work properly
