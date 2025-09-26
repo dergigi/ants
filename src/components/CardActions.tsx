@@ -2,12 +2,13 @@
 
 import React, { forwardRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCode, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faCode, faArrowUpRightFromSquare, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { nip19 } from 'nostr-tools';
 import IconButton from '@/components/IconButton';
 
 type Props = {
   eventId?: string;
+  profilePubkey?: string;
   showRaw: boolean;
   onToggleRaw: () => void;
   onToggleMenu?: () => void;
@@ -23,6 +24,7 @@ type Props = {
 const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   {
     eventId,
+    profilePubkey,
     showRaw,
     onToggleRaw,
     onToggleMenu,
@@ -37,6 +39,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   ref
 ) {
   const neventHref = eventId ? `nostr:${nip19.neventEncode({ id: eventId })}` : undefined;
+  const nprofile = profilePubkey ? nip19.nprofileEncode({ pubkey: profilePubkey }) : undefined;
   const fallbackTitle = eventId ? 'Open in native client' : 'Open external';
   const href = externalHref || neventHref;
   const title = externalTitle || fallbackTitle;
@@ -66,6 +69,24 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
           }}
         >
           ⋯
+        </IconButton>
+      ) : null}
+      {nprofile ? (
+        <IconButton
+          title="Copy nprofile"
+          ariaLabel="Copy nprofile"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { void navigator.clipboard.writeText(`nostr:${nprofile}`); } catch {} }}
+        >
+          <FontAwesomeIcon icon={faCopy} className="text-xs" />
+        </IconButton>
+      ) : null}
+      {eventId ? (
+        <IconButton
+          title="Copy nevent"
+          ariaLabel="Copy nevent"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { void navigator.clipboard.writeText(String(neventHref)); } catch {} }}
+        >
+          <FontAwesomeIcon icon={faCopy} className="text-xs" />
         </IconButton>
       ) : null}
       {href ? (
