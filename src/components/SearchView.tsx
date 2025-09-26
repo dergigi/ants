@@ -1580,24 +1580,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 </svg>
               </button>
             )}
-            {/* Connection status indicator */}
-            {!loading && connectionStatus !== 'connecting' && (
-              <button
-                type="button"
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
-                onClick={() => setShowConnectionDetails(!showConnectionDetails)}
-                title={formatConnectionTooltip(connectionDetails)}
-              >
-                <div className="relative w-3 h-3">
-                  {/* Mask to hide underlying text/underline */}
-                  <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
-                  <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                    connectionStatus === 'connected' ? 'bg-green-400' : 
-                    connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                  }`} />
-                </div>
-              </button>
-            )}
+            {/* Connection status indicator - always visible */}
+            <button
+              type="button"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
+              onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+              title={formatConnectionTooltip(connectionDetails)}
+            >
+              <div className="relative w-3 h-3">
+                {/* Mask to hide underlying text/underline */}
+                <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
+                <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
+                  connectionStatus === 'connected' ? 'bg-green-400' : 
+                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+                }`} />
+              </div>
+            </button>
           </div>
           <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
             {loading ? (
