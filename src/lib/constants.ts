@@ -9,7 +9,10 @@ export const UI_CONFIG = {
     MAX_LENGTH_INLINE: 300,
     
     // Maximum length for profile descriptions
-    MAX_LENGTH_PROFILE: 200
+    MAX_LENGTH_PROFILE: 200,
+    
+    // Character count for links in truncation calculation
+    LINK_CHAR_COUNT: 10
   },
   
   // Search result settings
@@ -57,6 +60,7 @@ export const UI_CONFIG = {
 export const TEXT_MAX_LENGTH = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH;
 export const TEXT_MAX_LENGTH_INLINE = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH_INLINE;
 export const TEXT_MAX_LENGTH_PROFILE = UI_CONFIG.TEXT_TRUNCATION.MAX_LENGTH_PROFILE;
+export const TEXT_LINK_CHAR_COUNT = UI_CONFIG.TEXT_TRUNCATION.LINK_CHAR_COUNT;
 
 // Search constants
 export const SEARCH_MAX_RESULTS = UI_CONFIG.SEARCH.MAX_RESULTS;

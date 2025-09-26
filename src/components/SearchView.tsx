@@ -29,7 +29,7 @@ import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDow
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
-import { TEXT_MAX_LENGTH } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -80,16 +80,16 @@ function TruncatedText({
     
     let effectiveLength = text.length;
     
-    // Replace URLs with 10 character placeholder
+    // Replace URLs with configured character count
     const urls = text.match(urlPattern) || [];
     urls.forEach(url => {
-      effectiveLength = effectiveLength - url.length + 10;
+      effectiveLength = effectiveLength - url.length + TEXT_LINK_CHAR_COUNT;
     });
     
-    // Replace nostr-native links with 10 character placeholder
+    // Replace nostr-native links with configured character count
     const nostrLinks = text.match(nostrPattern) || [];
     nostrLinks.forEach(link => {
-      effectiveLength = effectiveLength - link.length + 10;
+      effectiveLength = effectiveLength - link.length + TEXT_LINK_CHAR_COUNT;
     });
     
     return effectiveLength;
