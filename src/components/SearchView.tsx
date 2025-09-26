@@ -55,6 +55,41 @@ function SearchIconButton({
   );
 }
 
+// Component for truncating long text with show more/less functionality
+function TruncatedText({ 
+  content, 
+  maxLength = 500, 
+  className = '',
+  renderContentWithClickableHashtags
+}: { 
+  content: string; 
+  maxLength?: number; 
+  className?: string;
+  renderContentWithClickableHashtags: (content: string) => React.ReactNode;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!content) return null;
+  
+  const shouldTruncate = content.length > maxLength;
+  const displayText = isExpanded || !shouldTruncate ? content : content.slice(0, maxLength);
+  
+  return (
+    <div className={className}>
+      {renderContentWithClickableHashtags(displayText)}
+      {shouldTruncate && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="ml-2 text-blue-400 hover:text-blue-300 underline text-sm"
+        >
+          {isExpanded ? 'show less' : 'show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Reusable reverse image search button component
 function ReverseImageSearchButton({ 
   imageUrl, 
@@ -1316,9 +1351,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               event={embedded}
               onAuthorClick={goToProfile}
               renderContent={(text) => (
-                <div className="text-gray-100 whitespace-pre-wrap break-words">
-                  {renderContentWithClickableHashtags(text, { disableNevent: true })}
-                </div>
+                <TruncatedText 
+                  content={text} 
+                  maxLength={500}
+                  className="text-gray-100 whitespace-pre-wrap break-words"
+                  renderContentWithClickableHashtags={(content) => renderContentWithClickableHashtags(content, { disableNevent: true })}
+                />
               )}
               variant="inline"
               footerRight={createdAt ? (
@@ -1619,7 +1657,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             event={parentEvent}
             onAuthorClick={goToProfile}
             renderContent={(text) => (
-              <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+              <TruncatedText 
+                content={text} 
+                maxLength={500}
+                className="text-gray-100 whitespace-pre-wrap break-words"
+                renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+              />
             )}
             mediaRenderer={renderNoteMedia}
             className="p-0 border-0 bg-transparent"
@@ -1889,7 +1932,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       event={event}
                       onAuthorClick={goToProfile}
                       renderContent={(text) => (
-                        <div className="text-gray-100 whitespace-pre-wrap break-words">{renderContentWithClickableHashtags(text)}</div>
+                        <TruncatedText 
+                          content={text} 
+                          maxLength={500}
+                          className="text-gray-100 whitespace-pre-wrap break-words"
+                          renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+                        />
                       )}
                       mediaRenderer={renderNoteMedia}
                       footerRight={(
