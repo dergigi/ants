@@ -116,18 +116,21 @@ function ImageWithBlurhash({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [statusCode, setStatusCode] = useState<number | null>(null);
+  const [measuredDim, setMeasuredDim] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
     setImageLoaded(false);
     setImageError(false);
+    setMeasuredDim(null);
   }, [src]);
 
   if (!isAbsoluteHttpUrl(src)) {
     return null;
   }
 
-  const aspectStyle = dim && dim.width > 0 && dim.height > 0
-    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+  const effectiveDim = dim && dim.width > 0 && dim.height > 0 ? dim : measuredDim;
+  const aspectStyle = effectiveDim
+    ? { aspectRatio: `${effectiveDim.width} / ${effectiveDim.height}` }
     : { minHeight: '200px' as const };
 
   return (
@@ -186,11 +189,20 @@ function ImageWithBlurhash({
         alt={alt}
         width={width}
         height={height} 
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
-        onLoad={() => { setImageLoaded(true); setStatusCode(200); }}
+        onLoad={(e) => { 
+          setImageLoaded(true); 
+          setStatusCode(200); 
+          try {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!effectiveDim && img?.naturalWidth && img?.naturalHeight) {
+              setMeasuredDim({ width: img.naturalWidth, height: img.naturalHeight });
+            }
+          } catch {}
+        }}
         onError={() => {
           setImageError(true);
           try {
