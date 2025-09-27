@@ -14,6 +14,7 @@ export interface FilterSettings {
   fuzzyEnabled: boolean;
   hideBots: boolean;
   hideNsfw: boolean;
+  filtersEnabled: boolean;
 }
 
 interface Props {
@@ -48,13 +49,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filtersEnabled: false });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: true });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
@@ -82,7 +83,15 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-200">Filter Results</span>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterSettings.filtersEnabled}
+                  onChange={(e) => onFilterChange({ ...filterSettings, filtersEnabled: e.target.checked })}
+                  className="accent-[#4a4a4a]"
+                />
+                <span>Filter Results</span>
+              </label>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-400">{filteredCount}/{resultCount} shown</span>
@@ -95,7 +104,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className={`space-y-2 ${!filterSettings.filtersEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Fuzzy filter with enable checkbox and icon */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
@@ -103,6 +112,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.fuzzyEnabled}
                 onChange={(e) => onFilterChange({ ...filterSettings, fuzzyEnabled: e.target.checked, resultFilter: e.target.checked ? filterSettings.resultFilter : '' })}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <div className="relative w-full max-w-xs">
                 <FontAwesomeIcon icon={faFilter} className={`absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 ${filterSettings.fuzzyEnabled ? 'text-gray-400' : 'text-gray-600'}`} />
@@ -110,8 +120,8 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   type="text"
                   value={filterSettings.resultFilter || ''}
                   onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
-                  disabled={!filterSettings.fuzzyEnabled}
-                  className={`w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none ${!filterSettings.fuzzyEnabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  disabled={!filterSettings.fuzzyEnabled || !filterSettings.filtersEnabled}
+                  className={`w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none ${!filterSettings.fuzzyEnabled || !filterSettings.filtersEnabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
               </div>
             </label>
@@ -123,6 +133,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.verifiedOnly}
                 onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>Valid NIP-05</span>
               <FontAwesomeIcon icon={faIdBadge} className="w-3 h-3 text-green-400" />
@@ -137,6 +148,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, maxEmojis: e.target.checked ? (emojiLimit || 3) : null });
                 }}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>Hide more than</span>
               <input
@@ -146,6 +158,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 value={emojiLimit}
                 onChange={(e) => handleEmojiChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>emojis</span>
             </label>
@@ -159,6 +172,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, maxHashtags: e.target.checked ? (hashtagLimit || 3) : null });
                 }}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>Hide more than</span>
               <input
@@ -168,6 +182,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 value={hashtagLimit}
                 onChange={(e) => handleHashtagChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>hashtags</span>
             </label>
@@ -181,6 +196,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, hideLinks: e.target.checked });
                 }}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>Hide external links</span>
             </label>
@@ -192,6 +208,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.hideBots}
                 onChange={(e) => onFilterChange({ ...filterSettings, hideBots: e.target.checked })}
                 className="accent-[#4a4a4a]"
+                disabled={!filterSettings.filtersEnabled}
               />
               <span>Hide bots</span>
             </label>
@@ -203,6 +220,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               checked={filterSettings.hideNsfw}
               onChange={(e) => onFilterChange({ ...filterSettings, hideNsfw: e.target.checked })}
               className="accent-[#4a4a4a]"
+              disabled={!filterSettings.filtersEnabled}
             />
             <span>Hide NSFW</span>
           </label>

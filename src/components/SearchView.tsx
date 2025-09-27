@@ -488,7 +488,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: true });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
@@ -627,7 +627,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
 
   const filteredResults = useMemo(
-    () => applyContentFilters(
+    () => filterSettings.filtersEnabled ? applyContentFilters(
       results,
       filterSettings.maxEmojis,
       filterSettings.maxHashtags,
@@ -636,13 +636,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
       filterSettings.hideBots,
       filterSettings.hideNsfw
-    ),
-    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    ) : results,
+    [results, filterSettings.filtersEnabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
-    const q = (filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
+    const q = (filterSettings.filtersEnabled && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
     if (!q) return filteredResults;
     const fuse = new Fuse(filteredResults, {
       includeScore: false,
@@ -653,7 +653,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       ]
     });
     return fuse.search(q).map(r => r.item);
-  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
+  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, filterSettings.filtersEnabled]);
 
   // Seed profile prefetch for visible profile cards as soon as results materialize
   useEffect(() => {
@@ -1948,7 +1948,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {/* Command output will be injected as first result card below */}
 
       {/* Client-side filters */}
-      {results.length >= SEARCH_FILTER_THRESHOLD && (
+      {results.length > 0 && (
         <ClientFilters
           filterSettings={filterSettings}
           onFilterChange={setFilterSettings}
