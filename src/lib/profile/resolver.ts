@@ -3,6 +3,7 @@ import { nip19 } from 'nostr-tools';
 import { resolveNip05ToPubkey } from './nip05';
 import { profileEventFromPubkey } from './utils';
 import { getCachedUsername, setCachedUsername } from './username-cache';
+import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 import { searchProfilesFullText } from './search';
 
 // Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
@@ -16,7 +17,10 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       try {
         const { type, data } = nip19.decode(input);
         if (type === 'npub' && typeof data === 'string') {
-          return { pubkeyHex: data, profileEvent: await profileEventFromPubkey(data) };
+          const cachedEvent = getCachedProfileEvent(data);
+          const profileEvent = cachedEvent ?? await profileEventFromPubkey(data);
+          if (!cachedEvent && profileEvent) setCachedProfileEvent(data, profileEvent);
+          return { pubkeyHex: data, profileEvent };
         }
       } catch {}
       return { pubkeyHex: null, profileEvent: null };
@@ -25,7 +29,10 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
     // 1b) If input is a 64-char hex pubkey, accept directly
     if (/^[0-9a-fA-F]{64}$/.test(input)) {
       const hex = input.toLowerCase();
-      return { pubkeyHex: hex, profileEvent: await profileEventFromPubkey(hex) };
+      const cachedEvent = getCachedProfileEvent(hex);
+      const profileEvent = cachedEvent ?? await profileEventFromPubkey(hex);
+      if (!cachedEvent && profileEvent) setCachedProfileEvent(hex, profileEvent);
+      return { pubkeyHex: hex, profileEvent };
     }
 
     // 2) If input looks like NIP-05 ('@name@domain' | 'domain.tld' | '@domain.tld'), resolve to pubkey
@@ -33,7 +40,10 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
     if (nip05Like) {
       const pk = await resolveNip05ToPubkey(input);
       if (!pk) return { pubkeyHex: null, profileEvent: null };
-      return { pubkeyHex: pk, profileEvent: await profileEventFromPubkey(pk) };
+      const cachedEvent = getCachedProfileEvent(pk);
+      const profileEvent = cachedEvent ?? await profileEventFromPubkey(pk);
+      if (!cachedEvent && profileEvent) setCachedProfileEvent(pk, profileEvent);
+      return { pubkeyHex: pk, profileEvent };
     }
 
     // 3) Otherwise treat as username and check cache first, then try lookup with proper sorting
@@ -56,6 +66,7 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
     
     // Cache the result (positive or negative)
     setCachedUsername(usernameLower, profileEvt);
+    if (profileEvt?.pubkey) setCachedProfileEvent(profileEvt.pubkey, profileEvt);
     
     if (!profileEvt) {
       return { pubkeyHex: null, profileEvent: null };

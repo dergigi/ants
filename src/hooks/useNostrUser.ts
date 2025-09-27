@@ -5,6 +5,7 @@ import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { ndk, connect } from '@/lib/ndk';
 import { getPrefetchedProfile, clearPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
+import { getCachedProfileEvent, setCachedProfileEvent } from '@/lib/profile/cache';
 
 export function useNostrUser(npub: string | undefined) {
   const [user, setUser] = useState<NDKUser | null>(null);
@@ -24,7 +25,7 @@ export function useNostrUser(npub: string | undefined) {
 
         // Use prefetched event if available for instant UI; otherwise show placeholder
         setUser(u);
-        const prefetched = getPrefetchedProfile(pk);
+        const prefetched = getPrefetchedProfile(pk) || getCachedProfileEvent(pk) || null;
         if (prefetched) {
           const prepared = prepareProfileEventForPrefetch(prefetched);
           // Copy prepared author's profile into the new user before attaching
@@ -69,6 +70,7 @@ export function useNostrUser(npub: string | undefined) {
           });
           filled.author = u;
           setProfileEvent(filled);
+          setCachedProfileEvent(pk, filled);
         })();
       } catch {
         if (cancelled) return;

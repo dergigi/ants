@@ -1,14 +1,16 @@
-import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { getEventHash } from 'nostr-tools';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storageCache';
 import { normalizeNip05String } from '../nip05';
-import { ndk } from '../ndk';
+import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
+import { normalizePubkey } from './key-utils';
+export { getCachedProfileEvent, setCachedProfileEvent, clearProfileEventCache, configureProfileEventCache } from './profile-event-cache';
 
 // DVM Cache types and constants
 export type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };
-export type DvmStoredRecord = {
-  pubkey: string;
-  profile?: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string };
+type DvmStoredEntry = {
+  records: StoredProfileEvent[];
+  timestamp: number;
+  hasEvents: boolean;
 };
 
 const DVM_CACHE = new Map<string, DvmCacheEntry>();
@@ -54,65 +56,16 @@ export function setCachedDvm(usernameLower: string, events: NDKEvent[] | null): 
   saveDvmCacheToStorage();
 }
 
-export function serializeDvmEvents(events: NDKEvent[] | null): DvmStoredRecord[] {
-  if (!events || events.length === 0) return [];
-  const records: DvmStoredRecord[] = [];
-  for (const evt of events) {
-    const pubkey = (evt.pubkey || evt.author?.pubkey || '').trim();
-    if (!pubkey) continue;
-    const fields = extractProfileFields(evt);
-    const profile: { name?: string; displayName?: string; about?: string; nip05?: string; image?: string } | undefined = (
-      fields.name || fields.display || fields.about || fields.nip05 || fields.image
-    ) ? {
-      name: fields.name,
-      displayName: fields.display,
-      about: fields.about,
-      nip05: fields.nip05,
-      image: fields.image
-    } : undefined;
-    records.push({ pubkey, profile });
-  }
-  return records;
-}
-
-export function deserializeDvmEvents(records: DvmStoredRecord[]): NDKEvent[] {
-  const events: NDKEvent[] = [];
-  for (const rec of records) {
-    const user = new NDKUser({ pubkey: rec.pubkey });
-    user.ndk = ndk;
-    if (rec.profile) {
-    (user as NDKUser & { profile: typeof rec.profile }).profile = { ...rec.profile } as typeof rec.profile;
-    }
-    const plain = {
-      kind: 0,
-      created_at: Math.floor(Date.now() / 1000),
-      content: JSON.stringify({
-        name: rec.profile?.name,
-        display_name: rec.profile?.displayName || rec.profile?.name,
-        about: rec.profile?.about,
-        nip05: rec.profile?.nip05,
-        image: rec.profile?.image
-      }),
-      pubkey: rec.pubkey,
-      tags: [],
-      id: '',
-      sig: ''
-    };
-    plain.id = getEventHash(plain);
-    const evt = new NDKEvent(ndk, plain);
-    evt.author = user;
-    events.push(evt);
-  }
-  return events;
-}
-
 function saveDvmCacheToStorage(): void {
   try {
     if (!hasLocalStorage()) return;
-    const out = new Map<string, { records: DvmStoredRecord[]; timestamp: number }>();
+    const out = new Map<string, DvmStoredEntry>();
     for (const [key, entry] of DVM_CACHE.entries()) {
-      const records = serializeDvmEvents(entry.events);
-      out.set(key, { records, timestamp: entry.timestamp });
+      const hasEvents = entry.events !== null;
+      const serialized = (entry.events || [])
+        .map((evt) => serializeProfileEvent(evt))
+        .filter(Boolean) as StoredProfileEvent[];
+      out.set(key, { records: serialized, timestamp: entry.timestamp, hasEvents });
     }
     saveMapToStorage(DVM_CACHE_STORAGE_KEY, out);
   } catch {
@@ -123,9 +76,11 @@ function saveDvmCacheToStorage(): void {
 function loadDvmCacheFromStorage(): void {
   try {
     if (!hasLocalStorage()) return;
-    const loaded = loadMapFromStorage<{ records: DvmStoredRecord[]; timestamp: number }>(DVM_CACHE_STORAGE_KEY);
+    const loaded = loadMapFromStorage<DvmStoredEntry>(DVM_CACHE_STORAGE_KEY);
     for (const [key, stored] of loaded.entries()) {
-      const events = deserializeDvmEvents(stored.records || []);
+      const events = stored.hasEvents
+        ? (stored.records || []).map((record) => deserializeProfileEvent(record)).filter(Boolean) as NDKEvent[]
+        : null;
       DVM_CACHE.set(key, { events, timestamp: stored.timestamp || Date.now() });
     }
   } catch {
@@ -228,28 +183,4 @@ function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   return `${normalized}|${pubkeyHex}`;
 }
 
-export function normalizePubkey(pubkeyHex: string | undefined | null): string | null {
-  if (!pubkeyHex) return null;
-  try {
-    return pubkeyHex.trim().toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-
-// Helper function to extract profile fields from an event
-function extractProfileFields(event: NDKEvent): { name?: string; display?: string; about?: string; nip05?: string; image?: string } {
-  try {
-    const content = JSON.parse(event.content || '{}');
-    return {
-      name: content.name,
-      display: content.display_name || content.displayName,
-      about: content.about,
-      nip05: content.nip05,
-      image: content.image || content.picture
-    };
-  } catch {
-    return {};
-  }
-}
+// normalizePubkey is re-exported via key-utils

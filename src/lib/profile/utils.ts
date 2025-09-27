@@ -2,6 +2,7 @@ import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe } from '../ndk';
 import { relaySets } from '../relays';
 import { NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
+import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 
 // Helper function to extract profile fields from an event
 export function extractProfileFields(event: NDKEvent): { 
@@ -32,6 +33,8 @@ export function extractProfileFields(event: NDKEvent): {
 
 // Create a profile event from a pubkey
 export async function profileEventFromPubkey(pubkey: string): Promise<NDKEvent> {
+  const cached = getCachedProfileEvent(pubkey);
+  if (cached) return cached;
   const user = new NDKUser({ pubkey });
   user.ndk = ndk;
   try {
@@ -47,6 +50,7 @@ export async function profileEventFromPubkey(pubkey: string): Promise<NDKEvent> 
     sig: ''
   });
   evt.author = user;
+  setCachedProfileEvent(pubkey, evt);
   return evt;
 }
 
