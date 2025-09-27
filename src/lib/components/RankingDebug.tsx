@@ -13,7 +13,7 @@ type DebugState = {
 
 const defaultState: DebugState = { hasZap: false, hasNutzap: false };
 
-export default function RankingDebug({ event }: Props): JSX.Element | null {
+export default function RankingDebug({ event }: Props) {
   const [state, setState] = useState<DebugState>(() => {
     const pk = event.pubkey || event.author?.pubkey;
     const realness = getCachedLightningRealness(pk);
