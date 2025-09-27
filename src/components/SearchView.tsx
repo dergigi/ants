@@ -508,6 +508,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const handleOpenExternal = useCallback(() => {
     if (isUrlQuery && query.trim()) {
       window.open(query.trim(), '_blank', 'noopener,noreferrer');
+      // Immediately transform back to regular search button
+      setShowExternalButton(false);
     }
   }, [isUrlQuery, query]);
   
