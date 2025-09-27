@@ -187,7 +187,11 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400">{filteredCount}/{resultCount} shown</span>
+              <span className={`text-xs ${
+                filtersAreActive 
+                  ? 'text-blue-400' 
+                  : 'text-gray-400'
+              }`}>{filteredCount}/{resultCount} shown</span>
               <button
                 onClick={() => setIsExpanded(false)}
                 className="text-gray-400 hover:text-gray-300 transition-colors"
