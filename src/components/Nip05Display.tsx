@@ -22,6 +22,7 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleXmark, faCircleExclamation, faUserGroup, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
 import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
+import { getCachedNip05String, setCachedNip05String } from '@/lib/profile/cache';
 
 type Nip05CheckResult = { isVerified: boolean; value: string | undefined };
 
@@ -30,11 +31,18 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
     | string
     | { url?: string; verified?: boolean }
     | undefined;
-  const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+  const extractedFromProfile = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
   const hintedVerified =
     typeof nip05Raw === 'object' && nip05Raw !== null && typeof nip05Raw.verified === 'boolean'
       ? nip05Raw.verified
       : undefined;
+  const [nip05Value, setNip05Value] = useState<string | null | undefined>(() => {
+    if (extractedFromProfile) {
+      setCachedNip05String(user.pubkey, extractedFromProfile);
+      return extractedFromProfile;
+    }
+    return getCachedNip05String(user.pubkey);
+  });
   const [verified, setVerified] = useState(Boolean(hintedVerified));
   const [, forceProfileRefresh] = useState(0);
   const pubkey = user.pubkey;
@@ -43,10 +51,21 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   useEffect(() => {
     if (typeof hintedVerified === 'boolean') {
       setVerified(hintedVerified);
-    } else if (!nip05) {
+    } else if (!nip05Value) {
       setVerified(false);
     }
-  }, [hintedVerified, nip05]);
+  }, [hintedVerified, nip05Value]);
+
+  useEffect(() => {
+    if (extractedFromProfile) {
+      setNip05Value((prev) => (prev === extractedFromProfile ? prev : extractedFromProfile));
+      setCachedNip05String(pubkey, extractedFromProfile);
+    } else if (nip05Raw !== undefined) {
+      // profile explicitly missing nip05
+      setNip05Value((prev) => (prev === null ? prev : null));
+      setCachedNip05String(pubkey, null);
+    }
+  }, [extractedFromProfile, nip05Raw, pubkey]);
 
   useEffect(() => {
     if (!user?.pubkey) return;
@@ -55,7 +74,7 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
       fetchStateRef.current = { pubkey: user.pubkey, attempted: false };
     }
 
-    if (nip05 || fetchStateRef.current.attempted) return;
+    if (nip05Value !== undefined && nip05Value !== null || fetchStateRef.current.attempted) return;
 
     fetchStateRef.current.attempted = true;
     let cancelled = false;
@@ -71,11 +90,11 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
     return () => {
       cancelled = true;
     };
-  }, [user, nip05, forceProfileRefresh]);
+  }, [user, nip05Value, forceProfileRefresh]);
 
   useEffect(() => {
     let isMounted = true;
-    if (!nip05) {
+    if (!nip05Value) {
       setVerified(false);
       return () => {
         isMounted = false;
@@ -84,16 +103,16 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
     (async () => {
       try {
         const { checkNip05 } = await import('@/lib/vertex');
-        const result = await checkNip05(pubkey, nip05);
+        const result = await checkNip05(pubkey, nip05Value);
         if (isMounted) setVerified(Boolean(result));
       } catch {
         if (isMounted) setVerified(false);
       }
     })();
     return () => { isMounted = false; };
-  }, [pubkey, nip05]);
+  }, [pubkey, nip05Value]);
 
-  return { isVerified: verified, value: nip05 };
+  return { isVerified: verified, value: nip05Value ?? undefined };
 }
 
 export default function Nip05Display({ user, compact }: { user: NDKUser; compact?: boolean }) {

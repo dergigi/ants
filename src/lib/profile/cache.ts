@@ -23,6 +23,16 @@ const NIP05_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const nip05VerificationCache = new Map<string, boolean>();
 const nip05PersistentCache: Map<string, Nip05CacheValue> = loadMapFromStorage<Nip05CacheValue>(NIP05_CACHE_STORAGE_KEY);
 
+// NIP-05 string cache (store latest nip05 value per pubkey)
+const NIP05_STRING_CACHE_STORAGE_KEY = 'ants_nip05_strings_v1';
+type Nip05StringCacheValue = { value: string | null; timestamp: number };
+const nip05StringCache = new Map<string, Nip05StringCacheValue>();
+const nip05StringPersistentCache: Map<string, Nip05StringCacheValue> = loadMapFromStorage<Nip05StringCacheValue>(NIP05_STRING_CACHE_STORAGE_KEY);
+
+for (const [key, value] of nip05StringPersistentCache.entries()) {
+  nip05StringCache.set(key, value);
+}
+
 // Track in-flight verification promises to dedupe concurrent calls
 const nip05InFlight = new Map<string, Promise<boolean>>();
 
@@ -150,6 +160,46 @@ export function setCachedNip05Result(pubkeyHex: string, nip05: string, result: b
   if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
 }
 
+export function getCachedNip05String(pubkeyHex: string): string | null | undefined {
+  const key = normalizePubkey(pubkeyHex);
+  if (!key) return undefined;
+  const now = Date.now();
+  const cached = nip05StringCache.get(key);
+  if (cached) {
+    if (now - cached.timestamp <= NIP05_TTL_MS) return cached.value;
+    nip05StringCache.delete(key);
+  }
+  const persisted = nip05StringPersistentCache.get(key);
+  if (!persisted) return undefined;
+  if (now - persisted.timestamp > NIP05_TTL_MS) {
+    nip05StringPersistentCache.delete(key);
+    if (hasLocalStorage()) saveMapToStorage(NIP05_STRING_CACHE_STORAGE_KEY, nip05StringPersistentCache);
+    return undefined;
+  }
+  nip05StringCache.set(key, persisted);
+  return persisted.value;
+}
+
+export function setCachedNip05String(pubkeyHex: string, nip05?: string | null): void {
+  const key = normalizePubkey(pubkeyHex);
+  if (!key) return;
+  const normalizedValue = typeof nip05 === 'string'
+    ? normalizeNip05String(nip05) ?? nip05
+    : null;
+  const entry: Nip05StringCacheValue = { value: normalizedValue, timestamp: Date.now() };
+  nip05StringCache.set(key, entry);
+  nip05StringPersistentCache.set(key, entry);
+  if (hasLocalStorage()) saveMapToStorage(NIP05_STRING_CACHE_STORAGE_KEY, nip05StringPersistentCache);
+}
+
+export function invalidateCachedNip05String(pubkeyHex: string): void {
+  const key = normalizePubkey(pubkeyHex);
+  if (!key) return;
+  nip05StringCache.delete(key);
+  nip05StringPersistentCache.delete(key);
+  if (hasLocalStorage()) saveMapToStorage(NIP05_STRING_CACHE_STORAGE_KEY, nip05StringPersistentCache);
+}
+
 export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
   try {
     const key = nip05CacheKey(pubkeyHex, nip05);
@@ -176,6 +226,15 @@ export function deleteNip05InFlightPromise(cacheKey: string): void {
 function nip05CacheKey(pubkeyHex: string, nip05: string): string {
   const normalized = normalizeNip05String(nip05);
   return `${normalized}|${pubkeyHex}`;
+}
+
+export function normalizePubkey(pubkeyHex: string | undefined | null): string | null {
+  if (!pubkeyHex) return null;
+  try {
+    return pubkeyHex.trim().toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 
