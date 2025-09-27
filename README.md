@@ -107,10 +107,10 @@ The application supports several direct URL paths for quick access:
 ### Hashtag Pages
 
 - `/t/[hashtags]` - Search multiple hashtags
-  - `/t/bitcoin` - Search for #bitcoin
-  - `/t/bitcoin,lightning` - Search for #bitcoin OR #lightning
-  - `/t/bitcoin+lightning` - Alternative syntax for multiple hashtags
-  - `/t/bitcoin lightning` - Space-separated hashtags
+  - `/t/pugstr` - Search for #pugstr
+  - `/t/pugstr,dogstr,goatstr` - Search for #pugstr OR #dogstr OR #goatstr
+  - `/t/pugstr+dogstr+goatstr` - Alternative syntax for multiple hashtags
+  - `/t/pugstr dogstr goatstr` - Space-separated hashtags
 
 ## Features
 
