@@ -112,6 +112,15 @@ export default function Nip05Display({ user }: { user: NDKUser }) {
       {/* Mobile view: show only domain part without TLD */}
       <button
         type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!value) return;
+          const current = searchParams ? searchParams.toString() : '';
+          const params = new URLSearchParams(current);
+          params.set('q', value);
+          router.push(`/?${params.toString()}`);
+        }}
         className="hover:underline truncate max-w-[8rem] text-left sm:hidden"
         title={cleanNip05Display(value) || undefined}
       >
