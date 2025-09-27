@@ -816,7 +816,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router, isSlashCommand]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1589,7 +1589,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1721,7 +1721,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, searchParams, router]);
+  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, updateUrlForSearch]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -2312,7 +2312,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, updateUrlForSearch])}
     </div>
   );
 }

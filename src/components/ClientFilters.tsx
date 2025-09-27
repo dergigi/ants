@@ -316,7 +316,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               checked={filterSettings.hideNsfw}
               onChange={(e) => onFilterChange({ ...filterSettings, hideNsfw: e.target.checked })}
               className="accent-[#4a4a4a]"
-              disabled={!filterSettings.filtersEnabled}
+              disabled={filterSettings.filterMode === 'never'}
             />
             <span>Hide NSFW</span>
           </label>
