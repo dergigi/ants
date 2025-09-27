@@ -22,6 +22,30 @@ export function shortenString(
 }
 
 /**
+ * Extract domain name from URL for clean display
+ * @param url - The URL to extract domain from
+ * @returns The cleaned domain name (e.g., "zerohedge.com" from "https://www.zerohedge.com/path")
+ */
+export function extractDomainFromUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    // Remove protocol (http://, https://)
+    let cleaned = url.replace(/^https?:\/\//, '');
+    
+    // Remove www. prefix
+    cleaned = cleaned.replace(/^www\./, '');
+    
+    // Remove trailing slash and path
+    cleaned = cleaned.split('/')[0];
+    
+    return cleaned;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Shortens an npub string using the standard format
  * @param npub - The npub string to shorten
  * @returns The shortened npub string

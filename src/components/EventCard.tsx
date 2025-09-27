@@ -13,7 +13,7 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
-import { shortenNevent, shortenNpub } from '@/lib/utils';
+import { shortenNevent, shortenNpub, extractDomainFromUrl } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
 
@@ -220,7 +220,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                         rel="noopener noreferrer"
                         className="text-blue-400 hover:text-blue-300 hover:underline"
                       >
-                        {sourceUrl}
+                        {extractDomainFromUrl(sourceUrl)}
                       </a>
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
