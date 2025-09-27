@@ -4,7 +4,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -17,6 +17,8 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import UrlPreview from '@/components/UrlPreview';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
+import { NDKUser } from '@nostr-dev-kit/ndk';
+import { ndk } from '@/lib/ndk';
 
 
 type Props = {
@@ -50,6 +52,44 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
+
+  // Inline component to render author like a mention
+  function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
+    const [label, setLabel] = useState<string>('');
+    const [npub, setNpub] = useState<string>('');
+
+    useEffect(() => {
+      let isMounted = true;
+      (async () => {
+        try {
+          const user = new NDKUser({ pubkey: pubkeyHex });
+          user.ndk = ndk;
+          try { await user.fetchProfile(); } catch {}
+          if (!isMounted) return;
+          const profile = user.profile as { display?: string; displayName?: string; name?: string } | undefined;
+          const display = profile?.displayName || profile?.display || profile?.name || '';
+          const npubVal = nip19.npubEncode(pubkeyHex);
+          setNpub(npubVal);
+          setLabel(display || `npub:${shortenNpub(npubVal)}`);
+        } catch {
+          if (!isMounted) return;
+          setLabel(`npub:${shortenNpub(nip19.npubEncode(pubkeyHex))}`);
+        }
+      })();
+      return () => { isMounted = false; };
+    }, [pubkeyHex]);
+
+    return (
+      <button
+        type="button"
+        onClick={() => onAuthorClick && onAuthorClick(npub)}
+        className="text-blue-400 hover:text-blue-300 hover:underline"
+        title={npub}
+      >
+        {label || 'Loading...'}
+      </button>
+    );
+  }
 
   const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -194,7 +234,12 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                         )
                       : null}
                     {authorHex
-                      ? renderMetadataItem("Author", authorHex)
+                      ? (
+                        <div>
+                          <span className="font-medium">Author:</span>{' '}
+                          <InlineAuthor pubkeyHex={authorHex} />
+                        </div>
+                      )
                       : null}
                     {rangeValue
                       ? renderMetadataItem("Range", rangeValue)
