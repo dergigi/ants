@@ -25,8 +25,18 @@ function parseDirectLine(line: string): { pattern: string; replacement: string }
   const left = trimmed.slice(0, arrowIdx).trim();
   const right = trimmed.slice(arrowIdx + 2).trim();
   const colonIdx = left.indexOf(':');
-  // Only parse as direct replacement if there's no colon (not a kind:key pattern)
-  if (colonIdx !== -1) return null;
+  
+  // Parse as direct replacement if:
+  // 1. No colon (simple pattern)
+  // 2. Colon is part of a protocol (http://, https://, ftp://, etc.)
+  // 3. Colon is at the end (like "https://" => "")
+  if (colonIdx !== -1) {
+    // Check if this looks like a protocol pattern (contains //)
+    if (!left.includes('//')) {
+      return null; // Not a protocol, likely a kind:key pattern
+    }
+  }
+  
   return { pattern: left, replacement: right };
 }
 
