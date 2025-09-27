@@ -2012,7 +2012,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
               const hasExpandedParent = Boolean(parentEvent);
               const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
-              const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
+              const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
                   {parentId && renderParentChain(event)}
