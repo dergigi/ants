@@ -1157,7 +1157,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const isUrl = /^https?:\/\//i.test(segment);
       if (isUrl) {
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
-        const { displayText, fullUrl } = formatUrlForDisplay(cleanedUrl, 40);
+        const { displayText, fullUrl } = formatUrlForDisplay(cleanedUrl, 25);
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
             <button

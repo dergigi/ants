@@ -107,7 +107,9 @@ export function shortenUrl(url: string, options: {
       const pathSegments = path.split('/').filter(Boolean);
       if (pathSegments.length > 0) {
         const firstSegment = pathSegments[0];
-        if (firstSegment.length <= 20) {
+        // For very short maxLength, be more aggressive with path segment length
+        const maxSegmentLength = maxLength <= 30 ? 10 : 20;
+        if (firstSegment.length <= maxSegmentLength) {
           shortened += `/${firstSegment}`;
         }
       }
