@@ -55,7 +55,7 @@ export const UI_CONFIG = {
     NIP05_TIMEOUT: 4000,
     
     // Minimum number of results to show filter controls
-    FILTER_THRESHOLD: 100
+    FILTER_THRESHOLD: 69
   },
   
   // Content filtering settings
