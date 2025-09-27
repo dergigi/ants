@@ -1155,7 +1155,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
       .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
       .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
-    return cleaned.replace(/\s{2,}/g, ' ').trim();
+    return cleaned.replace(/[ \t]{2,}/g, ' ').trim();
   }, []);
 
   const stripPreviewUrls = useCallback((text: string): string => {
@@ -1166,22 +1166,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
       cleaned = cleaned.replace(regex, '');
     });
-    return cleaned.replace(/\s{2,}/g, ' ').trim();
+    return cleaned.replace(/[ \t]{2,}/g, ' ').trim();
   }, [successfulPreviews]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
-    // Convert literal \n strings to actual newlines
-    const processedContent = strippedContent.replace(/\\n/g, '\n');
-
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
     const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
     const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
 
-    const splitByUrls = processedContent.split(urlRegex);
+    const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
 
     splitByUrls.forEach((segment, segIndex) => {
