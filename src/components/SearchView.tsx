@@ -1115,7 +1115,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return cleaned.replace(/\s{2,}/g, ' ').trim();
   }, [successfulPreviews]);
 
-  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean }) => {
+  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
@@ -1355,7 +1355,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   content={text} 
                   maxLength={TEXT_MAX_LENGTH}
                   className="text-gray-100 whitespace-pre-wrap break-words"
-                  renderContentWithClickableHashtags={(content) => renderContentWithClickableHashtags(content, { disableNevent: true })}
+                renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { disableNevent: true, skipPointerIds: new Set([embedded.id?.toLowerCase?.() || '']) })}
                 />
               )}
               variant="inline"
@@ -1402,6 +1402,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}`;
         const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
         const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
+        const seenPointers = new Set<string>();
         nostrSplit.forEach((sub, subIdx) => {
           if (!sub) return;
           const isNostrToken = combinedRegex.test(sub);
@@ -1410,7 +1411,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             const coreToken = match ? match[1] : sub;
             const type = match ? match[2] : '';
             const trailing = (match && match[3]) || '';
+            const normalizedPointer = coreToken.trim().toLowerCase();
+            if (seenPointers.has(normalizedPointer)) {
+              if (trailing) finalNodes.push(trailing);
+              return;
+            }
+            seenPointers.add(normalizedPointer);
             if (type?.toLowerCase().startsWith('nevent')) {
+              try {
+                const decoded = nip19.decode(coreToken.replace(/^nostr:/i, ''));
+                const pointerId = decoded?.type === 'nevent' ? ((decoded.data as { id: string }).id || '').toLowerCase() : '';
+                if (pointerId && options?.skipPointerIds?.has(pointerId)) {
+                  if (trailing) finalNodes.push(trailing);
+                  return;
+                }
+              } catch {}
               finalNodes.push(
                 <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
                   <InlineNostrReference token={coreToken} />
@@ -1946,7 +1961,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
