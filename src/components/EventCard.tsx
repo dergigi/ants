@@ -13,8 +13,6 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
-import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import UrlPreview from '@/components/UrlPreview';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
@@ -90,69 +88,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
     );
   }
 
-  // Component to fetch and render referenced source event
-  function ReferencedSourceEvent({ nostrAddress }: { nostrAddress: string }) {
-    const [sourceEvent, setSourceEvent] = useState<NDKEvent | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-      let isMounted = true;
-      (async () => {
-        try {
-          // Parse the nostr address (kind:pubkey:d-tag)
-          const parts = nostrAddress.split(':');
-          if (parts.length >= 3) {
-            const kind = parseInt(parts[0]);
-            const pubkey = parts[1];
-            const dTag = parts[2];
-            
-            // Fetch the event using the address
-            const event = await ndk.fetchEvent({ kinds: [kind], authors: [pubkey], '#d': [dTag] });
-            if (isMounted) {
-              setSourceEvent(event);
-              setLoading(false);
-            }
-          }
-        } catch {
-          if (isMounted) {
-            setLoading(false);
-          }
-        }
-      })();
-      return () => { isMounted = false; };
-    }, [nostrAddress]);
-
-    if (loading) {
-      return <div className="text-xs text-gray-500">Loading source...</div>;
-    }
-
-    if (!sourceEvent) {
-      return (
-        <div className="text-xs text-gray-500">
-          <span className="font-medium">Source:</span> Unable to load referenced event
-        </div>
-      );
-    }
-
-    // Render the source event using the same EventCard component
-    return (
-      <div className="mt-3 border border-[#3d3d3d] rounded-lg bg-[#1f1f1f]">
-        <div className="p-3 text-xs text-gray-400 border-b border-[#3d3d3d]">
-          <span className="font-medium">Source:</span> Referenced event
-        </div>
-        <div className="p-3">
-          <EventCard
-            event={sourceEvent}
-            onAuthorClick={onAuthorClick}
-            renderContent={renderContent}
-            variant="inline"
-            mediaRenderer={mediaRenderer}
-            showFooter={true}
-          />
-        </div>
-      </div>
-    );
-  }
 
   const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -164,57 +99,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
     : 0;
   const shouldShowHighlightContext = Boolean(highlight?.context && contextSimilarity < 0.9);
 
-  const highlightLinks = () => {
-    if (!highlight) return null;
-    const items: React.ReactNode[] = [];
-
-    if (highlight.referencedEvent) {
-      const nevent = highlight.referencedEvent;
-      items.push(
-        <a
-          key="hl-event"
-          href={`https://njump.me/${nevent}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 hover:underline"
-        >
-          {`Event ${shortenNevent(nevent)}`}
-        </a>
-      );
-    }
-
-    if (highlight.referencedAuthorHex) {
-      let npub: string | undefined = highlight.referencedAuthor;
-      if (!npub) {
-        try {
-          npub = nip19.npubEncode(highlight.referencedAuthorHex);
-        } catch {
-          npub = highlight.referencedAuthorHex;
-        }
-      }
-      if (npub) {
-        items.push(
-          <a
-            key="hl-author"
-            href={`https://njump.me/${npub}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 hover:underline"
-          >
-            {`Author ${shortenNpub(npub)}`}
-          </a>
-        );
-      }
-    }
-
-    return items.length > 0 ? (
-      <div className="flex flex-wrap gap-2 text-xs text-gray-300">
-        {items.map((item, idx) => (
-          <span key={`hl-link-${idx}`}>{item}</span>
-        ))}
-      </div>
-    ) : null;
-  };
 
   // Helper function to render metadata items
   const renderMetadataItem = (label: string, value: string, type: 'text' | 'button' | 'link' = 'text', onClick?: () => void, href?: string) => {
@@ -342,24 +226,68 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 );
               })()}
 
-              {highlightLinks()}
-
-              {highlight.referencedUrl ? (
-                <div className="space-y-2">
-                  {isAbsoluteHttpUrl(highlight.referencedUrl) ? (
-                    <UrlPreview url={highlight.referencedUrl} />
-                  ) : (
-                    <div className={contentClasses}>
-                      {renderContent(highlight.referencedUrl)}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Render referenced source event if it's a nostr address */}
-              {highlight.referencedEvent && highlight.referencedEvent.includes(':') ? (
-                <ReferencedSourceEvent nostrAddress={highlight.referencedEvent} />
-              ) : null}
+              {/* Simple source display */}
+              {(() => {
+                const sourceUrl = highlight.referencedUrl;
+                const sourceEvent = highlight.referencedEvent;
+                const authorHex = highlight.referencedAuthorHex;
+                
+                if (!sourceUrl && !sourceEvent) return null;
+                
+                // Get author name for display
+                const getAuthorDisplay = () => {
+                  if (!authorHex) return null;
+                  try {
+                    const npub = nip19.npubEncode(authorHex);
+                    return shortenNpub(npub);
+                  } catch {
+                    return authorHex.slice(0, 8) + '...';
+                  }
+                };
+                
+                const authorDisplay = getAuthorDisplay();
+                const authorSuffix = authorDisplay ? ` by ${authorDisplay}` : '';
+                
+                return (
+                  <div className="text-xs text-gray-400">
+                    <span className="font-medium">Source:</span>{' '}
+                    {sourceUrl ? (
+                      // r tag - external URL
+                      <a
+                        href={sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                      >
+                        {sourceUrl}
+                      </a>
+                    ) : sourceEvent ? (
+                      // a or e tag - nostr event
+                      (() => {
+                        const isLongForm = sourceEvent.startsWith('30023:');
+                        const eventType = isLongForm ? 'Blog post' : 'nostr post';
+                        
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Trigger internal search for the event
+                              const searchQuery = sourceEvent.includes(':') 
+                                ? `a:${sourceEvent}` 
+                                : `e:${sourceEvent}`;
+                              window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
+                            }}
+                            className="text-blue-400 hover:text-blue-300 hover:underline"
+                          >
+                            {eventType}
+                          </button>
+                        );
+                      })()
+                    ) : null}
+                    {authorSuffix}
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
