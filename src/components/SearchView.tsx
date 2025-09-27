@@ -24,7 +24,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub, shortenString, trimImageUrl } from '@/lib/utils';
+import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -696,7 +696,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const updateUrlForSearch = useCallback((searchQuery: string) => {
     if (!manageUrl) return;
     
+    // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
+      const hashtagUrl = hashtagQueryToUrl(searchQuery);
+      if (hashtagUrl) {
+        router.replace(`/t/${hashtagUrl}`);
+        return;
+      }
+    }
+    
     if (currentProfileNpub) {
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);

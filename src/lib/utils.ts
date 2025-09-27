@@ -213,3 +213,35 @@ export function decodeMaybe(s: string): string {
     return s; 
   }
 }
+
+/**
+ * Checks if a query contains only hashtags (with OR operators)
+ * @param query - The search query to check
+ * @returns true if the query contains only hashtags
+ */
+export function isHashtagOnlyQuery(query: string): boolean {
+  if (!query.trim()) return false;
+  
+  // Remove OR operators and split by whitespace
+  const terms = query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
+  
+  // Check if all terms are hashtags (start with #)
+  return terms.every(term => term.startsWith('#'));
+}
+
+/**
+ * Converts a hashtag query to URL-friendly format for /t/ path
+ * @param query - The hashtag query (e.g., "#pugstr OR #dogstr OR #goatstr")
+ * @returns URL-friendly hashtag string (e.g., "pugstr,dogstr,goatstr")
+ */
+export function hashtagQueryToUrl(query: string): string {
+  if (!isHashtagOnlyQuery(query)) return '';
+  
+  // Remove OR operators and split by whitespace
+  const terms = query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
+  
+  // Remove # prefix and join with commas
+  return terms
+    .map(term => term.startsWith('#') ? term.slice(1) : term)
+    .join(',');
+}
