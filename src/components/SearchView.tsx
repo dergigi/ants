@@ -1696,9 +1696,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       )}
       {extractNonMediaUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractNonMediaUrlsFromText(content).map((u) => (
+          {extractNonMediaUrlsFromText(content).map((u, index) => (
             <UrlPreview
-              key={u}
+              key={`url-${index}-${u}`}
               url={u}
               onLoaded={(loadedUrl) => {
                 setSuccessfulPreviews((prev) => {
