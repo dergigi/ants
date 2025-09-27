@@ -7,6 +7,7 @@ export const HIGHLIGHTS_KIND = 9802;
 export interface HighlightData {
   content: string;
   referencedEvent?: string;
+  referencedEventType?: 'e' | 'a'; // Track whether it's an e tag or a tag
   referencedAuthor?: string;
   referencedAuthorHex?: string;
   referencedUrl?: string;
@@ -32,6 +33,7 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
   const eventTag = tags.find(tag => tag[0] === 'e' && tag[1]);
   const addressTag = tags.find(tag => tag[0] === 'a' && tag[1]);
   const referencedEvent = eventTag?.[1] || addressTag?.[1];
+  const referencedEventType = eventTag ? 'e' : addressTag ? 'a' : undefined;
 
   // Extract referenced author (p tag)
   const authorTag = tags.find(tag => tag[0] === 'p' && tag[1]);
@@ -69,6 +71,7 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
   return {
     content,
     referencedEvent,
+    referencedEventType,
     referencedAuthor,
     referencedAuthorHex,
     referencedUrl,

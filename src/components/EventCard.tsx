@@ -249,6 +249,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       // a or e tag - nostr event
                       (() => {
                         const isLongForm = sourceEvent.startsWith('30023:');
+                        const isETag = highlight.referencedEventType === 'e';
                         
                         if (isLongForm) {
                           // Blog post - use "Highlight from a blog post by [Author]"
@@ -266,12 +267,31 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                               )}
                             </span>
                           );
+                        } else if (isETag) {
+                          // Simple nostr event (e tag) - link to /e/ path
+                          return (
+                            <span>
+                              Highlight from a{' '}
+                              <a
+                                href={`/e/${sourceEvent}`}
+                                className="text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                nostr post
+                              </a>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
                         } else {
-                          // Regular nostr post - use "Source: nostr post by [Author]"
+                          // Regular nostr post (a tag) - use search
                           return (
                             <span>
                               <span className="font-medium">Source:</span>{' '}
-                              <SearchButton query={`e:${sourceEvent}`}>
+                              <SearchButton query={`a:${sourceEvent}`}>
                                 nostr post
                               </SearchButton>
                               {authorHex && (
