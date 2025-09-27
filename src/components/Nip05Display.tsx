@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getNip05Domain, isRootNip05 } from '@/lib/nip05';
 import { cleanNip05Display } from '@/lib/utils';
@@ -36,7 +36,9 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
       ? nip05Raw.verified
       : undefined;
   const [verified, setVerified] = useState(Boolean(hintedVerified));
+  const [, forceProfileRefresh] = useState(0);
   const pubkey = user.pubkey;
+  const fetchStateRef = useRef<{ pubkey: string | null; attempted: boolean }>({ pubkey: null, attempted: false });
 
   useEffect(() => {
     if (typeof hintedVerified === 'boolean') {
@@ -45,6 +47,31 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
       setVerified(false);
     }
   }, [hintedVerified, nip05]);
+
+  useEffect(() => {
+    if (!user?.pubkey) return;
+
+    if (fetchStateRef.current.pubkey !== user.pubkey) {
+      fetchStateRef.current = { pubkey: user.pubkey, attempted: false };
+    }
+
+    if (nip05 || fetchStateRef.current.attempted) return;
+
+    fetchStateRef.current.attempted = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await user.fetchProfile();
+      } catch {}
+      if (cancelled) return;
+      forceProfileRefresh((count) => count + 1);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, nip05, forceProfileRefresh]);
 
   useEffect(() => {
     let isMounted = true;
