@@ -61,6 +61,9 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
+  
+  // Determine if filters are actually active (enabled and filtering results)
+  const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= 100));
 
   return (
     <div className="mt-3 mb-4">
@@ -69,13 +72,32 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="flex justify-end">
           <button
             onClick={() => setIsExpanded(true)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+            className={`flex items-center gap-2 text-sm transition-colors ${
+              filtersAreActive 
+                ? 'text-green-400 hover:text-green-300' 
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
           >
-            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
-            <span className="text-xs">
+            <FontAwesomeIcon 
+              icon={faFilter} 
+              className={`w-3 h-3 ${
+                filtersAreActive 
+                  ? 'text-green-400' 
+                  : 'text-gray-500'
+              }`} 
+            />
+            <span className={`text-xs ${
+              filtersAreActive 
+                ? 'text-green-400' 
+                : 'text-gray-400'
+            }`}>
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              filtersAreActive 
+                ? 'bg-green-700 text-green-300' 
+                : 'bg-gray-700 text-gray-300'
+            }`}>
               {filterSettings.filterMode === 'always' ? 'Always' : 
                filterSettings.filterMode === 'never' ? 'Never' : 'Smart'}
             </span>
@@ -89,16 +111,16 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-200">Filter Mode:</span>
-              <div className="flex bg-gray-700 rounded-lg p-1">
+              <span className="text-sm font-medium text-gray-200">Filter Results:</span>
+              <div className="flex bg-[#1f1f1f] border border-[#3d3d3d] rounded-md p-0.5">
                 {(['always', 'intelligently', 'never'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => onFilterChange({ ...filterSettings, filterMode: mode })}
-                    className={`px-3 py-1 text-xs rounded transition-colors ${
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
                       filterSettings.filterMode === mode
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                        ? 'bg-[#4a4a4a] text-gray-100'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#2d2d2d]'
                     }`}
                   >
                     {mode === 'always' ? 'Always' : 
