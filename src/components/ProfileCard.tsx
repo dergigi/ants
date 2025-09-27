@@ -22,7 +22,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
-import { useHasSentZap } from '@/hooks/useHasSentZap';
+import { useHasSentZap, useHasSentNutzap } from '@/hooks/useHasSentZap';
 
 // Clean website URL by removing protocol and www prefix
 function cleanWebsiteUrl(url: string): string {
@@ -55,6 +55,14 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const router = useRouter();
   const pathname = usePathname();
   const hasSentZap = useHasSentZap(pubkey);
+  const hasSentNutzap = useHasSentNutzap(pubkey);
+  const lightningButtonAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
+  const lightningIconAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
+  const lightningAnchorAccent = hasSentNutzap
+    ? 'text-purple-400 hover:text-purple-300'
+    : hasSentZap
+      ? 'text-yellow-200 hover:text-yellow-100'
+      : 'text-gray-400 hover:text-gray-200';
 
   const handleLightningSearch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -102,19 +110,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleLightningSearch}
-              className={`inline-flex items-center gap-1 hover:underline p-1 rounded ${hasSentZap ? 'text-yellow-300' : ''}`.trim()}
+              className={`inline-flex items-center gap-1 hover:underline p-1 rounded ${lightningButtonAccent}`.trim()}
               title={`Search for ${lightning}`}
             >
-              <FontAwesomeIcon icon={faBoltLightning} className={`h-4 w-4 ${hasSentZap ? 'text-yellow-400' : ''}`.trim()} />
+              <FontAwesomeIcon icon={faBoltLightning} className={`h-4 w-4 ${lightningIconAccent}`.trim()} />
               <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
-              className={`p-1 rounded hover:bg-gray-600 hidden sm:block ${hasSentZap ? 'text-yellow-300 hover:text-yellow-200' : 'text-gray-400 hover:text-gray-200'}`.trim()}
+              className={`p-1 rounded hover:bg-gray-600 hidden sm:block ${lightningAnchorAccent}`.trim()}
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className={`h-4 w-4 ${hasSentZap ? 'text-yellow-400' : ''}`.trim()} />
+              <FontAwesomeIcon icon={faExternalLink} className={`h-4 w-4 ${lightningIconAccent}`.trim()} />
             </a>
           </div>
         ) : null}
