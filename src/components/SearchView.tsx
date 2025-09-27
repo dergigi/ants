@@ -695,13 +695,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Helper function to update URL immediately when search is triggered
   const updateUrlForSearch = useCallback((searchQuery: string) => {
-    if (!manageUrl) return;
-    
     // If custom URL update handler is provided, use it instead
     if (onUrlUpdate) {
       onUrlUpdate(searchQuery);
       return;
     }
+    
+    if (!manageUrl) return;
     
     // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
@@ -998,9 +998,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (isSlashCommand(raw)) {
       runSlashCommand(raw);
       setQuery(raw);
-      if (manageUrl) {
-        updateUrlForSearch(raw);
-      }
+      updateUrlForSearch(raw);
       // Clear prior results immediately before async search
       setResults([]);
       setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
@@ -1251,9 +1249,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 e.stopPropagation();
                 const nextQuery = fullUrl;
                 setQuery(nextQuery);
-                if (manageUrl) {
-                  updateUrlForSearch(nextQuery);
-                }
+                updateUrlForSearch(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -1478,9 +1474,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   onClick={() => {
                     const q = token;
                     setQuery(q);
-                    if (manageUrl) {
-                      updateUrlForSearch(q);
-                    }
+                    updateUrlForSearch(q);
                     handleSearch(q);
                   }}
                 >
@@ -1561,9 +1555,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   onClick={() => {
                     const nextQuery = part;
                     setQuery(nextQuery);
-                    if (manageUrl) {
-                      updateUrlForSearch(nextQuery);
-                    }
+                    updateUrlForSearch(nextQuery);
                     handleSearch(nextQuery);
                   }}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
@@ -1584,9 +1576,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       onClick={() => {
                         const nextQuery = emojis[i] as string;
                         setQuery(nextQuery);
-                        if (manageUrl) {
-                          updateUrlForSearch(nextQuery);
-                        }
+                        updateUrlForSearch(nextQuery);
                         handleSearch(nextQuery);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
@@ -1605,7 +1595,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1713,9 +1703,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               onSearch={(targetUrl) => {
                 const nextQuery = targetUrl;
                 setQuery(nextQuery);
-                if (manageUrl) {
-                  updateUrlForSearch(nextQuery);
-                }
+                updateUrlForSearch(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -2017,9 +2005,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                             className="text-left w-full hover:underline"
                             onClick={() => {
                               setQuery(ex);
-                              if (manageUrl) {
-                                updateUrlForSearch(ex);
-                              }
+                              updateUrlForSearch(ex);
                               handleSearch(ex);
                             }}
                           >
@@ -2088,9 +2074,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2166,9 +2150,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2246,9 +2228,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2281,9 +2261,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2311,9 +2289,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
