@@ -9,6 +9,11 @@ import {
 import { queryVertexDVM } from './dvm-core';
 import { verifyNip05, isRootNip05 } from './nip05';
 import { getCachedNip05Result } from './cache';
+import { 
+  getCachedLightningFlag, 
+  prefetchLightningRealness, 
+  LIGHTNING_FLAGS 
+} from './lightning';
 
 // Full-text profile search with ranking
 export async function searchProfilesFullText(term: string, limit: number = 50): Promise<NDKEvent[]> {
@@ -56,6 +61,8 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     finalScore?: number;
     verified?: boolean;
     verifyHint?: boolean;
+    hasZap: boolean;
+    hasNutzap: boolean;
   };
 
   const enriched: EnrichedRow[] = candidates.map((evt, idx) => {
@@ -95,6 +102,17 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     const baseScore = computeMatchScore(termLower, name, display, about, nip05Value);
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
 
+    const cachedZap = getCachedLightningFlag(pubkey, LIGHTNING_FLAGS.ZAP);
+    const cachedNutzap = getCachedLightningFlag(pubkey, LIGHTNING_FLAGS.NUTZAP);
+
+    if (
+      pubkey &&
+      idx < verificationLimit &&
+      (cachedZap === undefined || cachedNutzap === undefined)
+    ) {
+      void prefetchLightningRealness(pubkey).catch(() => undefined);
+    }
+
     let verifyPromise: Promise<boolean> | null = null;
     // Use cached result immediately for scoring, and schedule background verification for a subset
     const cached = pubkey && nip05Value ? getCachedNip05Result(pubkey, nip05Value) : null;
@@ -112,7 +130,9 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
       isFriend,
       nip05: nip05Value,
       verifyPromise,
-      verifyHint: nip05VerifiedHint
+      verifyHint: nip05VerifiedHint,
+      hasZap: cachedZap ?? false,
+      hasNutzap: cachedNutzap ?? false
     };
   });
 
@@ -127,6 +147,14 @@ export async function searchProfilesFullText(term: string, limit: number = 50): 
     if (verified) score += 100;
     // Additional bonus for verified root NIP-05s (double checkmark)
     if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
+    const updatedNutzap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.NUTZAP) : undefined;
+    const updatedZap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.ZAP) : undefined;
+    const hasNutzap = updatedNutzap ?? row.hasNutzap;
+    const hasZap = updatedZap ?? row.hasZap;
+    row.hasNutzap = hasNutzap;
+    row.hasZap = hasZap;
+    if (hasNutzap) score += 150;
+    else if (hasZap) score += 40;
     if (row.isFriend) score += 50;
     row.finalScore = score;
     row.verified = verified;

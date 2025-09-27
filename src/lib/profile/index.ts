@@ -27,3 +27,10 @@ export {
   getCachedUsername,
   setCachedUsername
 } from './username-cache';
+export {
+  getCachedLightningFlag,
+  getCachedLightningRealness,
+  prefetchLightningFlag,
+  prefetchLightningRealness,
+  LIGHTNING_FLAGS
+} from './lightning';
