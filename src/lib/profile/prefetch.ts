@@ -110,6 +110,8 @@ export function prepareProfileEventForPrefetch(event: NDKEvent): NDKEvent {
         // Keep banner/cover/header as-is; UI already checks these keys
         // Ensure nip05 is preserved
         if (typeof parsed?.nip05 === 'string') normalized.nip05 = parsed.nip05;
+        // Ensure lud06 is preserved (alternative to lud16 for Lightning addresses)
+        if (typeof parsed?.lud06 === 'string') normalized.lud06 = parsed.lud06;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (author as any).profile = normalized;
       } catch {}

@@ -251,7 +251,7 @@ type ProfileCardProps = {
 
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
   const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
-  type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string; website?: string; url?: string } | undefined;
+  type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string; lud06?: string; website?: string; url?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
   const safeBannerUrl = isAbsoluteHttpUrl(bannerUrl) ? bannerUrl : undefined;
@@ -529,7 +529,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         pubkey={event.author.pubkey}
         fallbackEventId={event.id}
         fallbackCreatedAt={event.created_at}
-        lightning={profile?.lud16}
+        lightning={profile?.lud16 || profile?.lud06}
         website={(profile?.website || profile?.url) as string | undefined}
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
