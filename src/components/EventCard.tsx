@@ -2,7 +2,6 @@
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
-import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState } from 'react';
@@ -67,34 +66,42 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
     const items: React.ReactNode[] = [];
 
     if (highlight.referencedEvent) {
+      const nevent = highlight.referencedEvent;
       items.push(
         <a
           key="hl-event"
-          href={`https://njump.me/${highlight.referencedEvent}`}
+          href={`https://njump.me/${nevent}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-400 hover:text-blue-300 hover:underline"
         >
-          {`Event ${shortenNevent(highlight.referencedEvent)}`}
+          {`Event ${shortenNevent(nevent)}`}
         </a>
       );
     }
 
     if (highlight.referencedAuthorHex) {
-      const npub = highlight.referencedAuthor || (() => {
-        try { return nip19.npubEncode(highlight.referencedAuthorHex!); } catch { return highlight.referencedAuthorHex!; }
-      })();
-      items.push(
-        <a
-          key="hl-author"
-          href={`https://njump.me/${npub}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 hover:underline"
-        >
-          {`Author ${shortenNpub(npub)}`}
-        </a>
-      );
+      let npub: string | undefined = highlight.referencedAuthor;
+      if (!npub) {
+        try {
+          npub = nip19.npubEncode(highlight.referencedAuthorHex);
+        } catch {
+          npub = highlight.referencedAuthorHex;
+        }
+      }
+      if (npub) {
+        items.push(
+          <a
+            key="hl-author"
+            href={`https://njump.me/${npub}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            {`Author ${shortenNpub(npub)}`}
+          </a>
+        );
+      }
     }
 
     return items.length > 0 ? (
@@ -143,7 +150,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
               {/* Context if available, rendered like regular content */}
-              {shouldShowHighlightContext && (
+              {shouldShowHighlightContext && highlight.context && (
                 <div className={contentClasses}>
                   {renderContent(highlight.context)}
                 </div>
@@ -160,11 +167,31 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               </div>
 
               {/* Additional highlight metadata as part of content */}
-              <div className="text-xs text-gray-400 space-y-1">
-                {renderMetadataItem("Event", highlight.referencedEvent || '')}
-                {renderMetadataItem("Author", highlight.referencedAuthorHex || '')}
-                {renderMetadataItem("Range", highlight.range || '')}
-              </div>
+              {(() => {
+                const eventId = highlight.referencedEvent;
+                const authorHex = highlight.referencedAuthorHex;
+                const rangeValue = highlight.range;
+
+                return (
+                  <div className="text-xs text-gray-400 space-y-1">
+                    {eventId
+                      ? renderMetadataItem(
+                          "Event",
+                          eventId,
+                          'link',
+                          undefined,
+                          `https://njump.me/${eventId}`
+                        )
+                      : null}
+                    {authorHex
+                      ? renderMetadataItem("Author", authorHex)
+                      : null}
+                    {rangeValue
+                      ? renderMetadataItem("Range", rangeValue)
+                      : null}
+                  </div>
+                );
+              })()}
 
               {highlightLinks()}
 
@@ -231,7 +258,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           >
             <ul className="py-1 text-sm text-gray-200">
               {(() => {
-                const nevent = nip19.neventEncode({ id: event.id });
+                const nevent = shortenNevent(event.id);
                 const items = createEventExplorerItems(nevent);
                 return items.map((item) => (
                   <li key={item.name}>
