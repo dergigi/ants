@@ -489,17 +489,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: false });
+  const [userManuallyToggled, setUserManuallyToggled] = useState(false);
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   
-  // Auto-enable/disable filters based on result count
+  // Custom handler for filter changes that tracks manual toggles
+  const handleFilterChange = useCallback((newSettings: FilterSettings) => {
+    setFilterSettings(newSettings);
+    setUserManuallyToggled(true);
+  }, []);
+  
+  // Reset manual toggle when starting a new search
   useEffect(() => {
-    const shouldEnableFilters = results.length >= SEARCH_FILTER_THRESHOLD;
-    if (filterSettings.filtersEnabled !== shouldEnableFilters) {
-      setFilterSettings(prev => ({ ...prev, filtersEnabled: shouldEnableFilters }));
+    setUserManuallyToggled(false);
+  }, [query]);
+  
+  // Auto-enable/disable filters based on result count (only if user hasn't manually toggled)
+  useEffect(() => {
+    if (!userManuallyToggled) {
+      const shouldEnableFilters = results.length >= SEARCH_FILTER_THRESHOLD;
+      if (filterSettings.filtersEnabled !== shouldEnableFilters) {
+        setFilterSettings(prev => ({ ...prev, filtersEnabled: shouldEnableFilters }));
+      }
     }
-  }, [results.length, filterSettings.filtersEnabled]);
+  }, [results.length, filterSettings.filtersEnabled, userManuallyToggled]);
   
   // Check if query is a URL
   const isUrl = useCallback((input: string): boolean => {
@@ -1959,10 +1973,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {results.length > 0 && (
         <ClientFilters
           filterSettings={filterSettings}
-          onFilterChange={setFilterSettings}
+          onFilterChange={handleFilterChange}
           resultCount={results.length}
           filteredCount={fuseFilteredResults.length}
-          isAutoEnabled={results.length >= SEARCH_FILTER_THRESHOLD}
+          isAutoEnabled={results.length >= SEARCH_FILTER_THRESHOLD && !userManuallyToggled}
         />
       )}
 
