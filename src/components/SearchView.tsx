@@ -487,7 +487,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
-  const [isUrlQuery, setIsUrlQuery] = useState(false);
   const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
@@ -506,12 +505,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   
   // Handle opening external URL
   const handleOpenExternal = useCallback(() => {
-    if (isUrlQuery && query.trim()) {
+    if (query.trim()) {
       window.open(query.trim(), '_blank', 'noopener,noreferrer');
       // Immediately transform back to regular search button
       setShowExternalButton(false);
     }
-  }, [isUrlQuery, query]);
+  }, [query]);
   
   const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
     const lines = Array.isArray(body) ? body : [body];
@@ -765,7 +764,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
-      setIsUrlQuery(isUrlQueryResult);
       setShowExternalButton(isUrlQueryResult && filtered.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
