@@ -156,3 +156,5 @@ nip:EE => nips/blob/master/EE.md
 nip:A0 => nips/blob/master/A0.md
 nip:C7 => nips/blob/master/C7.md
 nip:7D => nips/blob/master/7D.md
+
+nostr: => 
