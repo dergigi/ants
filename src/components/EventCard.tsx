@@ -12,7 +12,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
-import { parseHighlightEvent, formatHighlightContent, getHighlightMetadata, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { parseHighlightEvent, formatHighlightContent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
 type Props = {
@@ -42,12 +42,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const portalButtonRef = useRef<HTMLButtonElement>(null);
   const [showRaw, setShowRaw] = useState(false);
-  const [showHighlightDetails, setShowHighlightDetails] = useState(false);
 
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
-  const highlightMetadata = highlight ? getHighlightMetadata(highlight) : null;
 
   return (
     <div className={containerClasses}>
@@ -72,6 +70,38 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   <span className="font-medium">Context:</span> {highlight.context}
                 </div>
               )}
+              
+              {/* Additional highlight metadata as part of content */}
+              <div className="text-xs text-gray-400 space-y-1">
+                {highlight.referencedEvent && (
+                  <div>
+                    <span className="font-medium">Event:</span> {highlight.referencedEvent}
+                  </div>
+                )}
+                {highlight.referencedAuthor && (
+                  <div>
+                    <span className="font-medium">Author:</span> {highlight.referencedAuthor}
+                  </div>
+                )}
+                {highlight.referencedUrl && (
+                  <div>
+                    <span className="font-medium">URL:</span>{' '}
+                    <a 
+                      href={highlight.referencedUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      {highlight.referencedUrl}
+                    </a>
+                  </div>
+                )}
+                {highlight.range && (
+                  <div>
+                    <span className="font-medium">Range:</span> {highlight.range}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
@@ -84,20 +114,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           <div className="flex items-center gap-2 min-h-[1rem]">
             {event.author && <Nip05Display user={event.author} compact={true} />}
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
-            
-            {/* Highlight metadata indicators */}
-            {isHighlight && highlightMetadata && (
-              <>
-                {highlightMetadata.hasReferences && (
-                  <span className="text-blue-400">
-                    {highlightMetadata.referenceCount} reference{highlightMetadata.referenceCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {highlightMetadata.hasRange && highlight && (
-                  <span className="text-green-400">Range: {highlight.range}</span>
-                )}
-              </>
-            )}
           </div>
           {footerRight ? (
             <div className="ml-auto flex items-center gap-2">
@@ -122,47 +138,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               </div>
             </div>
           ) : null}
-          
-          {/* Highlight details toggle */}
-          {isHighlight && highlight && (highlightMetadata?.hasReferences || highlight.referencedEvent || highlight.referencedAuthor || highlight.referencedUrl) && (
-            <div className="ml-auto">
-              <button
-                onClick={() => setShowHighlightDetails(!showHighlightDetails)}
-                className="text-gray-400 hover:text-gray-200 transition-colors text-xs"
-              >
-                {showHighlightDetails ? 'Hide' : 'Show'} details
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Detailed highlight information */}
-      {isHighlight && highlight && showHighlightDetails && (
-        <div className="mt-3 pt-3 border-t border-[#3d3d3d] text-xs text-gray-400">
-          {highlight.referencedEvent && (
-            <div className="mb-1">
-              <span className="font-medium">Event:</span> {highlight.referencedEvent}
-            </div>
-          )}
-          {highlight.referencedAuthor && (
-            <div className="mb-1">
-              <span className="font-medium">Author:</span> {highlight.referencedAuthor}
-            </div>
-          )}
-          {highlight.referencedUrl && (
-            <div className="mb-1">
-              <span className="font-medium">URL:</span>{' '}
-              <a 
-                href={highlight.referencedUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300"
-              >
-                {highlight.referencedUrl}
-              </a>
-            </div>
-          )}
         </div>
       )}
       
