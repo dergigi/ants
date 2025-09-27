@@ -7,8 +7,7 @@ import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/n
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
-import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
+import { isAbsoluteHttpUrl, formatUrlForDisplay, extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { Blurhash } from 'react-blurhash';
@@ -487,10 +486,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
+  const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  
+  // Check if query is a URL
+  const isUrl = useCallback((input: string): boolean => {
+    try {
+      const url = new URL(input.trim());
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, []);
+  
+  // Handle opening external URL
+  const handleOpenExternal = useCallback(() => {
+    if (query.trim()) {
+      window.open(query.trim(), '_blank', 'noopener,noreferrer');
+      // Immediately transform back to regular search button
+      setShowExternalButton(false);
+    }
+  }, [query]);
+  
   const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
     const lines = Array.isArray(body) ? body : [body];
     return [`$ ants ${label}`, '', ...lines].join('\n');
@@ -677,6 +697,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (!isCmd) {
       setTopCommandText(null);
       setTopExamples(null);
+      setShowExternalButton(false);
     }
     setResults([]);
     setLoading(true);
@@ -739,6 +760,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+      
+      // Check if this was a URL query and if we got 0 results
+      const isUrlQueryResult = isUrl(searchQuery);
+      setShowExternalButton(isUrlQueryResult && filtered.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -1132,24 +1157,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const isUrl = /^https?:\/\//i.test(segment);
       if (isUrl) {
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
+        const { displayText, fullUrl } = formatUrlForDisplay(cleanedUrl, 25);
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
-            <a
-              href={cleanedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
-              onClick={(e) => { e.stopPropagation(); }}
-              title={cleanedUrl}
-            >
-              {cleanedUrl}
-            </a>
             <button
               type="button"
-              title="Search for this URL"
-              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
-              onClick={() => {
-                const nextQuery = cleanedUrl;
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
+              onClick={(e) => { 
+                e.stopPropagation();
+                const nextQuery = fullUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
                   const params = new URLSearchParams(searchParams.toString());
@@ -1172,8 +1188,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 })();
               }}
+              title={`Search for: ${fullUrl}`}
             >
-              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
+              {displayText}
+            </button>
+            <button
+              type="button"
+              title="Open URL in new tab"
+              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(fullUrl, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs" />
             </button>
           </span>
         );
@@ -1767,13 +1795,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </div>
             </button>
           </div>
-          <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
+          <button 
+            type={showExternalButton ? "button" : "submit"} 
+            disabled={loading} 
+            onClick={showExternalButton ? handleOpenExternal : undefined}
+            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors"
+            title={showExternalButton ? "Open URL in new tab" : "Search"}
+          >
             {loading ? (
               resolvingAuthor ? (
                 <FontAwesomeIcon icon={faUser} className="animate-spin" />
               ) : (
                 <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
               )
+            ) : showExternalButton ? (
+              <FontAwesomeIcon icon={faExternalLink} />
             ) : (
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             )}

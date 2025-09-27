@@ -24,25 +24,8 @@ import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
 import { useHasSentZap, useHasSentNutzap } from '@/hooks/useHasSentZap';
 
-// Clean website URL by removing protocol and www prefix
-function cleanWebsiteUrl(url: string): string {
-  if (!url) return '';
-  
-  try {
-    // Remove protocol (http://, https://)
-    let cleaned = url.replace(/^https?:\/\//, '');
-    
-    // Remove www. prefix
-    cleaned = cleaned.replace(/^www\./, '');
-    
-    // Remove trailing slash
-    cleaned = cleaned.replace(/\/$/, '');
-    
-    return cleaned;
-  } catch {
-    return url;
-  }
-}
+// Import centralized URL utilities
+import { cleanWebsiteUrl } from '@/lib/utils/urlUtils';
 
 function cleanLightningAddress(lightning: string, npub: string): string {
   // If lightning address starts with the user's npub, remove it
