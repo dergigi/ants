@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { decodeMaybe } from '@/lib/utils';
+import { decodeMaybe, processHashtagInput } from '@/lib/utils';
 import SearchView from '@/components/SearchView';
 
 export default function HashtagsPage() {
@@ -10,27 +10,8 @@ export default function HashtagsPage() {
   const rawHashtags = params?.hashtags || '';
 
   const normalizedQuery = useMemo(() => {
-    const hashtags = decodeMaybe(rawHashtags).trim();
-    if (!hashtags) return '';
-    
-    // Split by comma, space, or plus sign to handle multiple hashtags
-    const hashtagList = hashtags
-      .split(/[,+\s]+/)
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0)
-      .map(tag => {
-        // Ensure hashtag starts with # if not already present
-        return tag.startsWith('#') ? tag : `#${tag}`;
-      });
-    
-    if (hashtagList.length === 0) return '';
-    
-    // If multiple hashtags, join with OR operator
-    if (hashtagList.length === 1) {
-      return hashtagList[0];
-    } else {
-      return hashtagList.join(' OR ');
-    }
+    const hashtags = decodeMaybe(rawHashtags);
+    return processHashtagInput(hashtags);
   }, [rawHashtags]);
 
   return (

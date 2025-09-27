@@ -215,18 +215,23 @@ export function decodeMaybe(s: string): string {
 }
 
 /**
+ * Normalizes a query by removing OR operators and splitting into terms
+ * @param query - The search query to normalize
+ * @returns Array of normalized terms
+ */
+function normalizeQueryTerms(query: string): string[] {
+  if (!query.trim()) return [];
+  return query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
+}
+
+/**
  * Checks if a query contains only hashtags (with OR operators)
  * @param query - The search query to check
  * @returns true if the query contains only hashtags
  */
 export function isHashtagOnlyQuery(query: string): boolean {
-  if (!query.trim()) return false;
-  
-  // Remove OR operators and split by whitespace
-  const terms = query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
-  
-  // Check if all terms are hashtags (start with #)
-  return terms.every(term => term.startsWith('#'));
+  const terms = normalizeQueryTerms(query);
+  return terms.length > 0 && terms.every(term => term.startsWith('#'));
 }
 
 /**
@@ -237,11 +242,38 @@ export function isHashtagOnlyQuery(query: string): boolean {
 export function hashtagQueryToUrl(query: string): string {
   if (!isHashtagOnlyQuery(query)) return '';
   
-  // Remove OR operators and split by whitespace
-  const terms = query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
+  const terms = normalizeQueryTerms(query);
   
   // Remove # prefix and join with commas
   return terms
     .map(term => term.startsWith('#') ? term.slice(1) : term)
     .join(',');
+}
+
+/**
+ * Processes hashtag input and converts to search query format
+ * @param hashtags - Raw hashtag input (e.g., "pugstr,dogstr,goatstr")
+ * @returns Normalized search query (e.g., "#pugstr OR #dogstr OR #goatstr")
+ */
+export function processHashtagInput(hashtags: string): string {
+  if (!hashtags.trim()) return '';
+  
+  // Split by comma, space, or plus sign to handle multiple hashtags
+  const hashtagList = hashtags
+    .split(/[,+\s]+/)
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0)
+    .map(tag => {
+      // Ensure hashtag starts with # if not already present
+      return tag.startsWith('#') ? tag : `#${tag}`;
+    });
+  
+  if (hashtagList.length === 0) return '';
+  
+  // If multiple hashtags, join with OR operator
+  if (hashtagList.length === 1) {
+    return hashtagList[0];
+  } else {
+    return hashtagList.join(' OR ');
+  }
 }
