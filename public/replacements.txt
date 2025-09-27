@@ -160,7 +160,7 @@ nip:7D => nips/blob/master/7D.md
 
 nostr: => 
 http://www. => 
-https://www. =>
+https://www. => 
 http:// => 
-https:// =>
-ftp:// =>
+https:// => 
+ftp:// => 

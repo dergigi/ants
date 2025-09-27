@@ -85,7 +85,6 @@ export const searchExamples = [
   'is:repost by:dor',
   'is:muted by:carvalho',
   'is:highlight',
-  'kind:9802',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
@@ -95,12 +94,9 @@ export const searchExamples = [
   'nip:03',
 
   // Highlight examples
-  'highlight bitcoin',
+  'is:highlight (bitcoin OR nostr)',
   'is:highlight by:dergigi',
-  'highlight "proof of work"',
-  'kind:9802 #bitcoin',
-  'highlight site:github.com',
-  'is:highlight has:image',
+  'is:highlight "proof of work"',
 
   // Slash Commands
   '/help',
