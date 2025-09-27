@@ -14,24 +14,18 @@ interface RelayObject {
   };
 }
 
-// NIP-50 extension options
-export interface Nip50Extensions {
-  includeSpam?: boolean;
-  domain?: string;
-  language?: string;
-  sentiment?: 'negative' | 'neutral' | 'positive';
-  nsfw?: boolean;
-}
+// Import shared utilities
+import { 
+  Nip50Extensions, 
+  sortEventsNewestFirst, 
+  buildSearchQueryWithExtensions
+} from './search/searchUtils';
 
 interface NDKEventWithRelaySource extends NDKEvent {
   relaySource?: string;
   relaySources?: string[]; // Track all relays where this event was found
 }
 
-// Ensure newest-first ordering by created_at
-function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
-  return [...events].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-}
 
 // Extend filter type to include tag queries for "t" (hashtags)
 type TagTFilter = NDKFilter & { '#t'?: string[] };
@@ -103,35 +97,6 @@ function extractNip50Extensions(rawQuery: string): { cleaned: string; extensions
   return { cleaned: cleaned.trim(), extensions };
 }
 
-// Build search query with NIP-50 extensions
-function buildSearchQueryWithExtensions(baseQuery: string, extensions: Nip50Extensions): string {
-  if (!baseQuery.trim()) return baseQuery;
-  
-  let searchQuery = baseQuery;
-  
-  // Add NIP-50 extensions as key:value pairs
-  if (extensions.includeSpam) {
-    searchQuery += ' include:spam';
-  }
-  
-  if (extensions.domain) {
-    searchQuery += ` domain:${extensions.domain}`;
-  }
-  
-  if (extensions.language) {
-    searchQuery += ` language:${extensions.language}`;
-  }
-  
-  if (extensions.sentiment) {
-    searchQuery += ` sentiment:${extensions.sentiment}`;
-  }
-  
-  if (extensions.nsfw !== undefined) {
-    searchQuery += ` nsfw:${extensions.nsfw}`;
-  }
-  
-  return searchQuery;
-}
 
 // Strip legacy relay filters from query (relay:..., relays:mine)
 function stripRelayFilters(rawQuery: string): string {
@@ -832,7 +797,7 @@ export async function searchEvents(
         effectiveKinds,
         nip50Extensions,
         limit,
-        isStreaming,
+        isStreaming || false,
         streamingOptions,
         chosenRelaySet,
         abortSignal
