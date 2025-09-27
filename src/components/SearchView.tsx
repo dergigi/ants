@@ -1838,9 +1838,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </div>
           <button 
             type={showExternalButton ? "button" : "submit"} 
-            disabled={loading} 
             onClick={showExternalButton ? handleOpenExternal : undefined}
-            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors"
+            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
             title={showExternalButton ? "Open URL in new tab" : "Search"}
           >
             {loading ? (
