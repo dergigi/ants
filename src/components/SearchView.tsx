@@ -488,10 +488,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: true });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  
+  // Auto-enable/disable filters based on result count
+  useEffect(() => {
+    const shouldEnableFilters = results.length >= SEARCH_FILTER_THRESHOLD;
+    if (filterSettings.filtersEnabled !== shouldEnableFilters) {
+      setFilterSettings(prev => ({ ...prev, filtersEnabled: shouldEnableFilters }));
+    }
+  }, [results.length, filterSettings.filtersEnabled]);
   
   // Check if query is a URL
   const isUrl = useCallback((input: string): boolean => {
@@ -1954,6 +1962,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           onFilterChange={setFilterSettings}
           resultCount={results.length}
           filteredCount={fuseFilteredResults.length}
+          isAutoEnabled={results.length >= SEARCH_FILTER_THRESHOLD}
         />
       )}
 

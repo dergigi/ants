@@ -22,9 +22,10 @@ interface Props {
   onFilterChange: (settings: FilterSettings) => void;
   resultCount: number;
   filteredCount: number;
+  isAutoEnabled?: boolean;
 }
 
-export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount }: Props) {
+export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, isAutoEnabled = false }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
@@ -91,6 +92,9 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   className="accent-[#4a4a4a]"
                 />
                 <span>Filter Results</span>
+                {isAutoEnabled && (
+                  <span className="text-xs text-blue-400">(auto-enabled)</span>
+                )}
               </label>
             </div>
             <div className="flex items-center gap-3">
