@@ -158,12 +158,22 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
 
               {/* Highlighted excerpt styled similar to native reader highlights */}
               <div className={contentClasses}>
-                <span
-                  className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                >
-                  {shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content}
-                </span>
+                {(() => {
+                  const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
+                  // Split by double newlines to get paragraphs
+                  const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                  
+                  return paragraphs.map((paragraph, index) => (
+                    <p key={index} className="mb-3 last:mb-0">
+                      <span
+                        className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                        style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                      >
+                        {paragraph.trim()}
+                      </span>
+                    </p>
+                  ));
+                })()}
               </div>
 
               {/* Additional highlight metadata as part of content */}
@@ -208,9 +218,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               ) : null}
             </div>
           ) : (
-            <div className={contentClasses}>
-              {renderContent(event.content || '')}
-            </div>
+            <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
         </>
