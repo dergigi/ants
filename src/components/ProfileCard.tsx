@@ -23,6 +23,26 @@ import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
 
+// Clean website URL by removing protocol and www prefix
+function cleanWebsiteUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    // Remove protocol (http://, https://)
+    let cleaned = url.replace(/^https?:\/\//, '');
+    
+    // Remove www. prefix
+    cleaned = cleaned.replace(/^www\./, '');
+    
+    // Remove trailing slash
+    cleaned = cleaned.replace(/\/$/, '');
+    
+    return cleaned;
+  } catch {
+    return url;
+  }
+}
+
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
@@ -105,7 +125,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Search for ${website}`}
             >
               <FontAwesomeIcon icon={faHouseUser} className="h-4 w-4" />
-              <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
+              <span className="truncate max-w-[14rem] hidden sm:inline">{cleanWebsiteUrl(website)}</span>
             </button>
             <a
               href={website}
