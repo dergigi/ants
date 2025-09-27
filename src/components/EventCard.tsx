@@ -17,6 +17,22 @@ import { shortenNevent, shortenNpub, extractDomainFromUrl } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
 
+// Helper function for search navigation
+const navigateToSearch = (query: string) => {
+  window.location.href = `/?q=${encodeURIComponent(query)}`;
+};
+
+// Reusable search button component
+const SearchButton = ({ query, children, className = "text-blue-400 hover:text-blue-300 hover:underline" }: { query: string; children: React.ReactNode; className?: string }) => (
+  <button
+    type="button"
+    onClick={() => navigateToSearch(query)}
+    className={className}
+  >
+    {children}
+  </button>
+);
+
 
 type Props = {
   event: NDKEvent;
@@ -225,16 +241,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       // r tag - external URL
                       <>
                         <span className="font-medium">Source:</span>{' '}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Trigger internal search for the URL
-                            window.location.href = `/?q=${encodeURIComponent(sourceUrl)}`;
-                          }}
-                          className="text-blue-400 hover:text-blue-300 hover:underline"
-                        >
+                        <SearchButton query={sourceUrl}>
                           {extractDomainFromUrl(sourceUrl)}
-                        </button>
+                        </SearchButton>
                       </>
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
@@ -246,17 +255,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                           return (
                             <span>
                               Highlight from a{' '}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  // For nostr-native blog posts, search for the specific a tag
-                                  const searchQuery = `a:${sourceEvent}`;
-                                  window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
-                                }}
-                                className="text-blue-400 hover:text-blue-300 hover:underline"
-                              >
+                              <SearchButton query={`a:${sourceEvent}`}>
                                 blog post
-                              </button>
+                              </SearchButton>
                               {authorHex && (
                                 <>
                                   {' by '}
@@ -270,17 +271,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                           return (
                             <span>
                               <span className="font-medium">Source:</span>{' '}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  // Trigger internal search for the event
-                                  const searchQuery = `e:${sourceEvent}`;
-                                  window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
-                                }}
-                                className="text-blue-400 hover:text-blue-300 hover:underline"
-                              >
+                              <SearchButton query={`e:${sourceEvent}`}>
                                 nostr post
-                              </button>
+                              </SearchButton>
                               {authorHex && (
                                 <>
                                   {' by '}
