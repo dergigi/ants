@@ -164,7 +164,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
                   
                   return paragraphs.map((paragraph, index) => (
-                    <p key={index} className="mb-3 last:mb-0">
+                    <p key={index} className="mb-4 last:mb-0">
                       <span
                         className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
                         style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
