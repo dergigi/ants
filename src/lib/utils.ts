@@ -22,9 +22,9 @@ export function shortenString(
 }
 
 /**
- * Extract domain name from URL for clean display
+ * Extract domain name from URL for clean display, including first path segment
  * @param url - The URL to extract domain from
- * @returns The cleaned domain name (e.g., "zerohedge.com" from "https://www.zerohedge.com/path")
+ * @returns The cleaned domain with first path (e.g., "x.com/reardencode" from "https://x.com/reardencode/status/1968650911787761977?s=46")
  */
 export function extractDomainFromUrl(url: string): string {
   if (!url) return '';
@@ -36,10 +36,17 @@ export function extractDomainFromUrl(url: string): string {
     // Remove www. prefix
     cleaned = cleaned.replace(/^www\./, '');
     
-    // Remove trailing slash and path
-    cleaned = cleaned.split('/')[0];
+    // Split by '/' and take domain + first path segment (if exists)
+    const parts = cleaned.split('/');
+    const domain = parts[0];
+    const firstPath = parts[1];
     
-    return cleaned;
+    // Return domain with first path if it exists and is not empty
+    if (firstPath && firstPath.trim() && !firstPath.includes('?')) {
+      return `${domain}/${firstPath}`;
+    }
+    
+    return domain;
   } catch {
     return url;
   }
