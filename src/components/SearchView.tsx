@@ -7,8 +7,7 @@ import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/n
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
-import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
+import { isAbsoluteHttpUrl, formatUrlForDisplay, extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { Blurhash } from 'react-blurhash';
@@ -1158,6 +1157,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const isUrl = /^https?:\/\//i.test(segment);
       if (isUrl) {
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
+        const { displayText, fullUrl } = formatUrlForDisplay(cleanedUrl, 40);
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
             <button
@@ -1165,7 +1165,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
               onClick={(e) => { 
                 e.stopPropagation();
-                const nextQuery = cleanedUrl;
+                const nextQuery = fullUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
                   const params = new URLSearchParams(searchParams.toString());
@@ -1188,9 +1188,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 })();
               }}
-              title="Search for this URL"
+              title={`Search for: ${fullUrl}`}
             >
-              {cleanedUrl}
+              {displayText}
             </button>
             <button
               type="button"
@@ -1198,7 +1198,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
               onClick={(e) => {
                 e.stopPropagation();
-                window.open(cleanedUrl, '_blank', 'noopener,noreferrer');
+                window.open(fullUrl, '_blank', 'noopener,noreferrer');
               }}
             >
               <FontAwesomeIcon icon={faExternalLink} className="text-xs" />
