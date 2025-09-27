@@ -487,10 +487,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
+  const [isUrlQuery, setIsUrlQuery] = useState(false);
+  const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  
+  // Check if query is a URL
+  const isUrl = useCallback((input: string): boolean => {
+    try {
+      const url = new URL(input.trim());
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, []);
+  
+  // Handle opening external URL
+  const handleOpenExternal = useCallback(() => {
+    if (isUrlQuery && query.trim()) {
+      window.open(query.trim(), '_blank', 'noopener,noreferrer');
+    }
+  }, [isUrlQuery, query]);
+  
   const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
     const lines = Array.isArray(body) ? body : [body];
     return [`$ ants ${label}`, '', ...lines].join('\n');
@@ -677,6 +697,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (!isCmd) {
       setTopCommandText(null);
       setTopExamples(null);
+      setShowExternalButton(false);
     }
     setResults([]);
     setLoading(true);
@@ -739,6 +760,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+      
+      // Check if this was a URL query and if we got 0 results
+      const isUrlQueryResult = isUrl(searchQuery);
+      setIsUrlQuery(isUrlQueryResult);
+      setShowExternalButton(isUrlQueryResult && filtered.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -1767,13 +1793,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               </div>
             </button>
           </div>
-          <button type="submit" disabled={loading} className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors">
+          <button 
+            type={showExternalButton ? "button" : "submit"} 
+            disabled={loading} 
+            onClick={showExternalButton ? handleOpenExternal : undefined}
+            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors"
+            title={showExternalButton ? "Open URL in new tab" : "Search"}
+          >
             {loading ? (
               resolvingAuthor ? (
                 <FontAwesomeIcon icon={faUser} className="animate-spin" />
               ) : (
                 <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
               )
+            ) : showExternalButton ? (
+              <FontAwesomeIcon icon={faExternalLink} />
             ) : (
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             )}
