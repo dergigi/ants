@@ -7,6 +7,8 @@ import SearchView from '@/components/SearchView';
 import ProfileCard from '@/components/ProfileCard';
 import { resolveNip05ToPubkey } from '@/lib/vertex';
 import { useNostrUser } from '@/hooks/useNostrUser';
+import { decodeMaybe } from '@/lib/utils';
+import { LoadingLayout } from '@/components/LoadingLayout';
 
 // shared hook imported from '@/hooks/useNostrUser'
 
@@ -18,9 +20,6 @@ export default function PidPage() {
   const q = searchParams?.get('q') || '';
 
   const id = useMemo(() => {
-    const decodeMaybe = (s: string): string => {
-      try { return decodeURIComponent(s); } catch { return s; }
-    };
     let token = decodeMaybe(rawId).trim();
     if (!token) return '';
     if (/^nostr:/i.test(token)) token = token.replace(/^nostr:/i, '');
@@ -84,13 +83,7 @@ export default function PidPage() {
   const { profileEvent } = useNostrUser(npub || undefined);
 
   if (mode === 'checking') {
-    return (
-      <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
-        <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
-          <div className="text-sm text-gray-400">Trying to resolve NIP-05...</div>
-        </div>
-      </main>
-    );
+    return <LoadingLayout message="Trying to resolve NIP-05..." />;
   }
 
   if (mode === 'profile' && npub) {

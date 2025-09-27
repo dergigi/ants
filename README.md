@@ -86,6 +86,32 @@ A simple search interface for Nostr events.
 - [`@dergigi.com`](https://search.dergigi.com/?q=%40dergigi.com) - Resolve NIP-05
 - [`/p/npub1...`](https://search.dergigi.com/?q=/p/npub1...) - Direct profile page URL
 
+## URL Paths
+
+The application supports several direct URL paths for quick access:
+
+### Profile Pages
+
+- `/p/[id]` - View a specific profile and their latest notes
+  - `/p/npub1...` - Direct profile by npub
+  - `/p/@username.com` - Profile by NIP-05 identifier
+  - `/p/username` - Profile search by username
+
+### Event Pages
+
+- `/e/[id]` - View a specific event
+  - `/e/nevent1...` - Event by nevent identifier
+  - `/e/note1...` - Event by note identifier
+  - `/e/[hex-id]` - Event by 64-character hex ID
+
+### Hashtag Pages
+
+- `/t/[hashtags]` - Search multiple hashtags
+  - `/t/pugstr` - Search for #pugstr
+  - `/t/pugstr,dogstr,goatstr` - Search for #pugstr OR #dogstr OR #goatstr
+  - `/t/pugstr+dogstr+goatstr` - Alternative syntax for multiple hashtags
+  - `/t/pugstr dogstr goatstr` - Space-separated hashtags
+
 ## Features
 
 - Search for nostr posts (kind 1)

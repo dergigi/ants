@@ -24,7 +24,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub, shortenString, trimImageUrl } from '@/lib/utils';
+import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -170,6 +170,7 @@ import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 type Props = {
   initialQuery?: string;
   manageUrl?: boolean;
+  onUrlUpdate?: (query: string) => void;
 };
 
 // Component to handle image loading with blurhash placeholder
@@ -456,7 +457,7 @@ function VideoWithBlurhash({
 
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
-export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
+export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
   const SLASH_COMMANDS = useMemo(() => ([
     { key: 'help', label: '/help', description: 'Show this help' },
     { key: 'examples', label: '/examples', description: 'List example queries' },
@@ -694,9 +695,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Helper function to update URL immediately when search is triggered
   const updateUrlForSearch = useCallback((searchQuery: string) => {
+    // If custom URL update handler is provided, use it instead
+    if (onUrlUpdate) {
+      onUrlUpdate(searchQuery);
+      return;
+    }
+    
     if (!manageUrl) return;
     
+    // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
+      const hashtagUrl = hashtagQueryToUrl(searchQuery);
+      if (hashtagUrl) {
+        router.replace(`/t/${hashtagUrl}`);
+        return;
+      }
+    }
+    
     if (currentProfileNpub) {
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
@@ -708,7 +724,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
     }
-  }, [manageUrl, pathname, searchParams, router]);
+  }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
+
+  // DRY helper function for setting query and updating URL
+  const setQueryAndUpdateUrl = useCallback((query: string) => {
+    setQuery(query);
+    updateUrlForSearch(query);
+  }, [updateUrlForSearch]);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -717,8 +739,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       return;
     }
 
-    // Update URL immediately when search is triggered
-    updateUrlForSearch(searchQuery);
+    // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
+    const isOnTagPath = pathname?.startsWith('/t/');
+    const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
+    
+    if (!(isOnTagPath && isHashtagQuery)) {
+      updateUrlForSearch(searchQuery);
+    }
 
     // Abort any ongoing search
     if (abortControllerRef.current) {
@@ -982,9 +1009,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     if (isSlashCommand(raw)) {
       runSlashCommand(raw);
       setQuery(raw);
-      if (manageUrl) {
-        updateUrlForSearch(raw);
-      }
+      updateUrlForSearch(raw);
       // Clear prior results immediately before async search
       setResults([]);
       setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
@@ -1234,10 +1259,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               onClick={(e) => { 
                 e.stopPropagation();
                 const nextQuery = fullUrl;
-                setQuery(nextQuery);
-                if (manageUrl) {
-                  updateUrlForSearch(nextQuery);
-                }
+                setQueryAndUpdateUrl(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -1461,10 +1483,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   title="Search this reference"
                   onClick={() => {
                     const q = token;
-                    setQuery(q);
-                    if (manageUrl) {
-                      updateUrlForSearch(q);
-                    }
+                    setQueryAndUpdateUrl(q);
                     handleSearch(q);
                   }}
                 >
@@ -1545,9 +1564,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   onClick={() => {
                     const nextQuery = part;
                     setQuery(nextQuery);
-                    if (manageUrl) {
-                      updateUrlForSearch(nextQuery);
-                    }
+                    updateUrlForSearch(nextQuery);
                     handleSearch(nextQuery);
                   }}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
@@ -1567,10 +1584,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
                       onClick={() => {
                         const nextQuery = emojis[i] as string;
-                        setQuery(nextQuery);
-                        if (manageUrl) {
-                          updateUrlForSearch(nextQuery);
-                        }
+                        setQueryAndUpdateUrl(nextQuery);
                         handleSearch(nextQuery);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
@@ -1589,7 +1603,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1624,10 +1638,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     <>
       {extractImageUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrlsFromText(content).map((src) => {
+          {extractImageUrlsFromText(content).map((src, index) => {
             const trimmedSrc = src.trim();
             return (
-            <div key={trimmedSrc} className="relative">
+            <div key={`image-${index}-${trimmedSrc}`} className="relative">
               {isAbsoluteHttpUrl(trimmedSrc) ? (
                 <ImageWithBlurhash
                   src={trimImageUrl(trimmedSrc)}
@@ -1667,10 +1681,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       )}
       {extractVideoUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrlsFromText(content).map((src) => {
+          {extractVideoUrlsFromText(content).map((src, index) => {
             const trimmedSrc = src.trim();
             return (
-            <div key={trimmedSrc} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+            <div key={`video-${index}-${trimmedSrc}`} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
                 <source src={trimmedSrc} />
                 Your browser does not support the video tag.
@@ -1682,9 +1696,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       )}
       {extractNonMediaUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractNonMediaUrlsFromText(content).map((u) => (
+          {extractNonMediaUrlsFromText(content).map((u, index) => (
             <UrlPreview
-              key={u}
+              key={`url-${index}-${u}`}
               url={u}
               onLoaded={(loadedUrl) => {
                 setSuccessfulPreviews((prev) => {
@@ -1696,10 +1710,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               }}
               onSearch={(targetUrl) => {
                 const nextQuery = targetUrl;
-                setQuery(nextQuery);
-                if (manageUrl) {
-                  updateUrlForSearch(nextQuery);
-                }
+                setQueryAndUpdateUrl(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -1721,7 +1732,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, updateUrlForSearch]);
+  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -2000,10 +2011,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             type="button"
                             className="text-left w-full hover:underline"
                             onClick={() => {
-                              setQuery(ex);
-                              if (manageUrl) {
-                                updateUrlForSearch(ex);
-                              }
+                              setQueryAndUpdateUrl(ex);
                               handleSearch(ex);
                             }}
                           >
@@ -2072,9 +2080,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2103,7 +2109,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const dim = dimensions[idx] || dimensions[0];
                               const hash = hashes[idx] || hashes[0] || null;
                               return (
-                                <div key={src} className="relative">
+                                <div key={`image-${idx}-${src}`} className="relative">
                                   <ImageWithBlurhash
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
@@ -2150,9 +2156,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2186,7 +2190,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const dim = dimensions[idx] || dimensions[0];
                               const hash = hashes[idx] || hashes[0] || null;
                               return (
-                                <div key={src} className="relative">
+                                <div key={`video-${idx}-${src}`} className="relative">
                                   <VideoWithBlurhash
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
@@ -2230,9 +2234,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2265,9 +2267,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2295,9 +2295,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const nevent = nip19.neventEncode({ id: event.id });
                               const q = nevent;
                               setQuery(q);
-                              if (manageUrl) {
-                                updateUrlForSearch(q);
-                              }
+                              updateUrlForSearch(q);
                               handleSearch(q);
                             } catch {}
                           }}
@@ -2312,7 +2310,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, setQueryAndUpdateUrl, updateUrlForSearch])}
     </div>
   );
 }

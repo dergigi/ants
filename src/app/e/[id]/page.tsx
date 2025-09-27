@@ -3,6 +3,8 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { nip19 } from 'nostr-tools';
+import { decodeMaybe } from '@/lib/utils';
+import { LoadingLayout } from '@/components/LoadingLayout';
 
 export default function EidRedirectPage() {
   const params = useParams<{ id: string }>();
@@ -10,9 +12,6 @@ export default function EidRedirectPage() {
   const rawId = params?.id || '';
 
   const normalizedQuery = useMemo(() => {
-    const decodeMaybe = (s: string): string => {
-      try { return decodeURIComponent(s); } catch { return s; }
-    };
     let token = decodeMaybe(rawId).trim();
     if (!token) return '';
     if (/^nostr:/i.test(token)) token = token.replace(/^nostr:/i, '');
@@ -43,13 +42,7 @@ export default function EidRedirectPage() {
     router.replace(`/?q=${encodeURIComponent(normalizedQuery)}`);
   }, [normalizedQuery, router]);
 
-  return (
-    <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
-      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
-        <div className="text-sm text-gray-400">Redirecting to search…</div>
-      </div>
-    </main>
-  );
+  return <LoadingLayout message="Redirecting to search…" />;
 }
 
 

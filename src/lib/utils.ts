@@ -200,3 +200,80 @@ export function trimImageUrl(url?: string | null): string {
   if (typeof url !== 'string') return '';
   return url.trim();
 }
+
+/**
+ * Safely decodes a URI component, returning the original string if decoding fails
+ * @param s - The string to decode
+ * @returns The decoded string or the original string if decoding fails
+ */
+export function decodeMaybe(s: string): string {
+  try { 
+    return decodeURIComponent(s); 
+  } catch { 
+    return s; 
+  }
+}
+
+/**
+ * Normalizes a query by removing OR operators and splitting into terms
+ * @param query - The search query to normalize
+ * @returns Array of normalized terms
+ */
+function normalizeQueryTerms(query: string): string[] {
+  if (!query.trim()) return [];
+  return query.replace(/\s+OR\s+/gi, ' ').trim().split(/\s+/);
+}
+
+/**
+ * Checks if a query contains only hashtags (with OR operators)
+ * @param query - The search query to check
+ * @returns true if the query contains only hashtags
+ */
+export function isHashtagOnlyQuery(query: string): boolean {
+  const terms = normalizeQueryTerms(query);
+  return terms.length > 0 && terms.every(term => term.startsWith('#'));
+}
+
+/**
+ * Converts a hashtag query to URL-friendly format for /t/ path
+ * @param query - The hashtag query (e.g., "#pugstr OR #dogstr OR #goatstr")
+ * @returns URL-friendly hashtag string (e.g., "pugstr,dogstr,goatstr")
+ */
+export function hashtagQueryToUrl(query: string): string {
+  if (!isHashtagOnlyQuery(query)) return '';
+  
+  const terms = normalizeQueryTerms(query);
+  
+  // Remove # prefix and join with commas
+  return terms
+    .map(term => term.startsWith('#') ? term.slice(1) : term)
+    .join(',');
+}
+
+/**
+ * Processes hashtag input and converts to search query format
+ * @param hashtags - Raw hashtag input (e.g., "pugstr,dogstr,goatstr")
+ * @returns Normalized search query (e.g., "#pugstr OR #dogstr OR #goatstr")
+ */
+export function processHashtagInput(hashtags: string): string {
+  if (!hashtags.trim()) return '';
+  
+  // Split by comma, space, or plus sign to handle multiple hashtags
+  const hashtagList = hashtags
+    .split(/[,+\s]+/)
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0)
+    .map(tag => {
+      // Ensure hashtag starts with # if not already present
+      return tag.startsWith('#') ? tag : `#${tag}`;
+    });
+  
+  if (hashtagList.length === 0) return '';
+  
+  // If multiple hashtags, join with OR operator
+  if (hashtagList.length === 1) {
+    return hashtagList[0];
+  } else {
+    return hashtagList.join(' OR ');
+  }
+}
