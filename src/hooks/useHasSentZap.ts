@@ -7,20 +7,29 @@ import { safeSubscribe } from '@/lib/ndk';
 import { relaySets } from '@/lib/relays';
 
 const ZAP_RECEIPT_KIND = 9735;
-const zapSenderCache = new Map<string, boolean>();
+const NUTZAP_KIND = 9321;
 
-export function useHasSentZap(pubkey?: string | null): boolean {
-  const [hasSentZap, setHasSentZap] = useState(() => (pubkey ? zapSenderCache.get(pubkey) ?? false : false));
+const zapSenderCache = new Map<string, boolean>();
+const nutzapSenderCache = new Map<string, boolean>();
+
+type LightningFilterFactory = (pubkey: string) => NDKFilter[];
+
+function useLightningHistoryFlag(
+  pubkey: string | null | undefined,
+  cache: Map<string, boolean>,
+  buildFilters: LightningFilterFactory
+): boolean {
+  const [hasHistory, setHasHistory] = useState(() => (pubkey ? cache.get(pubkey) ?? false : false));
 
   useEffect(() => {
     if (!pubkey) {
-      setHasSentZap(false);
+      setHasHistory(false);
       return;
     }
 
-    const cachedValue = zapSenderCache.get(pubkey);
+    const cachedValue = cache.get(pubkey);
     if (cachedValue !== undefined) {
-      setHasSentZap(cachedValue);
+      setHasHistory(cachedValue);
       return;
     }
 
@@ -31,27 +40,28 @@ export function useHasSentZap(pubkey?: string | null): boolean {
     const finish = (value: boolean) => {
       if (settled) return;
       settled = true;
-      zapSenderCache.set(pubkey, value);
+      cache.set(pubkey, value);
       if (!cancelled) {
-        setHasSentZap(value);
+        setHasHistory(value);
       }
       try {
         subscription?.stop();
       } catch {}
     };
 
-    setHasSentZap(false);
+    setHasHistory(false);
 
     (async () => {
       try {
         const relaySet = await relaySets.default();
-        const filter: NDKFilter = {
-          kinds: [ZAP_RECEIPT_KIND],
-          limit: 1,
-          ['#P']: [pubkey]
-        };
+        const filters = buildFilters(pubkey);
 
-        subscription = safeSubscribe([filter], {
+        if (!filters.length) {
+          finish(false);
+          return;
+        }
+
+        subscription = safeSubscribe(filters, {
           closeOnEose: true,
           relaySet,
           cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
@@ -76,9 +86,33 @@ export function useHasSentZap(pubkey?: string | null): boolean {
         subscription?.stop();
       } catch {}
     };
-  }, [pubkey]);
+  }, [pubkey, cache, buildFilters]);
 
-  return hasSentZap;
+  return hasHistory;
+}
+
+const buildZapFilters: LightningFilterFactory = (pubkey) => [
+  {
+    kinds: [ZAP_RECEIPT_KIND],
+    limit: 1,
+    ['#P']: [pubkey]
+  }
+];
+
+const buildNutzapFilters: LightningFilterFactory = (pubkey) => [
+  {
+    kinds: [NUTZAP_KIND],
+    limit: 1,
+    authors: [pubkey]
+  }
+];
+
+export function useHasSentZap(pubkey?: string | null): boolean {
+  return useLightningHistoryFlag(pubkey, zapSenderCache, buildZapFilters);
+}
+
+export function useHasSentNutzap(pubkey?: string | null): boolean {
+  return useLightningHistoryFlag(pubkey, nutzapSenderCache, buildNutzapFilters);
 }
 
 
