@@ -57,20 +57,18 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         <>
           {isHighlight && highlight ? (
             <div className="mb-3">
-              <div className="bg-[#1a1a1a] border border-[#4a4a4a] rounded-md p-3 mb-2">
-                <div className="text-yellow-200 text-sm font-medium mb-1">💡 Highlight</div>
-                <div className="text-gray-100 whitespace-pre-wrap break-words">
-                  {formatHighlightContent(highlight)}
-                </div>
-              </div>
-              
-              {/* Context if available - render like regular text */}
+              {/* Context if available, rendered like regular content */}
               {highlight.context && (
-                <div className="text-gray-100 whitespace-pre-wrap break-words mb-2">
+                <div className={contentClasses}>
                   {renderContent(highlight.context)}
                 </div>
               )}
-              
+
+              {/* The actual highlight content with yellow background and dark text */}
+              <div className="bg-amber-100 text-gray-900 py-1 px-2 my-2 whitespace-pre-wrap break-words">
+                {formatHighlightContent(highlight)}
+              </div>
+
               {/* Additional highlight metadata as part of content */}
               <div className="text-xs text-gray-400 space-y-1">
                 {highlight.referencedEvent && (
