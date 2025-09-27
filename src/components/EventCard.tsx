@@ -142,6 +142,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   <div className={contentClasses}>
                     {renderContent(highlight.comment)}
                   </div>
+                  <div className="border-t border-[#3d3d3d] mt-3"></div>
                 </div>
               ) : null}
 
