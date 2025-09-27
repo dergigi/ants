@@ -109,7 +109,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   <button
                     key={mode}
                     onClick={() => onFilterChange({ ...filterSettings, filterMode: mode })}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                    className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
                       filterSettings.filterMode === mode
                         ? 'bg-[#4a4a4a] text-gray-100'
                         : 'text-gray-400 hover:text-gray-200 hover:bg-[#2d2d2d]'
