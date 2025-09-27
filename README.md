@@ -40,8 +40,6 @@ A simple search interface for Nostr events.
 - [`has:video`](https://search.dergigi.com/?q=has%3Avideo) - Notes with any video (mp4, webm, ogg, ogv, mov, m4v)
 - [`is:video`](https://search.dergigi.com/?q=is%3Avideo) - Notes that are just a single video
 - [`has:gif`](https://search.dergigi.com/?q=has%3Agif) - Notes with gif/gifs/apng
-- [`is:quote`](https://search.dergigi.com/?q=is%3Aquote) - Notes that quote other nostr events
-- [`is:mention`](https://search.dergigi.com/?q=is%3Amention) - Notes that mention other nostr profiles
 - [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - Boolean OR plus media filter scoped to author
 
 ### Site-specific Search
