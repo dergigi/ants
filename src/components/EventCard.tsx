@@ -165,10 +165,13 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   
                   return lines.map((line, index) => {
                     const isEmpty = line.trim() === '';
+                    const isNextLineEmpty = index < lines.length - 1 && lines[index + 1].trim() === '';
+                    
                     return (
                       <span key={index}>
                         {isEmpty ? (
-                          <br />
+                          // Double line break (paragraph break) - add extra spacing
+                          isNextLineEmpty ? <><br /><br /></> : <br />
                         ) : (
                           <span
                             className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
