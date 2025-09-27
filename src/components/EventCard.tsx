@@ -64,10 +64,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 </div>
               </div>
               
-              {/* Context if available */}
+              {/* Context if available - render like regular text */}
               {highlight.context && (
-                <div className="text-xs text-gray-400 mb-2">
-                  <span className="font-medium">Context:</span> {highlight.context}
+                <div className="text-gray-100 whitespace-pre-wrap break-words mb-2">
+                  {renderContent(highlight.context)}
                 </div>
               )}
               
@@ -80,17 +80,28 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 )}
                 {highlight.referencedAuthor && (
                   <div>
-                    <span className="font-medium">Author:</span> {highlight.referencedAuthor}
+                    <span className="font-medium">Author:</span>{' '}
+                    <button
+                      onClick={() => {
+                        if (onAuthorClick) {
+                          const npub = nip19.npubEncode(highlight.referencedAuthor);
+                          onAuthorClick(npub);
+                        }
+                      }}
+                      className="text-blue-400 hover:text-blue-300 hover:underline"
+                    >
+                      {highlight.referencedAuthor}
+                    </button>
                   </div>
                 )}
                 {highlight.referencedUrl && (
                   <div>
-                    <span className="font-medium">URL:</span>{' '}
+                    <span className="font-medium">Source:</span>{' '}
                     <a 
                       href={highlight.referencedUrl} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300"
+                      className="text-blue-400 hover:text-blue-300 hover:underline"
                     >
                       {highlight.referencedUrl}
                     </a>
