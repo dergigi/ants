@@ -386,7 +386,7 @@ async function searchByAnyTerms(
     try {
       const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
       const filter: NDKFilter = {
-        kinds: [1],
+        kinds: [1, 9802], // Include highlights (NIP-84)
         ...(baseFilter || {}),
         search: searchQuery,
         limit: Math.max(limit, 200)
@@ -655,7 +655,7 @@ export async function searchEvents(
   const cleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
-    : [1];
+    : [1, 9802]; // Include highlights (NIP-84) by default
   const extensionFilters: Array<(content: string) => boolean> = [];
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling

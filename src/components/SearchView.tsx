@@ -21,6 +21,7 @@ import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
+import HighlightCard from '@/components/HighlightCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
@@ -32,6 +33,7 @@ import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/prof
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -2153,6 +2155,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           {formatEventTimestamp(event)}
                         </button>
                       )}
+                      className={noteCardClasses}
+                    />
+                  ) : event.kind === HIGHLIGHTS_KIND ? (
+                    <HighlightCard
+                      event={event}
+                      onAuthorClick={goToProfile}
                       className={noteCardClasses}
                     />
                   ) : (
