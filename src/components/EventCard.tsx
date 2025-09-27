@@ -330,16 +330,13 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
 
               {/* Render referenced event if it's an e tag */}
               {highlight?.referencedEventType === 'e' && referencedEvent && (
-                <div className="mt-4 border-t border-[#3d3d3d] pt-4">
-                  <div className="text-xs text-gray-400 mb-2">
-                    <span className="font-medium">Referenced event:</span>
-                  </div>
+                <div className="mt-4">
                   <EventCard
                     event={referencedEvent}
                     onAuthorClick={onAuthorClick}
                     renderContent={renderContent}
                     variant="inline"
-                    showFooter={false}
+                    showFooter={true}
                   />
                 </div>
               )}
