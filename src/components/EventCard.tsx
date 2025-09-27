@@ -93,7 +93,8 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               {/* Highlighted excerpt styled similar to native reader highlights */}
               <div className={contentClasses}>
                 <span
-                  className="relative inline rounded-[2px] bg-[#f6de74]/35 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:rounded-full after:bg-[#f6de74] after:opacity-85 after:shadow-[0_0_6px_rgba(246,222,116,0.45)] after:content-['']"
+                  className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
                 >
                   {formatHighlightContent(highlight)}
                 </span>
