@@ -160,19 +160,26 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               <div className={contentClasses}>
                 {(() => {
                   const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
-                  // Split by lines and filter out empty lines (whitespace only)
+                  // Split by lines and process each line
                   const lines = content.split('\n');
-                  const nonEmptyLines = lines.filter(line => line.trim() !== '');
                   
-                  return nonEmptyLines.map((line, index) => (
-                    <span
-                      key={index}
-                      className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                      style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                    >
-                      {line}
-                    </span>
-                  ));
+                  return lines.map((line, index) => {
+                    const isEmpty = line.trim() === '';
+                    return (
+                      <span key={index}>
+                        {isEmpty ? (
+                          <br />
+                        ) : (
+                          <span
+                            className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                            style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                          >
+                            {line}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  });
                 })()}
               </div>
 
