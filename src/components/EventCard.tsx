@@ -82,7 +82,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       ) : (
         <>
           {isHighlight && highlight ? (
-            <div className="mb-3">
+            <div className="mb-3 space-y-3">
               {/* Context if available, rendered like regular content */}
               {highlight.context && (
                 <div className={contentClasses}>
@@ -90,9 +90,11 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 </div>
               )}
 
-              {/* The actual highlight content with yellow background and dark text */}
-              <div className="bg-amber-100 text-gray-900 py-1 px-2 my-2 whitespace-pre-wrap break-words">
-                {formatHighlightContent(highlight)}
+              {/* Highlighted excerpt styled similar to native reader highlights */}
+              <div className={contentClasses}>
+                <mark className="rounded-[2px] bg-[#f6d15d] px-1.5 py-0.5 text-gray-900 shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
+                  {formatHighlightContent(highlight)}
+                </mark>
               </div>
 
               {/* Additional highlight metadata as part of content */}
