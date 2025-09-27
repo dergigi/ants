@@ -13,6 +13,7 @@ export interface HighlightData {
   context?: string;
   range?: string;
   alt?: string;
+  comment?: string;
   tags: string[][];
 }
 
@@ -61,6 +62,10 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
   const altTag = tags.find(tag => tag[0] === 'alt' && tag[1]);
   const alt = altTag?.[1];
 
+  // Extract comment (comment tag) - user's comment on the highlight
+  const commentTag = tags.find(tag => tag[0] === 'comment' && tag[1]);
+  const comment = commentTag?.[1];
+
   return {
     content,
     referencedEvent,
@@ -70,6 +75,7 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
     context,
     range,
     alt,
+    comment,
     tags
   };
 }

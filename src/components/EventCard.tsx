@@ -283,6 +283,16 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   </div>
                 );
               })()}
+
+              {/* Comment if present */}
+              {highlight.comment ? (
+                <div className="text-sm text-gray-300 mt-3 p-3 bg-[#1f1f1f] border border-[#3d3d3d] rounded-lg">
+                  <div className="font-medium text-gray-400 mb-1">Comment:</div>
+                  <div className="whitespace-pre-wrap break-words">
+                    {renderContent(highlight.comment)}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
