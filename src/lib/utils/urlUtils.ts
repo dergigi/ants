@@ -2,11 +2,11 @@
 // Consolidates all URL handling logic from across the codebase
 
 /**
- * Extract domain name from URL for clean display, including first path segment
- * @param url - The URL to extract domain from
- * @returns The cleaned domain with first path (e.g., "x.com/reardencode" from "https://x.com/reardencode/status/1968650911787761977?s=46")
+ * Base URL cleaning function - removes protocol and www prefix
+ * @param url - The URL to clean
+ * @returns The cleaned URL without protocol and www
  */
-export function extractDomainFromUrl(url: string): string {
+function cleanUrlBase(url: string): string {
   if (!url) return '';
   
   try {
@@ -15,6 +15,23 @@ export function extractDomainFromUrl(url: string): string {
     
     // Remove www. prefix
     cleaned = cleaned.replace(/^www\./, '');
+    
+    return cleaned;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Extract domain name from URL for clean display, including first path segment
+ * @param url - The URL to extract domain from
+ * @returns The cleaned domain with first path (e.g., "x.com/reardencode" from "https://x.com/reardencode/status/1968650911787761977?s=46")
+ */
+export function extractDomainFromUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    const cleaned = cleanUrlBase(url);
     
     // Split by '/' and take domain + first path segment (if exists)
     const parts = cleaned.split('/');
@@ -41,16 +58,10 @@ export function cleanWebsiteUrl(url: string): string {
   if (!url) return '';
   
   try {
-    // Remove protocol (http://, https://)
-    let cleaned = url.replace(/^https?:\/\//, '');
-    
-    // Remove www. prefix
-    cleaned = cleaned.replace(/^www\./, '');
+    const cleaned = cleanUrlBase(url);
     
     // Remove trailing slash
-    cleaned = cleaned.replace(/\/$/, '');
-    
-    return cleaned;
+    return cleaned.replace(/\/$/, '');
   } catch {
     return url;
   }
@@ -86,8 +97,8 @@ export function shortenUrl(url: string, options: {
       shortened += urlObj.protocol + '//';
     }
     
-    // Add domain
-    shortened += urlObj.hostname.replace(/^www\./, '');
+    // Use base cleaning for domain
+    shortened += cleanUrlBase(urlObj.toString());
     
     // Add path if requested and it exists
     if (showPath && urlObj.pathname && urlObj.pathname !== '/') {
@@ -110,7 +121,7 @@ export function shortenUrl(url: string, options: {
     return shortened;
   } catch {
     // Fallback to simple truncation if URL parsing fails
-    const cleaned = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const cleaned = cleanUrlBase(url);
     if (cleaned.length > maxLength) {
       return cleaned.substring(0, maxLength - ellipsis.length) + ellipsis;
     }
@@ -178,27 +189,36 @@ export function normalizeUrl(url: string): string {
 }
 
 /**
- * Extract image URLs from text content
- * @param text - The text to search for image URLs
- * @returns Array of image URLs found
+ * Base function to extract URLs from text with optional filtering
+ * @param text - The text to search for URLs
+ * @param filterFn - Optional function to filter URLs
+ * @returns Array of URLs found
  */
-export function extractImageUrls(text: string): string[] {
+function extractUrlsBase(text: string, filterFn?: (url: string) => boolean): string[] {
   if (!text) return [];
   
   const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-  const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
-  
   const urls: string[] = [];
   let match;
   
   while ((match = urlRegex.exec(text)) !== null) {
     const url = match[1];
-    if (imageExtRegex.test(url)) {
+    if (!filterFn || filterFn(url)) {
       urls.push(url);
     }
   }
   
   return urls;
+}
+
+/**
+ * Extract image URLs from text content
+ * @param text - The text to search for image URLs
+ * @returns Array of image URLs found
+ */
+export function extractImageUrls(text: string): string[] {
+  const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
+  return extractUrlsBase(text, (url) => imageExtRegex.test(url));
 }
 
 /**
@@ -207,22 +227,8 @@ export function extractImageUrls(text: string): string[] {
  * @returns Array of video URLs found
  */
 export function extractVideoUrls(text: string): string[] {
-  if (!text) return [];
-  
-  const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
   const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
-  
-  const urls: string[] = [];
-  let match;
-  
-  while ((match = urlRegex.exec(text)) !== null) {
-    const url = match[1];
-    if (videoExtRegex.test(url)) {
-      urls.push(url);
-    }
-  }
-  
-  return urls;
+  return extractUrlsBase(text, (url) => videoExtRegex.test(url));
 }
 
 /**
@@ -231,23 +237,9 @@ export function extractVideoUrls(text: string): string[] {
  * @returns Array of non-media URLs found
  */
 export function extractNonMediaUrls(text: string): string[] {
-  if (!text) return [];
-  
-  const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
   const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
   const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
-  
-  const urls: string[] = [];
-  let match;
-  
-  while ((match = urlRegex.exec(text)) !== null) {
-    const url = match[1];
-    if (!imageExtRegex.test(url) && !videoExtRegex.test(url)) {
-      urls.push(url);
-    }
-  }
-  
-  return urls;
+  return extractUrlsBase(text, (url) => !imageExtRegex.test(url) && !videoExtRegex.test(url));
 }
 
 /**
