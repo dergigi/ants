@@ -53,7 +53,7 @@ function renderTextWithParagraphs(
     }
     
     return (
-      <p key={paragraphIndex} className="mb-2 last:mb-0">
+      <div key={paragraphIndex} className="mb-2 last:mb-0">
         {lines.map((line, lineIndex) => {
           const isEmpty = line.trim() === '';
           return (
@@ -73,7 +73,7 @@ function renderTextWithParagraphs(
             </span>
           );
         })}
-      </p>
+      </div>
     );
   });
 }
