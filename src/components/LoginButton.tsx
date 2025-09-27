@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { shortenNpub } from '@/lib/utils';
+import { shortenNpub, trimImageUrl } from '@/lib/utils';
 
 function getDisplayName(user: NDKUser): string {
   if (!user) return '';
@@ -115,7 +115,7 @@ export function LoginButton() {
         <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
           {user.profile?.image ? (
             <Image
-              src={user.profile.image}
+              src={trimImageUrl(user.profile.image)}
               alt="Profile"
               width={40}
               height={40}

@@ -24,7 +24,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub, shortenString } from '@/lib/utils';
+import { shortenNevent, shortenNpub, shortenString, trimImageUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -262,7 +262,7 @@ function ImageWithBlurhash({
       
       {/* Real image - hidden until loaded */}
       <Image 
-        src={src} 
+        src={trimImageUrl(src)} 
         alt={alt}
         width={width}
         height={height} 
@@ -1630,7 +1630,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             <div key={trimmedSrc} className="relative">
               {isAbsoluteHttpUrl(trimmedSrc) ? (
                 <ImageWithBlurhash
-                  src={trimmedSrc}
+                  src={trimImageUrl(trimmedSrc)}
                   alt="linked media"
                   width={1024}
                   height={1024}
@@ -2105,7 +2105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               return (
                                 <div key={src} className="relative">
                                   <ImageWithBlurhash
-                                    src={src}
+                                    src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     alt="picture"
                                     width={dim?.width || 1024}
@@ -2188,7 +2188,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               return (
                                 <div key={src} className="relative">
                                   <VideoWithBlurhash
-                                    src={src}
+                                    src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     dim={dim || null}
                                     onClickSearch={() => {

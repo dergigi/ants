@@ -190,3 +190,13 @@ export function cleanNip05Display(nip05?: string | null): string {
   // Remove "_@" prefix if present (implicit in NIP-05)
   return normalized.replace(/^_@/, '');
 }
+
+/**
+ * Trims whitespace from URLs to prevent Next.js Image component errors
+ * @param url - The URL string to clean
+ * @returns The trimmed URL string
+ */
+export function trimImageUrl(url?: string | null): string {
+  if (typeof url !== 'string') return '';
+  return url.trim();
+}
