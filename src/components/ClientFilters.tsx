@@ -12,6 +12,7 @@ export interface FilterSettings {
   maxHashtags: number | null;
   maxMentions: number | null;
   hideLinks: boolean;
+  hideBridged: boolean;
   resultFilter: string;
   verifiedOnly: boolean;
   fuzzyEnabled: boolean;
@@ -113,17 +114,17 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, maxMentions: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filterMode: 'never' });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, maxMentions: null, hideLinks: false, hideBridged: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filterMode: 'never' });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
     setMentionsLimit(6);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   };
 
-  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
+  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
   
   // Determine if filters are actually active (enabled and filtering results)
   const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= 100));
@@ -275,6 +276,20 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 disabled={filterSettings.filterMode === 'never'}
               />
               <span>Hide external links</span>
+            </label>
+
+            {/* Hide bridged content */}
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={filterSettings.hideBridged}
+                onChange={(e) => {
+                  onFilterChange({ ...filterSettings, hideBridged: e.target.checked });
+                }}
+                className="accent-[#4a4a4a]"
+                disabled={filterSettings.filterMode === 'never'}
+              />
+              <span>Hide bridged content</span>
             </label>
 
             {/* Hide bots */}

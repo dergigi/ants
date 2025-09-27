@@ -1,5 +1,6 @@
 import emojiRegex from 'emoji-regex';
 import { extractNonMediaUrls } from '@/lib/utils/urlUtils';
+import { BRIDGED_KEYWORDS } from '@/lib/constants';
 
 /**
  * Count the number of emojis in a text string
@@ -54,6 +55,16 @@ export function containsLink(text: string): boolean {
   return nonMediaUrls.length > 0;
 }
 
+/**
+ * Detect if the content is from a bridged account based on NIP-05
+ */
+export function isBridgedContent(nip05: string | undefined): boolean {
+  if (!nip05) return false;
+  
+  const lowerNip05 = nip05.toLowerCase();
+  return BRIDGED_KEYWORDS.some(keyword => lowerNip05.includes(keyword.toLowerCase()));
+}
+
 // --- NSFW detection helpers ---
 const NSFW_TAGS = new Set(['nsfw', 'nude']);
 
@@ -79,6 +90,7 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
   maxHashtags: number | null,
   maxMentions: number | null,
   hideLinks: boolean = false,
+  hideBridged: boolean = false,
   verifiedOnly: boolean = false,
   verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean,
   hideBots: boolean = false,
@@ -115,6 +127,15 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
     // Hide links if enabled
     if (hideLinks && containsLink(content)) {
       return false;
+    }
+
+    // Hide bridged content if enabled
+    if (hideBridged) {
+      const nip05Raw = event.author?.profile?.nip05 as Nip05Value;
+      const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+      if (isBridgedContent(nip05)) {
+        return false;
+      }
     }
 
     // Hide bots when requested (based on kind:0 metadata heuristics per NIP-24)

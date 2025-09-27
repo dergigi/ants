@@ -488,7 +488,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
@@ -647,12 +647,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       filterSettings.maxHashtags,
       filterSettings.maxMentions,
       filterSettings.hideLinks,
+      filterSettings.hideBridged,
       filterSettings.verifiedOnly,
       (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
       filterSettings.hideBots,
       filterSettings.hideNsfw
     ) : results,
-    [results, shouldEnableFilters, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    [results, shouldEnableFilters, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
