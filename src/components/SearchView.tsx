@@ -21,7 +21,6 @@ import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
-import HighlightCard from '@/components/HighlightCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
@@ -2158,9 +2157,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       className={noteCardClasses}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
-                    <HighlightCard
+                    <EventCard
                       event={event}
                       onAuthorClick={goToProfile}
+                      renderContent={(text) => (
+                        <TruncatedText 
+                          content={text} 
+                          maxLength={TEXT_MAX_LENGTH}
+                          className="text-gray-100 whitespace-pre-wrap break-words"
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                        />
+                      )}
+                      mediaRenderer={renderNoteMedia}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {formatEventTimestamp(event)}
+                        </button>
+                      )}
                       className={noteCardClasses}
                     />
                   ) : (
