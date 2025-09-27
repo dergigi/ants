@@ -46,6 +46,7 @@ is:issue => kind:1621
 is:report => kind:1984
 is:zap => kind:9735
 is:nutzap => kind:9321
+is:highlight => kind:9802
 is:muted => kind:10000
 is:pin => kind:10001
 is:bookmark => kind:10003
