@@ -57,7 +57,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       {showFooter && (
         <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
           <div className="flex items-center gap-2 min-h-[1rem]">
-            {event.author && <Nip05Display user={event.author} />}
+            {event.author && <Nip05Display user={event.author} compact={true} />}
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
           </div>
           {footerRight ? (

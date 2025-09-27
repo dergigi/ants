@@ -96,7 +96,7 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   return { isVerified: verified, value: nip05 };
 }
 
-export default function Nip05Display({ user }: { user: NDKUser }) {
+export default function Nip05Display({ user, compact }: { user: NDKUser; compact?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -129,30 +129,51 @@ export default function Nip05Display({ user }: { user: NDKUser }) {
           <FontAwesomeIcon icon={effectiveVerified ? faIdBadge : faCircleXmark} className="h-4 w-4" />
         )}
       </button>
-      <button
-        type="button"
-        className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
-        title={cleanNip05Display(value) || undefined}
-      >
-        <span className="truncate max-w-[14rem]">{cleanNip05Display(value) || value}</span>
-      </button>
-      {/* Mobile view: show only domain part without TLD */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!value) return;
-          const current = searchParams ? searchParams.toString() : '';
-          const params = new URLSearchParams(current);
-          params.set('q', value);
-          router.push(`/?${params.toString()}`);
-        }}
-        className="hover:underline truncate max-w-[8rem] text-left sm:hidden"
-        title={cleanNip05Display(value) || undefined}
-      >
-        <span className="truncate max-w-[8rem]">{getDomainWithoutTld(value)}</span>
-      </button>
+      {compact ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!value) return;
+            const current = searchParams ? searchParams.toString() : '';
+            const params = new URLSearchParams(current);
+            params.set('q', value);
+            router.push(`/?${params.toString()}`);
+          }}
+          className="hover:underline truncate max-w-[8rem] text-left"
+          title={cleanNip05Display(value) || undefined}
+        >
+          <span className="truncate max-w-[8rem]">{cleanNip05Display(value) || getDomainWithoutTld(value)}</span>
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
+            title={cleanNip05Display(value) || undefined}
+          >
+            <span className="truncate max-w-[14rem]">{cleanNip05Display(value) || value}</span>
+          </button>
+          {/* Mobile view: show only domain part without TLD */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!value) return;
+              const current = searchParams ? searchParams.toString() : '';
+              const params = new URLSearchParams(current);
+              params.set('q', value);
+              router.push(`/?${params.toString()}`);
+            }}
+            className="hover:underline truncate max-w-[8rem] text-left sm:hidden"
+            title={cleanNip05Display(value) || undefined}
+          >
+            <span className="truncate max-w-[8rem]">{getDomainWithoutTld(value)}</span>
+          </button>
+        </>
+      )}
       {pathname?.startsWith('/p/') && (
       <button
         type="button"
