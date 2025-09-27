@@ -96,7 +96,6 @@ export const searchExamples = [
   // Highlight examples
   'is:highlight (bitcoin OR nostr)',
   'is:highlight by:dergigi',
-  'is:highlight by:dergigi',
   'is:highlight by:fiatjaf',
   'is:highlight by:pablof7z',
   'is:highlight "proof of work"',
