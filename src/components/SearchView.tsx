@@ -676,12 +676,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return events;
   }
 
+  // Helper function to update URL immediately when search is triggered
+  const updateUrlForSearch = useCallback((searchQuery: string) => {
+    if (!manageUrl) return;
+    
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub) {
+      // URL should be implicit on profile pages: strip matching by:npub
+      const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('q', urlValue);
+      router.replace(`?${params.toString()}`);
+    } else {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('q', searchQuery);
+      router.replace(`?${params.toString()}`);
+    }
+  }, [manageUrl, pathname, searchParams, router]);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
       setResolvingAuthor(false);
       return;
     }
+
+    // Update URL immediately when search is triggered
+    updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
     if (abortControllerRef.current) {
@@ -946,7 +967,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       runSlashCommand(raw);
       setQuery(raw);
       if (manageUrl) {
-        updateSearchQuery(searchParams, router, raw);
+        updateUrlForSearch(raw);
       }
       // Clear prior results immediately before async search
       setResults([]);
@@ -967,16 +988,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     setQuery(displayVal);
     if (manageUrl) {
-      const params = new URLSearchParams(searchParams.toString());
       if (displayVal) {
-        // URL should be implicit on profile pages: strip matching by:npub
-        const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
-        params.set('q', urlValue);
-        router.replace(`?${params.toString()}`);
+        // Update URL immediately
+        updateUrlForSearch(displayVal);
         // Backend search should include implicit author on profile pages
         const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
         handleSearch(backend.trim());
       } else {
+        const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
         router.replace(`?${params.toString()}`);
         setResults([]);
@@ -1201,9 +1220,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 const nextQuery = fullUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
+                  updateUrlForSearch(nextQuery);
                 }
                 (async () => {
                   setLoading(true);
@@ -1430,9 +1447,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const q = token;
                     setQuery(q);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', q);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(q);
                     }
                     handleSearch(q);
                   }}
@@ -1515,9 +1530,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const nextQuery = part;
                     setQuery(nextQuery);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', nextQuery);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(nextQuery);
                     }
                     handleSearch(nextQuery);
                   }}
@@ -1540,9 +1553,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         const nextQuery = emojis[i] as string;
                         setQuery(nextQuery);
                         if (manageUrl) {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.set('q', nextQuery);
-                          router.replace(`?${params.toString()}`);
+                          updateUrlForSearch(nextQuery);
                         }
                         handleSearch(nextQuery);
                       }}
@@ -1611,9 +1622,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const nextQuery = filename;
                     setQuery(filename);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', filename);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(filename);
                     }
                     (async () => {
                       setLoading(true);
@@ -1667,9 +1676,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 const nextQuery = targetUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
+                  updateUrlForSearch(nextQuery);
                 }
                 (async () => {
                   setLoading(true);
@@ -1974,9 +1981,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             onClick={() => {
                               setQuery(ex);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', ex);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(ex);
                               }
                               handleSearch(ex);
                             }}
@@ -2047,9 +2052,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2091,9 +2094,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
                                       setQuery(nextQuery);
                                       if (manageUrl) {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set('q', nextQuery);
-                                        router.replace(`?${params.toString()}`);
+                                        updateUrlForSearch(nextQuery);
                                       }
                                       (async () => {
                                         setLoading(true);
@@ -2129,9 +2130,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2175,9 +2174,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
                                       setQuery(nextQuery);
                                       if (manageUrl) {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set('q', nextQuery);
-                                        router.replace(`?${params.toString()}`);
+                                        updateUrlForSearch(nextQuery);
                                       }
                                       (async () => {
                                         setLoading(true);
@@ -2213,9 +2210,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2250,9 +2245,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2282,9 +2275,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
