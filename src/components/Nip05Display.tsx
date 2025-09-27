@@ -120,9 +120,10 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { isVerified, value } = useNip05Status(user);
-  const domainButtonClasses = 'p-1 rounded text-gray-300 hover:text-gray-100 hover:bg-[#3a3a3a]';
-
   const effectiveVerified = isVerified;
+  const domainButtonClasses = effectiveVerified 
+    ? 'p-1 rounded text-green-400 hover:text-green-300 hover:bg-green-900/20' 
+    : 'p-1 rounded text-gray-300 hover:text-gray-100 hover:bg-[#3a3a3a]';
 
   const nip05Part = value ? (
     <span className={`inline-flex items-center gap-1 ${effectiveVerified ? 'text-green-400' : 'text-red-400'}`}>
