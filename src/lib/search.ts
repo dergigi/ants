@@ -27,8 +27,8 @@ interface NDKEventWithRelaySource extends NDKEvent {
 }
 
 
-// Extend filter type to include tag queries for "t" (hashtags)
-type TagTFilter = NDKFilter & { '#t'?: string[] };
+// Extend filter type to include tag queries for "t" (hashtags) and "a" (replaceable events)
+type TagTFilter = NDKFilter & { '#t'?: string[]; '#a'?: string[] };
 
 
 
@@ -43,6 +43,14 @@ let searchRelaySetPromise: Promise<NDKRelaySet> | null = null;
 async function getSearchRelaySet(): Promise<NDKRelaySet> {
   if (!searchRelaySetPromise) searchRelaySetPromise = relaySets.search();
   return searchRelaySetPromise;
+}
+
+// Helper function to create broad relay set for tag searches
+function createBroadRelaySet(): NDKRelaySet {
+  const broadRelays = Array.from(
+    new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH].map((u) => u as string))
+  );
+  return NDKRelaySet.fromRelayUrls(broadRelays, ndk);
 }
 
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
@@ -386,7 +394,7 @@ async function searchByAnyTerms(
     try {
       const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
       const filter: NDKFilter = {
-        kinds: [1],
+        kinds: [1, 9802], // Include highlights (NIP-84)
         ...(baseFilter || {}),
         search: searchQuery,
         limit: Math.max(limit, 200)
@@ -655,7 +663,7 @@ export async function searchEvents(
   const cleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
-    : [1];
+    : [1, 9802]; // Include highlights (NIP-84) by default
   const extensionFilters: Array<(content: string) => boolean> = [];
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
@@ -851,10 +859,7 @@ export async function searchEvents(
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
 
     // Broader relay set than NIP-50 search: default + search relays
-    const broadRelays = Array.from(
-      new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH].map((u) => u as string))
-    );
-    const tagRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+    const tagRelaySet = createBroadRelaySet();
 
     const results = isStreaming
       ? await subscribeAndStream(tagFilter, {
@@ -871,6 +876,34 @@ export async function searchEvents(
       final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
     }
     return sortEventsNewestFirst(final).slice(0, limit);
+  }
+
+  // Handle a: tag queries for replaceable events (e.g., a:30023:pubkey:d-tag)
+  const aTagMatch = cleanedQuery.match(/^a:(.+)$/i);
+  if (aTagMatch) {
+    const aTagValue = (aTagMatch[1] || '').trim();
+    if (aTagValue) {
+      const aTagFilter: TagTFilter = { kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) };
+      
+      // Use broader relay set for a tag searches
+      const aTagRelaySet = createBroadRelaySet();
+
+      const results = isStreaming
+        ? await subscribeAndStream(aTagFilter, {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: streamingOptions?.onResults,
+            relaySet: aTagRelaySet,
+            abortSignal
+          })
+        : await subscribeAndCollect(aTagFilter, 10000, aTagRelaySet, abortSignal);
+
+      let final = results;
+      if (extensionFilters.length > 0) {
+        final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+      }
+      return sortEventsNewestFirst(final).slice(0, limit);
+    }
   }
 
   // Full-text profile search `p:<term>` (not only username)

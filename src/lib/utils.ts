@@ -22,6 +22,37 @@ export function shortenString(
 }
 
 /**
+ * Extract domain name from URL for clean display, including first path segment
+ * @param url - The URL to extract domain from
+ * @returns The cleaned domain with first path (e.g., "x.com/reardencode" from "https://x.com/reardencode/status/1968650911787761977?s=46")
+ */
+export function extractDomainFromUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    // Remove protocol (http://, https://)
+    let cleaned = url.replace(/^https?:\/\//, '');
+    
+    // Remove www. prefix
+    cleaned = cleaned.replace(/^www\./, '');
+    
+    // Split by '/' and take domain + first path segment (if exists)
+    const parts = cleaned.split('/');
+    const domain = parts[0];
+    const firstPath = parts[1];
+    
+    // Return domain with first path if it exists and is not empty
+    if (firstPath && firstPath.trim() && !firstPath.includes('?')) {
+      return `${domain}/${firstPath}`;
+    }
+    
+    return domain;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Shortens an npub string using the standard format
  * @param npub - The npub string to shorten
  * @returns The shortened npub string

@@ -1,0 +1,130 @@
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
+
+// NIP-84 Highlights utilities
+export const HIGHLIGHTS_KIND = 9802;
+
+export interface HighlightData {
+  content: string;
+  referencedEvent?: string;
+  referencedEventType?: 'e' | 'a'; // Track whether it's an e tag or a tag
+  referencedAuthor?: string;
+  referencedAuthorHex?: string;
+  referencedUrl?: string;
+  context?: string;
+  range?: string;
+  alt?: string;
+  comment?: string;
+  tags: string[][];
+}
+
+/**
+ * Parse a NIP-84 highlight event and extract relevant data
+ */
+export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
+  if (event.kind !== HIGHLIGHTS_KIND) {
+    return null;
+  }
+
+  const tags = event.tags || [];
+  const content = event.content || '';
+
+  // Extract referenced event (e tag) or nostr address (a tag)
+  const eventTag = tags.find(tag => tag[0] === 'e' && tag[1]);
+  const addressTag = tags.find(tag => tag[0] === 'a' && tag[1]);
+  const referencedEvent = eventTag?.[1] || addressTag?.[1];
+  const referencedEventType = eventTag ? 'e' : addressTag ? 'a' : undefined;
+
+  // Extract referenced author (p tag)
+  const authorTag = tags.find(tag => tag[0] === 'p' && tag[1]);
+  const referencedAuthorHex = authorTag?.[1];
+
+  let referencedAuthor: string | undefined;
+  try {
+    if (referencedAuthorHex) {
+      referencedAuthor = nip19.npubEncode(referencedAuthorHex);
+    }
+  } catch {
+    referencedAuthor = referencedAuthorHex;
+  }
+
+  // Extract referenced URL (r tag)
+  const urlTag = tags.find(tag => tag[0] === 'r' && tag[1]);
+  const referencedUrl = urlTag?.[1];
+
+  // Extract context (context tag)
+  const contextTag = tags.find(tag => tag[0] === 'context' && tag[1]);
+  const context = contextTag?.[1];
+
+  // Extract range (range tag)
+  const rangeTag = tags.find(tag => tag[0] === 'range' && tag[1]);
+  const range = rangeTag?.[1];
+
+  // Extract alt (alt tag) - alternative text for accessibility
+  const altTag = tags.find(tag => tag[0] === 'alt' && tag[1]);
+  const alt = altTag?.[1];
+
+  // Extract comment (comment tag) - user's comment on the highlight
+  const commentTag = tags.find(tag => tag[0] === 'comment' && tag[1]);
+  const comment = commentTag?.[1];
+
+  return {
+    content,
+    referencedEvent,
+    referencedEventType,
+    referencedAuthor,
+    referencedAuthorHex,
+    referencedUrl,
+    context,
+    range,
+    alt,
+    comment,
+    tags
+  };
+}
+
+/**
+ * Check if an event is a NIP-84 highlight
+ */
+export function isHighlightEvent(event: NDKEvent): boolean {
+  return event.kind === HIGHLIGHTS_KIND;
+}
+
+/**
+ * Format highlight content for display
+ */
+export function formatHighlightContent(highlight: HighlightData): string {
+  let formatted = highlight.content;
+  
+  if (highlight.context) {
+    formatted = `"${highlight.content}"`;
+  }
+  
+  return formatted;
+}
+
+/**
+ * Get highlight metadata for display
+ */
+export function getHighlightMetadata(highlight: HighlightData): {
+  hasContext: boolean;
+  hasRange: boolean;
+  hasReferences: boolean;
+  referenceCount: number;
+} {
+  const hasContext = !!highlight.context;
+  const hasRange = !!highlight.range;
+  const hasReferences = !!(highlight.referencedEvent || highlight.referencedAuthor || highlight.referencedUrl);
+  const referenceCount = [
+    highlight.referencedEvent,
+    highlight.referencedAuthor,
+    highlight.referencedUrl
+  ].filter(Boolean).length;
+
+  return {
+    hasContext,
+    hasRange,
+    hasReferences,
+    referenceCount
+  };
+}

@@ -1,17 +1,37 @@
 'use client';
 
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
-import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
+import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { compareTwoStrings } from 'string-similarity';
+import { shortenNevent, shortenNpub, extractDomainFromUrl } from '@/lib/utils';
+import { nip19 } from 'nostr-tools';
+import { ndk } from '@/lib/ndk';
+
+// Helper function for search navigation
+const navigateToSearch = (query: string) => {
+  window.location.href = `/?q=${encodeURIComponent(query)}`;
+};
+
+// Reusable search button component
+const SearchButton = ({ query, children, className = "text-blue-400 hover:text-blue-300 hover:underline" }: { query: string; children: React.ReactNode; className?: string }) => (
+  <button
+    type="button"
+    onClick={() => navigateToSearch(query)}
+    className={className}
+  >
+    {children}
+  </button>
+);
 
 
 type Props = {
@@ -42,6 +62,86 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const portalButtonRef = useRef<HTMLButtonElement>(null);
   const [showRaw, setShowRaw] = useState(false);
 
+  // Check if this is a highlight event
+  const isHighlight = event.kind === HIGHLIGHTS_KIND;
+  const highlight = isHighlight ? parseHighlightEvent(event) : null;
+
+  // Inline component to render author like a mention
+  function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
+    const [label, setLabel] = useState<string>('');
+    const [npub, setNpub] = useState<string>('');
+
+    useEffect(() => {
+      let isMounted = true;
+      (async () => {
+        try {
+          const user = new NDKUser({ pubkey: pubkeyHex });
+          user.ndk = ndk;
+          try { await user.fetchProfile(); } catch {}
+          if (!isMounted) return;
+          const profile = user.profile as { display?: string; displayName?: string; name?: string } | undefined;
+          const display = profile?.displayName || profile?.display || profile?.name || '';
+          const npubVal = nip19.npubEncode(pubkeyHex);
+          setNpub(npubVal);
+          setLabel(display || `npub:${shortenNpub(npubVal)}`);
+        } catch {
+          if (!isMounted) return;
+          setLabel(`npub:${shortenNpub(nip19.npubEncode(pubkeyHex))}`);
+        }
+      })();
+      return () => { isMounted = false; };
+    }, [pubkeyHex]);
+
+    return (
+      <button
+        type="button"
+        onClick={() => onAuthorClick && onAuthorClick(npub)}
+        className="text-blue-400 hover:text-blue-300 hover:underline"
+        title={npub}
+      >
+        {label || 'Loading...'}
+      </button>
+    );
+  }
+
+
+  const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const contextSimilarity = highlight?.context
+    ? compareTwoStrings(
+        normalizeForSimilarity(highlight.content),
+        normalizeForSimilarity(highlight.context)
+      )
+    : 0;
+  const shouldShowHighlightContext = Boolean(highlight?.context && contextSimilarity < 0.9);
+
+
+  // Helper function to render metadata items
+  const renderMetadataItem = (label: string, value: string, type: 'text' | 'button' | 'link' = 'text', onClick?: () => void, href?: string) => {
+    if (!value) return null;
+    
+    const linkClasses = "text-blue-400 hover:text-blue-300 hover:underline";
+    
+    const content = type === 'button' ? (
+      <button onClick={onClick} className={linkClasses}>
+        {value}
+      </button>
+    ) : type === 'link' ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={linkClasses}>
+        {value}
+      </a>
+    ) : (
+      <span>{value}</span>
+    );
+
+    return (
+      <div>
+        <span className="font-medium">{label}:</span>{' '}
+        {content}
+      </div>
+    );
+  };
+
   return (
     <div className={containerClasses}>
       {showRaw ? (
@@ -50,7 +150,177 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </div>
       ) : (
         <>
-          <div className={contentClasses}>{renderContent(event.content || '')}</div>
+          {isHighlight && highlight ? (
+            <div className="mb-3 space-y-3">
+              {/* Comment if present */}
+              {highlight.comment ? (
+                <div className="mb-3">
+                  <div className={contentClasses}>
+                    {renderContent(highlight.comment)}
+                  </div>
+                  <div className="border-t border-[#3d3d3d] mt-3"></div>
+                </div>
+              ) : null}
+
+              {/* Render context with highlighted content embedded */}
+              <div className={contentClasses}>
+                {(() => {
+                  if (highlight.context && shouldShowHighlightContext) {
+                    // When context is present, render the full context with the content highlighted within it
+                    const context = highlight.context;
+                    const content = highlight.content;
+                    
+                    // Split context by double newlines to get paragraphs
+                    const paragraphs = context.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                    
+                    return paragraphs.map((paragraph, index) => {
+                      // Check if this paragraph contains the highlighted content
+                      const containsHighlight = paragraph.includes(content);
+                      
+                      return (
+                        <p key={index} className="mb-4 last:mb-0">
+                          {containsHighlight ? (
+                            // Split paragraph around the content and highlight it
+                            paragraph.split(content).map((part, partIndex) => (
+                              <span key={partIndex}>
+                                {part}
+                                {partIndex < paragraph.split(content).length - 1 && (
+                                  <span
+                                    className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                                    style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                                  >
+                                    {content}
+                                  </span>
+                                )}
+                              </span>
+                            ))
+                          ) : (
+                            // Regular paragraph without highlight
+                            paragraph.trim()
+                          )}
+                        </p>
+                      );
+                    });
+                  } else {
+                    // No context, just highlight the content directly
+                    const content = highlight.content;
+                    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                    
+                    return paragraphs.map((paragraph, index) => (
+                      <p key={index} className="mb-4 last:mb-0">
+                        <span
+                          className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                          style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                        >
+                          {paragraph.trim()}
+                        </span>
+                      </p>
+                    ));
+                  }
+                })()}
+              </div>
+
+              {/* Range metadata if present */}
+              {highlight.range ? (
+                <div className="text-xs text-gray-400">
+                  {renderMetadataItem("Range", highlight.range)}
+                </div>
+              ) : null}
+
+              {/* Simple source display */}
+              {(() => {
+                const sourceUrl = highlight.referencedUrl;
+                const sourceEvent = highlight.referencedEvent;
+                const authorHex = highlight.referencedAuthorHex;
+                
+                if (!sourceUrl && !sourceEvent) return null;
+                
+                return (
+                  <div className="text-xs text-gray-400">
+                    {sourceUrl ? (
+                      // r tag - external URL
+                      <>
+                        <span className="font-medium">Source:</span>{' '}
+                        <SearchButton query={sourceUrl}>
+                          {extractDomainFromUrl(sourceUrl)}
+                        </SearchButton>
+                        <a
+                          href={sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-1 text-gray-500 hover:text-gray-400"
+                          title="Open in new tab"
+                        >
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                        </a>
+                      </>
+                    ) : sourceEvent ? (
+                      // a or e tag - nostr event
+                      (() => {
+                        const isLongForm = sourceEvent.startsWith('30023:');
+                        const isETag = highlight.referencedEventType === 'e';
+                        
+                        if (isLongForm) {
+                          // Blog post - use "Highlight from a blog post by [Author]"
+                          return (
+                            <span>
+                              Highlight from a{' '}
+                              <SearchButton query={`a:${sourceEvent}`}>
+                                blog post
+                              </SearchButton>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
+                        } else if (isETag) {
+                          // Simple nostr event (e tag) - link to /e/ path
+                          return (
+                            <span>
+                              Highlight from a{' '}
+                              <a
+                                href={`/e/${sourceEvent}`}
+                                className="text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                nostr post
+                              </a>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
+                        } else {
+                          // Regular nostr post (a tag) - use search
+                          return (
+                            <span>
+                              <span className="font-medium">Source:</span>{' '}
+                              <SearchButton query={`a:${sourceEvent}`}>
+                                nostr post
+                              </SearchButton>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
+                        }
+                      })()
+                    ) : null}
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className={contentClasses}>{renderContent(event.content || '')}</div>
+          )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
         </>
       )}
@@ -85,6 +355,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           ) : null}
         </div>
       )}
+      
       {showPortalMenu && typeof window !== 'undefined' && event?.id && createPortal(
         <>
           <div
@@ -98,7 +369,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           >
             <ul className="py-1 text-sm text-gray-200">
               {(() => {
-                const nevent = nip19.neventEncode({ id: event.id });
+                const nevent = shortenNevent(event.id);
                 const items = createEventExplorerItems(nevent);
                 return items.map((item) => (
                   <li key={item.name}>

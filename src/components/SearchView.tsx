@@ -32,6 +32,7 @@ import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/prof
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 // Reusable search icon button component
 function SearchIconButton({ 
@@ -2131,6 +2132,43 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                           </div>
                         );
                       }}
+                      footerRight={(
+                        <button
+                          type="button"
+                          className="text-xs hover:underline"
+                          title="Search this nevent"
+                          onClick={() => {
+                            try {
+                              const nevent = nip19.neventEncode({ id: event.id });
+                              const q = nevent;
+                              setQuery(q);
+                              if (manageUrl) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('q', q);
+                                router.replace(`?${params.toString()}`);
+                              }
+                              handleSearch(q);
+                            } catch {}
+                          }}
+                        >
+                          {formatEventTimestamp(event)}
+                        </button>
+                      )}
+                      className={noteCardClasses}
+                    />
+                  ) : event.kind === HIGHLIGHTS_KIND ? (
+                    <EventCard
+                      event={event}
+                      onAuthorClick={goToProfile}
+                      renderContent={(text) => (
+                        <TruncatedText 
+                          content={text} 
+                          maxLength={TEXT_MAX_LENGTH}
+                          className="text-gray-100 whitespace-pre-wrap break-words"
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                        />
+                      )}
+                      mediaRenderer={renderNoteMedia}
                       footerRight={(
                         <button
                           type="button"
