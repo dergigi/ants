@@ -1633,10 +1633,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     <>
       {extractImageUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrlsFromText(content).map((src) => {
+          {extractImageUrlsFromText(content).map((src, index) => {
             const trimmedSrc = src.trim();
             return (
-            <div key={trimmedSrc} className="relative">
+            <div key={`image-${index}-${trimmedSrc}`} className="relative">
               {isAbsoluteHttpUrl(trimmedSrc) ? (
                 <ImageWithBlurhash
                   src={trimImageUrl(trimmedSrc)}
@@ -1676,10 +1676,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       )}
       {extractVideoUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrlsFromText(content).map((src) => {
+          {extractVideoUrlsFromText(content).map((src, index) => {
             const trimmedSrc = src.trim();
             return (
-            <div key={trimmedSrc} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+            <div key={`video-${index}-${trimmedSrc}`} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
                 <source src={trimmedSrc} />
                 Your browser does not support the video tag.
@@ -2112,7 +2112,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const dim = dimensions[idx] || dimensions[0];
                               const hash = hashes[idx] || hashes[0] || null;
                               return (
-                                <div key={src} className="relative">
+                                <div key={`image-${idx}-${src}`} className="relative">
                                   <ImageWithBlurhash
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
@@ -2195,7 +2195,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const dim = dimensions[idx] || dimensions[0];
                               const hash = hashes[idx] || hashes[0] || null;
                               return (
-                                <div key={src} className="relative">
+                                <div key={`video-${idx}-${src}`} className="relative">
                                   <VideoWithBlurhash
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
