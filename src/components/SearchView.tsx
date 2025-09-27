@@ -1148,6 +1148,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Use the utility function from urlUtils
 
+  // Shared utility for normalizing whitespace while preserving newlines
+  const normalizeWhitespace = useCallback((text: string): string => {
+    return text.replace(/[ \t]{2,}/g, ' ').trim();
+  }, []);
+
   const stripMediaUrls = useCallback((text: string): string => {
     if (!text) return '';
     const cleaned = text
@@ -1155,8 +1160,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
       .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
       .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
-    return cleaned.replace(/[ \t]{2,}/g, ' ').trim();
-  }, []);
+    return normalizeWhitespace(cleaned);
+  }, [normalizeWhitespace]);
 
   const stripPreviewUrls = useCallback((text: string): string => {
     if (!text) return '';
@@ -1166,8 +1171,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
       cleaned = cleaned.replace(regex, '');
     });
-    return cleaned.replace(/[ \t]{2,}/g, ' ').trim();
-  }, [successfulPreviews]);
+    return normalizeWhitespace(cleaned);
+  }, [successfulPreviews, normalizeWhitespace]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
