@@ -120,6 +120,7 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { isVerified, value } = useNip05Status(user);
+  const domainButtonClasses = 'p-1 rounded text-gray-300 hover:text-gray-100 hover:bg-[#3a3a3a]';
 
   const effectiveVerified = isVerified;
 
@@ -179,7 +180,7 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
       {pathname?.startsWith('/p/') && (
       <button
         type="button"
-        className="text-gray-300 hover:text-gray-100"
+        className={domainButtonClasses}
         title="Search for profiles by this domain"
         onClick={(e) => {
           e.preventDefault();
