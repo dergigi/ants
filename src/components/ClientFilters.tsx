@@ -93,14 +93,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             }`}>
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              filtersAreActive 
-                ? 'bg-green-700 text-green-300' 
-                : 'bg-gray-700 text-gray-300'
-            }`}>
-              {filterSettings.filterMode === 'always' ? 'Always' : 
-               filterSettings.filterMode === 'never' ? 'Never' : 'Smart'}
-            </span>
             <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
           </button>
         </div>
