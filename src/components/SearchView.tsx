@@ -170,6 +170,7 @@ import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 type Props = {
   initialQuery?: string;
   manageUrl?: boolean;
+  onUrlUpdate?: (query: string) => void;
 };
 
 // Component to handle image loading with blurhash placeholder
@@ -456,7 +457,7 @@ function VideoWithBlurhash({
 
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
-export default function SearchView({ initialQuery = '', manageUrl = true }: Props) {
+export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
   const SLASH_COMMANDS = useMemo(() => ([
     { key: 'help', label: '/help', description: 'Show this help' },
     { key: 'examples', label: '/examples', description: 'List example queries' },
@@ -696,6 +697,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const updateUrlForSearch = useCallback((searchQuery: string) => {
     if (!manageUrl) return;
     
+    // If custom URL update handler is provided, use it instead
+    if (onUrlUpdate) {
+      onUrlUpdate(searchQuery);
+      return;
+    }
+    
     // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
@@ -717,7 +724,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
     }
-  }, [manageUrl, pathname, searchParams, router]);
+  }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
