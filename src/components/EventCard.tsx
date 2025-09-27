@@ -158,12 +158,22 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
 
               {/* Highlighted excerpt styled similar to native reader highlights */}
               <div className={contentClasses}>
-                <span
-                  className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                >
-                  {shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content}
-                </span>
+                {(() => {
+                  const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
+                  // Split by lines and filter out empty lines (whitespace only)
+                  const lines = content.split('\n');
+                  const nonEmptyLines = lines.filter(line => line.trim() !== '');
+                  
+                  return nonEmptyLines.map((line, index) => (
+                    <span
+                      key={index}
+                      className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                      style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                    >
+                      {line}
+                    </span>
+                  ));
+                })()}
               </div>
 
               {/* Additional highlight metadata as part of content */}
