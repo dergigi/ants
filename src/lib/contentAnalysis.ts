@@ -26,14 +26,22 @@ export function countHashtags(text: string): number {
 
 /**
  * Count the number of mentions in a text string
+ * Handles both traditional @username mentions and Nostr bech32-encoded entities
+ * as per NIP-19: npub, nsec, note, nprofile, nevent, nrelay, naddr
  */
 export function countMentions(text: string): number {
   if (!text) return 0;
   
-  // Match mentions that start with @ followed by alphanumeric characters and underscores
-  const mentionRegex = /@[A-Za-z0-9_]+/g;
-  const matches = text.match(mentionRegex);
-  return matches ? matches.length : 0;
+  // Match traditional @username mentions
+  const usernameMentionRegex = /@[A-Za-z0-9_]+/g;
+  const usernameMatches = text.match(usernameMentionRegex) || [];
+  
+  // Match Nostr bech32-encoded entities (npub, nsec, note, nprofile, nevent, nrelay, naddr)
+  // These are bech32-encoded strings that start with the appropriate prefix
+  const nostrEntityRegex = /\b(npub|nsec|note|nprofile|nevent|nrelay|naddr)[a-z0-9]+/g;
+  const nostrMatches = text.match(nostrEntityRegex) || [];
+  
+  return usernameMatches.length + nostrMatches.length;
 }
 
 /**
