@@ -74,7 +74,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             onClick={() => setIsExpanded(true)}
             className={`flex items-center gap-2 text-sm transition-colors ${
               filtersAreActive 
-                ? 'text-green-400 hover:text-green-300' 
+                ? 'text-blue-400 hover:text-blue-300' 
                 : 'text-gray-400 hover:text-gray-300'
             }`}
           >
@@ -82,13 +82,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
               icon={faFilter} 
               className={`w-3 h-3 ${
                 filtersAreActive 
-                  ? 'text-green-400' 
+                  ? 'text-blue-400' 
                   : 'text-gray-500'
               }`} 
             />
             <span className={`text-xs ${
               filtersAreActive 
-                ? 'text-green-400' 
+                ? 'text-blue-400' 
                 : 'text-gray-400'
             }`}>
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
