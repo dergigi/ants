@@ -32,6 +32,52 @@ type Props = {
 
 // No local media helpers; media should be rendered by the provided mediaRenderer prop to keep this component generic.
 
+/**
+ * Transforms text content with proper paragraph structure
+ */
+function renderTextWithParagraphs(
+  content: string,
+  renderContent: (content: string) => React.ReactNode,
+  highlightClassName?: string
+): React.ReactNode {
+  // Split by double newlines to create paragraphs
+  const paragraphs = content.split('\n\n');
+  
+  return paragraphs.map((paragraph, paragraphIndex) => {
+    // Split each paragraph by single newlines for line breaks
+    const lines = paragraph.split('\n');
+    const nonEmptyLines = lines.filter(line => line.trim() !== '');
+    
+    if (nonEmptyLines.length === 0) {
+      return null; // Skip empty paragraphs
+    }
+    
+    return (
+      <p key={paragraphIndex} className="mb-2 last:mb-0">
+        {lines.map((line, lineIndex) => {
+          const isEmpty = line.trim() === '';
+          return (
+            <span key={lineIndex}>
+              {isEmpty ? (
+                <br />
+              ) : highlightClassName ? (
+                <span 
+                  className={highlightClassName}
+                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                >
+                  {renderContent(line)}
+                </span>
+              ) : (
+                renderContent(line)
+              )}
+            </span>
+          );
+        })}
+      </p>
+    );
+  });
+}
+
 export default function EventCard({ event, onAuthorClick, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
   const baseContainerClasses = variant === 'inline'
     ? 'flex w-full max-w-full flex-col gap-1 px-3 py-2 rounded-md bg-[#1f1f1f] border border-[#3d3d3d]'
@@ -158,43 +204,11 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
 
               {/* Highlighted excerpt styled similar to native reader highlights */}
               <div className={contentClasses}>
-                {(() => {
-                  const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
-                  // Split by double newlines to create paragraphs
-                  const paragraphs = content.split('\n\n');
-                  
-                  return paragraphs.map((paragraph, paragraphIndex) => {
-                    // Split each paragraph by single newlines for line breaks
-                    const lines = paragraph.split('\n');
-                    const nonEmptyLines = lines.filter(line => line.trim() !== '');
-                    
-                    if (nonEmptyLines.length === 0) {
-                      return null; // Skip empty paragraphs
-                    }
-                    
-                    return (
-                      <p key={paragraphIndex} className="mb-2 last:mb-0">
-                        {lines.map((line, lineIndex) => {
-                          const isEmpty = line.trim() === '';
-                          return (
-                            <span key={lineIndex}>
-                              {isEmpty ? (
-                                <br />
-                              ) : (
-                                <span
-                                  className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                                >
-                                  {line}
-                                </span>
-                              )}
-                            </span>
-                          );
-                        })}
-                      </p>
-                    );
-                  });
-                })()}
+                {renderTextWithParagraphs(
+                  shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content,
+                  (line) => line,
+                  "inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                )}
               </div>
 
               {/* Additional highlight metadata as part of content */}
@@ -239,7 +253,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               ) : null}
             </div>
           ) : (
-            <div className={contentClasses}>{renderContent(event.content || '')}</div>
+            <div className={contentClasses}>
+              {renderTextWithParagraphs(event.content || '', renderContent)}
+            </div>
           )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
         </>
