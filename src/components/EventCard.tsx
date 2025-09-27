@@ -11,6 +11,7 @@ import { createEventExplorerItems } from '@/lib/portals';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
+import Nip05Display from '@/components/Nip05Display';
 
 
 type Props = {
@@ -54,29 +55,32 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </>
       )}
       {showFooter && (
-        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center justify-between gap-2 flex-wrap rounded-b-lg'}>
-          <div className="flex items-center gap-2">
+        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
+          <div className="flex items-center gap-2 min-h-[1rem]">
+            {event.author && <Nip05Display user={event.author} compact={true} />}
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
           </div>
           {footerRight ? (
-            <div className="flex items-center gap-2">
-              {footerRight}
-              <CardActions
-                eventId={event?.id}
-                profilePubkey={event?.author?.pubkey}
-                eventKind={event?.kind}
-                showRaw={showRaw}
-                onToggleRaw={() => setShowRaw(v => !v)}
-                onToggleMenu={() => {
-                  if (portalButtonRef.current) {
-                    const rect = portalButtonRef.current.getBoundingClientRect();
-                    const position = calculateAbsoluteMenuPosition(rect);
-                    setMenuPosition(position);
-                  }
-                  setShowPortalMenu((v) => !v);
-                }}
-                menuButtonRef={portalButtonRef}
-              />
+            <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {footerRight}
+                <CardActions
+                  eventId={event?.id}
+                  profilePubkey={event?.author?.pubkey}
+                  eventKind={event?.kind}
+                  showRaw={showRaw}
+                  onToggleRaw={() => setShowRaw(v => !v)}
+                  onToggleMenu={() => {
+                    if (portalButtonRef.current) {
+                      const rect = portalButtonRef.current.getBoundingClientRect();
+                      const position = calculateAbsoluteMenuPosition(rect);
+                      setMenuPosition(position);
+                    }
+                    setShowPortalMenu((v) => !v);
+                  }}
+                  menuButtonRef={portalButtonRef}
+                />
+              </div>
             </div>
           ) : null}
         </div>
