@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
 
+export type FilterMode = 'always' | 'never' | 'intelligently';
+
 export interface FilterSettings {
   maxEmojis: number | null;
   maxHashtags: number | null;
@@ -14,7 +16,7 @@ export interface FilterSettings {
   fuzzyEnabled: boolean;
   hideBots: boolean;
   hideNsfw: boolean;
-  filtersEnabled: boolean;
+  filterMode: FilterMode;
 }
 
 interface Props {
@@ -22,10 +24,9 @@ interface Props {
   onFilterChange: (settings: FilterSettings) => void;
   resultCount: number;
   filteredCount: number;
-  isAutoEnabled?: boolean;
 }
 
-export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, isAutoEnabled = false }: Props) {
+export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
@@ -50,13 +51,13 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   };
 
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filtersEnabled: false });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filterMode: 'never' });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: true });
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   };
 
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
@@ -68,26 +69,15 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="flex justify-end">
           <button
             onClick={() => setIsExpanded(true)}
-            className={`flex items-center gap-2 text-sm transition-colors ${
-              filterSettings.filtersEnabled 
-                ? 'text-green-400 hover:text-green-300' 
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
           >
-            <FontAwesomeIcon 
-              icon={faFilter} 
-              className={`w-3 h-3 ${
-                filterSettings.filtersEnabled 
-                  ? 'text-green-400' 
-                  : 'text-gray-500'
-              }`} 
-            />
-            <span className={`text-xs ${
-              filterSettings.filtersEnabled 
-                ? 'text-green-400' 
-                : 'text-gray-400'
-            }`}>
+            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
+            <span className="text-xs">
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">
+              {filterSettings.filterMode === 'always' ? 'Always' : 
+               filterSettings.filterMode === 'never' ? 'Never' : 'Smart'}
             </span>
             <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
           </button>
@@ -99,18 +89,23 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filterSettings.filtersEnabled}
-                  onChange={(e) => onFilterChange({ ...filterSettings, filtersEnabled: e.target.checked })}
-                  className="accent-[#4a4a4a]"
-                />
-                <span>Filter Results</span>
-                {isAutoEnabled && (
-                  <span className="text-xs text-blue-400">(auto-enabled)</span>
-                )}
-              </label>
+              <span className="text-sm font-medium text-gray-200">Filter Mode:</span>
+              <div className="flex bg-gray-700 rounded-lg p-1">
+                {(['always', 'intelligently', 'never'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => onFilterChange({ ...filterSettings, filterMode: mode })}
+                    className={`px-3 py-1 text-xs rounded transition-colors ${
+                      filterSettings.filterMode === mode
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    {mode === 'always' ? 'Always' : 
+                     mode === 'never' ? 'Never' : 'Smart'}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-400">{filteredCount}/{resultCount} shown</span>
@@ -123,7 +118,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </div>
           </div>
 
-          <div className={`space-y-2 ${!filterSettings.filtersEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`space-y-2 ${filterSettings.filterMode === 'never' ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Fuzzy filter with enable checkbox and icon */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input
@@ -131,7 +126,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.fuzzyEnabled}
                 onChange={(e) => onFilterChange({ ...filterSettings, fuzzyEnabled: e.target.checked, resultFilter: e.target.checked ? filterSettings.resultFilter : '' })}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <div className="relative w-full max-w-xs">
                 <FontAwesomeIcon icon={faFilter} className={`absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 ${filterSettings.fuzzyEnabled ? 'text-gray-400' : 'text-gray-600'}`} />
@@ -139,8 +134,8 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   type="text"
                   value={filterSettings.resultFilter || ''}
                   onChange={(e) => onFilterChange({ ...filterSettings, resultFilter: e.target.value })}
-                  disabled={!filterSettings.fuzzyEnabled || !filterSettings.filtersEnabled}
-                  className={`w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none ${!filterSettings.fuzzyEnabled || !filterSettings.filtersEnabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  disabled={!filterSettings.fuzzyEnabled || filterSettings.filterMode === 'never'}
+                  className={`w-full pl-6 pr-2 py-1 text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 focus:border-[#4a4a4a] focus:outline-none ${!filterSettings.fuzzyEnabled || filterSettings.filterMode === 'never' ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
               </div>
             </label>
@@ -152,7 +147,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.verifiedOnly}
                 onChange={(e) => onFilterChange({ ...filterSettings, verifiedOnly: e.target.checked })}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>Valid NIP-05</span>
               <FontAwesomeIcon icon={faIdBadge} className="w-3 h-3 text-green-400" />
@@ -167,7 +162,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, maxEmojis: e.target.checked ? (emojiLimit || 3) : null });
                 }}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>Hide more than</span>
               <input
@@ -177,7 +172,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 value={emojiLimit}
                 onChange={(e) => handleEmojiChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>emojis</span>
             </label>
@@ -191,7 +186,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, maxHashtags: e.target.checked ? (hashtagLimit || 3) : null });
                 }}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>Hide more than</span>
               <input
@@ -201,7 +196,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 value={hashtagLimit}
                 onChange={(e) => handleHashtagChange(e.target.value)}
                 className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>hashtags</span>
             </label>
@@ -215,7 +210,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   onFilterChange({ ...filterSettings, hideLinks: e.target.checked });
                 }}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>Hide external links</span>
             </label>
@@ -227,7 +222,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 checked={filterSettings.hideBots}
                 onChange={(e) => onFilterChange({ ...filterSettings, hideBots: e.target.checked })}
                 className="accent-[#4a4a4a]"
-                disabled={!filterSettings.filtersEnabled}
+                disabled={filterSettings.filterMode === 'never'}
               />
               <span>Hide bots</span>
             </label>

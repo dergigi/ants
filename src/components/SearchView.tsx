@@ -488,32 +488,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filtersEnabled: false });
-  const [userManuallyToggled, setUserManuallyToggled] = useState(false);
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   
-  // Custom handler for filter changes that tracks manual toggles
-  const handleFilterChange = useCallback((newSettings: FilterSettings) => {
-    setFilterSettings(newSettings);
-    setUserManuallyToggled(true);
-  }, []);
-  
-  // Reset manual toggle when starting a new search
-  useEffect(() => {
-    setUserManuallyToggled(false);
-  }, [query]);
-  
-  // Auto-enable/disable filters based on result count (only if user hasn't manually toggled)
-  useEffect(() => {
-    if (!userManuallyToggled) {
-      const shouldEnableFilters = results.length >= SEARCH_FILTER_THRESHOLD;
-      if (filterSettings.filtersEnabled !== shouldEnableFilters) {
-        setFilterSettings(prev => ({ ...prev, filtersEnabled: shouldEnableFilters }));
-      }
+  // Determine if filters should be enabled based on filterMode
+  const shouldEnableFilters = useMemo(() => {
+    switch (filterSettings.filterMode) {
+      case 'always':
+        return true;
+      case 'never':
+        return false;
+      case 'intelligently':
+        return results.length >= SEARCH_FILTER_THRESHOLD;
+      default:
+        return false;
     }
-  }, [results.length, filterSettings.filtersEnabled, userManuallyToggled]);
+  }, [filterSettings.filterMode, results.length]);
   
   // Check if query is a URL
   const isUrl = useCallback((input: string): boolean => {
@@ -649,7 +641,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
 
   const filteredResults = useMemo(
-    () => filterSettings.filtersEnabled ? applyContentFilters(
+    () => shouldEnableFilters ? applyContentFilters(
       results,
       filterSettings.maxEmojis,
       filterSettings.maxHashtags,
@@ -659,12 +651,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       filterSettings.hideBots,
       filterSettings.hideNsfw
     ) : results,
-    [results, filterSettings.filtersEnabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    [results, shouldEnableFilters, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
-    const q = (filterSettings.filtersEnabled && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
+    const q = (shouldEnableFilters && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
     if (!q) return filteredResults;
     const fuse = new Fuse(filteredResults, {
       includeScore: false,
@@ -675,7 +667,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       ]
     });
     return fuse.search(q).map(r => r.item);
-  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, filterSettings.filtersEnabled]);
+  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, shouldEnableFilters]);
 
   // Seed profile prefetch for visible profile cards as soon as results materialize
   useEffect(() => {
@@ -1973,10 +1965,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {results.length > 0 && (
         <ClientFilters
           filterSettings={filterSettings}
-          onFilterChange={handleFilterChange}
+          onFilterChange={setFilterSettings}
           resultCount={results.length}
           filteredCount={fuseFilteredResults.length}
-          isAutoEnabled={results.length >= SEARCH_FILTER_THRESHOLD && !userManuallyToggled}
         />
       )}
 
