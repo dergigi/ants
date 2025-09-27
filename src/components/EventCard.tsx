@@ -61,29 +61,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const portalButtonRef = useRef<HTMLButtonElement>(null);
   const [showRaw, setShowRaw] = useState(false);
-  const [referencedEvent, setReferencedEvent] = useState<NDKEvent | null>(null);
 
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
-
-  // Fetch referenced event if it's an e tag
-  useEffect(() => {
-    if (highlight?.referencedEvent && highlight.referencedEventType === 'e') {
-      let isMounted = true;
-      (async () => {
-        try {
-          const fetchedEvent = await ndk.fetchEvent(highlight.referencedEvent!);
-          if (isMounted && fetchedEvent) {
-            setReferencedEvent(fetchedEvent);
-          }
-        } catch {
-          // Event not found or error fetching
-        }
-      })();
-      return () => { isMounted = false; };
-    }
-  }, [highlight?.referencedEvent, highlight?.referencedEventType]);
 
   // Inline component to render author like a mention
   function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
@@ -327,19 +308,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   </div>
                 );
               })()}
-
-              {/* Render referenced event if it's an e tag */}
-              {highlight?.referencedEventType === 'e' && referencedEvent && (
-                <div className="mt-4">
-                  <EventCard
-                    event={referencedEvent}
-                    onAuthorClick={onAuthorClick}
-                    renderContent={renderContent}
-                    variant="inline"
-                    showFooter={true}
-                  />
-                </div>
-              )}
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
