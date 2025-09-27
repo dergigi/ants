@@ -24,13 +24,13 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub, shortenString } from '@/lib/utils';
+import { shortenNevent, shortenNpub, shortenString, trimImageUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
-import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 // Reusable search icon button component
@@ -262,7 +262,7 @@ function ImageWithBlurhash({
       
       {/* Real image - hidden until loaded */}
       <Image 
-        src={src} 
+        src={trimImageUrl(src)} 
         alt={alt}
         width={width}
         height={height} 
@@ -488,10 +488,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false });
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  
+  // Determine if filters should be enabled based on filterMode
+  const shouldEnableFilters = useMemo(() => {
+    switch (filterSettings.filterMode) {
+      case 'always':
+        return true;
+      case 'never':
+        return false;
+      case 'intelligently':
+        return results.length >= SEARCH_FILTER_THRESHOLD;
+      default:
+        return false;
+    }
+  }, [filterSettings.filterMode, results.length]);
   
   // Check if query is a URL
   const isUrl = useCallback((input: string): boolean => {
@@ -627,22 +641,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
 
   const filteredResults = useMemo(
-    () => applyContentFilters(
+    () => shouldEnableFilters ? applyContentFilters(
       results,
       filterSettings.maxEmojis,
       filterSettings.maxHashtags,
+      filterSettings.maxMentions,
       filterSettings.hideLinks,
+      filterSettings.hideBridged,
       filterSettings.verifiedOnly,
       (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
       filterSettings.hideBots,
       filterSettings.hideNsfw
-    ),
-    [results, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.hideLinks, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    ) : results,
+    [results, shouldEnableFilters, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
-    const q = (filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
+    const q = (shouldEnableFilters && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
     if (!q) return filteredResults;
     const fuse = new Fuse(filteredResults, {
       includeScore: false,
@@ -653,7 +669,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       ]
     });
     return fuse.search(q).map(r => r.item);
-  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled]);
+  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, shouldEnableFilters]);
 
   // Seed profile prefetch for visible profile cards as soon as results materialize
   useEffect(() => {
@@ -676,12 +692,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return events;
   }
 
+  // Helper function to update URL immediately when search is triggered
+  const updateUrlForSearch = useCallback((searchQuery: string) => {
+    if (!manageUrl) return;
+    
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub) {
+      // URL should be implicit on profile pages: strip matching by:npub
+      const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('q', urlValue);
+      router.replace(`?${params.toString()}`);
+    } else {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('q', searchQuery);
+      router.replace(`?${params.toString()}`);
+    }
+  }, [manageUrl, pathname, searchParams, router]);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
       setResolvingAuthor(false);
       return;
     }
+
+    // Update URL immediately when search is triggered
+    updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
     if (abortControllerRef.current) {
@@ -779,7 +816,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router, isSlashCommand]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -946,7 +983,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       runSlashCommand(raw);
       setQuery(raw);
       if (manageUrl) {
-        updateSearchQuery(searchParams, router, raw);
+        updateUrlForSearch(raw);
       }
       // Clear prior results immediately before async search
       setResults([]);
@@ -967,16 +1004,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
     setQuery(displayVal);
     if (manageUrl) {
-      const params = new URLSearchParams(searchParams.toString());
       if (displayVal) {
-        // URL should be implicit on profile pages: strip matching by:npub
-        const urlValue = currentProfileNpub ? toImplicitUrlQuery(displayVal, currentProfileNpub) : displayVal;
-        params.set('q', urlValue);
-        router.replace(`?${params.toString()}`);
+        // Update URL immediately
+        updateUrlForSearch(displayVal);
         // Backend search should include implicit author on profile pages
         const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
         handleSearch(backend.trim());
       } else {
+        const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
         router.replace(`?${params.toString()}`);
         setResults([]);
@@ -1201,9 +1236,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 const nextQuery = fullUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
+                  updateUrlForSearch(nextQuery);
                 }
                 (async () => {
                   setLoading(true);
@@ -1430,9 +1463,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const q = token;
                     setQuery(q);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', q);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(q);
                     }
                     handleSearch(q);
                   }}
@@ -1515,9 +1546,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                     const nextQuery = part;
                     setQuery(nextQuery);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', nextQuery);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(nextQuery);
                     }
                     handleSearch(nextQuery);
                   }}
@@ -1540,9 +1569,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                         const nextQuery = emojis[i] as string;
                         setQuery(nextQuery);
                         if (manageUrl) {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.set('q', nextQuery);
-                          router.replace(`?${params.toString()}`);
+                          updateUrlForSearch(nextQuery);
                         }
                         handleSearch(nextQuery);
                       }}
@@ -1562,7 +1589,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, searchParams, router, handleSearch, setLoading, setResults, abortControllerRef, goToProfile]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, manageUrl, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1597,23 +1624,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     <>
       {extractImageUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrlsFromText(content).map((src) => (
-            <div key={src} className="relative">
-              {isAbsoluteHttpUrl(src) ? (
+          {extractImageUrlsFromText(content).map((src) => {
+            const trimmedSrc = src.trim();
+            return (
+            <div key={trimmedSrc} className="relative">
+              {isAbsoluteHttpUrl(trimmedSrc) ? (
                 <ImageWithBlurhash
-                  src={src}
+                  src={trimImageUrl(trimmedSrc)}
                   alt="linked media"
                   width={1024}
                   height={1024}
                   dim={null}
                   onClickSearch={() => {
-                    const filename = getFilenameFromUrl(src);
+                    const filename = getFilenameFromUrl(trimmedSrc);
                     const nextQuery = filename;
                     setQuery(filename);
                     if (manageUrl) {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set('q', filename);
-                      router.replace(`?${params.toString()}`);
+                      updateUrlForSearch(filename);
                     }
                     (async () => {
                       setLoading(true);
@@ -1634,19 +1661,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 />
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {extractVideoUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrlsFromText(content).map((src) => (
-            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+          {extractVideoUrlsFromText(content).map((src) => {
+            const trimmedSrc = src.trim();
+            return (
+            <div key={trimmedSrc} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
-                <source src={src} />
+                <source src={trimmedSrc} />
                 Your browser does not support the video tag.
               </video>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {extractNonMediaUrlsFromText(content).length > 0 && (
@@ -1667,9 +1698,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 const nextQuery = targetUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('q', nextQuery);
-                  router.replace(`?${params.toString()}`);
+                  updateUrlForSearch(nextQuery);
                 }
                 (async () => {
                   setLoading(true);
@@ -1692,7 +1721,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, searchParams, router]);
+  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, updateUrlForSearch]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -1831,9 +1860,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           </div>
           <button 
             type={showExternalButton ? "button" : "submit"} 
-            disabled={loading} 
             onClick={showExternalButton ? handleOpenExternal : undefined}
-            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] disabled:opacity-50 transition-colors"
+            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
             title={showExternalButton ? "Open URL in new tab" : "Search"}
           >
             {loading ? (
@@ -1974,9 +2002,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                             onClick={() => {
                               setQuery(ex);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', ex);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(ex);
                               }
                               handleSearch(ex);
                             }}
@@ -2047,9 +2073,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2081,7 +2105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               return (
                                 <div key={src} className="relative">
                                   <ImageWithBlurhash
-                                    src={src}
+                                    src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     alt="picture"
                                     width={dim?.width || 1024}
@@ -2091,9 +2115,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
                                       setQuery(nextQuery);
                                       if (manageUrl) {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set('q', nextQuery);
-                                        router.replace(`?${params.toString()}`);
+                                        updateUrlForSearch(nextQuery);
                                       }
                                       (async () => {
                                         setLoading(true);
@@ -2129,9 +2151,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2168,16 +2188,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               return (
                                 <div key={src} className="relative">
                                   <VideoWithBlurhash
-                                    src={src}
+                                    src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     dim={dim || null}
                                     onClickSearch={() => {
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
                                       setQuery(nextQuery);
                                       if (manageUrl) {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set('q', nextQuery);
-                                        router.replace(`?${params.toString()}`);
+                                        updateUrlForSearch(nextQuery);
                                       }
                                       (async () => {
                                         setLoading(true);
@@ -2213,9 +2231,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2250,9 +2266,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2282,9 +2296,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                               const q = nevent;
                               setQuery(q);
                               if (manageUrl) {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set('q', q);
-                                router.replace(`?${params.toString()}`);
+                                updateUrlForSearch(q);
                               }
                               handleSearch(q);
                             } catch {}
@@ -2300,7 +2312,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, updateUrlForSearch])}
     </div>
   );
 }

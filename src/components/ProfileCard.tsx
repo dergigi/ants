@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
-import { shortenNpub } from '@/lib/utils';
+import { shortenNpub, trimImageUrl } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { nip19 } from 'nostr-tools';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -461,7 +461,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
             >
               <Image
-                src={avatarUrl as string}
+                src={trimImageUrl(avatarUrl)}
                 alt="Profile"
                 width={48}
                 height={48}

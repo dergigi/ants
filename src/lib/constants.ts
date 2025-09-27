@@ -52,7 +52,22 @@ export const UI_CONFIG = {
     FALLBACK_TIMEOUT: 8000,
     
     // NIP-05 resolution timeout
-    NIP05_TIMEOUT: 4000
+    NIP05_TIMEOUT: 4000,
+    
+    // Minimum number of results to show filter controls
+    FILTER_THRESHOLD: 69
+  },
+  
+  // Content filtering settings
+  FILTERS: {
+    // Keywords that indicate bridged content (case-insensitive)
+    BRIDGED_KEYWORDS: [
+      'mostr.pub',
+      'mastodon',
+      'bluesky',
+      'bsky.app',
+      'bsky.social'
+    ]
   }
 } as const;
 
@@ -69,3 +84,7 @@ export const SEARCH_DEFAULT_TIMEOUT = UI_CONFIG.SEARCH.DEFAULT_TIMEOUT;
 export const SEARCH_HINTED_TIMEOUT = UI_CONFIG.SEARCH.HINTED_TIMEOUT;
 export const SEARCH_FALLBACK_TIMEOUT = UI_CONFIG.SEARCH.FALLBACK_TIMEOUT;
 export const SEARCH_NIP05_TIMEOUT = UI_CONFIG.SEARCH.NIP05_TIMEOUT;
+export const SEARCH_FILTER_THRESHOLD = UI_CONFIG.SEARCH.FILTER_THRESHOLD;
+
+// Filter constants
+export const BRIDGED_KEYWORDS = UI_CONFIG.FILTERS.BRIDGED_KEYWORDS;

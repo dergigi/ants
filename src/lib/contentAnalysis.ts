@@ -1,5 +1,6 @@
 import emojiRegex from 'emoji-regex';
 import { extractNonMediaUrls } from '@/lib/utils/urlUtils';
+import { BRIDGED_KEYWORDS } from '@/lib/constants';
 
 /**
  * Count the number of emojis in a text string
@@ -25,6 +26,26 @@ export function countHashtags(text: string): number {
 }
 
 /**
+ * Count the number of mentions in a text string
+ * Handles both traditional @username mentions and Nostr bech32-encoded entities
+ * as per NIP-19: npub, nsec, note, nprofile, nevent, nrelay, naddr
+ */
+export function countMentions(text: string): number {
+  if (!text) return 0;
+  
+  // Match traditional @username mentions
+  const usernameMentionRegex = /@[A-Za-z0-9_]+/g;
+  const usernameMatches = text.match(usernameMentionRegex) || [];
+  
+  // Match Nostr bech32-encoded entities (npub, nsec, note, nprofile, nevent, nrelay, naddr)
+  // These are bech32-encoded strings that start with the appropriate prefix
+  const nostrEntityRegex = /\b(npub|nsec|note|nprofile|nevent|nrelay|naddr)[a-z0-9]+/g;
+  const nostrMatches = text.match(nostrEntityRegex) || [];
+  
+  return usernameMatches.length + nostrMatches.length;
+}
+
+/**
  * Detect if the text contains a URL/link
  */
 export function containsLink(text: string): boolean {
@@ -32,6 +53,16 @@ export function containsLink(text: string): boolean {
   // Detect any http(s) URL that is NOT an image link
   const nonMediaUrls = extractNonMediaUrls(text);
   return nonMediaUrls.length > 0;
+}
+
+/**
+ * Detect if the content is from a bridged account based on NIP-05
+ */
+export function isBridgedContent(nip05: string | undefined): boolean {
+  if (!nip05) return false;
+  
+  const lowerNip05 = nip05.toLowerCase();
+  return BRIDGED_KEYWORDS.some(keyword => lowerNip05.includes(keyword.toLowerCase()));
 }
 
 // --- NSFW detection helpers ---
@@ -57,7 +88,9 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
+  maxMentions: number | null,
   hideLinks: boolean = false,
+  hideBridged: boolean = false,
   verifiedOnly: boolean = false,
   verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean,
   hideBots: boolean = false,
@@ -83,9 +116,26 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
       }
     }
 
+    // Check mentions limit
+    if (maxMentions !== null) {
+      const mentionsCount = countMentions(content);
+      if (mentionsCount > maxMentions) {
+        return false;
+      }
+    }
+
     // Hide links if enabled
     if (hideLinks && containsLink(content)) {
       return false;
+    }
+
+    // Hide bridged content if enabled
+    if (hideBridged) {
+      const nip05Raw = event.author?.profile?.nip05 as Nip05Value;
+      const nip05 = typeof nip05Raw === 'string' ? nip05Raw : nip05Raw?.url;
+      if (isBridgedContent(nip05)) {
+        return false;
+      }
     }
 
     // Hide bots when requested (based on kind:0 metadata heuristics per NIP-24)
