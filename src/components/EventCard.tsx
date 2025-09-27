@@ -13,6 +13,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, formatHighlightContent, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { compareTwoStrings } from 'string-similarity';
 
 
 type Props = {
@@ -46,6 +47,16 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
+
+  const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const contextSimilarity = highlight?.context
+    ? compareTwoStrings(
+        normalizeForSimilarity(highlight.content),
+        normalizeForSimilarity(highlight.context)
+      )
+    : 0;
+  const shouldShowHighlightContext = Boolean(highlight?.context && contextSimilarity < 0.9);
 
   // Helper function to render metadata items
   const renderMetadataItem = (label: string, value: string, type: 'text' | 'button' | 'link' = 'text', onClick?: () => void, href?: string) => {
@@ -84,7 +95,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
               {/* Context if available, rendered like regular content */}
-              {highlight.context && (
+              {shouldShowHighlightContext && (
                 <div className={contentClasses}>
                   {renderContent(highlight.context)}
                 </div>
@@ -96,7 +107,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
                   style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
                 >
-                  {formatHighlightContent(highlight)}
+                  {shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content}
                 </span>
               </div>
 
