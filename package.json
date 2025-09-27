@@ -17,6 +17,7 @@
     "@nostr-dev-kit/ndk": "^2.14.33",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.5.15",
     "@nostr-dev-kit/ndk-cache-sqlite-wasm": "0.5.8",
+    "@types/string-similarity": "^4.0.2",
     "blurhash": "^2.0.5",
     "fetch-opengraph": "^1.0.36",
     "fuse.js": "7.1.0",
@@ -25,7 +26,8 @@
     "react": "^19.0.0",
     "react-blurhash": "^0.3.0",
     "react-dom": "^19.0.0",
-    "relative-time-format": "^1.1.11"
+    "relative-time-format": "^1.1.11",
+    "string-similarity": "^4.0.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
