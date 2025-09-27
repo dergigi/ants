@@ -247,7 +247,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                               <button
                                 type="button"
                                 onClick={() => {
-                                  // Trigger internal search for the event
+                                  // For nostr-native blog posts, search for the specific a tag
                                   const searchQuery = `a:${sourceEvent}`;
                                   window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
                                 }}
