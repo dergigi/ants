@@ -225,14 +225,16 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                       // r tag - external URL
                       <>
                         <span className="font-medium">Source:</span>{' '}
-                        <a
-                          href={sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Trigger internal search for the URL
+                            window.location.href = `/?q=${encodeURIComponent(sourceUrl)}`;
+                          }}
                           className="text-blue-400 hover:text-blue-300 hover:underline"
                         >
                           {extractDomainFromUrl(sourceUrl)}
-                        </a>
+                        </button>
                       </>
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
