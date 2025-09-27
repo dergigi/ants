@@ -479,6 +479,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
@@ -880,6 +881,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return () => { window.removeEventListener('resize', onResize); clearInterval(interval); };
   }, []);
 
+  // Auto-focus the search input on component mount
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  // Handle Escape key to stop current search
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && loading) {
+        // Abort any ongoing search
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        currentSearchId.current++;
+        setLoading(false);
+        setResolvingAuthor(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [loading]);
+
   useEffect(() => {
     if (!manageUrl) return;
     const urlQueryRaw = searchParams.get('q') || '';
@@ -1120,6 +1148,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   // Use the utility function from urlUtils
 
+  // Shared utility for normalizing whitespace while preserving newlines
+  const normalizeWhitespace = useCallback((text: string): string => {
+    return text.replace(/[ \t]{2,}/g, ' ').trim();
+  }, []);
+
   const stripMediaUrls = useCallback((text: string): string => {
     if (!text) return '';
     const cleaned = text
@@ -1127,8 +1160,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
       .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
       .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
-    return cleaned.replace(/\s{2,}/g, ' ').trim();
-  }, []);
+    return normalizeWhitespace(cleaned);
+  }, [normalizeWhitespace]);
 
   const stripPreviewUrls = useCallback((text: string): string => {
     if (!text) return '';
@@ -1138,8 +1171,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
       cleaned = cleaned.replace(regex, '');
     });
-    return cleaned.replace(/\s{2,}/g, ' ').trim();
-  }, [successfulPreviews]);
+    return normalizeWhitespace(cleaned);
+  }, [successfulPreviews, normalizeWhitespace]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
@@ -1732,6 +1765,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <input
+              ref={searchInputRef}
               type="text"
               value={query}
               onChange={handleInputChange}
@@ -1983,7 +2017,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
               const hasExpandedParent = Boolean(parentEvent);
               const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
-              const key = event.id || `${event.kind || 0}:${event.pubkey || event.author?.pubkey || 'unknown'}:${idx}`;
+              const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
                   {parentId && renderParentChain(event)}

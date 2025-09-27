@@ -29,6 +29,9 @@ export const searchExamples = [
   '#news site:rumble.com',
   'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
   '"car crash" by:dergigi',
+  '(PoW OR WoT) by:dergigi',
+  'free by:ulbricht',
+  '(nostr OR 🫂) by:snowden',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -95,7 +98,6 @@ export const searchExamples = [
 
   // Highlight examples
   'is:highlight (bitcoin OR nostr)',
-  'is:highlight by:dergigi',
   'is:highlight by:dergigi',
   'is:highlight by:fiatjaf',
   'is:highlight by:pablof7z',
