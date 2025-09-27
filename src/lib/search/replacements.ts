@@ -1,4 +1,5 @@
 let cachedRules: Array<{ kind: string; key: string; expansion: string }> | null = null;
+let cachedDirectRules: Array<{ pattern: string; replacement: string }> | null = null;
 
 function parseLine(line: string): { kind: string; key: string; expansion: string } | null {
   const trimmed = line.trim();
@@ -14,6 +15,19 @@ function parseLine(line: string): { kind: string; key: string; expansion: string
   const expansion = right;
   if (!kind) return null;
   return { kind, key, expansion };
+}
+
+function parseDirectLine(line: string): { pattern: string; replacement: string } | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) return null;
+  const arrowIdx = trimmed.indexOf('=>');
+  if (arrowIdx === -1) return null;
+  const left = trimmed.slice(0, arrowIdx).trim();
+  const right = trimmed.slice(arrowIdx + 2).trim();
+  const colonIdx = left.indexOf(':');
+  // Only parse as direct replacement if there's no colon (not a kind:key pattern)
+  if (colonIdx !== -1) return null;
+  return { pattern: left, replacement: right };
 }
 
 async function loadRules(): Promise<Array<{ kind: string; key: string; expansion: string }>> {
@@ -35,10 +49,37 @@ async function loadRules(): Promise<Array<{ kind: string; key: string; expansion
   }
 }
 
+async function loadDirectRules(): Promise<Array<{ pattern: string; replacement: string }>> {
+  if (cachedDirectRules) return cachedDirectRules;
+  try {
+    const res = await fetch('/replacements.txt', { cache: 'no-store' });
+    if (!res.ok) throw new Error('failed');
+    const txt = await res.text();
+    const rules: Array<{ pattern: string; replacement: string }> = [];
+    for (const raw of txt.split(/\r?\n/)) {
+      const r = parseDirectLine(raw);
+      if (r) rules.push(r);
+    }
+    cachedDirectRules = rules;
+    return cachedDirectRules;
+  } catch {
+    cachedDirectRules = [];
+    return cachedDirectRules;
+  }
+}
+
 export async function applySimpleReplacements(input: string): Promise<string> {
   const rules = await loadRules();
-  if (!rules.length) return input.trim();
+  const directRules = await loadDirectRules();
+  if (!rules.length && !directRules.length) return input.trim();
   let q = input;
+
+  // Apply direct string replacements first (e.g., `http:// => `)
+  for (const rule of directRules) {
+    const escapedPattern = rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedPattern, 'g');
+    q = q.replace(regex, rule.replacement);
+  }
 
   // Allow stripping prefixes via rules with an empty key (e.g. `nostr: =>`)
   q = q.replace(/(^|\s)([a-zA-Z0-9_-]+):([^\s,]+)(?=\s|$)/g, (full, lead: string, kind: string, key: string) => {
