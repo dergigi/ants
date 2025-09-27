@@ -194,37 +194,12 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 })()}
               </div>
 
-              {/* Additional highlight metadata as part of content */}
-              {(() => {
-                const eventId = highlight.referencedEvent;
-                const authorHex = highlight.referencedAuthorHex;
-                const rangeValue = highlight.range;
-
-                return (
-                  <div className="text-xs text-gray-400 space-y-1">
-                    {eventId
-                      ? renderMetadataItem(
-                          "Event",
-                          eventId,
-                          'link',
-                          undefined,
-                          `https://njump.me/${eventId}`
-                        )
-                      : null}
-                    {authorHex
-                      ? (
-                        <div>
-                          <span className="font-medium">Author:</span>{' '}
-                          <InlineAuthor pubkeyHex={authorHex} />
-                        </div>
-                      )
-                      : null}
-                    {rangeValue
-                      ? renderMetadataItem("Range", rangeValue)
-                      : null}
-                  </div>
-                );
-              })()}
+              {/* Range metadata if present */}
+              {highlight.range ? (
+                <div className="text-xs text-gray-400">
+                  {renderMetadataItem("Range", highlight.range)}
+                </div>
+              ) : null}
 
               {/* Simple source display */}
               {(() => {
@@ -233,20 +208,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 const authorHex = highlight.referencedAuthorHex;
                 
                 if (!sourceUrl && !sourceEvent) return null;
-                
-                // Get author name for display
-                const getAuthorDisplay = () => {
-                  if (!authorHex) return null;
-                  try {
-                    const npub = nip19.npubEncode(authorHex);
-                    return shortenNpub(npub);
-                  } catch {
-                    return authorHex.slice(0, 8) + '...';
-                  }
-                };
-                
-                const authorDisplay = getAuthorDisplay();
-                const authorSuffix = authorDisplay ? ` by ${authorDisplay}` : '';
                 
                 return (
                   <div className="text-xs text-gray-400">
@@ -268,23 +229,30 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                         const eventType = isLongForm ? 'Blog post' : 'nostr post';
                         
                         return (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // Trigger internal search for the event
-                              const searchQuery = sourceEvent.includes(':') 
-                                ? `a:${sourceEvent}` 
-                                : `e:${sourceEvent}`;
-                              window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
-                            }}
-                            className="text-blue-400 hover:text-blue-300 hover:underline"
-                          >
-                            {eventType}
-                          </button>
+                          <span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Trigger internal search for the event
+                                const searchQuery = sourceEvent.includes(':') 
+                                  ? `a:${sourceEvent}` 
+                                  : `e:${sourceEvent}`;
+                                window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
+                              }}
+                              className="text-blue-400 hover:text-blue-300 hover:underline"
+                            >
+                              {eventType}
+                            </button>
+                            {authorHex && (
+                              <>
+                                {' by '}
+                                <InlineAuthor pubkeyHex={authorHex} />
+                              </>
+                            )}
+                          </span>
                         );
                       })()
                     ) : null}
-                    {authorSuffix}
                   </div>
                 );
               })()}
