@@ -56,10 +56,10 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const pathname = usePathname();
   const hasSentZap = useHasSentZap(pubkey);
   const hasSentNutzap = useHasSentNutzap(pubkey);
-  const lightningButtonAccent = hasSentNutzap ? 'text-purple-300' : hasSentZap ? 'text-yellow-200' : '';
-  const lightningIconAccent = hasSentNutzap ? 'text-purple-300' : hasSentZap ? 'text-yellow-200' : '';
+  const lightningButtonAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
+  const lightningIconAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
   const lightningAnchorAccent = hasSentNutzap
-    ? 'text-purple-300 hover:text-purple-200'
+    ? 'text-purple-400 hover:text-purple-300'
     : hasSentZap
       ? 'text-yellow-200 hover:text-yellow-100'
       : 'text-gray-400 hover:text-gray-200';
