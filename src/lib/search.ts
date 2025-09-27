@@ -494,7 +494,8 @@ async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
 }
 
 function isNpub(str: string): boolean {
-  return str.startsWith('npub1') && str.length > 10;
+  // Check if it's a valid npub: starts with npub1, contains only valid bech32 characters, and reasonable length
+  return /^npub1[0-9a-z]+$/i.test(str) && str.length > 10;
 }
 
 function getPubkey(str: string): string | null {

@@ -44,6 +44,14 @@ function cleanWebsiteUrl(url: string): string {
   }
 }
 
+function cleanLightningAddress(lightning: string, npub: string): string {
+  // If lightning address starts with the user's npub, remove it
+  if (lightning.startsWith(npub)) {
+    return lightning.substring(npub.length);
+  }
+  return lightning;
+}
+
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
@@ -56,13 +64,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const pathname = usePathname();
   const hasSentZap = useHasSentZap(pubkey);
   const hasSentNutzap = useHasSentNutzap(pubkey);
-  const lightningButtonAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
-  const lightningIconAccent = hasSentNutzap ? 'text-purple-400' : hasSentZap ? 'text-yellow-200' : '';
-  const lightningAnchorAccent = hasSentNutzap
-    ? 'text-purple-400 hover:text-purple-300'
+  const lightningButtonAccent = hasSentZap && hasSentNutzap ? 'text-green-400' : hasSentZap ? 'text-yellow-200' : hasSentNutzap ? 'text-purple-400' : '';
+  const lightningIconAccent = hasSentZap && hasSentNutzap ? 'text-green-400' : hasSentZap ? 'text-yellow-200' : hasSentNutzap ? 'text-purple-400' : '';
+  const lightningAnchorAccent = hasSentZap && hasSentNutzap
+    ? 'text-green-400 hover:text-green-300'
     : hasSentZap
       ? 'text-yellow-200 hover:text-yellow-100'
-      : 'text-gray-400 hover:text-gray-200';
+      : hasSentNutzap
+        ? 'text-purple-400 hover:text-purple-300'
+        : 'text-gray-400 hover:text-gray-200';
 
   const handleLightningSearch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,6 +110,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   }, [pubkey, fallbackEventId, fallbackCreatedAt]);
 
   const updatedLabel = updatedAt ? formatRelativeTimeAuto(updatedAt) : 'Unknown';
+  const cleanedLightning = lightning ? cleanLightningAddress(lightning, npub) : undefined;
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -114,7 +125,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Search for ${lightning}`}
             >
               <FontAwesomeIcon icon={faBoltLightning} className={`h-4 w-4 ${lightningIconAccent}`.trim()} />
-              <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
+              <span className="truncate max-w-[14rem] hidden sm:inline">{cleanedLightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
