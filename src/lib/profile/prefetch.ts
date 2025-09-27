@@ -3,20 +3,13 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from '@/lib/ndk';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '@/lib/storageCache';
+import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
+import { primeProfileEventCache } from './profile-event-cache';
 
 // Simple in-memory prefetch store for profile events keyed by hex pubkey
 // Not persisted; short TTL to avoid stale UI
 
 type PrefetchEntry = { event: NDKEvent; timestamp: number };
-type StoredProfileEvent = {
-  kind: 0;
-  content: string;
-  pubkey: string;
-  created_at?: number;
-  id?: string;
-  // Minimal author for reconstruction
-  author?: { pubkey: string; profile?: unknown } | null;
-};
 
 const PROFILE_PREFETCH_TTL_MS = 60 * 1000; // 60s is enough for navigation
 const STORAGE_KEY = 'ants_profile_prefetch_v1';
@@ -38,18 +31,12 @@ const profilePrefetch = getGlobalMap();
 
 // Load persisted prefetch entries (best effort, respects TTL)
 try {
-  const persisted = loadMapFromStorage<StoredProfileEvent & { timestamp: number }>(STORAGE_KEY);
+  const persisted = loadMapFromStorage<{ timestamp: number; stored: StoredProfileEvent | null }>(STORAGE_KEY);
   for (const [pk, value] of persisted.entries()) {
     if (!value) continue;
     if (Date.now() - value.timestamp > PROFILE_PREFETCH_TTL_MS) continue;
-    const evt = new NDKEvent(ndk, value as unknown as StoredProfileEvent);
-    if (value.author) {
-      const user = new NDKUser({ pubkey: value.author.pubkey });
-      user.ndk = ndk;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (user as any).profile = value.author.profile;
-      evt.author = user;
-    }
+    const evt = deserializeProfileEvent(value.stored);
+    if (!evt) continue;
     profilePrefetch.set(pk, { event: evt, timestamp: value.timestamp });
   }
 } catch {
@@ -63,19 +50,14 @@ export function setPrefetchedProfile(pubkeyHex: string, event: NDKEvent): void {
   // Persist minimal data so handoff works across reloads/dev refreshes
   try {
     if (!hasLocalStorage()) return;
-    const current = loadMapFromStorage<StoredProfileEvent & { timestamp: number }>(STORAGE_KEY);
-    const authorProfile: unknown = event.author && (event.author as unknown as { profile?: unknown }).profile;
-    const stored: StoredProfileEvent & { timestamp: number } = {
-      kind: 0,
-      content: event.content || '{}',
-      pubkey: pubkeyHex,
-      created_at: event.created_at,
-      id: event.id,
-      author: event.author ? { pubkey: event.author.pubkey, profile: authorProfile } : { pubkey: pubkeyHex },
-      timestamp: ts
-    };
-    current.set(pubkeyHex, stored);
+    const current = loadMapFromStorage<{ timestamp: number; stored: StoredProfileEvent | null }>(STORAGE_KEY);
+    const serialized = serializeProfileEvent(event);
+    current.set(pubkeyHex, {
+      timestamp: ts,
+      stored: serialized
+    });
     saveMapToStorage(STORAGE_KEY, current);
+    if (serialized) primeProfileEventCache(pubkeyHex, event, ts);
   } catch {
     // ignore
   }
@@ -97,7 +79,7 @@ export function clearPrefetchedProfile(pubkeyHex: string): void {
   profilePrefetch.delete(pubkeyHex);
   try {
     if (!hasLocalStorage()) return;
-    const current = loadMapFromStorage<StoredProfileEvent & { timestamp: number }>(STORAGE_KEY);
+    const current = loadMapFromStorage<{ timestamp: number; stored: StoredProfileEvent | null }>(STORAGE_KEY);
     current.delete(pubkeyHex);
     saveMapToStorage(STORAGE_KEY, current);
   } catch {

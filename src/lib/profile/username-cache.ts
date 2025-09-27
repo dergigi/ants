@@ -1,20 +1,12 @@
-import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storageCache';
-import { ndk } from '../ndk';
+import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
 
 // Unified username lookup cache: key=username(lower), value=best profile event
 type UsernameCacheEntry = { profileEvent: NDKEvent | null; timestamp: number };
-type StoredProfileEvent = {
-  id: string;
-  pubkey: string;
-  content: string;
-  created_at: number | undefined;
-  kind: number;
-  tags: unknown;
-  author?: {
-    pubkey: string;
-    profile?: unknown;
-  } | null;
+type UsernameCacheValue = {
+  profileEvent: StoredProfileEvent | null;
+  timestamp: number;
 };
 
 const USERNAME_CACHE = new Map<string, UsernameCacheEntry>();
@@ -42,22 +34,12 @@ export function setCachedUsername(usernameLower: string, profileEvent: NDKEvent 
 function saveUsernameCacheToStorage(): void {
   try {
     if (!hasLocalStorage()) return;
-    const out = new Map<string, { profileEvent: StoredProfileEvent | null; timestamp: number }>();
+    const out = new Map<string, UsernameCacheValue>();
     for (const [key, entry] of USERNAME_CACHE.entries()) {
-      // Serialize the profile event for storage
-      const serialized: StoredProfileEvent | null = entry.profileEvent ? {
-        id: entry.profileEvent.id,
-        pubkey: entry.profileEvent.pubkey,
-        content: entry.profileEvent.content,
-        created_at: entry.profileEvent.created_at,
-        kind: entry.profileEvent.kind,
-        tags: entry.profileEvent.tags,
-        author: entry.profileEvent.author ? {
-          pubkey: entry.profileEvent.author.pubkey,
-          profile: entry.profileEvent.author.profile
-        } : null
-      } : null;
-      out.set(key, { profileEvent: serialized, timestamp: entry.timestamp });
+      out.set(key, {
+        profileEvent: serializeProfileEvent(entry.profileEvent),
+        timestamp: entry.timestamp
+      });
     }
     saveMapToStorage(USERNAME_CACHE_STORAGE_KEY, out);
   } catch {
@@ -68,23 +50,9 @@ function saveUsernameCacheToStorage(): void {
 function loadUsernameCacheFromStorage(): void {
   try {
     if (!hasLocalStorage()) return;
-    const loaded = loadMapFromStorage<{ profileEvent: StoredProfileEvent | null; timestamp: number }>(USERNAME_CACHE_STORAGE_KEY);
+    const loaded = loadMapFromStorage<UsernameCacheValue>(USERNAME_CACHE_STORAGE_KEY);
     for (const [key, stored] of loaded.entries()) {
-      let profileEvent: NDKEvent | null = null;
-      if (stored.profileEvent) {
-        // Reconstruct the NDKEvent from stored data
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        profileEvent = new NDKEvent(ndk, stored.profileEvent as any);
-        if (stored.profileEvent.author && profileEvent) {
-          const user = new NDKUser({ pubkey: stored.profileEvent.author.pubkey });
-          user.ndk = ndk;
-          if (stored.profileEvent.author.profile) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (user as any).profile = stored.profileEvent.author.profile;
-          }
-          profileEvent.author = user;
-        }
-      }
+      const profileEvent = deserializeProfileEvent(stored.profileEvent);
       USERNAME_CACHE.set(key, { profileEvent, timestamp: stored.timestamp || Date.now() });
     }
   } catch {
