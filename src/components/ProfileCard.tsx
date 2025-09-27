@@ -22,6 +22,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
+import { useHasSentZap } from '@/hooks/useHasSentZap';
 
 // Clean website URL by removing protocol and www prefix
 function cleanWebsiteUrl(url: string): string {
@@ -53,6 +54,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   const nativeAppHref = useMemo(() => bottomItems.find((item) => item.name === 'Native App')?.href, [bottomItems]);
   const router = useRouter();
   const pathname = usePathname();
+  const hasSentZap = useHasSentZap(pubkey);
 
   const handleLightningSearch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,19 +102,19 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             <button
               type="button"
               onClick={handleLightningSearch}
-              className="inline-flex items-center gap-1 hover:underline p-1 rounded"
+              className={`inline-flex items-center gap-1 hover:underline p-1 rounded ${hasSentZap ? 'text-yellow-300' : ''}`.trim()}
               title={`Search for ${lightning}`}
             >
-              <FontAwesomeIcon icon={faBoltLightning} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faBoltLightning} className={`h-4 w-4 ${hasSentZap ? 'text-yellow-400' : ''}`.trim()} />
               <span className="truncate max-w-[14rem] hidden sm:inline">{lightning}</span>
             </button>
             <a
               href={`lightning:${lightning}`}
-              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 hidden sm:block"
+              className={`p-1 rounded hover:bg-gray-600 hidden sm:block ${hasSentZap ? 'text-yellow-300 hover:text-yellow-200' : 'text-gray-400 hover:text-gray-200'}`.trim()}
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
-              <FontAwesomeIcon icon={faExternalLink} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faExternalLink} className={`h-4 w-4 ${hasSentZap ? 'text-yellow-400' : ''}`.trim()} />
             </a>
           </div>
         ) : null}
