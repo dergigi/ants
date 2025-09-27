@@ -68,10 +68,25 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
         <div className="flex justify-end">
           <button
             onClick={() => setIsExpanded(true)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+            className={`flex items-center gap-2 text-sm transition-colors ${
+              filterSettings.filtersEnabled 
+                ? 'text-green-400 hover:text-green-300' 
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
           >
-            <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
-            <span className="text-xs text-gray-400">
+            <FontAwesomeIcon 
+              icon={faFilter} 
+              className={`w-3 h-3 ${
+                filterSettings.filtersEnabled 
+                  ? 'text-green-400' 
+                  : 'text-gray-500'
+              }`} 
+            />
+            <span className={`text-xs ${
+              filterSettings.filtersEnabled 
+                ? 'text-green-400' 
+                : 'text-gray-400'
+            }`}>
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
             <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
