@@ -888,6 +888,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     }
   }, []);
 
+  // Handle Escape key to stop current search
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && loading) {
+        // Abort any ongoing search
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        currentSearchId.current++;
+        setLoading(false);
+        setResolvingAuthor(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [loading]);
+
   useEffect(() => {
     if (!manageUrl) return;
     const urlQueryRaw = searchParams.get('q') || '';
