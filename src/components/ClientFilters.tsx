@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { faIdBadge } from '@fortawesome/free-regular-svg-icons';
+import { SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 
 export type FilterMode = 'always' | 'never' | 'intelligently';
 
@@ -127,7 +128,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
   
   // Determine if filters are actually active (enabled and filtering results)
-  const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= 100));
+  const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= SEARCH_FILTER_THRESHOLD));
 
   return (
     <div className="mt-3 mb-4">
