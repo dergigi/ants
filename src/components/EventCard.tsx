@@ -244,6 +244,15 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                         <SearchButton query={sourceUrl}>
                           {extractDomainFromUrl(sourceUrl)}
                         </SearchButton>
+                        <a
+                          href={sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-1 text-gray-500 hover:text-gray-400"
+                          title="Open in new tab"
+                        >
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                        </a>
                       </>
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
