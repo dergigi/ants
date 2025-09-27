@@ -12,7 +12,7 @@ function parseLine(line: string): { kind: string; key: string; expansion: string
   const kind = left.slice(0, colonIdx).trim().toLowerCase();
   const key = left.slice(colonIdx + 1).trim();
   const expansion = right;
-  if (!kind || !key || !expansion) return null;
+  if (!kind) return null;
   return { kind, key, expansion };
 }
 
@@ -40,6 +40,20 @@ export async function applySimpleReplacements(input: string): Promise<string> {
   if (!rules.length) return input.trim();
   let q = input;
 
+  // Allow stripping prefixes via rules with an empty key (e.g. `nostr: =>`)
+  q = q.replace(/(^|\s)([a-zA-Z0-9_-]+):([^\s,]+)(?=\s|$)/g, (full, lead: string, kind: string, key: string) => {
+    const kindLower = kind.toLowerCase();
+    const keyLower = key.toLowerCase();
+    const exactRule = rules.find((r) => r.kind === kindLower && r.key.toLowerCase() === keyLower);
+    if (exactRule) return `${lead}${exactRule.expansion}`;
+    const prefixRule = rules.find((r) => r.kind === kindLower && r.key === '');
+    if (prefixRule) {
+      const prefix = prefixRule.expansion;
+      return `${lead}${prefix ? `${prefix}${key}` : key}`;
+    }
+    return full;
+  });
+
   // Replace site: lists supporting commas, mapping each token via rules
   q = q.replace(/(^|\s)site:([^\s]+)(?=\s|$)/gi, (full, lead: string, raw: string) => {
     const tokens = raw.split(',').map((s) => s.trim()).filter(Boolean);
@@ -52,11 +66,7 @@ export async function applySimpleReplacements(input: string): Promise<string> {
   });
 
   // Replace any kind:key token (single, no commas). Keep site handled above for comma lists.
-  q = q.replace(/(^|\s)([a-zA-Z0-9_-]+):([^\s,]+)(?=\s|$)/g, (full, lead: string, kind: string, key: string) => {
-    const kindLower = kind.toLowerCase();
-    const rule = rules.find((r) => r.kind === kindLower && r.key.toLowerCase() === key.toLowerCase());
-    return rule ? `${lead}${rule.expansion}` : full;
-  });
+  // Remaining replacements handled above by prefix/exact matching.
 
   return q.replace(/\s{2,}/g, ' ').trim();
 }
