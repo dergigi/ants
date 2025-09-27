@@ -15,7 +15,7 @@ interface RelayObject {
 }
 
 // NIP-50 extension options
-interface Nip50Extensions {
+export interface Nip50Extensions {
   includeSpam?: boolean;
   domain?: string;
   language?: string;
@@ -162,7 +162,7 @@ function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: number[
 }
 
 // Streaming subscription that keeps connections open and streams results
-async function subscribeAndStream(
+export async function subscribeAndStream(
   filter: NDKFilter, 
   options: {
     timeoutMs?: number;
@@ -307,7 +307,7 @@ async function subscribeAndStream(
   });
 }
 
-async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
+export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
     if (abortSignal?.aborted) {
@@ -826,27 +826,17 @@ export async function searchEvents(
   try {
     const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      // Strip protocol and search for the domain and path content
-      const urlWithoutProtocol = cleanedQuery.replace(/^https?:\/\//, '');
-      const searchQuery = buildSearchQueryWithExtensions(`"${urlWithoutProtocol}"`, nip50Extensions);
-      const results = isStreaming 
-        ? await subscribeAndStream({
-            kinds: effectiveKinds,
-            search: searchQuery
-          }, {
-            timeoutMs: streamingOptions?.timeoutMs || 30000,
-            maxResults: streamingOptions?.maxResults || 1000,
-            onResults: streamingOptions?.onResults,
-            relaySet: chosenRelaySet,
-            abortSignal
-          })
-        : await subscribeAndCollect({
-            kinds: effectiveKinds,
-            search: searchQuery,
-            limit: Math.max(limit, 200)
-          }, 8000, chosenRelaySet, abortSignal);
-      const res = results;
-      return sortEventsNewestFirst(res).slice(0, limit);
+      const { searchUrlEvents } = await import('./search/urlSearch');
+      return await searchUrlEvents(
+        cleanedQuery,
+        effectiveKinds,
+        nip50Extensions,
+        limit,
+        isStreaming,
+        streamingOptions,
+        chosenRelaySet,
+        abortSignal
+      );
     }
   } catch {}
 
