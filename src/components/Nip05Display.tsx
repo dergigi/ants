@@ -215,37 +215,41 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
       >
         <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const current = searchParams ? searchParams.toString() : '';
-          const params = new URLSearchParams(current);
-          params.set('q', 'nip:05');
-          router.push(`/?${params.toString()}`);
-        }}
-        className="text-gray-400 hidden sm:inline hover:underline"
-        title="Search for NIP-05 specification"
-      >
-        no NIP-05
-      </button>
-      {/* Mobile view: show shorter text */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const current = searchParams ? searchParams.toString() : '';
-          const params = new URLSearchParams(current);
-          params.set('q', 'nip:05');
-          router.push(`/?${params.toString()}`);
-        }}
-        className="text-gray-400 sm:hidden hover:underline"
-        title="Search for NIP-05 specification"
-      >
-        no NIP-05
-      </button>
+      {compact ? null : (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const current = searchParams ? searchParams.toString() : '';
+              const params = new URLSearchParams(current);
+              params.set('q', 'nip:05');
+              router.push(`/?${params.toString()}`);
+            }}
+            className="text-gray-400 hidden sm:inline hover:underline"
+            title="Search for NIP-05 specification"
+          >
+            no NIP-05
+          </button>
+          {/* Mobile view: show shorter text */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const current = searchParams ? searchParams.toString() : '';
+              const params = new URLSearchParams(current);
+              params.set('q', 'nip:05');
+              router.push(`/?${params.toString()}`);
+            }}
+            className="text-gray-400 sm:hidden hover:underline"
+            title="Search for NIP-05 specification"
+          >
+            no NIP-05
+          </button>
+        </>
+      )}
     </span>
   );
 
