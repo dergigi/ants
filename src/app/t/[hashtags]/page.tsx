@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import SearchView from '@/components/SearchView';
 
 export default function HashtagsPage() {
   const params = useParams<{ hashtags: string }>();
@@ -14,7 +13,7 @@ export default function HashtagsPage() {
       try { return decodeURIComponent(s); } catch { return s; }
     };
     
-    let hashtags = decodeMaybe(rawHashtags).trim();
+    const hashtags = decodeMaybe(rawHashtags).trim();
     if (!hashtags) return '';
     
     // Split by comma, space, or plus sign to handle multiple hashtags
