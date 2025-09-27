@@ -1160,21 +1160,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
         finalNodes.push(
           <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
-            <a
-              href={cleanedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 hover:underline break-all"
-              onClick={(e) => { e.stopPropagation(); }}
-              title={cleanedUrl}
-            >
-              {cleanedUrl}
-            </a>
             <button
               type="button"
-              title="Search for this URL"
-              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
-              onClick={() => {
+              className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
+              onClick={(e) => { 
+                e.stopPropagation();
                 const nextQuery = cleanedUrl;
                 setQuery(nextQuery);
                 if (manageUrl) {
@@ -1198,8 +1188,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                   }
                 })();
               }}
+              title="Search for this URL"
             >
-              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-xs" />
+              {cleanedUrl}
+            </button>
+            <button
+              type="button"
+              title="Open URL in new tab"
+              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(cleanedUrl, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <FontAwesomeIcon icon={faExternalLink} className="text-xs" />
             </button>
           </span>
         );
