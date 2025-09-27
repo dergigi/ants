@@ -47,6 +47,32 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
 
+  // Helper function to render metadata items
+  const renderMetadataItem = (label: string, value: string, type: 'text' | 'button' | 'link' = 'text', onClick?: () => void, href?: string) => {
+    if (!value) return null;
+    
+    const linkClasses = "text-blue-400 hover:text-blue-300 hover:underline";
+    
+    const content = type === 'button' ? (
+      <button onClick={onClick} className={linkClasses}>
+        {value}
+      </button>
+    ) : type === 'link' ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={linkClasses}>
+        {value}
+      </a>
+    ) : (
+      <span>{value}</span>
+    );
+
+    return (
+      <div>
+        <span className="font-medium">{label}:</span>{' '}
+        {content}
+      </div>
+    );
+  };
+
   return (
     <div className={containerClasses}>
       {showRaw ? (
@@ -71,45 +97,15 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
 
               {/* Additional highlight metadata as part of content */}
               <div className="text-xs text-gray-400 space-y-1">
-                {highlight.referencedEvent && (
-                  <div>
-                    <span className="font-medium">Event:</span> {highlight.referencedEvent}
-                  </div>
-                )}
-                {highlight.referencedAuthor && (
-                  <div>
-                    <span className="font-medium">Author:</span>{' '}
-                    <button
-                      onClick={() => {
-                        if (onAuthorClick) {
-                          const npub = nip19.npubEncode(highlight.referencedAuthor);
-                          onAuthorClick(npub);
-                        }
-                      }}
-                      className="text-blue-400 hover:text-blue-300 hover:underline"
-                    >
-                      {highlight.referencedAuthor}
-                    </button>
-                  </div>
-                )}
-                {highlight.referencedUrl && (
-                  <div>
-                    <span className="font-medium">Source:</span>{' '}
-                    <a 
-                      href={highlight.referencedUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 hover:underline"
-                    >
-                      {highlight.referencedUrl}
-                    </a>
-                  </div>
-                )}
-                {highlight.range && (
-                  <div>
-                    <span className="font-medium">Range:</span> {highlight.range}
-                  </div>
-                )}
+                {renderMetadataItem("Event", highlight.referencedEvent || '')}
+                {renderMetadataItem("Author", highlight.referencedAuthor || '', 'button', () => {
+                  if (onAuthorClick && highlight.referencedAuthor) {
+                    const npub = nip19.npubEncode(highlight.referencedAuthor);
+                    onAuthorClick(npub);
+                  }
+                })}
+                {renderMetadataItem("Source", highlight.referencedUrl || '', 'link', undefined, highlight.referencedUrl)}
+                {renderMetadataItem("Range", highlight.range || '')}
               </div>
             </div>
           ) : (
