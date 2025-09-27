@@ -211,46 +211,73 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 
                 return (
                   <div className="text-xs text-gray-400">
-                    <span className="font-medium">Source:</span>{' '}
                     {sourceUrl ? (
                       // r tag - external URL
-                      <a
-                        href={sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 hover:underline"
-                      >
-                        {extractDomainFromUrl(sourceUrl)}
-                      </a>
+                      <>
+                        <span className="font-medium">Source:</span>{' '}
+                        <a
+                          href={sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 hover:underline"
+                        >
+                          {extractDomainFromUrl(sourceUrl)}
+                        </a>
+                      </>
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
                       (() => {
                         const isLongForm = sourceEvent.startsWith('30023:');
-                        const eventType = isLongForm ? 'Blog post' : 'nostr post';
                         
-                        return (
-                          <span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Trigger internal search for the event
-                                const searchQuery = sourceEvent.includes(':') 
-                                  ? `a:${sourceEvent}` 
-                                  : `e:${sourceEvent}`;
-                                window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
-                              }}
-                              className="text-blue-400 hover:text-blue-300 hover:underline"
-                            >
-                              {eventType}
-                            </button>
-                            {authorHex && (
-                              <>
-                                {' by '}
-                                <InlineAuthor pubkeyHex={authorHex} />
-                              </>
-                            )}
-                          </span>
-                        );
+                        if (isLongForm) {
+                          // Blog post - use "Highlight from a blog post by [Author]"
+                          return (
+                            <span>
+                              Highlight from a{' '}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Trigger internal search for the event
+                                  const searchQuery = `a:${sourceEvent}`;
+                                  window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
+                                }}
+                                className="text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                blog post
+                              </button>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
+                        } else {
+                          // Regular nostr post - use "Source: nostr post by [Author]"
+                          return (
+                            <span>
+                              <span className="font-medium">Source:</span>{' '}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Trigger internal search for the event
+                                  const searchQuery = `e:${sourceEvent}`;
+                                  window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
+                                }}
+                                className="text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                nostr post
+                              </button>
+                              {authorHex && (
+                                <>
+                                  {' by '}
+                                  <InlineAuthor pubkeyHex={authorHex} />
+                                </>
+                              )}
+                            </span>
+                          );
+                        }
                       })()
                     ) : null}
                   </div>
