@@ -240,7 +240,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                     <button
                       type="button"
                       onClick={() => navigateToSearch('is:highlight')}
-                      className="text-yellow-400 hover:text-yellow-300 transition-colors"
+                      className="text-gray-400 hover:text-gray-300 transition-colors"
                       title="Search for highlights"
                     >
                       <FontAwesomeIcon icon={faHighlighter} className="text-xs" />
