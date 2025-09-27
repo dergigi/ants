@@ -1624,17 +1624,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     <>
       {extractImageUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrlsFromText(content).map((src) => (
-            <div key={src} className="relative">
-              {isAbsoluteHttpUrl(src) ? (
+          {extractImageUrlsFromText(content).map((src) => {
+            const trimmedSrc = src.trim();
+            return (
+            <div key={trimmedSrc} className="relative">
+              {isAbsoluteHttpUrl(trimmedSrc) ? (
                 <ImageWithBlurhash
-                  src={src}
+                  src={trimmedSrc}
                   alt="linked media"
                   width={1024}
                   height={1024}
                   dim={null}
                   onClickSearch={() => {
-                    const filename = getFilenameFromUrl(src);
+                    const filename = getFilenameFromUrl(trimmedSrc);
                     const nextQuery = filename;
                     setQuery(filename);
                     if (manageUrl) {
@@ -1659,19 +1661,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                 />
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {extractVideoUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrlsFromText(content).map((src) => (
-            <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+          {extractVideoUrlsFromText(content).map((src) => {
+            const trimmedSrc = src.trim();
+            return (
+            <div key={trimmedSrc} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
-                <source src={src} />
+                <source src={trimmedSrc} />
                 Your browser does not support the video tag.
               </video>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {extractNonMediaUrlsFromText(content).length > 0 && (
