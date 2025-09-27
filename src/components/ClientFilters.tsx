@@ -27,6 +27,47 @@ interface Props {
   filteredCount: number;
 }
 
+// Reusable NumberFilter component
+interface NumberFilterProps {
+  label: string;
+  enabled: boolean;
+  value: number;
+  maxValue: number;
+  onToggle: (enabled: boolean) => void;
+  onValueChange: (value: number) => void;
+  disabled: boolean;
+}
+
+function NumberFilter({ label, enabled, value, maxValue, onToggle, onValueChange, disabled }: NumberFilterProps) {
+  const handleValueChange = (inputValue: string) => {
+    const parsed = Math.max(0, parseInt(inputValue || '0', 10));
+    onValueChange(parsed);
+  };
+
+  return (
+    <label className="flex items-center gap-2 text-xs text-gray-400">
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="accent-[#4a4a4a]"
+        disabled={disabled}
+      />
+      <span>Hide more than</span>
+      <input
+        type="number"
+        min="0"
+        max={maxValue.toString()}
+        value={value}
+        onChange={(e) => handleValueChange(e.target.value)}
+        className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+        disabled={disabled}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
@@ -37,27 +78,37 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const hashtagEnabled = filterSettings.maxHashtags !== null;
   const mentionsEnabled = filterSettings.maxMentions !== null;
 
-  const handleEmojiChange = (value: string) => {
-    const parsed = Math.max(0, parseInt(value || '0', 10));
-    setEmojiLimit(parsed);
+  // Generic handlers for number filters
+  const handleEmojiToggle = (enabled: boolean) => {
+    onFilterChange({ ...filterSettings, maxEmojis: enabled ? emojiLimit : null });
+  };
+
+  const handleEmojiValueChange = (value: number) => {
+    setEmojiLimit(value);
     if (emojiEnabled) {
-      onFilterChange({ ...filterSettings, maxEmojis: parsed });
+      onFilterChange({ ...filterSettings, maxEmojis: value });
     }
   };
 
-  const handleHashtagChange = (value: string) => {
-    const parsed = Math.max(0, parseInt(value || '0', 10));
-    setHashtagLimit(parsed);
+  const handleHashtagToggle = (enabled: boolean) => {
+    onFilterChange({ ...filterSettings, maxHashtags: enabled ? hashtagLimit : null });
+  };
+
+  const handleHashtagValueChange = (value: number) => {
+    setHashtagLimit(value);
     if (hashtagEnabled) {
-      onFilterChange({ ...filterSettings, maxHashtags: parsed });
+      onFilterChange({ ...filterSettings, maxHashtags: value });
     }
   };
 
-  const handleMentionsChange = (value: string) => {
-    const parsed = Math.max(0, parseInt(value || '0', 10));
-    setMentionsLimit(parsed);
+  const handleMentionsToggle = (enabled: boolean) => {
+    onFilterChange({ ...filterSettings, maxMentions: enabled ? mentionsLimit : null });
+  };
+
+  const handleMentionsValueChange = (value: number) => {
+    setMentionsLimit(value);
     if (mentionsEnabled) {
-      onFilterChange({ ...filterSettings, maxMentions: parsed });
+      onFilterChange({ ...filterSettings, maxMentions: value });
     }
   };
 
@@ -180,76 +231,37 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             </label>
 
             {/* Hide more than X emojis */}
-            <label className="flex items-center gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                checked={emojiEnabled}
-                onChange={(e) => {
-                  onFilterChange({ ...filterSettings, maxEmojis: e.target.checked ? (emojiLimit || 3) : null });
-                }}
-                className="accent-[#4a4a4a]"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>Hide more than</span>
-              <input
-                type="number"
-                min="0"
-                max="9"
-                value={emojiLimit}
-                onChange={(e) => handleEmojiChange(e.target.value)}
-                className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>emojis</span>
-            </label>
+            <NumberFilter
+              label="emojis"
+              enabled={emojiEnabled}
+              value={emojiLimit}
+              maxValue={9}
+              onToggle={handleEmojiToggle}
+              onValueChange={handleEmojiValueChange}
+              disabled={filterSettings.filterMode === 'never'}
+            />
 
             {/* Hide more than X hashtags */}
-            <label className="flex items-center gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                checked={hashtagEnabled}
-                onChange={(e) => {
-                  onFilterChange({ ...filterSettings, maxHashtags: e.target.checked ? (hashtagLimit || 3) : null });
-                }}
-                className="accent-[#4a4a4a]"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>Hide more than</span>
-              <input
-                type="number"
-                min="0"
-                max="9"
-                value={hashtagLimit}
-                onChange={(e) => handleHashtagChange(e.target.value)}
-                className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>hashtags</span>
-            </label>
+            <NumberFilter
+              label="hashtags"
+              enabled={hashtagEnabled}
+              value={hashtagLimit}
+              maxValue={9}
+              onToggle={handleHashtagToggle}
+              onValueChange={handleHashtagValueChange}
+              disabled={filterSettings.filterMode === 'never'}
+            />
 
             {/* Hide more than X mentions */}
-            <label className="flex items-center gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                checked={mentionsEnabled}
-                onChange={(e) => {
-                  onFilterChange({ ...filterSettings, maxMentions: e.target.checked ? (mentionsLimit || 6) : null });
-                }}
-                className="accent-[#4a4a4a]"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>Hide more than</span>
-              <input
-                type="number"
-                min="0"
-                max="20"
-                value={mentionsLimit}
-                onChange={(e) => handleMentionsChange(e.target.value)}
-                className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
-                disabled={filterSettings.filterMode === 'never'}
-              />
-              <span>mentions</span>
-            </label>
+            <NumberFilter
+              label="mentions"
+              enabled={mentionsEnabled}
+              value={mentionsLimit}
+              maxValue={20}
+              onToggle={handleMentionsToggle}
+              onValueChange={handleMentionsValueChange}
+              disabled={filterSettings.filterMode === 'never'}
+            />
 
             {/* Hide external links */}
             <label className="flex items-center gap-2 text-xs text-gray-400">
