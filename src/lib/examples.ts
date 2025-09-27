@@ -30,6 +30,8 @@ export const searchExamples = [
   'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
   '"car crash" by:dergigi',
   '(PoW OR WoT) by:dergigi',
+  'free by:ulbricht',
+  '(nostr OR 🫂) by:snowden',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
