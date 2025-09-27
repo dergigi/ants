@@ -479,6 +479,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
@@ -878,6 +879,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     window.addEventListener('resize', onResize);
     const interval = setInterval(computeOverlap, 500);
     return () => { window.removeEventListener('resize', onResize); clearInterval(interval); };
+  }, []);
+
+  // Auto-focus the search input on component mount
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
   }, []);
 
   useEffect(() => {
@@ -1732,6 +1740,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <input
+              ref={searchInputRef}
               type="text"
               value={query}
               onChange={handleInputChange}
