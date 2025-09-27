@@ -25,7 +25,7 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub } from '@/lib/utils';
+import { shortenNevent, shortenNpub, shortenString } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -1640,10 +1640,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] ${
         isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'
       } rounded-b-none border-b-0`;
+      const parentLabel = (() => {
+        if (!parentId) return 'Unknown parent';
+        const normalized = parentId.trim();
+        if (/^[0-9a-f]{64}$/i.test(normalized)) {
+          try {
+            return shortenNevent(nip19.neventEncode({ id: normalized }));
+          } catch {}
+        }
+        return shortenString(normalized, 10, 6);
+      })();
       return (
         <div className={barClasses}>
           <button type="button" onClick={handleToggle} className="w-full text-left">
-            {isLoading ? 'Loading parent…' : `Replying to: ${shortenNevent(nip19.neventEncode({ id: parentId }))}`}
+            {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
           </button>
         </div>
       );
