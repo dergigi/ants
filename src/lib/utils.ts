@@ -200,3 +200,16 @@ export function trimImageUrl(url?: string | null): string {
   if (typeof url !== 'string') return '';
   return url.trim();
 }
+
+/**
+ * Safely decodes a URI component, returning the original string if decoding fails
+ * @param s - The string to decode
+ * @returns The decoded string or the original string if decoding fails
+ */
+export function decodeMaybe(s: string): string {
+  try { 
+    return decodeURIComponent(s); 
+  } catch { 
+    return s; 
+  }
+}
