@@ -739,8 +739,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    // Update URL immediately when search is triggered
-    updateUrlForSearch(searchQuery);
+    // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
+    const isOnTagPath = pathname?.startsWith('/t/');
+    const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
+    
+    if (!(isOnTagPath && isHashtagQuery)) {
+      updateUrlForSearch(searchQuery);
+    }
 
     // Abort any ongoing search
     if (abortControllerRef.current) {

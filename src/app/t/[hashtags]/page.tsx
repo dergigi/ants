@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { decodeMaybe, processHashtagInput, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import SearchView from '@/components/SearchView';
@@ -16,7 +16,7 @@ export default function HashtagsPage() {
   }, [rawHashtags]);
 
   // Custom URL management for hashtag pages
-  const handleUrlUpdate = (query: string) => {
+  const handleUrlUpdate = useCallback((query: string) => {
     if (isHashtagOnlyQuery(query)) {
       // If it's hashtag-only, update to /t/ path
       const hashtagUrl = hashtagQueryToUrl(query);
@@ -27,7 +27,7 @@ export default function HashtagsPage() {
       // If it's not hashtag-only, redirect to main search
       router.replace(`/?q=${encodeURIComponent(query)}`);
     }
-  };
+  }, [router]);
 
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
