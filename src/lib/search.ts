@@ -822,11 +822,13 @@ export async function searchEvents(
       .slice(0, limit);
   }
 
-  // URL search: always do exact (literal) match for http(s) URLs
+  // URL search: strip protocol and search for domain/path content
   try {
     const url = new URL(cleanedQuery);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
+      // Strip protocol and search for the domain and path content
+      const urlWithoutProtocol = cleanedQuery.replace(/^https?:\/\//, '');
+      const searchQuery = buildSearchQueryWithExtensions(`"${urlWithoutProtocol}"`, nip50Extensions);
       const results = isStreaming 
         ? await subscribeAndStream({
             kinds: effectiveKinds,
