@@ -1,5 +1,5 @@
 import { nip05 as nostrNip05 } from 'nostr-tools';
-import { normalizeNip05String } from '../nip05';
+import { normalizeNip05String, isRootNip05 } from '../nip05';
 import { 
   getCachedNip05Result, 
   setCachedNip05Result, 
@@ -96,3 +96,6 @@ export async function checkNip05(pubkeyHex: string, nip05: string): Promise<bool
 export function invalidateNip05CacheEntry(pubkeyHex: string, nip05: string): void {
   invalidateNip05Cache(pubkeyHex, nip05);
 }
+
+// Re-export isRootNip05 from main nip05 module
+export { isRootNip05 };

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
@@ -21,8 +21,29 @@ import { getIsKindTokens } from '@/lib/search/replacements';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
+import Nip05Display from '@/components/Nip05Display';
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean }) {
+// Clean website URL by removing protocol and www prefix
+function cleanWebsiteUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    // Remove protocol (http://, https://)
+    let cleaned = url.replace(/^https?:\/\//, '');
+    
+    // Remove www. prefix
+    cleaned = cleaned.replace(/^www\./, '');
+    
+    // Remove trailing slash
+    cleaned = cleaned.replace(/\/$/, '');
+    
+    return cleaned;
+  } catch {
+    return url;
+  }
+}
+
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
@@ -73,6 +94,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-h-[1rem]">
+        {user && <Nip05Display user={user} />}
         {lightning ? (
           <div className="inline-flex items-center gap-1">
             <button
@@ -86,7 +108,7 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             </button>
             <a
               href={`lightning:${lightning}`}
-              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 hidden sm:block"
               title={`Open ${lightning} in Lightning wallet`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -103,13 +125,13 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               title={`Search for ${website}`}
             >
               <FontAwesomeIcon icon={faHouseUser} className="h-4 w-4" />
-              <span className="truncate max-w-[14rem] hidden sm:inline">{website}</span>
+              <span className="truncate max-w-[14rem] hidden sm:inline">{cleanWebsiteUrl(website)}</span>
             </button>
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600"
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 hidden sm:block"
               title={`Open ${website} externally`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -491,6 +513,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
         showRaw={showRaw}
+        user={event.author}
       />
       {showPortalMenu && typeof window !== 'undefined' && createPortal(
         <>
