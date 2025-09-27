@@ -461,7 +461,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               className="rounded-full w-12 h-12 overflow-hidden hover:opacity-80 transition-opacity"
             >
               <Image
-                src={avatarUrl as string}
+                src={(avatarUrl as string).trim()}
                 alt="Profile"
                 width={48}
                 height={48}
