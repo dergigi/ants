@@ -158,3 +158,8 @@ nip:C7 => nips/blob/master/C7.md
 nip:7D => nips/blob/master/7D.md
 
 nostr: => 
+http://www. => 
+https://www. =>
+http:// => 
+https:// =>
+ftp:// =>

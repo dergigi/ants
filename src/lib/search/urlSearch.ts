@@ -26,9 +26,8 @@ export async function searchUrlEvents(
   chosenRelaySet: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
-  // Strip protocol and search for the domain and path content
-  const urlWithoutProtocol = cleanedQuery.replace(/^https?:\/\//, '');
-  const searchQuery = buildSearchQueryWithExtensions(`"${urlWithoutProtocol}"`, nip50Extensions);
+  // Search for the URL content (protocol stripping now handled by replacement rules)
+  const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
   
   const results = isStreaming 
     ? await subscribeAndStream({
