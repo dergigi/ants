@@ -12,6 +12,7 @@ export interface HighlightData {
   referencedUrl?: string;
   context?: string;
   range?: string;
+  alt?: string;
   tags: string[][];
 }
 
@@ -26,9 +27,10 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
   const tags = event.tags || [];
   const content = event.content || '';
 
-  // Extract referenced event (e tag)
+  // Extract referenced event (e tag) or nostr address (a tag)
   const eventTag = tags.find(tag => tag[0] === 'e' && tag[1]);
-  const referencedEvent = eventTag?.[1];
+  const addressTag = tags.find(tag => tag[0] === 'a' && tag[1]);
+  const referencedEvent = eventTag?.[1] || addressTag?.[1];
 
   // Extract referenced author (p tag)
   const authorTag = tags.find(tag => tag[0] === 'p' && tag[1]);
@@ -55,6 +57,10 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
   const rangeTag = tags.find(tag => tag[0] === 'range' && tag[1]);
   const range = rangeTag?.[1];
 
+  // Extract alt (alt tag) - alternative text for accessibility
+  const altTag = tags.find(tag => tag[0] === 'alt' && tag[1]);
+  const alt = altTag?.[1];
+
   return {
     content,
     referencedEvent,
@@ -63,6 +69,7 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
     referencedUrl,
     context,
     range,
+    alt,
     tags
   };
 }
