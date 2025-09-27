@@ -14,6 +14,8 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, formatHighlightContent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
+import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
+import UrlPreview from '@/components/UrlPreview';
 
 
 type Props = {
@@ -120,15 +122,21 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                     onAuthorClick(npub);
                   }
                 })}
-                {renderMetadataItem("Source", highlight.referencedUrl || '', 'link', undefined, highlight.referencedUrl)}
                 {renderMetadataItem("Range", highlight.range || '')}
               </div>
-            </div>
-          ) : (
-            <div className={contentClasses}>{renderContent(event.content || '')}</div>
-          )}
-          {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
-        </>
+
+              {highlight.referencedUrl ? (
+                <div className="space-y-2">
+                  {isAbsoluteHttpUrl(highlight.referencedUrl) ? (
+                    <UrlPreview url={highlight.referencedUrl} />
+                  ) : (
+                    <div className={contentClasses}>
+                      {renderContent(highlight.referencedUrl)}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+          </>
       )}
       {showFooter && (
         <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
