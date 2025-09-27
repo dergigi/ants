@@ -289,7 +289,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 className="accent-[#4a4a4a]"
                 disabled={filterSettings.filterMode === 'never'}
               />
-              <span>Hide bridged content</span>
+              <span>Hide bridged content (bsky, mostr)</span>
             </label>
 
             {/* Hide bots */}
