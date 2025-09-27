@@ -46,20 +46,22 @@ export function serializeProfileEvent(event: NDKEvent | null): StoredProfileEven
 export function deserializeProfileEvent(stored: StoredProfileEvent | null): NDKEvent | null {
   if (!stored) return null;
   try {
+    const rawTags = Array.isArray(stored.tags) ? stored.tags : [];
     const event = new NDKEvent(ndk, {
       id: stored.id,
       pubkey: stored.pubkey,
       content: stored.content,
       created_at: stored.created_at,
       kind: stored.kind,
-      tags: stored.tags
+      tags: rawTags as NDKEvent['tags']
     });
 
     if (stored.author) {
       const user = new NDKUser({ pubkey: stored.author.pubkey });
       user.ndk = ndk;
-      if ('profile' in stored.author && stored.author.profile !== undefined) {
-        (user as NDKUser & { profile?: unknown }).profile = stored.author.profile;
+      const maybeProfile = 'profile' in stored.author ? stored.author.profile : undefined;
+      if (maybeProfile !== undefined && maybeProfile !== null) {
+        (user as NDKUser & { profile?: NDKUser['profile'] }).profile = maybeProfile as NDKUser['profile'];
       }
       event.author = user;
     }
