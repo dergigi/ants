@@ -3,7 +3,7 @@ import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storag
 import { normalizeNip05String } from '../nip05';
 import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
 import { normalizePubkey } from './key-utils';
-export { getCachedProfileEvent, setCachedProfileEvent, clearProfileEventCache } from './profile-event-cache';
+export { getCachedProfileEvent, setCachedProfileEvent, clearProfileEventCache, configureProfileEventCache } from './profile-event-cache';
 
 // DVM Cache types and constants
 export type DvmCacheEntry = { events: NDKEvent[] | null; timestamp: number };

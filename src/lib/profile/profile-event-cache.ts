@@ -8,14 +8,27 @@ type ProfileEventStoredEntry = { event: StoredProfileEvent; timestamp: number };
 
 const PROFILE_EVENT_CACHE = new Map<string, ProfileEventCacheEntry>();
 const PROFILE_EVENT_CACHE_STORAGE_KEY = 'ants_profile_event_cache_v1';
-const PROFILE_EVENT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+let profileEventCacheTtlMs = 6 * 60 * 60 * 1000; // 6 hours
+let enableProfileEventPersistence = true;
+
+export function configureProfileEventCache(options: { ttlMs?: number; persist?: boolean }): void {
+  if (typeof options.ttlMs === 'number' && options.ttlMs >= 0) {
+    profileEventCacheTtlMs = options.ttlMs;
+  }
+  if (typeof options.persist === 'boolean') {
+    enableProfileEventPersistence = options.persist;
+    if (!enableProfileEventPersistence) {
+      PROFILE_EVENT_CACHE.clear();
+    }
+  }
+}
 
 function isExpired(timestamp: number): boolean {
-  return Date.now() - timestamp > PROFILE_EVENT_CACHE_TTL_MS;
+  return Date.now() - timestamp > profileEventCacheTtlMs;
 }
 
 function saveProfileEventCacheToStorage(): void {
-  if (!hasLocalStorage()) return;
+  if (!enableProfileEventPersistence || !hasLocalStorage()) return;
   try {
     const out = new Map<string, ProfileEventStoredEntry>();
     for (const [key, entry] of PROFILE_EVENT_CACHE.entries()) {
@@ -31,7 +44,7 @@ function saveProfileEventCacheToStorage(): void {
 }
 
 function loadProfileEventCacheFromStorage(): void {
-  if (!hasLocalStorage()) return;
+  if (!enableProfileEventPersistence || !hasLocalStorage()) return;
   try {
     const persisted = loadMapFromStorage<ProfileEventStoredEntry>(PROFILE_EVENT_CACHE_STORAGE_KEY);
     for (const [key, stored] of persisted.entries()) {
