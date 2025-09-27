@@ -148,24 +148,7 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
           <FontAwesomeIcon icon={effectiveVerified ? faIdBadge : faCircleXmark} className="h-4 w-4" />
         )}
       </button>
-      {compact ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!value) return;
-            const current = searchParams ? searchParams.toString() : '';
-            const params = new URLSearchParams(current);
-            params.set('q', value);
-            router.push(`/?${params.toString()}`);
-          }}
-          className="hover:underline truncate max-w-[8rem] text-left"
-          title={cleanNip05Display(value) || undefined}
-        >
-          <span className="truncate max-w-[8rem]">{cleanNip05Display(value) || getDomainWithoutTld(value)}</span>
-        </button>
-      ) : (
+      {compact ? null : (
         <>
           <button
             type="button"
