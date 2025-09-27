@@ -30,7 +30,7 @@ import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDow
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
-import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 // Reusable search icon button component
@@ -1948,7 +1948,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       {/* Command output will be injected as first result card below */}
 
       {/* Client-side filters */}
-      {results.length > 0 && (
+      {results.length >= SEARCH_FILTER_THRESHOLD && (
         <ClientFilters
           filterSettings={filterSettings}
           onFilterChange={setFilterSettings}
