@@ -1173,12 +1173,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     const strippedContent = stripPreviewUrls(stripMediaUrls(content));
     if (!strippedContent) return null;
 
+    // Convert literal \n strings to actual newlines
+    const processedContent = strippedContent.replace(/\\n/g, '\n');
+
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
     const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
     const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
 
-    const splitByUrls = strippedContent.split(urlRegex);
+    const splitByUrls = processedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
 
     splitByUrls.forEach((segment, segIndex) => {
