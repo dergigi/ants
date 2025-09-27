@@ -7,7 +7,9 @@ import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/n
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters } from '@/lib/contentAnalysis';
-import { URL_REGEX, IMAGE_EXT_REGEX, VIDEO_EXT_REGEX, isAbsoluteHttpUrl } from '@/lib/urlPatterns';
+import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
+import { extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
+import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { Blurhash } from 'react-blurhash';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
@@ -870,9 +872,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         // Normalize URL to implicit form if needed
         const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
         if (implicit !== urlQuery) {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set('q', implicit);
-          router.replace(`?${params.toString()}`);
+        updateSearchQuery(searchParams, router, implicit);
         }
       }
     } else if (urlQuery) {
@@ -892,9 +892,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
       runSlashCommand(raw);
       setQuery(raw);
       if (manageUrl) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('q', raw);
-        router.replace(`?${params.toString()}`);
+        updateSearchQuery(searchParams, router, raw);
       }
       // Clear prior results immediately before async search
       setResults([]);
@@ -1082,54 +1080,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
     return tooltip.trim();
   };
 
-  const extractImageUrls = useCallback((text: string): string[] => {
-    if (!text) return [];
-    const matches: string[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = URL_REGEX.exec(text)) !== null) {
-      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
-      if (IMAGE_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
-    }
-    return matches.slice(0, 3);
+  const extractImageUrlsFromText = useCallback((text: string): string[] => {
+    return extractImageUrls(text).slice(0, 3);
   }, []);
 
-  const extractVideoUrls = useCallback((text: string): string[] => {
-    if (!text) return [];
-    const matches: string[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = URL_REGEX.exec(text)) !== null) {
-      const url = (m[1] || '').replace(/[),.;]+$/, '').trim();
-      if (VIDEO_EXT_REGEX.test(url) && !matches.includes(url)) matches.push(url);
-    }
-    return matches.slice(0, 2);
+  const extractVideoUrlsFromText = useCallback((text: string): string[] => {
+    return extractVideoUrls(text).slice(0, 2);
   }, []);
 
-  const extractNonMediaUrls = (text: string): string[] => {
-    if (!text) return [];
-    const urls: string[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = URL_REGEX.exec(text)) !== null) {
-      const raw = (m[1] || '').replace(/[),.;]+$/, '').trim();
-      if (!IMAGE_EXT_REGEX.test(raw) && !VIDEO_EXT_REGEX.test(raw) && !urls.includes(raw)) {
-        urls.push(raw);
-      }
-    }
-    return urls.slice(0, 2);
+  const extractNonMediaUrlsFromText = (text: string): string[] => {
+    return extractNonMediaUrls(text).slice(0, 2);
   };
 
-  const getFilenameFromUrl = (url: string): string => {
-    try {
-      const u = new URL(url);
-      const pathname = u.pathname || '';
-      const last = pathname.split('/').filter(Boolean).pop() || '';
-      return last;
-    } catch {
-      // Fallback for invalid URLs in content
-      const cleaned = url.split(/[?#]/)[0];
-      const parts = cleaned.split('/');
-      return parts[parts.length - 1] || url;
-    }
-  };
+  // Use the utility function from urlUtils
 
   const stripMediaUrls = useCallback((text: string): string => {
     if (!text) return '';
@@ -1555,9 +1518,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
 
   const renderNoteMedia = useCallback((content: string) => (
     <>
-      {extractImageUrls(content).length > 0 && (
+      {extractImageUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrls(content).map((src) => (
+          {extractImageUrlsFromText(content).map((src) => (
             <div key={src} className="relative">
               {isAbsoluteHttpUrl(src) ? (
                 <ImageWithBlurhash
@@ -1597,9 +1560,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           ))}
         </div>
       )}
-      {extractVideoUrls(content).length > 0 && (
+      {extractVideoUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrls(content).map((src) => (
+          {extractVideoUrlsFromText(content).map((src) => (
             <div key={src} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
               <video controls playsInline className="w-full h-auto">
                 <source src={src} />
@@ -1609,9 +1572,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
           ))}
         </div>
       )}
-      {extractNonMediaUrls(content).length > 0 && (
+      {extractNonMediaUrlsFromText(content).length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractNonMediaUrls(content).map((u) => (
+          {extractNonMediaUrlsFromText(content).map((u) => (
             <UrlPreview
               key={u}
               url={u}
@@ -1652,7 +1615,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         </div>
       )}
     </>
-  ), [extractImageUrls, extractVideoUrls, setQuery, manageUrl, searchParams, router]);
+  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, searchParams, router]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -2089,7 +2052,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
                       onAuthorClick={goToProfile}
                       renderContent={() => {
                         const urls = extractImetaVideoUrls(event);
-                        const contentUrls = extractVideoUrls(event.content || '');
+                        const contentUrls = extractVideoUrlsFromText(event.content || '');
                         const blurhashes = extractImetaBlurhashes(event);
                         const dimensions = extractImetaDimensions(event);
                         const hashes = extractImetaHashes(event);
@@ -2204,7 +2167,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrls])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, searchParams, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, router, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText])}
     </div>
   );
 }

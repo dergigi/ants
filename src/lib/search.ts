@@ -17,9 +17,9 @@ interface RelayObject {
 // Import shared utilities
 import { 
   Nip50Extensions, 
-  sortEventsNewestFirst, 
   buildSearchQueryWithExtensions
 } from './search/searchUtils';
+import { sortEventsNewestFirst } from './utils/searchUtils';
 
 interface NDKEventWithRelaySource extends NDKEvent {
   relaySource?: string;
@@ -188,7 +188,7 @@ export async function subscribeAndStream(
       isComplete = true;
       try { sub.stop(); } catch {}
       // Final emit before resolving
-      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
       if (onResults) {
         onResults(sortedResults, true);
       }
@@ -203,7 +203,7 @@ export async function subscribeAndStream(
       if (abortSignal) {
         try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
       }
-      const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
       if (onResults) {
         onResults(sortedResults, true);
       }
@@ -219,7 +219,7 @@ export async function subscribeAndStream(
       if (onResults && !isComplete) {
         const now = Date.now();
         if (now - lastEmitTime >= emitInterval) {
-          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
           onResults(sortedResults, false);
           lastEmitTime = now;
         }
@@ -244,7 +244,7 @@ export async function subscribeAndStream(
           isComplete = true;
           try { sub.stop(); } catch {}
           clearTimeout(timer);
-          const sortedResults = Array.from(collected.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
           if (onResults) {
             onResults(sortedResults, true);
           }
@@ -678,7 +678,7 @@ export async function searchEvents(
           }
         }
       }
-      return merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, limit);
+      return sortEventsNewestFirst(merged).slice(0, limit);
     }
   }
 
@@ -782,9 +782,7 @@ export async function searchEvents(
     
     // Sort by creation time (newest first) and limit results
     const merged = allResults;
-    return merged
-      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-      .slice(0, limit);
+    return sortEventsNewestFirst(merged).slice(0, limit);
   }
 
   // URL search: strip protocol and search for domain/path content
@@ -871,9 +869,7 @@ export async function searchEvents(
     if (extensionFilters.length > 0) {
       final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
     }
-    return final
-      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-      .slice(0, limit);
+    return sortEventsNewestFirst(final).slice(0, limit);
   }
 
   // Full-text profile search `p:<term>` (not only username)
