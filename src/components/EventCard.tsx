@@ -136,6 +136,15 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         <>
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
+              {/* Comment if present */}
+              {highlight.comment ? (
+                <div className="mb-3">
+                  <div className={contentClasses}>
+                    {renderContent(highlight.comment)}
+                  </div>
+                </div>
+              ) : null}
+
               {/* Render context with highlighted content embedded */}
               <div className={contentClasses}>
                 {(() => {
@@ -283,15 +292,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   </div>
                 );
               })()}
-
-              {/* Comment if present */}
-              {highlight.comment ? (
-                <div className="mt-3">
-                  <div className={contentClasses}>
-                    {renderContent(highlight.comment)}
-                  </div>
-                </div>
-              ) : null}
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
