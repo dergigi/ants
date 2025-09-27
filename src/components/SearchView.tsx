@@ -726,6 +726,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
 
+  // DRY helper function for setting query and updating URL
+  const setQueryAndUpdateUrl = useCallback((query: string) => {
+    setQuery(query);
+    updateUrlForSearch(query);
+  }, [updateUrlForSearch]);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -1248,8 +1254,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               onClick={(e) => { 
                 e.stopPropagation();
                 const nextQuery = fullUrl;
-                setQuery(nextQuery);
-                updateUrlForSearch(nextQuery);
+                setQueryAndUpdateUrl(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -1473,8 +1478,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   title="Search this reference"
                   onClick={() => {
                     const q = token;
-                    setQuery(q);
-                    updateUrlForSearch(q);
+                    setQueryAndUpdateUrl(q);
                     handleSearch(q);
                   }}
                 >
@@ -1575,8 +1579,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
                       onClick={() => {
                         const nextQuery = emojis[i] as string;
-                        setQuery(nextQuery);
-                        updateUrlForSearch(nextQuery);
+                        setQueryAndUpdateUrl(nextQuery);
                         handleSearch(nextQuery);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
@@ -1595,7 +1598,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, updateUrlForSearch]);
+  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1702,8 +1705,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               }}
               onSearch={(targetUrl) => {
                 const nextQuery = targetUrl;
-                setQuery(nextQuery);
-                updateUrlForSearch(nextQuery);
+                setQueryAndUpdateUrl(nextQuery);
                 (async () => {
                   setLoading(true);
                   try {
@@ -1725,7 +1727,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         </div>
       )}
     </>
-  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, updateUrlForSearch]);
+  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
     const parentId = getReplyToEventId(childEvent);
@@ -2004,8 +2006,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                             type="button"
                             className="text-left w-full hover:underline"
                             onClick={() => {
-                              setQuery(ex);
-                              updateUrlForSearch(ex);
+                              setQueryAndUpdateUrl(ex);
                               handleSearch(ex);
                             }}
                           >
@@ -2304,7 +2305,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, setQueryAndUpdateUrl, updateUrlForSearch])}
     </div>
   );
 }
