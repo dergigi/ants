@@ -1402,7 +1402,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
         const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}`;
         const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
         const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
-        let previousEmbeddedPointer: string | null = null;
         nostrSplit.forEach((sub, subIdx) => {
           if (!sub) return;
           const isNostrToken = combinedRegex.test(sub);
@@ -1411,12 +1410,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             const coreToken = match ? match[1] : sub;
             const type = match ? match[2] : '';
             const trailing = (match && match[3]) || '';
-            const normalizedPointer = coreToken.trim().toLowerCase();
-            if (previousEmbeddedPointer === normalizedPointer) {
-              if (trailing) finalNodes.push(trailing);
-              return;
-            }
-            previousEmbeddedPointer = normalizedPointer;
             if (type?.toLowerCase().startsWith('nevent')) {
               finalNodes.push(
                 <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
@@ -1433,7 +1426,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true }: Prop
             if (trailing) finalNodes.push(trailing);
             return;
           }
-          previousEmbeddedPointer = null;
 
           // Process hashtags and emojis within the remaining text
           const parts = (sub || '').split(/(#\w+)/g);
