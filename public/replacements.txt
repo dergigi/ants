@@ -35,6 +35,7 @@ has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 has:gif => (.gif OR .gifs OR .apng)
 
 # --- KINDS ---
+is:tweet => kind:1
 is:repost => kind:6
 is:reaction => kind:7
 is:image => kind:20
@@ -47,6 +48,7 @@ is:report => kind:1984
 is:zap => kind:9735
 is:nutzap => kind:9321
 is:highlight => kind:9802
+is:blogpost => kind:30023
 is:muted => kind:10000
 is:pin => kind:10001
 is:bookmark => kind:10003
