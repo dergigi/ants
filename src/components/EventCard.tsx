@@ -160,27 +160,38 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               <div className={contentClasses}>
                 {(() => {
                   const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
-                  // Split by lines and process each line
-                  const lines = content.split('\n');
+                  // Split by double newlines to create paragraphs
+                  const paragraphs = content.split('\n\n');
                   
-                  return lines.map((line, index) => {
-                    const isEmpty = line.trim() === '';
-                    const isPrevLineEmpty = index > 0 && lines[index - 1].trim() === '';
+                  return paragraphs.map((paragraph, paragraphIndex) => {
+                    // Split each paragraph by single newlines for line breaks
+                    const lines = paragraph.split('\n');
+                    const nonEmptyLines = lines.filter(line => line.trim() !== '');
+                    
+                    if (nonEmptyLines.length === 0) {
+                      return null; // Skip empty paragraphs
+                    }
                     
                     return (
-                      <span key={index}>
-                        {isEmpty ? (
-                          // If previous line was also empty, this creates a paragraph break
-                          isPrevLineEmpty ? <><br /><br /></> : <br />
-                        ) : (
-                          <span
-                            className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                            style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                          >
-                            {line}
-                          </span>
-                        )}
-                      </span>
+                      <p key={paragraphIndex} className="mb-2 last:mb-0">
+                        {lines.map((line, lineIndex) => {
+                          const isEmpty = line.trim() === '';
+                          return (
+                            <span key={lineIndex}>
+                              {isEmpty ? (
+                                <br />
+                              ) : (
+                                <span
+                                  className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                                  style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                                >
+                                  {line}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </p>
                     );
                   });
                 })()}
