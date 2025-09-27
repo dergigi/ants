@@ -1,6 +1,6 @@
 'use client';
 
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
@@ -17,7 +17,6 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import UrlPreview from '@/components/UrlPreview';
 import { shortenNevent, shortenNpub } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
-import { NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from '@/lib/ndk';
 
 
@@ -88,6 +87,70 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       >
         {label || 'Loading...'}
       </button>
+    );
+  }
+
+  // Component to fetch and render referenced source event
+  function ReferencedSourceEvent({ nostrAddress }: { nostrAddress: string }) {
+    const [sourceEvent, setSourceEvent] = useState<NDKEvent | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      let isMounted = true;
+      (async () => {
+        try {
+          // Parse the nostr address (kind:pubkey:d-tag)
+          const parts = nostrAddress.split(':');
+          if (parts.length >= 3) {
+            const kind = parseInt(parts[0]);
+            const pubkey = parts[1];
+            const dTag = parts[2];
+            
+            // Fetch the event using the address
+            const event = await ndk.fetchEvent({ kinds: [kind], authors: [pubkey], '#d': [dTag] });
+            if (isMounted) {
+              setSourceEvent(event);
+              setLoading(false);
+            }
+          }
+        } catch {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      })();
+      return () => { isMounted = false; };
+    }, [nostrAddress]);
+
+    if (loading) {
+      return <div className="text-xs text-gray-500">Loading source...</div>;
+    }
+
+    if (!sourceEvent) {
+      return (
+        <div className="text-xs text-gray-500">
+          <span className="font-medium">Source:</span> Unable to load referenced event
+        </div>
+      );
+    }
+
+    // Render the source event using the same EventCard component
+    return (
+      <div className="mt-3 border border-[#3d3d3d] rounded-lg bg-[#1f1f1f]">
+        <div className="p-3 text-xs text-gray-400 border-b border-[#3d3d3d]">
+          <span className="font-medium">Source:</span> Referenced event
+        </div>
+        <div className="p-3">
+          <EventCard
+            event={sourceEvent}
+            onAuthorClick={onAuthorClick}
+            renderContent={renderContent}
+            variant="inline"
+            mediaRenderer={mediaRenderer}
+            showFooter={true}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -291,6 +354,11 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                     </div>
                   )}
                 </div>
+              ) : null}
+
+              {/* Render referenced source event if it's a nostr address */}
+              {highlight.referencedEvent && highlight.referencedEvent.includes(':') ? (
+                <ReferencedSourceEvent nostrAddress={highlight.referencedEvent} />
               ) : null}
             </div>
           ) : (
