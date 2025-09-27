@@ -10,6 +10,7 @@ export type FilterMode = 'always' | 'never' | 'intelligently';
 export interface FilterSettings {
   maxEmojis: number | null;
   maxHashtags: number | null;
+  maxMentions: number | null;
   hideLinks: boolean;
   resultFilter: string;
   verifiedOnly: boolean;
@@ -30,9 +31,11 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
+  const [mentionsLimit, setMentionsLimit] = useState<number>(filterSettings.maxMentions ?? 6);
 
   const emojiEnabled = filterSettings.maxEmojis !== null;
   const hashtagEnabled = filterSettings.maxHashtags !== null;
+  const mentionsEnabled = filterSettings.maxMentions !== null;
 
   const handleEmojiChange = (value: string) => {
     const parsed = Math.max(0, parseInt(value || '0', 10));
@@ -50,17 +53,26 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
     }
   };
 
+  const handleMentionsChange = (value: string) => {
+    const parsed = Math.max(0, parseInt(value || '0', 10));
+    setMentionsLimit(parsed);
+    if (mentionsEnabled) {
+      onFilterChange({ ...filterSettings, maxMentions: parsed });
+    }
+  };
+
   const clearFilters = () => {
-    onFilterChange({ maxEmojis: null, maxHashtags: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filterMode: 'never' });
+    onFilterChange({ maxEmojis: null, maxHashtags: null, maxMentions: null, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: false, hideBots: false, hideNsfw: false, filterMode: 'never' });
   };
 
   const resetToDefaults = () => {
     setEmojiLimit(3);
     setHashtagLimit(3);
-    onFilterChange({ maxEmojis: 3, maxHashtags: 3, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
+    setMentionsLimit(6);
+    onFilterChange({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   };
 
-  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
+  const hasActiveFilters = filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0);
   
   // Determine if filters are actually active (enabled and filtering results)
   const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= 100));
@@ -213,6 +225,30 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                 disabled={filterSettings.filterMode === 'never'}
               />
               <span>hashtags</span>
+            </label>
+
+            {/* Hide more than X mentions */}
+            <label className="flex items-center gap-2 text-xs text-gray-400">
+              <input
+                type="checkbox"
+                checked={mentionsEnabled}
+                onChange={(e) => {
+                  onFilterChange({ ...filterSettings, maxMentions: e.target.checked ? (mentionsLimit || 6) : null });
+                }}
+                className="accent-[#4a4a4a]"
+                disabled={filterSettings.filterMode === 'never'}
+              />
+              <span>Hide more than</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={mentionsLimit}
+                onChange={(e) => handleMentionsChange(e.target.value)}
+                className="w-8 px-1 py-0.5 text-right text-xs bg-[#1f1f1f] border border-[#3d3d3d] rounded text-gray-100 placeholder-gray-500 focus:border-[#4a4a4a] focus:outline-none"
+                disabled={filterSettings.filterMode === 'never'}
+              />
+              <span>mentions</span>
             </label>
 
             {/* Hide external links */}

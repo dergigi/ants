@@ -25,6 +25,18 @@ export function countHashtags(text: string): number {
 }
 
 /**
+ * Count the number of mentions in a text string
+ */
+export function countMentions(text: string): number {
+  if (!text) return 0;
+  
+  // Match mentions that start with @ followed by alphanumeric characters and underscores
+  const mentionRegex = /@[A-Za-z0-9_]+/g;
+  const matches = text.match(mentionRegex);
+  return matches ? matches.length : 0;
+}
+
+/**
  * Detect if the text contains a URL/link
  */
 export function containsLink(text: string): boolean {
@@ -57,6 +69,7 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
   events: T[],
   maxEmojis: number | null,
   maxHashtags: number | null,
+  maxMentions: number | null,
   hideLinks: boolean = false,
   verifiedOnly: boolean = false,
   verifyCheck?: (pubkeyHex?: string, nip05?: string) => boolean,
@@ -79,6 +92,14 @@ export function applyContentFilters<T extends { id?: string; content?: string; a
     if (maxHashtags !== null) {
       const hashtagCount = countHashtags(content);
       if (hashtagCount > maxHashtags) {
+        return false;
+      }
+    }
+
+    // Check mentions limit
+    if (maxMentions !== null) {
+      const mentionsCount = countMentions(content);
+      if (mentionsCount > maxMentions) {
         return false;
       }
     }
