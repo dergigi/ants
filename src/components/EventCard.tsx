@@ -11,7 +11,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
-import { parseHighlightEvent, formatHighlightContent, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import UrlPreview from '@/components/UrlPreview';
@@ -189,30 +189,61 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         <>
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
-              {/* Context if available, rendered like regular content */}
-              {shouldShowHighlightContext && highlight.context && (
-                <div className={contentClasses}>
-                  {renderContent(highlight.context)}
-                </div>
-              )}
-
-              {/* Highlighted excerpt styled similar to native reader highlights */}
+              {/* Render context with highlighted content embedded */}
               <div className={contentClasses}>
                 {(() => {
-                  const content = shouldShowHighlightContext ? formatHighlightContent(highlight) : highlight.content;
-                  // Split by double newlines to get paragraphs
-                  const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
-                  
-                  return paragraphs.map((paragraph, index) => (
-                    <p key={index} className="mb-4 last:mb-0">
-                      <span
-                        className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
-                        style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
-                      >
-                        {paragraph.trim()}
-                      </span>
-                    </p>
-                  ));
+                  if (highlight.context && shouldShowHighlightContext) {
+                    // When context is present, render the full context with the content highlighted within it
+                    const context = highlight.context;
+                    const content = highlight.content;
+                    
+                    // Split context by double newlines to get paragraphs
+                    const paragraphs = context.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                    
+                    return paragraphs.map((paragraph, index) => {
+                      // Check if this paragraph contains the highlighted content
+                      const containsHighlight = paragraph.includes(content);
+                      
+                      return (
+                        <p key={index} className="mb-4 last:mb-0">
+                          {containsHighlight ? (
+                            // Split paragraph around the content and highlight it
+                            paragraph.split(content).map((part, partIndex) => (
+                              <span key={partIndex}>
+                                {part}
+                                {partIndex < paragraph.split(content).length - 1 && (
+                                  <span
+                                    className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                                    style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                                  >
+                                    {content}
+                                  </span>
+                                )}
+                              </span>
+                            ))
+                          ) : (
+                            // Regular paragraph without highlight
+                            paragraph.trim()
+                          )}
+                        </p>
+                      );
+                    });
+                  } else {
+                    // No context, just highlight the content directly
+                    const content = highlight.content;
+                    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                    
+                    return paragraphs.map((paragraph, index) => (
+                      <p key={index} className="mb-4 last:mb-0">
+                        <span
+                          className="inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]"
+                          style={{ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' }}
+                        >
+                          {paragraph.trim()}
+                        </span>
+                      </p>
+                    ));
+                  }
                 })()}
               </div>
 
