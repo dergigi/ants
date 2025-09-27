@@ -1,4 +1,5 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
 
 // NIP-84 Highlights utilities
 export const HIGHLIGHTS_KIND = 9802;
@@ -7,6 +8,7 @@ export interface HighlightData {
   content: string;
   referencedEvent?: string;
   referencedAuthor?: string;
+  referencedAuthorHex?: string;
   referencedUrl?: string;
   context?: string;
   range?: string;
@@ -30,7 +32,16 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
 
   // Extract referenced author (p tag)
   const authorTag = tags.find(tag => tag[0] === 'p' && tag[1]);
-  const referencedAuthor = authorTag?.[1];
+  const referencedAuthorHex = authorTag?.[1];
+
+  let referencedAuthor: string | undefined;
+  try {
+    if (referencedAuthorHex) {
+      referencedAuthor = nip19.npubEncode(referencedAuthorHex);
+    }
+  } catch {
+    referencedAuthor = referencedAuthorHex;
+  }
 
   // Extract referenced URL (r tag)
   const urlTag = tags.find(tag => tag[0] === 'r' && tag[1]);
@@ -48,6 +59,7 @@ export function parseHighlightEvent(event: NDKEvent): HighlightData | null {
     content,
     referencedEvent,
     referencedAuthor,
+    referencedAuthorHex,
     referencedUrl,
     context,
     range,

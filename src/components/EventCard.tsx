@@ -16,6 +16,8 @@ import { parseHighlightEvent, formatHighlightContent, HIGHLIGHTS_KIND } from '@/
 import { compareTwoStrings } from 'string-similarity';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import UrlPreview from '@/components/UrlPreview';
+import { shortenNevent, shortenNpub } from '@/lib/utils';
+import { nip19 } from 'nostr-tools';
 
 
 type Props = {
@@ -59,6 +61,50 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       )
     : 0;
   const shouldShowHighlightContext = Boolean(highlight?.context && contextSimilarity < 0.9);
+
+  const highlightLinks = () => {
+    if (!highlight) return null;
+    const items: React.ReactNode[] = [];
+
+    if (highlight.referencedEvent) {
+      items.push(
+        <a
+          key="hl-event"
+          href={`https://njump.me/${highlight.referencedEvent}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300 hover:underline"
+        >
+          {`Event ${shortenNevent(highlight.referencedEvent)}`}
+        </a>
+      );
+    }
+
+    if (highlight.referencedAuthorHex) {
+      const npub = highlight.referencedAuthor || (() => {
+        try { return nip19.npubEncode(highlight.referencedAuthorHex!); } catch { return highlight.referencedAuthorHex!; }
+      })();
+      items.push(
+        <a
+          key="hl-author"
+          href={`https://njump.me/${npub}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300 hover:underline"
+        >
+          {`Author ${shortenNpub(npub)}`}
+        </a>
+      );
+    }
+
+    return items.length > 0 ? (
+      <div className="flex flex-wrap gap-2 text-xs text-gray-300">
+        {items.map((item, idx) => (
+          <span key={`hl-link-${idx}`}>{item}</span>
+        ))}
+      </div>
+    ) : null;
+  };
 
   // Helper function to render metadata items
   const renderMetadataItem = (label: string, value: string, type: 'text' | 'button' | 'link' = 'text', onClick?: () => void, href?: string) => {
@@ -116,14 +162,11 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               {/* Additional highlight metadata as part of content */}
               <div className="text-xs text-gray-400 space-y-1">
                 {renderMetadataItem("Event", highlight.referencedEvent || '')}
-                {renderMetadataItem("Author", highlight.referencedAuthor || '', 'button', () => {
-                  if (onAuthorClick && highlight.referencedAuthor) {
-                    const npub = nip19.npubEncode(highlight.referencedAuthor);
-                    onAuthorClick(npub);
-                  }
-                })}
+                {renderMetadataItem("Author", highlight.referencedAuthorHex || '')}
                 {renderMetadataItem("Range", highlight.range || '')}
               </div>
+
+              {highlightLinks()}
 
               {highlight.referencedUrl ? (
                 <div className="space-y-2">
