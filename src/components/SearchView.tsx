@@ -819,20 +819,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const decoded = nip19.decode(currentProfileNpub);
         if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
           const pubkey = decoded.data;
-          const u = new NDKUser({ pubkey });
-          u.ndk = ndk;
+          const user = new NDKUser({ pubkey });
+          user.ndk = ndk;
           // Set immediately so the indicator renders (initials) while profile loads
-          setProfileScopeUser(u);
-          // Fetch profile to get image/nip05, then force a re-render with a new instance
-          try {
-            await u.fetchProfile();
-            const refreshed = new NDKUser({ pubkey });
-            refreshed.ndk = ndk;
-            (refreshed as unknown as { profile?: unknown }).profile = u.profile;
-            setProfileScopeUser(refreshed);
-          } catch {
-            // Continue even if profile fetch fails
-          }
+          setProfileScopeUser(user);
+          // Fetch profile to get image/nip05, then set the same instance again to refresh UI
+          try { await user.fetchProfile(); } catch {}
+          setProfileScopeUser(user);
         } else {
           setProfileScopeUser(null);
         }
