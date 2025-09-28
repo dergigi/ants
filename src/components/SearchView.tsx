@@ -2177,7 +2177,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       {/* Command output will be injected as first result card below */}
 
       {/* Client-side filters */}
-      {results.length > 0 && (
+      {(loading || results.length > 0) && (
         <ClientFilters
           filterSettings={filterSettings}
           onFilterChange={setFilterSettings}
