@@ -48,14 +48,16 @@ export const RELAYS = {
   // Search-capable relays (NIP-50 support)
   SEARCH: [
     'wss://search.nos.today',
-    'wss://relay.nostr.band'
+    'wss://relay.nostr.band',
+    'wss://relay.ditto.pub'
   ],
 
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
     'wss://purplepag.es',
     'wss://search.nos.today',
-    'wss://relay.nostr.band'
+    'wss://relay.nostr.band',
+    'wss://relay.ditto.pub'
   ],
 
   // Vertex DVM relay
