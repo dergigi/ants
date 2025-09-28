@@ -62,6 +62,12 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
 
 function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers): boolean {
   const normalizedToken = normalizeIdentifier(token);
+  console.log('DEBUG: tokenMatchesProfile - token:', token, 'normalizedToken:', normalizedToken);
+  console.log('DEBUG: comparing against:', {
+    normalizedIdentifier: identifiers.normalizedIdentifier,
+    normalizedNpub: identifiers.normalizedNpub,
+    normalizedNip05: identifiers.normalizedNip05
+  });
   if (!normalizedToken) return false;
   if (normalizedToken === identifiers.normalizedIdentifier) return true;
   if (normalizedToken === identifiers.normalizedNpub) return true;
@@ -72,11 +78,16 @@ function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers
 export function containsProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
   BY_TOKEN_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
+  console.log('DEBUG: containsProfileScope - query:', query, 'identifiers:', identifiers);
   while ((match = BY_TOKEN_REGEX.exec(query)) !== null) {
-    if (tokenMatchesProfile(match[2] || '', identifiers)) {
+    const token = match[2] || '';
+    console.log('DEBUG: found by: token:', token);
+    if (tokenMatchesProfile(token, identifiers)) {
+      console.log('DEBUG: token matches profile, returning true');
       return true;
     }
   }
+  console.log('DEBUG: no matching tokens found, returning false');
   return false;
 }
 
