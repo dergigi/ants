@@ -3,7 +3,8 @@ import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilte
 import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
-import { relaySets, RELAYS, getNip50SearchRelaySet } from './relays';
+import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet } from './relays';
+import { getUserRelayAdditions } from './storage';
 // legacy import removed
 
 // Type definitions for relay objects
@@ -41,16 +42,17 @@ export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 // Use a search-capable relay set explicitly for NIP-50 queries (lazy, async)
 let searchRelaySetPromise: Promise<NDKRelaySet> | null = null;
 async function getSearchRelaySet(): Promise<NDKRelaySet> {
-  if (!searchRelaySetPromise) searchRelaySetPromise = relaySets.search();
+  if (!searchRelaySetPromise) searchRelaySetPromise = predefinedRelaySets.search();
   return searchRelaySetPromise;
 }
 
-// Helper function to create broad relay set for tag searches
-function createBroadRelaySet(): NDKRelaySet {
-  const broadRelays = Array.from(
-    new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH].map((u) => u as string))
-  );
-  return NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+async function getBroadRelaySet(): Promise<NDKRelaySet> {
+  const union = new Set<string>([
+    ...RELAYS.DEFAULT,
+    ...RELAYS.SEARCH,
+    ...getUserRelayAdditions()
+  ]);
+  return NDKRelaySet.fromRelayUrls(Array.from(union), ndk);
 }
 
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
@@ -540,15 +542,16 @@ async function fetchEventByPointer(
   const baseFilter = filter || (id ? { ids: [id], limit: 1 } : undefined);
   if (!baseFilter) return [];
 
-  const relaySets: NDKRelaySet[] = [];
+
+  const relaySetsToTry: NDKRelaySet[] = [];
   const hinted = sanitizeRelayUrls(relayHints);
   if (hinted.length > 0) {
-    relaySets.push(NDKRelaySet.fromRelayUrls(hinted, ndk));
+    relaySetsToTry.push(NDKRelaySet.fromRelayUrls(hinted, ndk));
   }
-  relaySets.push(NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk));
-  relaySets.push(await getSearchRelaySet());
+  relaySetsToTry.push(await predefinedRelaySets.default());
+  relaySetsToTry.push(await getSearchRelaySet());
 
-  for (const rs of relaySets) {
+  for (const rs of relaySetsToTry) {
     const events = await subscribeAndCollect(baseFilter as NDKFilter, 8000, rs, abortSignal);
     if (events.length > 0) return events;
   }
@@ -883,7 +886,7 @@ export async function searchEvents(
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
 
     // Broader relay set than NIP-50 search: default + search relays
-    const tagRelaySet = createBroadRelaySet();
+    const tagRelaySet = await getBroadRelaySet();
 
     const results = isStreaming
       ? await subscribeAndStream(tagFilter, {
@@ -910,7 +913,7 @@ export async function searchEvents(
       const aTagFilter: TagTFilter = { kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) };
       
       // Use broader relay set for a tag searches
-      const aTagRelaySet = createBroadRelaySet();
+      const aTagRelaySet = await getBroadRelaySet();
 
       const results = isStreaming
         ? await subscribeAndStream(aTagFilter, {
