@@ -1,6 +1,7 @@
 import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
+import { getUserRelayOverrides } from './storage';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
@@ -75,6 +76,12 @@ export const RELAYS = {
 function withPremium(relayUrls: readonly string[]): string[] {
   const enriched = [...relayUrls];
   if (getStoredPubkey()) {
+    const userRelays = getUserRelayOverrides();
+    for (const userRelay of userRelays) {
+      if (!enriched.includes(userRelay)) {
+        enriched.push(userRelay);
+      }
+    }
     for (const premium of RELAYS.PREMIUM) {
       if (!enriched.includes(premium)) enriched.push(premium);
     }
