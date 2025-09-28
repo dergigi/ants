@@ -1226,10 +1226,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const stripPreviewUrls = useCallback((text: string): string => {
     if (!text) return '';
     let cleaned = text;
-    successfulPreviews.forEach(url => {
-      const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedUrl.replace(/[),.;]+$/, ''), 'gi');
-      cleaned = cleaned.replace(regex, '');
+    successfulPreviews.forEach((url) => {
+      if (!url) return;
+      const trimmedUrl = url.replace(/[),.;]+$/, '');
+      if (!trimmedUrl) return;
+      const escapedUrl = trimmedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      try {
+        const regex = new RegExp(`${escapedUrl}[),.;]*`, 'gi');
+        cleaned = cleaned.replace(regex, '');
+      } catch (error) {
+        cleaned = cleaned.split(trimmedUrl).join('');
+        console.warn('Failed to strip preview URL', url, error);
+      }
     });
     return normalizeWhitespace(cleaned);
   }, [successfulPreviews, normalizeWhitespace]);
