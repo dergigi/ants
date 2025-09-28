@@ -1147,11 +1147,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         handleSearch(urlQuery);
       } else {
         // Use NIP-05 if available for display, otherwise use npub
-        let displayNpub = currentProfileNpub;
-        if (profileScopeUser?.profile?.nip05) {
-          displayNpub = profileScopeUser.profile.nip05;
-        }
-        const display = toExplicitInputFromUrl(urlQuery, displayNpub);
+        const displayIdentifier = profileScopeUser?.profile?.nip05 || currentProfileNpub;
+        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub, displayIdentifier);
         setQuery(display);
         const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
         handleSearch(backend);
