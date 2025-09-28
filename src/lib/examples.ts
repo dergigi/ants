@@ -17,6 +17,14 @@ export const searchExamples = [
   'by:gigi',
   'by:pablof7z',
   'by:corndalorian',
+  'by:fiatjaf',
+  'by:edward',
+  'by:snowden',
+  'by:ross',
+  'by:ulbricht',
+  'by:plato',
+  'by:socrates',
+  'by:odell',
 
   // Combined
   'GM by:dergigi',
