@@ -40,3 +40,16 @@ export function clearStorageKey(storageKey: string): void {
   }
 }
 
+export function loadArrayFromStorage(storageKey: string): string[] {
+  if (!hasLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return [];
+  }
+}
+

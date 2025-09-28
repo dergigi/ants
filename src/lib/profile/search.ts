@@ -14,9 +14,10 @@ import {
   prefetchLightningRealness, 
   LIGHTNING_FLAGS 
 } from './lightning';
+import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
 
 // Full-text profile search with ranking
-export async function searchProfilesFullText(term: string, limit: number = 50): Promise<NDKEvent[]> {
+export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS): Promise<NDKEvent[]> {
   const query = term.trim();
   if (!query) return [];
 
