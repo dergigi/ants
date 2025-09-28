@@ -638,28 +638,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setQuery(newValue);
-
-    // Detect if user manually removed the by:<current npub or nip05> filter
-    const currentProfileNpub = getCurrentProfileNpub(pathname);
-    const currentNip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-    if (currentProfileNpub && profileScopingEnabled) {
-      const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-      let m: RegExpExecArray | null;
-      let hasOurBy = false;
-      while ((m = rx.exec(newValue)) !== null) {
-        const token = (m[2] || '').toLowerCase();
-        if (token === currentProfileNpub.toLowerCase() || (currentNip05 && token === currentNip05.toLowerCase())) {
-          hasOurBy = true; break;
-        }
-      }
-      if (!hasOurBy && userManuallyDisabledScoping === false) {
-        setUserManuallyDisabledScoping(true);
-        setProfileScopingEnabled(false);
-      }
-    }
     // Release suppression on next tick so explicit submit still works
     setTimeout(() => { suppressSearchRef.current = false; }, 0);
-  }, [setQuery, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping]);
+  }, [setQuery]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
@@ -854,20 +835,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setupProfileUser();
   }, [manageUrl, pathname]);
 
-  // When nip05 becomes available, prefer showing by:nip05 in the input if it currently shows by:npub
+  // Sync toggle state with actual query content
   useEffect(() => {
     if (!manageUrl) return;
-    if (!profileScopingEnabled || userManuallyDisabledScoping) return;
-    const nip05 = profileScopeUser?.profile?.nip05 as string | undefined;
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    if (!nip05 || !currentProfileNpub) return;
-    // More robust matching for by:npub anywhere in the query
-    const byNpubPattern = new RegExp(`\\bby:${currentProfileNpub}\\b`, 'gi');
-    if (byNpubPattern.test(query)) {
-      const updated = query.replace(byNpubPattern, `by:${nip05}`).replace(/\s{2,}/g, ' ').trim();
-      if (updated !== query) setQuery(updated);
+    const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
+    if (!currentProfileNpub) return;
+
+    // Check if query contains our profile's by: filter
+    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+    let hasOurBy = false;
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(query)) !== null) {
+      const token = (m[2] || '').toLowerCase();
+      if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
+        hasOurBy = true;
+        break;
+      }
     }
-  }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping, query, setQuery]);
+
+    // Update toggle state to match query content
+    if (hasOurBy && !profileScopingEnabled) {
+      setProfileScopingEnabled(true);
+      setUserManuallyDisabledScoping(false);
+    } else if (!hasOurBy && profileScopingEnabled && !userManuallyDisabledScoping) {
+      setProfileScopingEnabled(false);
+    }
+  }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, query, profileScopingEnabled, userManuallyDisabledScoping]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (suppressSearchRef.current) {
       // Clear the flag and ignore this invocation
@@ -2018,65 +2012,50 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             user={profileScopeUser}
             isEnabled={profileScopingEnabled}
             onToggle={() => {
-              const newEnabled = !profileScopingEnabled;
-              setProfileScopingEnabled(newEnabled);
+              const currentProfileNpub = getCurrentProfileNpub(pathname);
+              const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
 
-              // Reset manual disable flag when toggling
-              setUserManuallyDisabledScoping(false);
+              if (!currentProfileNpub) return;
+
+              // Determine the by: value to use
+              let byValue = currentProfileNpub;
+              if (nip05) {
+                byValue = nip05;
+              }
+
+              const currentQuery = query.trim();
+              const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+              let hasOurBy = false;
+              let m: RegExpExecArray | null;
+              while ((m = rx.exec(currentQuery)) !== null) {
+                const token = (m[2] || '').toLowerCase();
+                if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
+                  hasOurBy = true;
+                  break;
+                }
+              }
 
               // Update the search box content without triggering search
               suppressSearchRef.current = true;
-              const currentProfileNpub = getCurrentProfileNpub(pathname);
-              if (currentProfileNpub) {
-                const currentQuery = query.trim();
-                const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
 
-                // Determine the by: value to use
-                let byValue = currentProfileNpub;
-                if (nip05) {
-                  byValue = nip05;
-                }
-
-                // Check if query already has any by: filter
-                const hasByFilter = /(^|\s)by:\S+(?=\s|$)/i.test(currentQuery);
-
-                if (newEnabled) {
-                  if (hasByFilter) {
-                    // Replace existing by: filter with our profile's by: filter
-                    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-                    const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
-                      const t = (token || '').toLowerCase();
-                      // If it's our profile's token, replace it; otherwise keep the existing one
-                      if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
-                        return `${pre}by:${byValue}`;
-                      }
-                      return full; // keep other authors' by:
-                    });
-                    setQuery(updatedQuery);
-                  } else {
-                    // No by: filter, append to end
-                    const updatedQuery = currentQuery ? `${currentQuery} by:${byValue}` : `by:${byValue}`;
-                    setQuery(updatedQuery.trim());
+              if (hasOurBy) {
+                // Remove our profile's by: filter
+                const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
+                  const t = (token || '').toLowerCase();
+                  if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
+                    return pre ? pre : '';
                   }
-                } else {
-                  // Disable: remove only our profile's by: filter
-                  if (hasByFilter) {
-                    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-                    const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
-                      const t = (token || '').toLowerCase();
-                      // Only remove if it's our profile's token
-                      if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
-                        return pre ? pre : '';
-                      }
-                      return full; // keep other authors' by:
-                    }).replace(/\s{2,}/g, ' ').trim();
-                    setQuery(updatedQuery);
-                  }
-                  // If no by: filter, do nothing (already disabled)
-                }
-                // Release suppression on next tick
-                setTimeout(() => { suppressSearchRef.current = false; }, 0);
+                  return full; // keep other authors' by:
+                }).replace(/\s{2,}/g, ' ').trim();
+                setQuery(updatedQuery);
+              } else {
+                // Add our profile's by: filter
+                const updatedQuery = currentQuery ? `${currentQuery} by:${byValue}` : `by:${byValue}`;
+                setQuery(updatedQuery.trim());
               }
+
+              // Release suppression on next tick
+              setTimeout(() => { suppressSearchRef.current = false; }, 0);
             }}
           />
           <div className="flex-1 relative">
