@@ -2163,7 +2163,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Client-side filters with relay indicator */}
       {(loading || results.length > 0) && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-end gap-3">
           <RelayIndicator
             connectionStatus={connectionStatus}
             connectionDetails={connectionDetails}
