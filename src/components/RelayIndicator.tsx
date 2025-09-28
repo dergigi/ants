@@ -24,7 +24,7 @@ export default function RelayIndicator({
   return (
     <button
       type="button"
-      className="flex items-center gap-2 touch-manipulation"
+      className="flex items-center gap-2 text-sm transition-colors touch-manipulation"
       onClick={onToggle}
       title={formatConnectionTooltip(connectionDetails)}
     >
