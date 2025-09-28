@@ -1105,8 +1105,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         runSlashCommand(urlQuery);
         handleSearch(urlQuery);
       } else {
-        // Use NIP-05 if available for display, otherwise use npub
-        const displayIdentifier = profileScopeUser?.profile?.nip05 || currentProfileNpub;
+        // Use normalized NIP-05 if available for display, otherwise use npub
+        const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+        const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
         const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub, displayIdentifier);
         setQuery(display);
         const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
@@ -1122,7 +1123,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser?.profile?.nip05]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
