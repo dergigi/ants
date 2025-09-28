@@ -519,7 +519,41 @@ function getPubkey(str: string): string | null {
   return str;
 }
 
+function sanitizeRelayUrls(relays: unknown): string[] {
+  if (!Array.isArray(relays)) return [];
+  const normalized = relays
+    .filter((r: unknown): r is string => typeof r === 'string' && r.trim().length > 0)
+    .map((r) => r.trim())
+    .map((r) => (/^wss?:\/\//i.test(r) ? r : `wss://${r}`));
+  return Array.from(new Set(normalized));
+}
 
+async function fetchEventByPointer(
+  options: {
+    id?: string;
+    filter?: NDKFilter;
+    relayHints?: string[];
+  },
+  abortSignal?: AbortSignal
+): Promise<NDKEvent[]> {
+  const { id, filter, relayHints } = options;
+  const baseFilter = filter || (id ? { ids: [id], limit: 1 } : undefined);
+  if (!baseFilter) return [];
+
+  const relaySets: NDKRelaySet[] = [];
+  const hinted = sanitizeRelayUrls(relayHints);
+  if (hinted.length > 0) {
+    relaySets.push(NDKRelaySet.fromRelayUrls(hinted, ndk));
+  }
+  relaySets.push(NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk));
+  relaySets.push(await getSearchRelaySet());
+
+  for (const rs of relaySets) {
+    const events = await subscribeAndCollect(baseFilter as NDKFilter, 8000, rs, abortSignal);
+    if (events.length > 0) return events;
+  }
+  return [];
+}
 
 
 export function parseOrQuery(query: string): string[] {
@@ -817,36 +851,26 @@ export async function searchEvents(
     const decoded = nip19.decode(extCleanedQuery);
     if (decoded?.type === 'nevent') {
       const data = decoded.data as { id: string; relays?: string[] };
-      const neventRelays = Array.isArray(data.relays) ? Array.from(new Set(
-        data.relays
-          .filter((r: unknown): r is string => typeof r === 'string')
-          .map((r) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`)
-      )) : [];
-      const setsToTry: NDKRelaySet[] = [];
-      if (neventRelays.length > 0) {
-        setsToTry.push(NDKRelaySet.fromRelayUrls(neventRelays, ndk));
-      }
-      // Try a broader default set next
-      setsToTry.push(NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk));
-      // Finally try the chosen search set
-      setsToTry.push(chosenRelaySet);
-
-      for (const rs of setsToTry) {
-        const byId = await subscribeAndCollect({ ids: [data.id], limit: 1 }, 8000, rs, abortSignal);
-        if (byId.length > 0) return byId;
-      }
+      const results = await fetchEventByPointer({ id: data.id, relayHints: data.relays }, abortSignal);
+      if (results.length > 0) return results;
       return [];
     }
     if (decoded?.type === 'note') {
       const id = decoded.data as string;
-      const setsToTry: NDKRelaySet[] = [
-        NDKRelaySet.fromRelayUrls([...RELAYS.DEFAULT], ndk),
-        chosenRelaySet
-      ];
-      for (const rs of setsToTry) {
-        const byId = await subscribeAndCollect({ ids: [id], limit: 1 }, 8000, rs, abortSignal);
-        if (byId.length > 0) return byId;
-      }
+      const results = await fetchEventByPointer({ id }, abortSignal);
+      if (results.length > 0) return results;
+      return [];
+    }
+    if (decoded?.type === 'naddr') {
+      const data = decoded.data as { pubkey: string; identifier: string; kind: number; relays?: string[] };
+      const pointerFilter: NDKFilter = {
+        kinds: [data.kind],
+        authors: [data.pubkey],
+        '#d': [data.identifier],
+        limit: 1
+      };
+      const results = await fetchEventByPointer({ filter: pointerFilter, relayHints: data.relays }, abortSignal);
+      if (results.length > 0) return results;
       return [];
     }
   } catch {}
