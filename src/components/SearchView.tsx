@@ -547,9 +547,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
     if (cmd === 'examples') {
       const examples = getFilteredExamples(isLoggedIn());
-      // Sort examples by character count (shortest to longest)
-      const sortedExamples = Array.from(examples).sort((a, b) => a.length - b.length);
-      setTopExamples(sortedExamples);
+      setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('examples'));
       return;
     }
