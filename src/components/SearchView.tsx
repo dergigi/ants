@@ -1072,7 +1072,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         runSlashCommand(urlQuery);
         handleSearch(urlQuery);
       } else {
-        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+        // Use NIP-05 if available for display, otherwise use npub
+        let displayNpub = currentProfileNpub;
+        if (profileScopeUser?.profile?.nip05) {
+          displayNpub = profileScopeUser.profile.nip05;
+        }
+        const display = toExplicitInputFromUrl(urlQuery, displayNpub);
         setQuery(display);
         const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
         handleSearch(backend);
@@ -1114,7 +1119,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
     if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
-      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
+      // Try to use NIP-05 if available, otherwise fall back to npub
+      let byValue = currentProfileNpub;
+      if (profileScopeUser?.profile?.nip05) {
+        byValue = profileScopeUser.profile.nip05;
+      }
+      displayVal = `${displayVal} by:${byValue}`.trim();
     }
     setQuery(displayVal);
     if (manageUrl) {
