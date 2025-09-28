@@ -637,18 +637,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setQuery(newValue);
-    
-    // Detect if user manually removed by: filter
+
+    // Detect if user manually removed the by:<current npub or nip05> filter
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+    const currentNip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
     if (currentProfileNpub && profileScopingEnabled) {
-      const hasByFilter = /(^|\s)by:\S+(?=\s|$)/i.test(newValue);
-      if (!hasByFilter && userManuallyDisabledScoping === false) {
-        // User removed the by: filter manually
+      const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+      let m: RegExpExecArray | null;
+      let hasOurBy = false;
+      while ((m = rx.exec(newValue)) !== null) {
+        const token = (m[2] || '').toLowerCase();
+        if (token === currentProfileNpub.toLowerCase() || (currentNip05 && token === currentNip05.toLowerCase())) {
+          hasOurBy = true; break;
+        }
+      }
+      if (!hasOurBy && userManuallyDisabledScoping === false) {
         setUserManuallyDisabledScoping(true);
         setProfileScopingEnabled(false);
       }
     }
-  }, [setQuery, pathname, profileScopingEnabled, userManuallyDisabledScoping]);
+  }, [setQuery, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
@@ -2004,18 +2012,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               const currentProfileNpub = getCurrentProfileNpub(pathname);
               if (currentProfileNpub) {
                 const currentQuery = query.trim();
-                const hasExplicitBy = /(^|\s)by:\S+(?=\s|$)/i.test(currentQuery);
+                // Detect by:<token> where token can be npub or nip05 and specifically check for ours
+                const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
+                const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+                let hasOurBy = false;
+                let m: RegExpExecArray | null;
+                while ((m = rx.exec(currentQuery)) !== null) {
+                  const token = (m[2] || '').toLowerCase();
+                  if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
+                    hasOurBy = true; break;
+                  }
+                }
                 
-                if (newEnabled && !hasExplicitBy) {
+                if (newEnabled && !hasOurBy) {
                   // Add by: filter
                   let byValue = currentProfileNpub;
                   if (profileScopeUser?.profile?.nip05) {
                     byValue = profileScopeUser.profile.nip05;
                   }
                   setQuery(`${currentQuery} by:${byValue}`.trim());
-                } else if (!newEnabled && hasExplicitBy) {
+                } else if (!newEnabled && hasOurBy) {
                   // Remove by: filter
-                  const cleanedQuery = currentQuery.replace(/(^|\s)by:\S+(?=\s|$)/i, '').trim();
+                  const cleanedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
+                    const t = (token || '').toLowerCase();
+                    if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
+                      return pre ? pre : '';
+                    }
+                    return full; // keep other authors' by:
+                  }).replace(/\s{2,}/g, ' ').trim();
                   setQuery(cleanedQuery);
                 }
               }
