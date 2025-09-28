@@ -11,7 +11,8 @@ export type ProfileScopeIdentifiers = {
   profileIdentifier: string;
 };
 
-const BY_TOKEN_REGEX = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/gi;
+// Allow dots in tokens so NIP-05 like dergigi.com is fully captured
+const BY_TOKEN_REGEX = /(^|\s)by:([^\s),;]+)(?=[\s),.;]|$)/gi;
 
 type Nip05Like = string | { url?: string | undefined } | undefined;
 
