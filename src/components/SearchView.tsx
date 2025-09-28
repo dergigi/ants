@@ -636,8 +636,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    // Prevent any side-effects from interpreting this edit as a search trigger
-    suppressSearchRef.current = true;
     setQuery(newValue);
 
     // Detect if user manually removed the by:<current npub or nip05> filter
@@ -858,7 +856,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const nip05 = profileScopeUser?.profile?.nip05 as string | undefined;
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!nip05 || !currentProfileNpub) return;
-    const rx = new RegExp(`(^|\\s)by:${currentProfileNpub}(?=\\s|$)`, 'i');
+    const rx = new RegExp(`(^|\\s)by:${currentProfileNpub}(?=\\s|$)`, 'gi');
     if (rx.test(query)) {
       const updated = query.replace(rx, (m, pre) => `${pre}by:${nip05}`).replace(/\s{2,}/g, ' ').trim();
       if (updated !== query) setQuery(updated);
