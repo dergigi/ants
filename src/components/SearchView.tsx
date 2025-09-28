@@ -2013,44 +2013,59 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             onToggle={() => {
               const newEnabled = !profileScopingEnabled;
               setProfileScopingEnabled(newEnabled);
-              
+
               // Reset manual disable flag when toggling
               setUserManuallyDisabledScoping(false);
-              
+
               // Update the search box content without triggering search
               suppressSearchRef.current = true;
               const currentProfileNpub = getCurrentProfileNpub(pathname);
               if (currentProfileNpub) {
                 const currentQuery = query.trim();
-                // Detect by:<token> where token can be npub or nip05 and specifically check for ours
                 const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-                const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-                let hasOurBy = false;
-                let m: RegExpExecArray | null;
-                while ((m = rx.exec(currentQuery)) !== null) {
-                  const token = (m[2] || '').toLowerCase();
-                  if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
-                    hasOurBy = true; break;
-                  }
+
+                // Determine the by: value to use
+                let byValue = currentProfileNpub;
+                if (nip05) {
+                  byValue = nip05;
                 }
-                
-                if (newEnabled && !hasOurBy) {
-                  // Add by: filter
-                  let byValue = currentProfileNpub;
-                  if (profileScopeUser?.profile?.nip05) {
-                    byValue = profileScopeUser.profile.nip05;
+
+                // Check if query already has any by: filter
+                const hasByFilter = /(^|\s)by:\S+(?=\s|$)/i.test(currentQuery);
+
+                if (newEnabled) {
+                  if (hasByFilter) {
+                    // Replace existing by: filter with our profile's by: filter
+                    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+                    const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
+                      const t = (token || '').toLowerCase();
+                      // If it's our profile's token, replace it; otherwise keep the existing one
+                      if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
+                        return `${pre}by:${byValue}`;
+                      }
+                      return full; // keep other authors' by:
+                    });
+                    setQuery(updatedQuery);
+                  } else {
+                    // No by: filter, append to end
+                    const updatedQuery = currentQuery ? `${currentQuery} by:${byValue}` : `by:${byValue}`;
+                    setQuery(updatedQuery.trim());
                   }
-                  setQuery(`${currentQuery} by:${byValue}`.trim());
-                } else if (!newEnabled && hasOurBy) {
-                  // Remove by: filter
-                  const cleanedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
-                    const t = (token || '').toLowerCase();
-                    if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
-                      return pre ? pre : '';
-                    }
-                    return full; // keep other authors' by:
-                  }).replace(/\s{2,}/g, ' ').trim();
-                  setQuery(cleanedQuery);
+                } else {
+                  // Disable: remove only our profile's by: filter
+                  if (hasByFilter) {
+                    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+                    const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
+                      const t = (token || '').toLowerCase();
+                      // Only remove if it's our profile's token
+                      if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
+                        return pre ? pre : '';
+                      }
+                      return full; // keep other authors' by:
+                    }).replace(/\s{2,}/g, ' ').trim();
+                    setQuery(updatedQuery);
+                  }
+                  // If no by: filter, do nothing (already disabled)
                 }
                 // Release suppression on next tick
                 setTimeout(() => { suppressSearchRef.current = false; }, 0);
