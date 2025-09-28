@@ -25,6 +25,7 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
+import RelayIndicator from '@/components/RelayIndicator';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -2163,20 +2164,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       {/* Client-side filters with relay indicator */}
       {(loading || results.length > 0) && (
         <div className="flex items-center gap-3">
-          {/* Connection status indicator */}
-          <button
-            type="button"
-            className="w-3 h-3 touch-manipulation"
-            onClick={() => setShowConnectionDetails(!showConnectionDetails)}
-            title={formatConnectionTooltip(connectionDetails)}
-          >
-            <div className="relative w-3 h-3">
-              <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                connectionStatus === 'connected' ? 'bg-green-400' : 
-                connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-              }`} />
-            </div>
-          </button>
+          <RelayIndicator
+            connectionStatus={connectionStatus}
+            connectionDetails={connectionDetails}
+            showConnectionDetails={showConnectionDetails}
+            onToggle={() => setShowConnectionDetails(!showConnectionDetails)}
+            formatConnectionTooltip={formatConnectionTooltip}
+          />
           
           <ClientFilters
             filterSettings={filterSettings}
