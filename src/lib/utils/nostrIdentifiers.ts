@@ -119,7 +119,6 @@ export type Nip19Pointer =
   | { type: 'naddr'; pubkey: string; identifier: string; kind: number; relays?: string[] }
   | { type: 'nprofile'; pubkey: string; relays?: string[] }
   | { type: 'npub'; pubkey: string }
-  | { type: 'nrelay'; relay: string }
   | { type: 'nsec' };
 
 export function decodeNip19Pointer(identifier: string): Nip19Pointer | null {
@@ -157,8 +156,6 @@ export function decodeNip19Pointer(identifier: string): Nip19Pointer | null {
         };
       case 'npub':
         return { type: 'npub', pubkey: decoded.data as string };
-      case 'nrelay':
-        return { type: 'nrelay', relay: decoded.data as string };
       case 'nsec':
         return { type: 'nsec' };
       default:
