@@ -75,8 +75,11 @@ const createConnectionStatus = (connectedRelays: string[], connectingRelays: str
 };
 
 // Helper function to finalize connection result
-const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: string[], failedRelays: string[], timeout: boolean): ConnectionStatus => {
+const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: string[], failedRelays: string[], timeout: boolean, relayPings?: Map<string, number>): ConnectionStatus => {
   const result = createConnectionStatus(connectedRelays, connectingRelays, failedRelays, timeout);
+  if (relayPings) {
+    result.relayPings = relayPings;
+  }
   updateConnectionStatus(result);
   startRelayMonitoring();
   return result;
@@ -98,6 +101,7 @@ export interface ConnectionStatus {
   connectingRelays: string[];
   failedRelays: string[];
   timeout: boolean;
+  relayPings?: Map<string, number>; // Relay URL -> ping time in ms
 }
 
 // Global connection status for dynamic updates
@@ -124,10 +128,76 @@ const updateConnectionStatus = (status: ConnectionStatus) => {
 // Track recent relay activity (last event timestamp per relay)
 const recentRelayActivity: Map<string, number> = new Map();
 
+// Track relay ping times
+const relayPings: Map<string, number> = new Map();
+
 // Public helper to record relay activity when an event is received
 export function markRelayActivity(relayUrl: string): void {
   if (!relayUrl) return;
   recentRelayActivity.set(relayUrl, Date.now());
+}
+
+// Measure ping time for a specific relay
+async function measureRelayPing(relayUrl: string): Promise<number> {
+  try {
+    const relay = ndk.pool?.relays?.get(relayUrl);
+    if (!relay || relay.status !== 1) {
+      return -1; // Not connected
+    }
+
+    const startTime = performance.now();
+    
+    // Send a simple REQ message and wait for EOSE
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(-1); // Timeout
+      }, 5000); // 5 second timeout
+
+      const sub = relay.subscribe([{ kinds: [1], limit: 1 }], {
+        closeOnEose: true,
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
+      });
+
+      sub.on('eose', () => {
+        clearTimeout(timeout);
+        const pingTime = Math.round(performance.now() - startTime);
+        relayPings.set(relayUrl, pingTime);
+        resolve(pingTime);
+      });
+
+      sub.on('error', () => {
+        clearTimeout(timeout);
+        resolve(-1);
+      });
+
+      // Start the subscription
+      sub.start();
+    });
+  } catch {
+    return -1;
+  }
+}
+
+// Measure ping times for all connected relays
+async function measureAllRelayPings(): Promise<Map<string, number>> {
+  const connectedRelays = Array.from(ndk.pool?.relays?.keys() || [])
+    .filter(url => ndk.pool?.relays?.get(url)?.status === 1);
+
+  const pingPromises = connectedRelays.map(async (url) => {
+    const ping = await measureRelayPing(url);
+    return { url, ping };
+  });
+
+  const results = await Promise.all(pingPromises);
+  const pingMap = new Map<string, number>();
+  
+  results.forEach(({ url, ping }) => {
+    if (ping > 0) {
+      pingMap.set(url, ping);
+    }
+  });
+
+  return pingMap;
 }
 
 const ACTIVITY_WINDOW_MS = 15 * 60 * 1000; // consider relays active if they delivered events in the last 15min
@@ -143,7 +213,7 @@ export function getRecentlyActiveRelays(windowMs: number = ACTIVITY_WINDOW_MS): 
   return urls.sort((a, b) => a.localeCompare(b));
 }
 
-const checkRelayStatus = (): ConnectionStatus => {
+const checkRelayStatus = async (): Promise<ConnectionStatus> => {
   const connectedRelays: string[] = [];
   const connectingRelays: string[] = [];
   const failedRelays: string[] = [];
@@ -179,12 +249,16 @@ const checkRelayStatus = (): ConnectionStatus => {
     }
   }
   
+  // Measure ping times for connected relays
+  const relayPings = connectedRelays.length > 0 ? await measureAllRelayPings() : new Map();
+  
   return {
     success: connectedRelays.length > 0,
     connectedRelays,
     connectingRelays,
     failedRelays,
-    timeout: false
+    timeout: false,
+    relayPings
   };
 };
 
@@ -194,8 +268,8 @@ let relayMonitorInterval: NodeJS.Timeout | null = null;
 export const startRelayMonitoring = () => {
   if (relayMonitorInterval) return; // Already monitoring
   
-  relayMonitorInterval = setInterval(() => {
-    const currentStatus = checkRelayStatus();
+  relayMonitorInterval = setInterval(async () => {
+    const currentStatus = await checkRelayStatus();
     if (globalConnectionStatus) {
       // Only update if status changed
       const statusChanged = 
@@ -241,21 +315,21 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check which relays actually connected
-    const status = checkRelayStatus();
+    const status = await checkRelayStatus();
     // Do not change the example on connect; keep current selection
     console.log('Connected to relays:', { connected: status.connectedRelays, connecting: status.connectingRelays, failed: status.failedRelays, example: currentSearchExample });
     
-    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false);
+    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false, status.relayPings);
   } catch (error) {
     console.warn('NDK connection failed or timed out:', error);
     timeout = true;
     
     // Check which relays we can still access
-    const status = checkRelayStatus();
+    const status = await checkRelayStatus();
     // Do not change the example on failed connect either
     console.log('Using fallback example:', currentSearchExample);
     
-    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout);
+    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout, status.relayPings);
   }
 };
 

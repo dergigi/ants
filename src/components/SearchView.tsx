@@ -33,7 +33,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals, faCheckCircle, faClock, faTimesCircle, faSpinner, faWifi, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -2122,17 +2122,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 if (combined.length === 0) return null;
                 return (
                   <div className="mb-2">
-                    <div className="text-green-400 font-medium mb-1 flex items-center gap-2">
-                      <FontAwesomeIcon icon={faCheckCircle} className="w-3 h-3" />
-                      Connected ({combined.length})
+                    <div className="text-green-400 font-medium mb-1">
+                      ✅ Reachable or active ({combined.length})
                     </div>
                     <div className="space-y-1">
-                      {combined.map((relay, idx) => (
-                        <div key={idx} className="text-gray-300 ml-2 flex items-center gap-2">
-                          <FontAwesomeIcon icon={faWifi} className="w-3 h-3 text-green-400" />
-                          {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
-                        </div>
-                      ))}
+                      {combined.map((relay, idx) => {
+                        const ping = connectionDetails?.relayPings?.get(relay);
+                        const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+                        return (
+                          <div key={idx} className="text-gray-300 ml-2">
+                            • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -2141,17 +2143,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               {/* Connecting relays */}
               {connectionDetails?.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
                 <div className="mb-2">
-                  <div className="text-yellow-400 font-medium mb-1 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faSpinner} className="w-3 h-3 animate-spin" />
-                    Connecting ({connectionDetails.connectingRelays.length})
+                  <div className="text-yellow-400 font-medium mb-1">
+                    🟡 Connecting ({connectionDetails.connectingRelays.length})
                   </div>
                   <div className="space-y-1">
-                    {connectionDetails.connectingRelays.map((relay, idx) => (
-                      <div key={idx} className="text-gray-300 ml-2 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faClock} className="w-3 h-3 text-yellow-400" />
-                        {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
-                      </div>
-                    ))}
+                    {connectionDetails.connectingRelays.map((relay, idx) => {
+                      const ping = connectionDetails?.relayPings?.get(relay);
+                      const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+                      return (
+                        <div key={idx} className="text-gray-300 ml-2">
+                          • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2162,17 +2166,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 if (failedFiltered.length === 0) return null;
                 return (
                   <div>
-                    <div className="text-red-400 font-medium mb-1 flex items-center gap-2">
-                      <FontAwesomeIcon icon={faTimesCircle} className="w-3 h-3" />
-                      Failed ({failedFiltered.length})
+                    <div className="text-red-400 font-medium mb-1">
+                      ❌ Failed ({failedFiltered.length})
                     </div>
                     <div className="space-y-1">
-                      {failedFiltered.map((relay, idx) => (
-                        <div key={idx} className="text-gray-300 ml-2 flex items-center gap-2">
-                          <FontAwesomeIcon icon={faBan} className="w-3 h-3 text-red-400" />
-                          {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}
-                        </div>
-                      ))}
+                      {failedFiltered.map((relay, idx) => {
+                        const ping = connectionDetails?.relayPings?.get(relay);
+                        const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+                        return (
+                          <div key={idx} className="text-gray-300 ml-2">
+                            • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
