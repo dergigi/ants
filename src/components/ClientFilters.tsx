@@ -28,6 +28,7 @@ interface Props {
   resultCount: number;
   filteredCount: number;
   emojiAutoDisabled?: boolean;
+  showButton?: boolean;
 }
 
 // Reusable NumberFilter component
@@ -71,7 +72,7 @@ function NumberFilter({ label, enabled, value, maxValue, onToggle, onValueChange
   );
 }
 
-export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, emojiAutoDisabled = false }: Props) {
+export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, emojiAutoDisabled = false, showButton = true }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
@@ -134,37 +135,39 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
 
   return (
     <div className="w-full">
-      {/* Always show the button */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`flex items-center gap-2 text-sm transition-colors ${
-            filtersAreActive 
-              ? 'text-blue-400 hover:text-blue-300' 
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          <FontAwesomeIcon 
-            icon={faFilter} 
-            className={`w-3 h-3 ${
+      {/* Show button only if showButton is true */}
+      {showButton && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`flex items-center gap-2 text-sm transition-colors ${
+              filtersAreActive 
+                ? 'text-blue-400 hover:text-blue-300' 
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <FontAwesomeIcon 
+              icon={faFilter} 
+              className={`w-3 h-3 ${
+                filtersAreActive 
+                  ? 'text-blue-400' 
+                  : 'text-gray-500'
+              }`} 
+            />
+            <span className={`text-xs ${
               filtersAreActive 
                 ? 'text-blue-400' 
-                : 'text-gray-500'
-            }`} 
-          />
-          <span className={`text-xs ${
-            filtersAreActive 
-              ? 'text-blue-400' 
-              : 'text-gray-400'
-          }`}>
-            {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
-          </span>
-          <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
-        </button>
-      </div>
+                : 'text-gray-400'
+            }`}>
+              {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
+            </span>
+            <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
-      {/* Expanded content - shows below button when expanded */}
-      {isExpanded && (
+      {/* Expanded content - shows below button when expanded or always if no button */}
+      {(isExpanded || !showButton) && (
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
