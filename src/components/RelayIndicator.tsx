@@ -40,7 +40,7 @@ export default function RelayIndicator({
       </span>
       <FontAwesomeIcon 
         icon={showConnectionDetails ? faChevronUp : faChevronDown} 
-        className="text-[10px] text-gray-500" 
+        className="w-3 h-3" 
       />
     </button>
   );
