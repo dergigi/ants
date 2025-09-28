@@ -636,6 +636,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    // Prevent any side-effects from interpreting this edit as a search trigger
+    suppressSearchRef.current = true;
     setQuery(newValue);
 
     // Detect if user manually removed the by:<current npub or nip05> filter
@@ -656,6 +658,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setProfileScopingEnabled(false);
       }
     }
+    // Release suppression on next tick so explicit submit still works
+    setTimeout(() => { suppressSearchRef.current = false; }, 0);
   }, [setQuery, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping]);
 
   // Memoized client-side filtered results (for count and rendering)
