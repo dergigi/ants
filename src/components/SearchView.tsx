@@ -2182,7 +2182,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           )}
 
           {showFilterDetails && (
-            <div className="mt-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3 w-full">
+            <div className="mt-2">
               <ClientFilters
                 filterSettings={filterSettings}
                 onFilterChange={setFilterSettings}
