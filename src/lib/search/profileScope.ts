@@ -7,6 +7,8 @@ export type ProfileScopeIdentifiers = {
   normalizedIdentifier: string;
   normalizedNpub: string;
   normalizedNip05?: string;
+  hasNip05: boolean;
+  profileIdentifier: string;
 };
 
 const BY_TOKEN_REGEX = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/gi;
@@ -43,11 +45,22 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
   if (!currentProfileNpub) return null;
   const nip05Raw = extractNip05(user);
   const nip05 = sanitizeNip05(nip05Raw);
-  const identifier = nip05 ?? currentProfileNpub;
+  const hasNip05 = !!nip05;
+  const profileIdentifier = hasNip05 ? nip05! : currentProfileNpub;
+  const identifier = profileIdentifier;
   const normalizedIdentifier = normalizeIdentifier(identifier);
   const normalizedNpub = normalizeIdentifier(currentProfileNpub);
   const normalizedNip05 = nip05 ? normalizeIdentifier(nip05) : undefined;
-  return { npub: currentProfileNpub, nip05, identifier, normalizedIdentifier, normalizedNpub, normalizedNip05 };
+  return { 
+    npub: currentProfileNpub, 
+    nip05, 
+    identifier, 
+    normalizedIdentifier, 
+    normalizedNpub, 
+    normalizedNip05,
+    hasNip05,
+    profileIdentifier
+  };
 }
 
 function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers): boolean {
@@ -59,7 +72,7 @@ function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers
   return false;
 }
 
-export function hasProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
+export function containsProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
   BY_TOKEN_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = BY_TOKEN_REGEX.exec(query)) !== null) {
@@ -70,8 +83,12 @@ export function hasProfileScope(query: string, identifiers: ProfileScopeIdentifi
   return false;
 }
 
+export function hasProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
+  return containsProfileScope(query, identifiers);
+}
+
 export function replaceProfileScopeIdentifier(query: string, identifiers: ProfileScopeIdentifiers): string {
-  const value = identifiers.identifier;
+  const value = identifiers.profileIdentifier;
   BY_TOKEN_REGEX.lastIndex = 0;
   const replaced = query.replace(BY_TOKEN_REGEX, (full, pre, token) => {
     return tokenMatchesProfile(token || '', identifiers) ? `${pre || ''}by:${value}` : full;
@@ -81,10 +98,10 @@ export function replaceProfileScopeIdentifier(query: string, identifiers: Profil
 
 export function addProfileScope(query: string, identifiers: ProfileScopeIdentifiers): string {
   const trimmed = query.trim();
-  if (hasProfileScope(trimmed, identifiers)) {
+  if (containsProfileScope(trimmed, identifiers)) {
     return replaceProfileScopeIdentifier(trimmed, identifiers);
   }
-  const value = identifiers.identifier;
+  const value = identifiers.profileIdentifier;
   if (!trimmed) return `by:${value}`;
   const tokens = trimmed.split(/\s+/);
   for (const token of tokens) {
