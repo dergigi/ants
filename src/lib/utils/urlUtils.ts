@@ -1,3 +1,5 @@
+import { isMobileViewport } from '@/lib/utils/ssr';
+
 // Centralized URL utilities (DRY approach)
 // Consolidates all URL handling logic from across the codebase
 
