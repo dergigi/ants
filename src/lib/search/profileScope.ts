@@ -17,13 +17,9 @@ type Nip05Like = string | { url?: string | undefined } | undefined;
 
 function sanitizeNip05(value?: string): string | undefined {
   if (!value) return undefined;
-  let trimmed = value.trim();
-  trimmed = trimmed.replace(/^_+/, '');
-  if (!trimmed) return undefined;
-  if (!trimmed.startsWith('@') && trimmed.includes('@')) {
-    trimmed = `@${trimmed}`;
-  }
-  return trimmed;
+  const normalized = normalizeIdentifier(value);
+  if (!normalized) return undefined;
+  return normalized;
 }
 
 function normalizeIdentifier(value?: string): string {
@@ -50,7 +46,7 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
   const identifier = profileIdentifier;
   const normalizedIdentifier = normalizeIdentifier(identifier);
   const normalizedNpub = normalizeIdentifier(currentProfileNpub);
-  const normalizedNip05 = nip05 ? normalizeIdentifier(nip05) : undefined;
+  const normalizedNip05 = nip05; // nip05 is already normalized by sanitizeNip05
   
   return { 
     npub: currentProfileNpub, 
