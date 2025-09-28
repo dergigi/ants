@@ -13,7 +13,8 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
-import { shortenNevent, shortenNpub, extractDomainFromUrl } from '@/lib/utils';
+import { shortenNevent, shortenNpub } from '@/lib/utils';
+import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
 
@@ -247,21 +248,29 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                     </button>
                     {sourceUrl ? (
                       // r tag - external URL
-                      <>
-                        <span className="font-medium">Source:</span>{' '}
-                        <SearchButton query={sourceUrl}>
-                          {extractDomainFromUrl(sourceUrl)}
-                        </SearchButton>
-                        <a
-                          href={sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-1 text-gray-500 hover:text-gray-400"
-                          title="Open in new tab"
-                        >
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-                        </a>
-                      </>
+                      (() => {
+                        const { displayText, fullUrl } = formatUrlResponsive(sourceUrl, {
+                          desktopMaxLength: 42,
+                          mobileMaxLength: 28
+                        });
+                        return (
+                          <>
+                            <span className="font-medium">Source:</span>{' '}
+                            <SearchButton query={fullUrl}>
+                              {displayText}
+                            </SearchButton>
+                            <a
+                              href={fullUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-1 text-gray-500 hover:text-gray-400"
+                              title="Open in new tab"
+                            >
+                              <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
+                            </a>
+                          </>
+                        );
+                      })()
                     ) : sourceEvent ? (
                       // a or e tag - nostr event
                       (() => {

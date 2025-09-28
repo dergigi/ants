@@ -11,6 +11,16 @@ export function isBrowser(): boolean {
 }
 
 /**
+ * Checks if the current viewport width is considered mobile
+ * @param breakpoint - Optional breakpoint width (default: 768px)
+ * @returns true if running in browser and viewport width is below breakpoint
+ */
+export function isMobileViewport(breakpoint: number = 768): boolean {
+  if (!isBrowser()) return false;
+  return window.innerWidth < breakpoint;
+}
+
+/**
  * Safely executes a function only in browser environment
  * @param fn - Function to execute
  * @param fallback - Value to return if not in browser
