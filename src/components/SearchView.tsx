@@ -2013,22 +2013,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 </svg>
               </button>
             )}
-            {/* Connection status indicator - always visible */}
-            <button
-              type="button"
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
-              onClick={() => setShowConnectionDetails(!showConnectionDetails)}
-              title={formatConnectionTooltip(connectionDetails)}
-            >
-              <div className="relative w-3 h-3">
-                {/* Mask to hide underlying text/underline */}
-                <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
-                <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                  connectionStatus === 'connected' ? 'bg-green-400' : 
-                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                }`} />
-              </div>
-            </button>
           </div>
           <button 
             type={showExternalButton ? "button" : "submit"} 
@@ -2176,15 +2160,32 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Command output will be injected as first result card below */}
 
-      {/* Client-side filters */}
+      {/* Client-side filters with relay indicator */}
       {(loading || results.length > 0) && (
-        <ClientFilters
-          filterSettings={filterSettings}
-          onFilterChange={setFilterSettings}
-          resultCount={results.length}
-          filteredCount={fuseFilteredResults.length}
-          emojiAutoDisabled={emojiAutoDisabled}
-        />
+        <div className="flex items-center gap-3">
+          {/* Connection status indicator */}
+          <button
+            type="button"
+            className="w-3 h-3 touch-manipulation"
+            onClick={() => setShowConnectionDetails(!showConnectionDetails)}
+            title={formatConnectionTooltip(connectionDetails)}
+          >
+            <div className="relative w-3 h-3">
+              <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
+                connectionStatus === 'connected' ? 'bg-green-400' : 
+                connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
+              }`} />
+            </div>
+          </button>
+          
+          <ClientFilters
+            filterSettings={filterSettings}
+            onFilterChange={setFilterSettings}
+            resultCount={results.length}
+            filteredCount={fuseFilteredResults.length}
+            emojiAutoDisabled={emojiAutoDisabled}
+          />
+        </div>
       )}
 
       {/* Textbox moved inside ClientFilters 'Show:' section */}
