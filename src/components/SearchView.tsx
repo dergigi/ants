@@ -1965,7 +1965,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <ProfileScopeIndicator 
             user={profileScopeUser} 
             isEnabled={profileScopingEnabled}
-            onToggle={() => setProfileScopingEnabled(!profileScopingEnabled)}
+            onToggle={() => {
+              const newEnabled = !profileScopingEnabled;
+              setProfileScopingEnabled(newEnabled);
+              
+              // Update the search box content without triggering search
+              const currentProfileNpub = getCurrentProfileNpub(pathname);
+              if (currentProfileNpub) {
+                const currentQuery = query.trim();
+                const hasExplicitBy = /(^|\s)by:\S+(?=\s|$)/i.test(currentQuery);
+                
+                if (newEnabled && !hasExplicitBy) {
+                  // Add by: filter
+                  let byValue = currentProfileNpub;
+                  if (profileScopeUser?.profile?.nip05) {
+                    byValue = profileScopeUser.profile.nip05;
+                  }
+                  setQuery(`${currentQuery} by:${byValue}`.trim());
+                } else if (!newEnabled && hasExplicitBy) {
+                  // Remove by: filter
+                  const cleanedQuery = currentQuery.replace(/(^|\s)by:\S+(?=\s|$)/i, '').trim();
+                  setQuery(cleanedQuery);
+                }
+              }
+            }}
           />
           <div className="flex-1 relative">
             <input
