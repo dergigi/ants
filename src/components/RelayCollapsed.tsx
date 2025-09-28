@@ -1,7 +1,7 @@
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faServer, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faServer, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayCollapsedProps {
   connectionStatus: 'connecting' | 'connected' | 'timeout';
@@ -10,6 +10,7 @@ interface RelayCollapsedProps {
   onExpand: () => void;
   formatConnectionTooltip: (details: any) => string;
   connectionDetails: any;
+  isExpanded?: boolean;
 }
 
 export default function RelayCollapsed({
@@ -18,7 +19,8 @@ export default function RelayCollapsed({
   totalCount,
   onExpand,
   formatConnectionTooltip,
-  connectionDetails
+  connectionDetails,
+  isExpanded = false
 }: RelayCollapsedProps) {
   return (
     <button
@@ -37,7 +39,7 @@ export default function RelayCollapsed({
       <span className="text-xs">
         {connectedCount}/{totalCount}
       </span>
-      <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
+      <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
     </button>
   );
 }

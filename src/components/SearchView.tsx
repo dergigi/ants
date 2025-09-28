@@ -2096,9 +2096,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               connectionStatus={connectionStatus}
               connectedCount={connectionDetails?.connectedRelays?.length || 0}
               totalCount={(connectionDetails?.connectedRelays?.length || 0) + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0)}
-              onExpand={() => setShowConnectionDetails(true)}
+              onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               formatConnectionTooltip={formatConnectionTooltip}
               connectionDetails={connectionDetails}
+              isExpanded={showConnectionDetails}
             />
 
             <FilterCollapsed
@@ -2114,15 +2115,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           {/* Expanded views - below button row, full width */}
           {showConnectionDetails && connectionDetails && (
             <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
-              <div className="flex items-center justify-end mb-2">
-                <button
-                  type="button"
-                  onClick={() => setShowConnectionDetails(false)}
-                  className="text-gray-400 hover:text-gray-200"
-                >
-                  ✕
-                </button>
-              </div>
               
               {/* Reachable: union of live-connected and recently-active relays */}
               {(() => {
