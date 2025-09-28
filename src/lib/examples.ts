@@ -19,7 +19,6 @@ export const searchExamples = [
   'by:corndalorian',
   'by:fiatjaf',
   'by:snowden',
-  'by:plato',
   'by:socrates',
 
   // Combined
@@ -42,6 +41,7 @@ export const searchExamples = [
   '"GM PV" by:derek',
   'free by:ross',
   'freedom by:ulbricht',
+  'knowledge by:platobot@dergigi.com',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -56,7 +56,8 @@ export const searchExamples = [
   'p:nostrplebs.com',
   'p:dave',
   'p:edward',
-  'p:(NewsBot or RSS)',
+  'p:platobot@dergigi.com',
+  'p:NewsBot or p:RSS',
   'p:twentyone.world',
   'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
@@ -81,6 +82,7 @@ export const searchExamples = [
   'by:HODL has:video',
   'Gregzaj1-ln_strike.gif',
   'giphy.gif',
+  'giphy.GIF',
   'by:gregzaj has:gif',
   '(GM OR GN) by:dergigi has:image',
   'is:image #Olas365',
