@@ -31,7 +31,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -2050,8 +2050,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         </div>
         
         {translation && (
-          <div id="search-explanation" className="mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap">
-            {translation}
+          <div id="search-explanation" className="mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2">
+            <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
+            <span>{translation}</span>
           </div>
         )}
 
