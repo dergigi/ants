@@ -24,7 +24,7 @@ export default function RelayIndicator({
   return (
     <button
       type="button"
-      className="flex items-center gap-1 touch-manipulation"
+      className="flex items-center gap-2 touch-manipulation"
       onClick={onToggle}
       title={formatConnectionTooltip(connectionDetails)}
     >
@@ -40,7 +40,7 @@ export default function RelayIndicator({
       </span>
       <FontAwesomeIcon 
         icon={showConnectionDetails ? faChevronUp : faChevronDown} 
-        className="w-3 h-3" 
+        className="w-3 h-3 text-gray-400" 
       />
     </button>
   );
