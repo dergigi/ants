@@ -2,14 +2,15 @@
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faServer, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { ConnectionStatus } from '@/lib/ndk';
 
 interface RelayCollapsedProps {
   connectionStatus: 'connecting' | 'connected' | 'timeout';
   connectedCount: number;
   totalCount: number;
   onExpand: () => void;
-  formatConnectionTooltip: (details: any) => string;
-  connectionDetails: any;
+  formatConnectionTooltip: (details: ConnectionStatus | null) => string;
+  connectionDetails: ConnectionStatus | null;
   isExpanded?: boolean;
 }
 
