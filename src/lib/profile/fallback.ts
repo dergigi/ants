@@ -6,11 +6,12 @@ import {
   countFollowerMentions, 
   extractProfileFields 
 } from './utils';
+import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
 
 // Fallback profile lookup using NIP-50 search
 export async function fallbackLookupProfile(username: string): Promise<NDKEvent | null> {
   // 1) Search kind 0 profiles by username term
-  const profiles = await subscribeAndCollectProfiles({ kinds: [0], search: username, limit: 21 });
+  const profiles = await subscribeAndCollectProfiles({ kinds: [0], search: username, limit: PROFILE_SEARCH_MAX_RESULTS });
   if (profiles.length === 0) return null;
 
   // Prefer exact name/display_name match when available

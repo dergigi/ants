@@ -954,7 +954,7 @@ export async function searchEvents(
     }
     // Otherwise, do a general full-text profile search
     try {
-      const profiles = await searchProfilesFullText(term, 21);
+      const profiles = await searchProfilesFullText(term);
       return profiles;
     } catch (error) {
       console.warn('Full-text profile search failed:', error);
