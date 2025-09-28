@@ -482,6 +482,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastPointerRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
@@ -752,7 +753,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const pointerLower = pointerToken ? pointerToken.toLowerCase() : null;
     const firstPointer = pointerLower ? decodeNip19Pointer(pointerLower) : null;
 
-    if (pointerLower && firstPointer) {
+    if (pointerLower && pointerLower === lastPointerRedirectRef.current) {
+      lastPointerRedirectRef.current = null;
+    } else if (pointerLower && firstPointer) {
       const stripped = normalizedInput
         .replace(/^web\+nostr:/i, '')
         .replace(/^nostr:/i, '')
@@ -771,10 +774,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
 
         if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
+          lastPointerRedirectRef.current = pointerLower;
           router.push(`/e/${pointerLower}`);
           return;
         }
         if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
+          lastPointerRedirectRef.current = pointerLower;
           router.push(`/p/${pointerLower}`);
           return;
         }
