@@ -77,7 +77,7 @@ function ProfileScopeIndicator({
       <button
         type="button"
         onClick={onToggle}
-        className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all duration-200 hover:opacity-80 ${
+        className={`w-10 h-10 rounded-lg overflow-hidden border transition-all duration-200 hover:opacity-80 ${
           isEnabled
             ? 'bg-[#3d3d3d] border-green-400 shadow-sm'
             : 'bg-[#2d2d2d] border-gray-600 opacity-50 grayscale'
