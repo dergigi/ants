@@ -7,7 +7,8 @@ export const searchExamples = [
   '#YESTR',
   '#SovEng',
   '#gratefulchain',
-  '#dogstr or #pugstr or #catstr or #horsestr or #goatstr',
+  '#photography',
+  '#artstr',
   'nevent',
   'habla.news',
   
@@ -94,6 +95,9 @@ export const searchExamples = [
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
+
+  // Multiple hashtags
+  '#dogstr or #pugstr or #horsestr or #goatstr',
 
   // NIP-50 extensions
   'bitcoin include:spam',
