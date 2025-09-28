@@ -764,19 +764,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    // Create NDKUser for the profile scope
-    try {
-      const decoded = nip19.decode(currentProfileNpub);
-      if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
-        const user = new NDKUser({ pubkey: decoded.data });
-        user.ndk = ndk;
-        setProfileScopeUser(user);
-      } else {
+    // Create NDKUser for the profile scope and fetch profile
+    const setupProfileUser = async () => {
+      try {
+        const decoded = nip19.decode(currentProfileNpub);
+        if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
+          const user = new NDKUser({ pubkey: decoded.data });
+          user.ndk = ndk;
+          // Fetch the profile to get the image
+          try {
+            await user.fetchProfile();
+          } catch {
+            // Continue even if profile fetch fails
+          }
+          setProfileScopeUser(user);
+        } else {
+          setProfileScopeUser(null);
+        }
+      } catch {
         setProfileScopeUser(null);
       }
-    } catch {
-      setProfileScopeUser(null);
-    }
+    };
+
+    setupProfileUser();
   }, [manageUrl, pathname, query, ndk]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
