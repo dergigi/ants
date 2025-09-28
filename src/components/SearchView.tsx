@@ -61,12 +61,29 @@ function SearchIconButton({
 }
 
 // Profile scope indicator component
-function ProfileScopeIndicator({ user }: { user: NDKUser | null }) {
+function ProfileScopeIndicator({ 
+  user, 
+  isEnabled, 
+  onToggle 
+}: { 
+  user: NDKUser | null; 
+  isEnabled: boolean; 
+  onToggle: () => void; 
+}) {
   if (!user) return null;
 
   return (
     <div className="flex items-center">
-      <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-10 h-10 rounded-lg overflow-hidden border transition-all duration-200 hover:opacity-80 ${
+          isEnabled 
+            ? 'bg-[#3d3d3d] border-[#3d3d3d]' 
+            : 'bg-[#2d2d2d] border-[#5d5d5d] opacity-60'
+        }`}
+        title={isEnabled ? 'Disable profile scoping' : 'Enable profile scoping'}
+      >
         {user.profile?.image ? (
           <Image
             src={trimImageUrl(user.profile.image)}
@@ -81,7 +98,7 @@ function ProfileScopeIndicator({ user }: { user: NDKUser | null }) {
             {(user.profile?.displayName || user.profile?.name || shortenNpub(user.npub)).slice(0, 2).toUpperCase()}
           </div>
         )}
-      </div>
+      </button>
     </div>
   );
 }
@@ -769,6 +786,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [updateUrlForSearch]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
+  const [profileScopingEnabled, setProfileScopingEnabled] = useState(true);
 
   useEffect(() => {
     if (!manageUrl) {
@@ -930,7 +948,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const expanded = await applySimpleReplacements(effectiveQuery);
       const currentProfileNpub = getCurrentProfileNpub(pathname);
-      const scopedQuery = ensureAuthorForBackend(expanded, currentProfileNpub);
+      const scopedQuery = profileScopingEnabled ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
       const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
@@ -1144,7 +1162,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+    if (currentProfileNpub && profileScopingEnabled && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
       // Try to use NIP-05 if available, otherwise fall back to npub
       let byValue = currentProfileNpub;
       if (profileScopeUser?.profile?.nip05) {
@@ -1158,7 +1176,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         // Update URL immediately
         updateUrlForSearch(displayVal);
         // Backend search should include implicit author on profile pages
-        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
+        const backend = profileScopingEnabled ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
         handleSearch(backend.trim());
       } else {
         const params = new URLSearchParams(searchParams.toString());
@@ -1944,7 +1962,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
-          <ProfileScopeIndicator user={profileScopeUser} />
+          <ProfileScopeIndicator 
+            user={profileScopeUser} 
+            isEnabled={profileScopingEnabled}
+            onToggle={() => setProfileScopingEnabled(!profileScopingEnabled)}
+          />
           <div className="flex-1 relative">
             <input
               ref={searchInputRef}
