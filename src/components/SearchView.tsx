@@ -31,7 +31,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -497,6 +497,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
@@ -2050,9 +2051,45 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         </div>
         
         {translation && (
-          <div id="search-explanation" className="mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2">
+          <div 
+            id="search-explanation" 
+            className={`mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2 ${
+              translation.split('\n').length > 2 ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
+            }`}
+            onClick={() => {
+              if (translation.split('\n').length > 2) {
+                setIsExplanationExpanded(!isExplanationExpanded);
+              }
+            }}
+          >
             <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
-            <span>{translation}</span>
+            <div className="flex-1">
+              {translation.split('\n').length > 2 && !isExplanationExpanded ? (
+                <>
+                  <div className="overflow-hidden" style={{ 
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {translation.split('\n').slice(0, 2).join('\n')}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 text-gray-500">
+                    <FontAwesomeIcon icon={faChevronRight} className="text-[10px]" />
+                    <span className="text-[10px]">Show more</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span>{translation}</span>
+                  {translation.split('\n').length > 2 && (
+                    <div className="flex items-center gap-1 mt-1 text-gray-500">
+                      <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
+                      <span className="text-[10px]">Show less</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
