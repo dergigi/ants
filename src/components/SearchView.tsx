@@ -2076,85 +2076,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           </div>
         )}
 
-        {/* Expandable connection details for mobile */}
-        {showConnectionDetails && connectionDetails && (
-          <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
-            <div className="flex items-center justify-end mb-2">
-              <button
-                type="button"
-                onClick={() => setShowConnectionDetails(false)}
-                className="text-gray-400 hover:text-gray-200"
-              >
-                ✕
-              </button>
-            </div>
-            
-            
-            {/* Reachable: union of live-connected and recently-active relays */}
-            {(() => {
-              const combined = Array.from(new Set([
-                ...connectionDetails.connectedRelays,
-                ...recentlyActive
-              ]));
-              if (combined.length === 0) return null;
-              return (
-                <div className="mb-2">
-                  <div className="text-green-400 font-medium mb-1">
-                    ✅ Reachable or active ({combined.length})
-                  </div>
-                  <div className="space-y-1">
-                    {combined.map((relay, idx) => (
-                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {/* Connecting relays */}
-            {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
-              <div className="mb-2">
-                <div className="text-yellow-400 font-medium mb-1">
-                  🟡 Connecting ({connectionDetails.connectingRelays.length})
-                </div>
-                <div className="space-y-1">
-                  {connectionDetails.connectingRelays.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {(() => {
-              const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
-              const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
-              if (failedFiltered.length === 0) return null;
-              return (
-                <div>
-                  <div className="text-red-400 font-medium mb-1">
-                    ❌ Failed ({failedFiltered.length})
-                  </div>
-                  <div className="space-y-1">
-                    {failedFiltered.map((relay, idx) => (
-                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {(() => {
-              const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
-              const anyFailed = connectionDetails.failedRelays.length > 0;
-              return (!anyReachable && !anyFailed) ? (
-              <div className="text-gray-400">
-                No relay connection information available
-              </div>
-              ) : null;
-            })()}
-
-          </div>
-        )}
         
         {/* Removed inline expanded-term filter buttons (gif/gifs/apng etc.) per design update */}
       </form>
@@ -2179,6 +2100,86 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             filteredCount={fuseFilteredResults.length}
             emojiAutoDisabled={emojiAutoDisabled}
           />
+        </div>
+      )}
+
+      {/* Expandable connection details - now shows below relay indicator */}
+      {showConnectionDetails && connectionDetails && (
+        <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
+          <div className="flex items-center justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => setShowConnectionDetails(false)}
+              className="text-gray-400 hover:text-gray-200"
+            >
+              ✕
+            </button>
+          </div>
+          
+          
+          {/* Reachable: union of live-connected and recently-active relays */}
+          {(() => {
+            const combined = Array.from(new Set([
+              ...connectionDetails.connectedRelays,
+              ...recentlyActive
+            ]));
+            if (combined.length === 0) return null;
+            return (
+              <div className="mb-2">
+                <div className="text-green-400 font-medium mb-1">
+                  ✅ Reachable or active ({combined.length})
+                </div>
+                <div className="space-y-1">
+                  {combined.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          {/* Connecting relays */}
+          {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
+            <div className="mb-2">
+              <div className="text-yellow-400 font-medium mb-1">
+                🟡 Connecting ({connectionDetails.connectingRelays.length})
+              </div>
+              <div className="space-y-1">
+                {connectionDetails.connectingRelays.map((relay, idx) => (
+                  <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {(() => {
+            const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
+            const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
+            if (failedFiltered.length === 0) return null;
+            return (
+              <div>
+                <div className="text-red-400 font-medium mb-1">
+                  ❌ Failed ({failedFiltered.length})
+                </div>
+                <div className="space-y-1">
+                  {failedFiltered.map((relay, idx) => (
+                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          {(() => {
+            const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
+            const anyFailed = connectionDetails.failedRelays.length > 0;
+            return (!anyReachable && !anyFailed) ? (
+            <div className="text-gray-400">
+              No relay connection information available
+            </div>
+            ) : null;
+          })()}
+
         </div>
       )}
 
