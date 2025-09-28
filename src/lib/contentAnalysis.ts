@@ -15,6 +15,18 @@ export function countEmojis(text: string): number {
 }
 
 /**
+ * Check if a search query contains multiple emojis
+ * This is used to disable the emoji filter when searching for emoji content
+ */
+export function isEmojiSearch(query: string): boolean {
+  if (!query) return false;
+  
+  const emojiRx = emojiRegex();
+  const matches = query.match(emojiRx);
+  return matches ? matches.length >= 2 : false;
+}
+
+/**
  * Count the number of hashtags in a text string
  */
 export function countHashtags(text: string): number {

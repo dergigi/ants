@@ -6,7 +6,7 @@ import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
-import { applyContentFilters } from '@/lib/contentAnalysis';
+import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { isAbsoluteHttpUrl, formatUrlForDisplay, extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
@@ -650,7 +650,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const filteredResults = useMemo(
     () => shouldEnableFilters ? applyContentFilters(
       results,
-      filterSettings.maxEmojis,
+      // Disable emoji filter when searching for multiple emojis
+      isEmojiSearch(query) ? null : filterSettings.maxEmojis,
       filterSettings.maxHashtags,
       filterSettings.maxMentions,
       filterSettings.hideLinks,
@@ -660,7 +661,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       filterSettings.hideBots,
       filterSettings.hideNsfw
     ) : results,
-    [results, shouldEnableFilters, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    [results, shouldEnableFilters, query, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
