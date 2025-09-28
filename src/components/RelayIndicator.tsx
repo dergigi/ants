@@ -24,7 +24,7 @@ export default function RelayIndicator({
     >
       <div className="relative w-3 h-3">
         <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-          connectionStatus === 'connected' ? 'bg-green-400' : 
+          connectionStatus === 'connected' ? 'bg-blue-400' : 
           connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
         }`} />
       </div>
