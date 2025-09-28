@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKRelaySet, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
@@ -26,6 +26,7 @@ import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -741,24 +742,42 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     updateUrlForSearch(query);
   }, [updateUrlForSearch]);
 
-  const [profileScopeNotice, setProfileScopeNotice] = useState<string | null>(null);
+  const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
 
   useEffect(() => {
     if (!manageUrl) {
-      setProfileScopeNotice(null);
+      setProfileScopeUser(null);
       return;
     }
 
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!currentProfileNpub) {
-      setProfileScopeNotice(null);
+      setProfileScopeUser(null);
       return;
     }
 
     const trimmedQuery = (query || '').trim();
     const hasExplicitScope = /(^|\s)by:\S+(?=\s|$)/i.test(trimmedQuery);
-    setProfileScopeNotice(hasExplicitScope ? null : shortenNpub(currentProfileNpub));
-  }, [manageUrl, pathname, query]);
+    
+    if (hasExplicitScope) {
+      setProfileScopeUser(null);
+      return;
+    }
+
+    // Create NDKUser for the profile scope
+    try {
+      const decoded = nip19.decode(currentProfileNpub);
+      if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
+        const user = new NDKUser({ pubkey: decoded.data });
+        user.ndk = ndk;
+        setProfileScopeUser(user);
+      } else {
+        setProfileScopeUser(null);
+      }
+    } catch {
+      setProfileScopeUser(null);
+    }
+  }, [manageUrl, pathname, query, ndk]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -1878,6 +1897,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
+          {profileScopeUser && (
+            <div className="flex items-center">
+              <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
+                {profileScopeUser.profile?.image ? (
+                  <Image
+                    src={trimImageUrl(profileScopeUser.profile.image)}
+                    alt="Profile"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
+                    {(profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || shortenNpub(profileScopeUser.npub)).slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex-1 relative">
             <input
               ref={searchInputRef}
@@ -1947,8 +1986,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <button 
             type={showExternalButton ? "button" : "submit"} 
             onClick={showExternalButton ? handleOpenExternal : undefined}
-            className={`px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors ${profileScopeNotice ? 'relative' : ''}`}
-            title={showExternalButton ? "Open URL in new tab" : profileScopeNotice ? `Searching in ${profileScopeNotice}'s posts` : "Search"}
+            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
+            title={showExternalButton ? "Open URL in new tab" : profileScopeUser ? `Searching in ${profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || shortenNpub(profileScopeUser.npub)}'s posts` : "Search"}
           >
             {loading ? (
               resolvingAuthor ? (
@@ -1960,11 +1999,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               <FontAwesomeIcon icon={faExternalLink} />
             ) : (
               <FontAwesomeIcon icon={faMagnifyingGlass} />
-            )}
-            {profileScopeNotice && (
-              <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full border border-blue-400">
-                {profileScopeNotice}
-              </div>
             )}
           </button>
         </div>
