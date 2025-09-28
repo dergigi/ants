@@ -833,11 +833,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           const pubkey = decoded.data;
           const user = new NDKUser({ pubkey });
           user.ndk = ndk;
-          // Set immediately so the indicator renders (initials) while profile loads
-          setProfileScopeUser(user);
-          // Fetch profile to get image/nip05, then set the same instance again to refresh UI
-          try { await user.fetchProfile(); } catch {}
-          setProfileScopeUser(user);
+          // Fetch profile first, then set the user with complete profile data
+          try {
+            await user.fetchProfile();
+            setProfileScopeUser(user);
+          } catch {
+            // If profile fetch fails, still set the user (will show initials)
+            setProfileScopeUser(user);
+          }
         } else {
           setProfileScopeUser(null);
         }
@@ -856,9 +859,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const nip05 = profileScopeUser?.profile?.nip05 as string | undefined;
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!nip05 || !currentProfileNpub) return;
-    const rx = new RegExp(`(^|\\s)by:${currentProfileNpub}(?=\\s|$)`, 'gi');
-    if (rx.test(query)) {
-      const updated = query.replace(rx, (m, pre) => `${pre}by:${nip05}`).replace(/\s{2,}/g, ' ').trim();
+    // More robust matching for by:npub anywhere in the query
+    const byNpubPattern = new RegExp(`\\bby:${currentProfileNpub}\\b`, 'gi');
+    if (byNpubPattern.test(query)) {
+      const updated = query.replace(byNpubPattern, `by:${nip05}`).replace(/\s{2,}/g, ' ').trim();
       if (updated !== query) setQuery(updated);
     }
   }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping, query, setQuery]);
@@ -2007,8 +2011,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     <div className="w-full pt-4">
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
-          <ProfileScopeIndicator 
-            user={profileScopeUser} 
+          <ProfileScopeIndicator
+            key={profileScopeUser?.npub || 'no-user'}
+            user={profileScopeUser}
             isEnabled={profileScopingEnabled}
             onToggle={() => {
               const newEnabled = !profileScopingEnabled;
