@@ -779,7 +779,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     };
 
     setupProfileUser();
-  }, [manageUrl, pathname, query, ndk]);
+  }, [manageUrl, pathname, query]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -1092,7 +1092,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser?.profile?.nip05]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
