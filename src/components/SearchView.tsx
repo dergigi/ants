@@ -60,6 +60,32 @@ function SearchIconButton({
   );
 }
 
+// Profile scope indicator component
+function ProfileScopeIndicator({ user }: { user: NDKUser | null }) {
+  if (!user) return null;
+
+  return (
+    <div className="flex items-center">
+      <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
+        {user.profile?.image ? (
+          <Image
+            src={trimImageUrl(user.profile.image)}
+            alt="Profile"
+            width={40}
+            height={40}
+            className="w-full h-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
+            {(user.profile?.displayName || user.profile?.name || shortenNpub(user.npub)).slice(0, 2).toUpperCase()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Component for truncating long text with fade effect and expand arrow
 function TruncatedText({ 
   content, 
@@ -1918,26 +1944,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
-          {profileScopeUser && (
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
-                {profileScopeUser.profile?.image ? (
-                  <Image
-                    src={trimImageUrl(profileScopeUser.profile.image)}
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="w-full h-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
-                    {(profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || shortenNpub(profileScopeUser.npub)).slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <ProfileScopeIndicator user={profileScopeUser} />
           <div className="flex-1 relative">
             <input
               ref={searchInputRef}
