@@ -2106,7 +2106,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
               filteredCount={fuseFilteredResults.length}
               resultCount={results.length}
-              onExpand={() => setShowFilterDetails(true)}
+              onExpand={() => setShowFilterDetails(!showFilterDetails)}
+              isExpanded={showFilterDetails}
             />
           </div>
 

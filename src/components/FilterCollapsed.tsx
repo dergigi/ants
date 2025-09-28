@@ -1,7 +1,7 @@
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilter, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faFilter, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 
 interface FilterCollapsedProps {
   filtersAreActive: boolean;
@@ -9,6 +9,7 @@ interface FilterCollapsedProps {
   filteredCount: number;
   resultCount: number;
   onExpand: () => void;
+  isExpanded?: boolean;
 }
 
 export default function FilterCollapsed({
@@ -16,7 +17,8 @@ export default function FilterCollapsed({
   hasActiveFilters,
   filteredCount,
   resultCount,
-  onExpand
+  onExpand,
+  isExpanded = false
 }: FilterCollapsedProps) {
   return (
     <button
@@ -42,7 +44,7 @@ export default function FilterCollapsed({
       }`}>
         {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
       </span>
-      <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
+      <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
     </button>
   );
 }
