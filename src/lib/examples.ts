@@ -12,7 +12,7 @@ export const searchExamples = [
   'nevent',
   'habla.news',
   
-  // Author
+  // by:Author
   'by:dergigi',
   'by:gigi',
   'by:pablof7z',
@@ -117,7 +117,7 @@ export const searchExamples = [
   'is:highlight (bitcoin OR nostr)',
   'is:highlight by:dergigi',
   'is:highlight by:fiatjaf',
-  'is:highlight by:pablof7z',
+  'is:highlight by:f7z.io',
   'is:highlight "proof of work"',
 
   // Slash Commands
