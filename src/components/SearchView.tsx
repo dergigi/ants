@@ -647,11 +647,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [results]);
 
 
+  const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
+
   const filteredResults = useMemo(
     () => shouldEnableFilters ? applyContentFilters(
       results,
-      // Disable emoji filter when searching for multiple emojis
-      isEmojiSearch(query) ? null : filterSettings.maxEmojis,
+      // Disable emoji filter when searching for multiple emojis in Smart mode
+      emojiAutoDisabled ? null : filterSettings.maxEmojis,
       filterSettings.maxHashtags,
       filterSettings.maxMentions,
       filterSettings.hideLinks,
@@ -661,7 +663,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       filterSettings.hideBots,
       filterSettings.hideNsfw
     ) : results,
-    [results, shouldEnableFilters, query, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
@@ -2049,6 +2051,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           onFilterChange={setFilterSettings}
           resultCount={results.length}
           filteredCount={fuseFilteredResults.length}
+          emojiAutoDisabled={emojiAutoDisabled}
         />
       )}
 
