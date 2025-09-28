@@ -2073,18 +2073,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   }}>
                     {translation.split('\n').slice(0, 2).join('\n')}
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-gray-500">
-                    <FontAwesomeIcon icon={faChevronRight} className="text-[10px]" />
-                    <span className="text-[10px]">Show more</span>
+                  <div className="flex items-center justify-center mt-1 text-gray-500">
+                    <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
                   </div>
                 </>
               ) : (
                 <>
                   <span>{translation}</span>
                   {translation.split('\n').length > 2 && (
-                    <div className="flex items-center gap-1 mt-1 text-gray-500">
-                      <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
-                      <span className="text-[10px]">Show less</span>
+                    <div className="flex items-center justify-center mt-1 text-gray-500">
+                      <FontAwesomeIcon icon={faChevronUp} className="text-[10px]" />
                     </div>
                   )}
                 </>
