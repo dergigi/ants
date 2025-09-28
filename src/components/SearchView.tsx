@@ -15,7 +15,7 @@ import { Blurhash } from 'react-blurhash';
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
+import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -1080,8 +1080,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         runSlashCommand(urlQuery);
         handleSearch(urlQuery);
       } else {
-        setQuery(urlQuery.trim());
-        handleSearch(urlQuery);
+        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+        setQuery(display);
+        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
+        handleSearch(backend);
         // Normalize URL to implicit form if needed
         const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
         if (implicit !== urlQuery) {
@@ -1117,12 +1119,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    setQuery(raw);
+    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
+    let displayVal = raw;
+    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
+    }
+    setQuery(displayVal);
     if (manageUrl) {
-      if (raw) {
+      if (displayVal) {
         // Update URL immediately
-        updateUrlForSearch(raw);
-        handleSearch(raw);
+        updateUrlForSearch(displayVal);
+        // Backend search should include implicit author on profile pages
+        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
+        handleSearch(backend.trim());
       } else {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
@@ -1130,7 +1139,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResults([]);
       }
     } else {
-      if (raw) handleSearch(raw);
+      if (displayVal) handleSearch(displayVal);
       else setResults([]);
     }
   };
