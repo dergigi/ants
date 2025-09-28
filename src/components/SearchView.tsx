@@ -25,13 +25,15 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
+import FilterCollapsed from '@/components/FilterCollapsed';
+import RelayCollapsed from '@/components/RelayCollapsed';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -496,7 +498,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
+  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
@@ -2012,22 +2016,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 </svg>
               </button>
             )}
-            {/* Connection status indicator - always visible */}
-            <button
-              type="button"
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 right-12 touch-manipulation"
-              onClick={() => setShowConnectionDetails(!showConnectionDetails)}
-              title={formatConnectionTooltip(connectionDetails)}
-            >
-              <div className="relative w-3 h-3">
-                {/* Mask to hide underlying text/underline */}
-                <div className="absolute -inset-0.5 rounded-full bg-[#2d2d2d]" />
-                <div className={`relative w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-                  connectionStatus === 'connected' ? 'bg-green-400' : 
-                  connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-                }`} />
-              </div>
-            </button>
           </div>
           <button 
             type={showExternalButton ? "button" : "submit"} 
@@ -2050,105 +2038,159 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         </div>
         
         {translation && (
-          <div id="search-explanation" className="mt-1 pl-4 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap">
-            {translation}
-          </div>
-        )}
-
-        {/* Expandable connection details for mobile */}
-        {showConnectionDetails && connectionDetails && (
-          <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
-            <div className="flex items-center justify-end mb-2">
-              <button
-                type="button"
-                onClick={() => setShowConnectionDetails(false)}
-                className="text-gray-400 hover:text-gray-200"
-              >
-                ✕
-              </button>
+          <div 
+            id="search-explanation" 
+            className={`mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2 ${
+              translation.split('\n').length > 2 ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
+            }`}
+            onClick={() => {
+              if (translation.split('\n').length > 2) {
+                setIsExplanationExpanded(!isExplanationExpanded);
+              }
+            }}
+          >
+            <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              {translation.split('\n').length > 2 && !isExplanationExpanded ? (
+                <>
+                  <div className="overflow-hidden" style={{ 
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {translation.split('\n').slice(0, 2).join('\n')}
+                  </div>
+                  <div className="flex items-center justify-center mt-1 text-gray-500">
+                    <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span>{translation}</span>
+                  {translation.split('\n').length > 2 && (
+                    <div className="flex items-center justify-center mt-1 text-gray-500">
+                      <FontAwesomeIcon icon={faChevronUp} className="text-[10px]" />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            
-            
-            {/* Reachable: union of live-connected and recently-active relays */}
-            {(() => {
-              const combined = Array.from(new Set([
-                ...connectionDetails.connectedRelays,
-                ...recentlyActive
-              ]));
-              if (combined.length === 0) return null;
-              return (
-                <div className="mb-2">
-                  <div className="text-green-400 font-medium mb-1">
-                    ✅ Reachable or active ({combined.length})
-                  </div>
-                  <div className="space-y-1">
-                    {combined.map((relay, idx) => (
-                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {/* Connecting relays */}
-            {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
-              <div className="mb-2">
-                <div className="text-yellow-400 font-medium mb-1">
-                  🟡 Connecting ({connectionDetails.connectingRelays.length})
-                </div>
-                <div className="space-y-1">
-                  {connectionDetails.connectingRelays.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {(() => {
-              const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
-              const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
-              if (failedFiltered.length === 0) return null;
-              return (
-                <div>
-                  <div className="text-red-400 font-medium mb-1">
-                    ❌ Failed ({failedFiltered.length})
-                  </div>
-                  <div className="space-y-1">
-                    {failedFiltered.map((relay, idx) => (
-                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {(() => {
-              const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
-              const anyFailed = connectionDetails.failedRelays.length > 0;
-              return (!anyReachable && !anyFailed) ? (
-              <div className="text-gray-400">
-                No relay connection information available
-              </div>
-              ) : null;
-            })()}
-
           </div>
         )}
+
         
         {/* Removed inline expanded-term filter buttons (gif/gifs/apng etc.) per design update */}
       </form>
 
       {/* Command output will be injected as first result card below */}
 
-      {/* Client-side filters */}
-      {results.length > 0 && (
-        <ClientFilters
-          filterSettings={filterSettings}
-          onFilterChange={setFilterSettings}
-          resultCount={results.length}
-          filteredCount={fuseFilteredResults.length}
-          emojiAutoDisabled={emojiAutoDisabled}
-        />
+      {/* Collapsed state - always in same row */}
+      {(loading || results.length > 0) && (
+        <div className="w-full">
+          {/* Button row - always collapsed states */}
+          <div className="flex items-center justify-end gap-3">
+            <RelayCollapsed
+              connectionStatus={connectionStatus}
+              connectedCount={connectionDetails?.connectedRelays?.length || 0}
+              totalCount={(connectionDetails?.connectedRelays?.length || 0) + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0)}
+              onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
+              formatConnectionTooltip={formatConnectionTooltip}
+              connectionDetails={connectionDetails}
+              isExpanded={showConnectionDetails}
+            />
+
+            <FilterCollapsed
+              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+              hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
+              filteredCount={fuseFilteredResults.length}
+              resultCount={results.length}
+              onExpand={() => setShowFilterDetails(!showFilterDetails)}
+              isExpanded={showFilterDetails}
+            />
+          </div>
+
+          {/* Expanded views - below button row, full width */}
+          {showConnectionDetails && connectionDetails && (
+            <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
+              
+              {/* Reachable: union of live-connected and recently-active relays */}
+              {(() => {
+                const combined = Array.from(new Set([
+                  ...(connectionDetails?.connectedRelays || []),
+                  ...recentlyActive
+                ]));
+                if (combined.length === 0) return null;
+                return (
+                  <div className="mb-2">
+                    <div className="text-green-400 font-medium mb-1">
+                      ✅ Reachable or active ({combined.length})
+                    </div>
+                    <div className="space-y-1">
+                      {combined.map((relay, idx) => (
+                        <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Connecting relays */}
+              {connectionDetails?.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-yellow-400 font-medium mb-1">
+                    🟡 Connecting ({connectionDetails.connectingRelays.length})
+                  </div>
+                  <div className="space-y-1">
+                    {connectionDetails.connectingRelays.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {(() => {
+                const combined = new Set<string>([...(connectionDetails?.connectedRelays || []), ...recentlyActive]);
+                const failedFiltered = (connectionDetails?.failedRelays || []).filter((u) => !combined.has(u));
+                if (failedFiltered.length === 0) return null;
+                return (
+                  <div>
+                    <div className="text-red-400 font-medium mb-1">
+                      ❌ Failed ({failedFiltered.length})
+                    </div>
+                    <div className="space-y-1">
+                      {failedFiltered.map((relay, idx) => (
+                        <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {(() => {
+                const anyReachable = (connectionDetails?.connectedRelays?.length || 0) > 0 || recentlyActive.length > 0;
+                const anyFailed = (connectionDetails?.failedRelays?.length || 0) > 0;
+                return (!anyReachable && !anyFailed) ? (
+                <div className="text-gray-400">
+                  No relay connection information available
+                </div>
+                ) : null;
+              })()}
+            </div>
+          )}
+
+          {showFilterDetails && (
+            <div className="mt-2">
+              <ClientFilters
+                filterSettings={filterSettings}
+                onFilterChange={setFilterSettings}
+                resultCount={results.length}
+                filteredCount={fuseFilteredResults.length}
+                emojiAutoDisabled={emojiAutoDisabled}
+                showButton={false}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {/* Textbox moved inside ClientFilters 'Show:' section */}

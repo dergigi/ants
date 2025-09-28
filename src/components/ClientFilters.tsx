@@ -28,6 +28,7 @@ interface Props {
   resultCount: number;
   filteredCount: number;
   emojiAutoDisabled?: boolean;
+  showButton?: boolean;
 }
 
 // Reusable NumberFilter component
@@ -71,7 +72,7 @@ function NumberFilter({ label, enabled, value, maxValue, onToggle, onValueChange
   );
 }
 
-export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, emojiAutoDisabled = false }: Props) {
+export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, emojiAutoDisabled = false, showButton = true }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
@@ -133,12 +134,12 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= SEARCH_FILTER_THRESHOLD));
 
   return (
-    <div className="mt-3 mb-4">
-      {/* Collapsed view */}
-      {!isExpanded && (
+    <div className="w-full">
+      {/* Show button only if showButton is true */}
+      {showButton && (
         <div className="flex justify-end">
           <button
-            onClick={() => setIsExpanded(true)}
+            onClick={() => setIsExpanded(!isExpanded)}
             className={`flex items-center gap-2 text-sm transition-colors ${
               filtersAreActive 
                 ? 'text-blue-400 hover:text-blue-300' 
@@ -160,14 +161,14 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             }`}>
               {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
             </span>
-            <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
+            <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {/* Expanded view */}
-      {isExpanded && (
-        <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
+      {/* Expanded content - shows below button when expanded or always if no button */}
+      {(isExpanded || !showButton) && (
+        <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-200">Filter Results:</span>
@@ -187,19 +188,6 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`text-xs ${
-                filtersAreActive 
-                  ? 'text-blue-400' 
-                  : 'text-gray-400'
-              }`}>{filteredCount}/{resultCount} shown</span>
-              <button
-                onClick={() => setIsExpanded(false)}
-                className="text-gray-400 hover:text-gray-300 transition-colors"
-              >
-                <FontAwesomeIcon icon={faChevronUp} className="w-4 h-4" />
-              </button>
             </div>
           </div>
 

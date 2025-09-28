@@ -22,7 +22,7 @@ export default function ProfileScopeIndicator({
         onClick={onToggle}
         className={`w-10 h-10 rounded-lg overflow-hidden border transition-all duration-200 hover:opacity-80 ${
           isEnabled
-            ? 'bg-[#3d3d3d] border-green-400 shadow-sm'
+            ? 'bg-[#3d3d3d] border-blue-400 shadow-sm'
             : 'bg-[#2d2d2d] border-gray-600 opacity-50 grayscale'
         }`}
         title={isEnabled ? 'Disable profile scoping' : 'Enable profile scoping'}
