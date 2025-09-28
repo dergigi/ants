@@ -2004,7 +2004,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
-    <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+    <div className="w-full pt-4">
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
           <ProfileScopeIndicator 
