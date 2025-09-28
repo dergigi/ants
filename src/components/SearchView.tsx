@@ -16,6 +16,7 @@ import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
+import { profileEventFromPubkey } from '@/lib/vertex';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -825,21 +826,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    // Create NDKUser for the profile scope and fetch profile
+    // Get profile data using the existing profile system
     const setupProfileUser = async () => {
       try {
         const decoded = nip19.decode(currentProfileNpub);
         if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
           const pubkey = decoded.data;
-          const user = new NDKUser({ pubkey });
-          user.ndk = ndk;
-          // Fetch profile first, then set the user with complete profile data
-          try {
-            await user.fetchProfile();
+          // Use the existing profile system that caches and fetches properly
+          const profileEvent = await profileEventFromPubkey(pubkey);
+          if (profileEvent) {
+            const user = new NDKUser({ pubkey });
+            user.ndk = ndk;
+            // Attach the profile data from the cached/complete profile event
+            user.profile = profileEvent.content ? JSON.parse(profileEvent.content) : {};
             setProfileScopeUser(user);
-          } catch {
-            // If profile fetch fails, still set the user (will show initials)
-            setProfileScopeUser(user);
+          } else {
+            setProfileScopeUser(null);
           }
         } else {
           setProfileScopeUser(null);
