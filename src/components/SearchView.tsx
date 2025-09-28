@@ -2084,22 +2084,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Client-side filters with relay indicator */}
       {(loading || results.length > 0) && (
-        <div className="flex items-center justify-end gap-3">
-          <RelayIndicator
-            connectionStatus={connectionStatus}
-            connectionDetails={connectionDetails}
-            showConnectionDetails={showConnectionDetails}
-            onToggle={() => setShowConnectionDetails(!showConnectionDetails)}
-            formatConnectionTooltip={formatConnectionTooltip}
-          />
-          
-          <ClientFilters
-            filterSettings={filterSettings}
-            onFilterChange={setFilterSettings}
-            resultCount={results.length}
-            filteredCount={fuseFilteredResults.length}
-            emojiAutoDisabled={emojiAutoDisabled}
-          />
+        <div className="w-full">
+          <div className="flex items-center justify-end gap-3">
+            <RelayIndicator
+              connectionStatus={connectionStatus}
+              connectionDetails={connectionDetails}
+              showConnectionDetails={showConnectionDetails}
+              onToggle={() => setShowConnectionDetails(!showConnectionDetails)}
+              formatConnectionTooltip={formatConnectionTooltip}
+            />
+            
+            <ClientFilters
+              filterSettings={filterSettings}
+              onFilterChange={setFilterSettings}
+              resultCount={results.length}
+              filteredCount={fuseFilteredResults.length}
+              emojiAutoDisabled={emojiAutoDisabled}
+            />
+          </div>
         </div>
       )}
 

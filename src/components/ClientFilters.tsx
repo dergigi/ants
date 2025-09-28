@@ -133,7 +133,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
   const filtersAreActive = filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && resultCount >= SEARCH_FILTER_THRESHOLD));
 
   return (
-    <div>
+    <div className="w-full">
       {/* Always show the button */}
       <div className="flex justify-end">
         <button
