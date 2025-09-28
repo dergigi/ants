@@ -35,6 +35,7 @@ function normalizeIdentifier(value?: string): string {
 
 function extractNip05(user: NDKUser | null): string | undefined {
   const raw = user?.profile?.nip05 as Nip05Like;
+  console.log('DEBUG: extractNip05 - user:', user?.npub, 'profile:', user?.profile, 'raw nip05:', raw);
   if (!raw) return undefined;
   if (typeof raw === 'string') return raw;
   if (typeof raw === 'object' && 'url' in raw && typeof raw.url === 'string') return raw.url;
@@ -51,6 +52,18 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
   const normalizedIdentifier = normalizeIdentifier(identifier);
   const normalizedNpub = normalizeIdentifier(currentProfileNpub);
   const normalizedNip05 = nip05 ? normalizeIdentifier(nip05) : undefined;
+  
+  console.log('DEBUG: getProfileScopeIdentifiers -', {
+    currentProfileNpub,
+    nip05Raw,
+    nip05,
+    hasNip05,
+    profileIdentifier,
+    normalizedIdentifier,
+    normalizedNpub,
+    normalizedNip05
+  });
+  
   return { 
     npub: currentProfileNpub, 
     nip05, 
