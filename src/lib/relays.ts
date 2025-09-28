@@ -1,5 +1,6 @@
 import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe, ensureCacheInitialized } from './ndk';
+import { getStoredPubkey } from './nip07';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
@@ -60,11 +61,26 @@ export const RELAYS = {
     'wss://relay.ditto.pub'
   ],
 
+  // Premium relays to use only for logged-in users
+  PREMIUM: [
+    'wss://nostr.wine'
+  ],
+
   // Vertex DVM relay
   VERTEX_DVM: [
     'wss://relay.vertexlab.io'
   ]
 } as const;
+
+function withPremium(relayUrls: readonly string[]): string[] {
+  const enriched = [...relayUrls];
+  if (getStoredPubkey()) {
+    for (const premium of RELAYS.PREMIUM) {
+      if (!enriched.includes(premium)) enriched.push(premium);
+    }
+  }
+  return enriched;
+}
 
 // Pre-configured relay sets
 export const relaySets = {
@@ -72,10 +88,13 @@ export const relaySets = {
   default: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.DEFAULT, ndk); },
   
   // Search relay set (NIP-50 capable)
-  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.SEARCH, ndk); },
+  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(withPremium(RELAYS.SEARCH), ndk); },
   
   // Profile search relay set
-  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.PROFILE_SEARCH, ndk); },
+  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(withPremium(RELAYS.PROFILE_SEARCH), ndk); },
+
+  // Premium relay set, used only when logged in
+  premium: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.PREMIUM, ndk); },
   
   // Vertex DVM relay set
   vertexDvm: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.VERTEX_DVM, ndk); }
@@ -213,7 +232,7 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   // Always use a single, stable search relay to reduce flakiness
-  return createRelaySet([...RELAYS.SEARCH]);
+  return createRelaySet(withPremium([...RELAYS.SEARCH]));
 }
 
 // Clear NIP-50 cache (useful for debugging or forcing re-detection)
