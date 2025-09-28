@@ -26,6 +26,10 @@ import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import RelayIndicator from '@/components/RelayIndicator';
+import FilterCollapsed from '@/components/FilterCollapsed';
+import FilterExpanded from '@/components/FilterExpanded';
+import RelayCollapsed from '@/components/RelayCollapsed';
+import RelayExpanded from '@/components/RelayExpanded';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -497,6 +501,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
@@ -2082,106 +2087,127 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Command output will be injected as first result card below */}
 
-      {/* Client-side filters with relay indicator */}
+      {/* Collapsed state - always in same row */}
       {(loading || results.length > 0) && (
-        <div className="w-full">
-          <div className="flex items-center justify-end gap-3">
-            <RelayIndicator
+        <div className="flex items-center justify-end gap-3">
+          {showConnectionDetails ? (
+            <RelayExpanded
               connectionStatus={connectionStatus}
-              connectionDetails={connectionDetails}
-              showConnectionDetails={showConnectionDetails}
-              onToggle={() => setShowConnectionDetails(!showConnectionDetails)}
+              connectedCount={connectionDetails?.connectedRelays?.length || 0}
+              totalCount={(connectionDetails?.connectedRelays?.length || 0) + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0)}
+              onCollapse={() => setShowConnectionDetails(false)}
               formatConnectionTooltip={formatConnectionTooltip}
-            />
-            
-            <ClientFilters
-              filterSettings={filterSettings}
-              onFilterChange={setFilterSettings}
-              resultCount={results.length}
-              filteredCount={fuseFilteredResults.length}
-              emojiAutoDisabled={emojiAutoDisabled}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Expandable connection details - now shows below relay indicator */}
-      {showConnectionDetails && connectionDetails && (
-        <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
-          <div className="flex items-center justify-end mb-2">
-            <button
-              type="button"
-              onClick={() => setShowConnectionDetails(false)}
-              className="text-gray-400 hover:text-gray-200"
+              connectionDetails={connectionDetails}
             >
-              ✕
-            </button>
-          </div>
-          
-          
-          {/* Reachable: union of live-connected and recently-active relays */}
-          {(() => {
-            const combined = Array.from(new Set([
-              ...connectionDetails.connectedRelays,
-              ...recentlyActive
-            ]));
-            if (combined.length === 0) return null;
-            return (
-              <div className="mb-2">
-                <div className="text-green-400 font-medium mb-1">
-                  ✅ Reachable or active ({combined.length})
+              <div className="flex items-center justify-end mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConnectionDetails(false)}
+                  className="text-gray-400 hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              {/* Reachable: union of live-connected and recently-active relays */}
+              {(() => {
+                const combined = Array.from(new Set([
+                  ...(connectionDetails?.connectedRelays || []),
+                  ...recentlyActive
+                ]));
+                if (combined.length === 0) return null;
+                return (
+                  <div className="mb-2">
+                    <div className="text-green-400 font-medium mb-1">
+                      ✅ Reachable or active ({combined.length})
+                    </div>
+                    <div className="space-y-1">
+                      {combined.map((relay, idx) => (
+                        <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Connecting relays */}
+              {connectionDetails?.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-yellow-400 font-medium mb-1">
+                    🟡 Connecting ({connectionDetails.connectingRelays.length})
+                  </div>
+                  <div className="space-y-1">
+                    {connectionDetails.connectingRelays.map((relay, idx) => (
+                      <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {combined.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                  ))}
+              )}
+              
+              {(() => {
+                const combined = new Set<string>([...(connectionDetails?.connectedRelays || []), ...recentlyActive]);
+                const failedFiltered = (connectionDetails?.failedRelays || []).filter((u) => !combined.has(u));
+                if (failedFiltered.length === 0) return null;
+                return (
+                  <div>
+                    <div className="text-red-400 font-medium mb-1">
+                      ❌ Failed ({failedFiltered.length})
+                    </div>
+                    <div className="space-y-1">
+                      {failedFiltered.map((relay, idx) => (
+                        <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {(() => {
+                const anyReachable = (connectionDetails?.connectedRelays?.length || 0) > 0 || recentlyActive.length > 0;
+                const anyFailed = (connectionDetails?.failedRelays?.length || 0) > 0;
+                return (!anyReachable && !anyFailed) ? (
+                <div className="text-gray-400">
+                  No relay connection information available
                 </div>
-              </div>
-            );
-          })()}
-          
-          {/* Connecting relays */}
-          {connectionDetails.connectingRelays && connectionDetails.connectingRelays.length > 0 && (
-            <div className="mb-2">
-              <div className="text-yellow-400 font-medium mb-1">
-                🟡 Connecting ({connectionDetails.connectingRelays.length})
-              </div>
-              <div className="space-y-1">
-                {connectionDetails.connectingRelays.map((relay, idx) => (
-                  <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                ))}
-              </div>
-            </div>
+                ) : null;
+              })()}
+            </RelayExpanded>
+          ) : (
+            <RelayCollapsed
+              connectionStatus={connectionStatus}
+              connectedCount={connectionDetails?.connectedRelays?.length || 0}
+              totalCount={(connectionDetails?.connectedRelays?.length || 0) + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0)}
+              onExpand={() => setShowConnectionDetails(true)}
+              formatConnectionTooltip={formatConnectionTooltip}
+              connectionDetails={connectionDetails}
+            />
           )}
-          
-          {(() => {
-            const combined = new Set<string>([...connectionDetails.connectedRelays, ...recentlyActive]);
-            const failedFiltered = connectionDetails.failedRelays.filter((u) => !combined.has(u));
-            if (failedFiltered.length === 0) return null;
-            return (
-              <div>
-                <div className="text-red-400 font-medium mb-1">
-                  ❌ Failed ({failedFiltered.length})
-                </div>
-                <div className="space-y-1">
-                  {failedFiltered.map((relay, idx) => (
-                    <div key={idx} className="text-gray-300 ml-2">• {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}</div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          
-          {(() => {
-            const anyReachable = connectionDetails.connectedRelays.length > 0 || recentlyActive.length > 0;
-            const anyFailed = connectionDetails.failedRelays.length > 0;
-            return (!anyReachable && !anyFailed) ? (
-            <div className="text-gray-400">
-              No relay connection information available
-            </div>
-            ) : null;
-          })()}
 
+          {showFilterDetails ? (
+            <FilterExpanded
+              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+              hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
+              filteredCount={fuseFilteredResults.length}
+              resultCount={results.length}
+              onCollapse={() => setShowFilterDetails(false)}
+            >
+              <ClientFilters
+                filterSettings={filterSettings}
+                onFilterChange={setFilterSettings}
+                resultCount={results.length}
+                filteredCount={fuseFilteredResults.length}
+                emojiAutoDisabled={emojiAutoDisabled}
+              />
+            </FilterExpanded>
+          ) : (
+            <FilterCollapsed
+              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+              hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
+              filteredCount={fuseFilteredResults.length}
+              resultCount={results.length}
+              onExpand={() => setShowFilterDetails(true)}
+            />
+          )}
         </div>
       )}
 

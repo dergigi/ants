@@ -1,0 +1,43 @@
+'use client';
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faServer, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+
+interface RelayCollapsedProps {
+  connectionStatus: 'connecting' | 'connected' | 'timeout';
+  connectedCount: number;
+  totalCount: number;
+  onExpand: () => void;
+  formatConnectionTooltip: (details: any) => string;
+  connectionDetails: any;
+}
+
+export default function RelayCollapsed({
+  connectionStatus,
+  connectedCount,
+  totalCount,
+  onExpand,
+  formatConnectionTooltip,
+  connectionDetails
+}: RelayCollapsedProps) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
+      onClick={onExpand}
+      title={formatConnectionTooltip(connectionDetails)}
+    >
+      <FontAwesomeIcon 
+        icon={faServer} 
+        className={`w-3 h-3 ${
+          connectionStatus === 'connected' ? 'text-blue-400' : 
+          connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-500'
+        }`} 
+      />
+      <span className="text-xs">
+        {connectedCount}/{totalCount}
+      </span>
+      <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
+    </button>
+  );
+}
