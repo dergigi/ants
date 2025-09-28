@@ -990,7 +990,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopingEnabled, userManuallyDisabledScoping]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
