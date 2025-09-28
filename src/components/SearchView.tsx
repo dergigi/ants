@@ -1290,6 +1290,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
     const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
     const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
+    const nostrNoteRegex = /(nostr:note1[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -1458,15 +1459,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           let isMounted = true;
           (async () => {
             try {
-              const m = token.match(/^(nostr:(?:nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+              const m = token.match(/^(nostr:(?:nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
               const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
               const decoded = nip19.decode(coreToken);
-              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr')) {
+              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr' && decoded.type !== 'note')) {
                 throw new Error('Unsupported pointer');
               }
 
               let fetched: NDKEvent | null = null;
-              if (decoded.type === 'nevent') {
+              if (decoded.type === 'nevent' || decoded.type === 'note') {
                 const data = decoded.data as { id: string; relays?: string[] };
                 const { id, relays } = data;
                 fetched = await fetchWithRelayHints([{ ids: [id] }], relays ?? []);
@@ -1559,15 +1560,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
 
         // Now split this chunk for nevent tokens if enabled
-        const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}`;
-        const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
-        const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
+    const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}|${nostrNoteRegex.source}`;
+    const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
+    const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1|note1)[0-9a-z]+[),.;]*$`, 'i');
         const seenPointers = new Set<string>();
         nostrSplit.forEach((sub, subIdx) => {
           if (!sub) return;
           const isNostrToken = combinedRegex.test(sub);
           if (!options?.disableNevent && isNostrToken) {
-            const match = sub.match(/^(nostr:(nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+            const match = sub.match(/^(nostr:(nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
             const coreToken = match ? match[1] : sub;
             const type = match ? match[2] : '';
             const trailing = (match && match[3]) || '';
@@ -1577,10 +1578,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               return;
             }
             seenPointers.add(normalizedPointer);
-            if (type?.toLowerCase().startsWith('nevent')) {
+            const typeLower = type?.toLowerCase() || '';
+            if (typeLower.startsWith('nevent') || typeLower.startsWith('note')) {
               try {
                 const decoded = nip19.decode(coreToken.replace(/^nostr:/i, ''));
-                const pointerId = decoded?.type === 'nevent' ? ((decoded.data as { id: string }).id || '').toLowerCase() : '';
+                let pointerId = '';
+                if (decoded?.type === 'nevent') {
+                  pointerId = ((decoded.data as { id: string }).id || '').toLowerCase();
+                } else if (decoded?.type === 'note') {
+                  pointerId = (decoded.data as string) || '';
+                  pointerId = pointerId.toLowerCase();
+                }
                 if (pointerId && options?.skipPointerIds?.has(pointerId)) {
                   if (trailing) finalNodes.push(trailing);
                   return;
@@ -1591,7 +1599,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   <InlineNostrReference token={coreToken} />
                 </div>
               );
-            } else if (type?.toLowerCase().startsWith('naddr')) {
+            } else if (typeLower.startsWith('naddr')) {
               finalNodes.push(
                 <div key={`naddr-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
                   <InlineNostrReference token={coreToken} />
