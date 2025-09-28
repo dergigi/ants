@@ -1,12 +1,11 @@
 import RelativeTimeFormat from 'relative-time-format';
 import en from 'relative-time-format/locale/en.json';
-import { isBrowser } from '@/lib/utils/ssr';
+import { isMobileViewport as detectMobileViewport } from '@/lib/utils/ssr';
 
 // Add the English locale data
 RelativeTimeFormat.addLocale(en);
 
 // Constants for time calculations
-const MOBILE_BREAKPOINT = 768;
 const SECONDS_IN_MINUTE = 60;
 const MINUTES_IN_HOUR = 60;
 const HOURS_IN_DAY = 24;
@@ -23,9 +22,10 @@ const formatters = {
  * Detects if the current viewport is mobile
  * @returns boolean indicating if the viewport is mobile
  */
+const MOBILE_BREAKPOINT = 768;
+
 function isMobileViewport(): boolean {
-  if (!isBrowser()) return false;
-  return window.innerWidth < MOBILE_BREAKPOINT;
+  return detectMobileViewport(MOBILE_BREAKPOINT);
 }
 
 /**

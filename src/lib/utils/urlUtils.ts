@@ -156,6 +156,47 @@ export function formatUrlForDisplay(url: string, maxLength: number = 40): {
 }
 
 /**
+ * Get responsive URL display text based on viewport width
+ * @param url - The URL to format
+ * @param options - Optional configuration for desktop and mobile max lengths
+ * @returns Display text tailored for desktop and mobile along with metadata
+ */
+export function formatUrlResponsive(
+  url: string,
+  options: {
+    desktopMaxLength?: number;
+    mobileMaxLength?: number;
+    breakpoint?: number;
+  } = {}
+): {
+  displayText: string;
+  fullUrl: string;
+  isShortened: boolean;
+} {
+  const {
+    desktopMaxLength = 40,
+    mobileMaxLength = 28,
+    breakpoint = 768
+  } = options;
+
+  if (!url) {
+    return { displayText: '', fullUrl: '', isShortened: false };
+  }
+
+  const fullUrl = url;
+  const isMobile = isMobileViewport(breakpoint);
+  const maxLength = isMobile ? mobileMaxLength : desktopMaxLength;
+  const shortened = shortenUrl(url, { maxLength, showProtocol: false, showPath: true });
+  const isShortened = shortened.length < url.length;
+
+  return {
+    displayText: shortened,
+    fullUrl,
+    isShortened
+  };
+}
+
+/**
  * Check if a string is a valid HTTP/HTTPS URL
  * @param value - The value to check
  * @returns True if it's a valid HTTP/HTTPS URL
