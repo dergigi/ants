@@ -61,7 +61,7 @@ export const UI_CONFIG = {
   // Profile search settings
   PROFILE: {
     // Maximum number of profiles to return for profile-specific searches
-    SEARCH_MAX_RESULTS: 100
+    SEARCH_MAX_RESULTS: 21
   },
   
   // Content filtering settings
