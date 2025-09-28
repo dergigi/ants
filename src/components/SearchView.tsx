@@ -661,6 +661,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
+  // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
+  const suppressSearchRef = useRef(false);
 
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
@@ -859,6 +861,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping, query, setQuery]);
   const handleSearch = useCallback(async (searchQuery: string) => {
+    if (suppressSearchRef.current) {
+      // Clear the flag and ignore this invocation
+      suppressSearchRef.current = false;
+      return;
+    }
     if (!searchQuery.trim()) {
       setResults([]);
       setResolvingAuthor(false);
@@ -2009,6 +2016,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               setUserManuallyDisabledScoping(false);
               
               // Update the search box content without triggering search
+              suppressSearchRef.current = true;
               const currentProfileNpub = getCurrentProfileNpub(pathname);
               if (currentProfileNpub) {
                 const currentQuery = query.trim();
@@ -2042,6 +2050,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   }).replace(/\s{2,}/g, ' ').trim();
                   setQuery(cleanedQuery);
                 }
+                // Release suppression on next tick
+                setTimeout(() => { suppressSearchRef.current = false; }, 0);
               }
             }}
           />
