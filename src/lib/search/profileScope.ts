@@ -4,6 +4,9 @@ export type ProfileScopeIdentifiers = {
   npub: string;
   nip05?: string;
   identifier: string;
+  normalizedIdentifier: string;
+  normalizedNpub: string;
+  normalizedNip05?: string;
 };
 
 const BY_TOKEN_REGEX = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/gi;
@@ -23,12 +26,9 @@ function sanitizeNip05(value?: string): string | undefined {
 
 function normalizeIdentifier(value?: string): string {
   const trimmed = (value || '').trim();
-  const withoutLocalUnderscores = trimmed.replace(/^_+/, '');
-  let normalized = withoutLocalUnderscores;
-  if (normalized.startsWith('@')) {
-    normalized = normalized.slice(1);
-  }
-  return normalized.toLowerCase();
+  const withoutLeadingUnderscores = trimmed.replace(/^_+/, '');
+  const withoutAtPrefix = withoutLeadingUnderscores.replace(/^@+/, '');
+  return withoutAtPrefix.toLowerCase();
 }
 
 function extractNip05(user: NDKUser | null): string | undefined {
@@ -44,12 +44,18 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
   const nip05Raw = extractNip05(user);
   const nip05 = sanitizeNip05(nip05Raw);
   const identifier = nip05 ?? currentProfileNpub;
-  return { npub: currentProfileNpub, nip05, identifier };
+  const normalizedIdentifier = normalizeIdentifier(identifier);
+  const normalizedNpub = normalizeIdentifier(currentProfileNpub);
+  const normalizedNip05 = nip05 ? normalizeIdentifier(nip05) : undefined;
+  return { npub: currentProfileNpub, nip05, identifier, normalizedIdentifier, normalizedNpub, normalizedNip05 };
 }
 
 function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers): boolean {
   const normalizedToken = normalizeIdentifier(token);
-  if (normalizedToken === normalizeIdentifier(identifiers.identifier)) return true;
+  if (!normalizedToken) return false;
+  if (normalizedToken === identifiers.normalizedIdentifier) return true;
+  if (normalizedToken === identifiers.normalizedNpub) return true;
+  if (identifiers.normalizedNip05 && normalizedToken === identifiers.normalizedNip05) return true;
   return false;
 }
 
@@ -80,6 +86,12 @@ export function addProfileScope(query: string, identifiers: ProfileScopeIdentifi
   }
   const value = identifiers.identifier;
   if (!trimmed) return `by:${value}`;
+  const tokens = trimmed.split(/\s+/);
+  for (const token of tokens) {
+    if (tokenMatchesProfile(token.replace(/^by:/i, ''), identifiers)) {
+      return trimmed;
+    }
+  }
   return `${trimmed} by:${value}`.trim();
 }
 
