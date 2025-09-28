@@ -629,10 +629,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setTopExamples(null);
   }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
+  const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
+  const [profileScopingEnabled, setProfileScopingEnabled] = useState(true);
+  const [userManuallyDisabledScoping, setUserManuallyDisabledScoping] = useState(false);
+
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-  }, [setQuery]);
+    const newValue = e.target.value;
+    setQuery(newValue);
+    
+    // Detect if user manually removed by: filter
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (currentProfileNpub && profileScopingEnabled) {
+      const hasByFilter = /(^|\s)by:\S+(?=\s|$)/i.test(newValue);
+      if (!hasByFilter && userManuallyDisabledScoping === false) {
+        // User removed the by: filter manually
+        setUserManuallyDisabledScoping(true);
+        setProfileScopingEnabled(false);
+      }
+    }
+  }, [setQuery, pathname, profileScopingEnabled, userManuallyDisabledScoping]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
@@ -784,9 +800,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setQuery(query);
     updateUrlForSearch(query);
   }, [updateUrlForSearch]);
-
-  const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
-  const [profileScopingEnabled, setProfileScopingEnabled] = useState(true);
 
   useEffect(() => {
     if (!manageUrl) {
@@ -948,7 +961,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const expanded = await applySimpleReplacements(effectiveQuery);
       const currentProfileNpub = getCurrentProfileNpub(pathname);
-      const scopedQuery = profileScopingEnabled ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
+      const shouldScope = profileScopingEnabled && !userManuallyDisabledScoping;
+      const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
       const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
@@ -1162,7 +1176,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (currentProfileNpub && profileScopingEnabled && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
+    if (currentProfileNpub && profileScopingEnabled && !userManuallyDisabledScoping && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
       // Try to use NIP-05 if available, otherwise fall back to npub
       let byValue = currentProfileNpub;
       if (profileScopeUser?.profile?.nip05) {
@@ -1176,7 +1190,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         // Update URL immediately
         updateUrlForSearch(displayVal);
         // Backend search should include implicit author on profile pages
-        const backend = profileScopingEnabled ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
+        const shouldScope = profileScopingEnabled && !userManuallyDisabledScoping;
+        const backend = shouldScope ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
         handleSearch(backend.trim());
       } else {
         const params = new URLSearchParams(searchParams.toString());
@@ -1968,6 +1983,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             onToggle={() => {
               const newEnabled = !profileScopingEnabled;
               setProfileScopingEnabled(newEnabled);
+              
+              // Reset manual disable flag when toggling
+              setUserManuallyDisabledScoping(false);
               
               // Update the search box content without triggering search
               const currentProfileNpub = getCurrentProfileNpub(pathname);
