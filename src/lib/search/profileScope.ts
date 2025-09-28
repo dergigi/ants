@@ -10,13 +10,25 @@ const BY_TOKEN_REGEX = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/gi;
 
 type Nip05Like = string | { url?: string | undefined } | undefined;
 
+function sanitizeNip05(value?: string): string | undefined {
+  if (!value) return undefined;
+  let trimmed = value.trim();
+  trimmed = trimmed.replace(/^_+/, '');
+  if (!trimmed) return undefined;
+  if (!trimmed.startsWith('@') && trimmed.includes('@')) {
+    trimmed = `@${trimmed}`;
+  }
+  return trimmed;
+}
+
 function normalizeIdentifier(value?: string): string {
   const trimmed = (value || '').trim();
   const withoutLocalUnderscores = trimmed.replace(/^_+/, '');
-  if (withoutLocalUnderscores.startsWith('@')) {
-    return withoutLocalUnderscores.slice(1).toLowerCase();
+  let normalized = withoutLocalUnderscores;
+  if (normalized.startsWith('@')) {
+    normalized = normalized.slice(1);
   }
-  return withoutLocalUnderscores.toLowerCase();
+  return normalized.toLowerCase();
 }
 
 function extractNip05(user: NDKUser | null): string | undefined {
@@ -29,8 +41,9 @@ function extractNip05(user: NDKUser | null): string | undefined {
 
 export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileNpub: string | null): ProfileScopeIdentifiers | null {
   if (!currentProfileNpub) return null;
-  const nip05 = extractNip05(user);
-  const identifier = nip05 && nip05.trim().length > 0 ? nip05 : currentProfileNpub;
+  const nip05Raw = extractNip05(user);
+  const nip05 = sanitizeNip05(nip05Raw);
+  const identifier = nip05 ?? currentProfileNpub;
   return { npub: currentProfileNpub, nip05, identifier };
 }
 
