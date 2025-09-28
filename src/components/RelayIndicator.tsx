@@ -17,6 +17,10 @@ export default function RelayIndicator({
   onToggle,
   formatConnectionTooltip
 }: RelayIndicatorProps) {
+  // Calculate connected and total relay counts
+  const connectedCount = connectionDetails?.connectedRelays?.length || 0;
+  const totalCount = connectedCount + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0);
+
   return (
     <button
       type="button"
@@ -31,6 +35,9 @@ export default function RelayIndicator({
           connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-400'
         }`} 
       />
+      <span className="text-xs text-gray-400">
+        {connectedCount}/{totalCount}
+      </span>
       <FontAwesomeIcon 
         icon={showConnectionDetails ? faChevronUp : faChevronDown} 
         className="text-[10px] text-gray-500" 
