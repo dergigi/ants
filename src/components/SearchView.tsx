@@ -818,15 +818,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       try {
         const decoded = nip19.decode(currentProfileNpub);
         if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
-          const user = new NDKUser({ pubkey: decoded.data });
-          user.ndk = ndk;
-          // Fetch the profile to get the image
+          const pubkey = decoded.data;
+          const u = new NDKUser({ pubkey });
+          u.ndk = ndk;
+          // Set immediately so the indicator renders (initials) while profile loads
+          setProfileScopeUser(u);
+          // Fetch profile to get image/nip05, then force a re-render with a new instance
           try {
-            await user.fetchProfile();
+            await u.fetchProfile();
+            const refreshed = new NDKUser({ pubkey });
+            refreshed.ndk = ndk;
+            (refreshed as unknown as { profile?: unknown }).profile = u.profile;
+            setProfileScopeUser(refreshed);
           } catch {
             // Continue even if profile fetch fails
           }
-          setProfileScopeUser(user);
         } else {
           setProfileScopeUser(null);
         }
@@ -836,7 +842,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     };
 
     setupProfileUser();
-  }, [manageUrl, pathname, query]);
+  }, [manageUrl, pathname]);
+
+  // When nip05 becomes available, prefer showing by:nip05 in the input if it currently shows by:npub
+  useEffect(() => {
+    if (!manageUrl) return;
+    if (!profileScopingEnabled || userManuallyDisabledScoping) return;
+    const nip05 = profileScopeUser?.profile?.nip05 as string | undefined;
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!nip05 || !currentProfileNpub) return;
+    const rx = new RegExp(`(^|\\s)by:${currentProfileNpub}(?=\\s|$)`, 'i');
+    if (rx.test(query)) {
+      const updated = query.replace(rx, (m, pre) => `${pre}by:${nip05}`).replace(/\s{2,}/g, ' ').trim();
+      if (updated !== query) setQuery(updated);
+    }
+  }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, profileScopingEnabled, userManuallyDisabledScoping, query, setQuery]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
