@@ -134,38 +134,36 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
 
   return (
     <div className="mt-3 mb-4">
-      {/* Collapsed view */}
-      {!isExpanded && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => setIsExpanded(true)}
-            className={`flex items-center gap-2 text-sm transition-colors ${
-              filtersAreActive 
-                ? 'text-blue-400 hover:text-blue-300' 
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <FontAwesomeIcon 
-              icon={faFilter} 
-              className={`w-3 h-3 ${
-                filtersAreActive 
-                  ? 'text-blue-400' 
-                  : 'text-gray-500'
-              }`} 
-            />
-            <span className={`text-xs ${
+      {/* Always show the button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`flex items-center gap-2 text-sm transition-colors ${
+            filtersAreActive 
+              ? 'text-blue-400 hover:text-blue-300' 
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <FontAwesomeIcon 
+            icon={faFilter} 
+            className={`w-3 h-3 ${
               filtersAreActive 
                 ? 'text-blue-400' 
-                : 'text-gray-400'
-            }`}>
-              {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
-            </span>
-            <FontAwesomeIcon icon={faChevronDown} className="w-3 h-3" />
-          </button>
-        </div>
-      )}
+                : 'text-gray-500'
+            }`} 
+          />
+          <span className={`text-xs ${
+            filtersAreActive 
+              ? 'text-blue-400' 
+              : 'text-gray-400'
+          }`}>
+            {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
+          </span>
+          <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
+        </button>
+      </div>
 
-      {/* Expanded view */}
+      {/* Expanded content - shows below button when expanded */}
       {isExpanded && (
         <div className="bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
