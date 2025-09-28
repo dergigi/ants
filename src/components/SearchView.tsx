@@ -15,7 +15,7 @@ import { Blurhash } from 'react-blurhash';
 import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
+import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -741,6 +741,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     updateUrlForSearch(query);
   }, [updateUrlForSearch]);
 
+  const [profileScopeNotice, setProfileScopeNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!manageUrl) {
+      setProfileScopeNotice(null);
+      return;
+    }
+
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!currentProfileNpub) {
+      setProfileScopeNotice(null);
+      return;
+    }
+
+    const trimmedQuery = (query || '').trim();
+    const hasExplicitScope = /(^|\s)by:\S+(?=\s|$)/i.test(trimmedQuery);
+    setProfileScopeNotice(hasExplicitScope ? null : shortenNpub(currentProfileNpub));
+  }, [manageUrl, pathname, query]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -864,7 +882,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       const expanded = await applySimpleReplacements(effectiveQuery);
-      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
+      const currentProfileNpub = getCurrentProfileNpub(pathname);
+      const scopedQuery = ensureAuthorForBackend(expanded, currentProfileNpub);
+      const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -1031,10 +1051,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         runSlashCommand(urlQuery);
         handleSearch(urlQuery);
       } else {
-        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
-        setQuery(display);
-        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-        handleSearch(backend);
+        setQuery(urlQuery.trim());
+        handleSearch(urlQuery);
         // Normalize URL to implicit form if needed
         const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
         if (implicit !== urlQuery) {
@@ -1070,19 +1088,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
-    let displayVal = raw;
-    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
-      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
-    }
-    setQuery(displayVal);
+    setQuery(raw);
     if (manageUrl) {
-      if (displayVal) {
+      if (raw) {
         // Update URL immediately
-        updateUrlForSearch(displayVal);
-        // Backend search should include implicit author on profile pages
-        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
-        handleSearch(backend.trim());
+        updateUrlForSearch(raw);
+        handleSearch(raw);
       } else {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
@@ -1090,7 +1101,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResults([]);
       }
     } else {
-      if (displayVal) handleSearch(displayVal);
+      if (raw) handleSearch(raw);
       else setResults([]);
     }
   };
@@ -1936,8 +1947,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <button 
             type={showExternalButton ? "button" : "submit"} 
             onClick={showExternalButton ? handleOpenExternal : undefined}
-            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
-            title={showExternalButton ? "Open URL in new tab" : "Search"}
+            className={`px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors ${profileScopeNotice ? 'relative' : ''}`}
+            title={showExternalButton ? "Open URL in new tab" : profileScopeNotice ? `Searching in ${profileScopeNotice}'s posts` : "Search"}
           >
             {loading ? (
               resolvingAuthor ? (
@@ -1949,6 +1960,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               <FontAwesomeIcon icon={faExternalLink} />
             ) : (
               <FontAwesomeIcon icon={faMagnifyingGlass} />
+            )}
+            {profileScopeNotice && (
+              <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full border border-blue-400">
+                {profileScopeNotice}
+              </div>
             )}
           </button>
         </div>
