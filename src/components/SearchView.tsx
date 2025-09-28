@@ -23,6 +23,7 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
+import { extractNip19IdentifiersFromUrl } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
@@ -78,22 +79,26 @@ function TruncatedText({
   const calculateEffectiveLength = (text: string): number => {
     // Regex patterns for different types of links
     const urlPattern = /https?:\/\/[^\s]+/g;
-    const nostrPattern = /(nevent|naddr|nprofile|npub|nsec|note)1[a-z0-9]+/g;
-    
+
     let effectiveLength = text.length;
-    
-    // Replace URLs with configured character count
+
     const urls = text.match(urlPattern) || [];
     urls.forEach(url => {
       effectiveLength = effectiveLength - url.length + TEXT_LINK_CHAR_COUNT;
+
+      const nestedIdentifiers = extractNip19IdentifiersFromUrl(url);
+      nestedIdentifiers.forEach(identifier => {
+        effectiveLength = effectiveLength - identifier.length + TEXT_LINK_CHAR_COUNT;
+      });
     });
-    
-    // Replace nostr-native links with configured character count
-    const nostrLinks = text.match(nostrPattern) || [];
-    nostrLinks.forEach(link => {
-      effectiveLength = effectiveLength - link.length + TEXT_LINK_CHAR_COUNT;
+
+    const directIdentifiers = extractNip19IdentifiersFromUrl(text);
+    directIdentifiers.forEach(identifier => {
+      const alreadyCovered = urls.some(url => url.includes(identifier));
+      if (alreadyCovered) return;
+      effectiveLength = effectiveLength - identifier.length + TEXT_LINK_CHAR_COUNT;
     });
-    
+
     return effectiveLength;
   };
   
