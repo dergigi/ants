@@ -7,7 +7,8 @@ export const searchExamples = [
   '#YESTR',
   '#SovEng',
   '#gratefulchain',
-  '#dogstr or #pugstr or #catstr or #horsestr or #goatstr',
+  '#photography',
+  '#artstr',
   'nevent',
   'habla.news',
   
@@ -16,11 +17,15 @@ export const searchExamples = [
   'by:gigi',
   'by:pablof7z',
   'by:corndalorian',
+  'by:fiatjaf',
+  'by:snowden',
+  'by:socrates',
 
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
   'good by:socrates',
+  'stay humble by:odell',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
   'NIP-EE by:jeffg',
@@ -34,6 +39,9 @@ export const searchExamples = [
   'free by:ulbricht',
   '(nostr OR 🫂) by:snowden',
   '"GM PV" by:derek',
+  'free by:ross',
+  'freedom by:ulbricht',
+  'knowledge by:platobot@dergigi.com',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -47,6 +55,8 @@ export const searchExamples = [
   'p:zaps.lol',
   'p:nostrplebs.com',
   'p:dave',
+  'p:edward',
+  'p:platobot@dergigi.com',
   'p:NewsBot or p:RSS',
   'p:twentyone.world',
   'einundzwanzig or twentyone.world',
@@ -72,6 +82,7 @@ export const searchExamples = [
   'by:HODL has:video',
   'Gregzaj1-ln_strike.gif',
   'giphy.gif',
+  'giphy.GIF',
   'by:gregzaj has:gif',
   '(GM OR GN) by:dergigi has:image',
   'is:image #Olas365',
@@ -94,6 +105,9 @@ export const searchExamples = [
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
+
+  // Multiple hashtags
+  '#dogstr or #pugstr or #horsestr or #goatstr',
 
   // NIP-50 extensions
   'bitcoin include:spam',
@@ -127,4 +141,4 @@ export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {
 }
 
 // Helper type for type safety
-export type SearchExample = typeof searchExamples[number];
+export type SearchExample = typeof searchExamples[number]; 

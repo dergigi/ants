@@ -27,6 +27,7 @@ interface Props {
   onFilterChange: (settings: FilterSettings) => void;
   resultCount: number;
   filteredCount: number;
+  emojiAutoDisabled?: boolean;
 }
 
 // Reusable NumberFilter component
@@ -70,13 +71,14 @@ function NumberFilter({ label, enabled, value, maxValue, onToggle, onValueChange
   );
 }
 
-export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount }: Props) {
+export default function ClientFilters({ filterSettings, onFilterChange, resultCount, filteredCount, emojiAutoDisabled = false }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [emojiLimit, setEmojiLimit] = useState<number>(filterSettings.maxEmojis ?? 3);
   const [hashtagLimit, setHashtagLimit] = useState<number>(filterSettings.maxHashtags ?? 3);
   const [mentionsLimit, setMentionsLimit] = useState<number>(filterSettings.maxMentions ?? 6);
 
-  const emojiEnabled = filterSettings.maxEmojis !== null;
+  const emojiStoredEnabled = filterSettings.maxEmojis !== null;
+  const emojiCheckboxChecked = emojiStoredEnabled && !emojiAutoDisabled;
   const hashtagEnabled = filterSettings.maxHashtags !== null;
   const mentionsEnabled = filterSettings.maxMentions !== null;
 
@@ -87,7 +89,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
 
   const handleEmojiValueChange = (value: number) => {
     setEmojiLimit(value);
-    if (emojiEnabled) {
+    if (emojiStoredEnabled) {
       onFilterChange({ ...filterSettings, maxEmojis: value });
     }
   };
@@ -239,7 +241,7 @@ export default function ClientFilters({ filterSettings, onFilterChange, resultCo
             {/* Hide more than X emojis */}
             <NumberFilter
               label="emojis"
-              enabled={emojiEnabled}
+              enabled={emojiCheckboxChecked}
               value={emojiLimit}
               maxValue={9}
               onToggle={handleEmojiToggle}
