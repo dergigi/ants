@@ -1918,13 +1918,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         <div className="flex gap-2">
           {profileScopeUser && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
                 {profileScopeUser.profile?.image ? (
                   <Image
                     src={trimImageUrl(profileScopeUser.profile.image)}
                     alt="Profile"
-                    width={32}
-                    height={32}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-cover"
                     unoptimized
                   />
