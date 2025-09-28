@@ -848,7 +848,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     let m: RegExpExecArray | null;
     while ((m = rx.exec(query)) !== null) {
       const token = (m[2] || '').toLowerCase();
-      if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
+      const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
+      if (tokenClean === currentProfileNpub.toLowerCase() ||
+          (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
         hasOurBy = true;
         break;
       }
@@ -991,7 +993,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const expanded = await applySimpleReplacements(effectiveQuery);
       const currentProfileNpub = getCurrentProfileNpub(pathname);
-      const shouldScope = profileScopingEnabled && !userManuallyDisabledScoping;
+      // Check if we should scope based on query content
+      let hasOurBy = false;
+      if (currentProfileNpub) {
+        const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(expanded)) !== null) {
+          const token = (m[2] || '').toLowerCase();
+          const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
+          const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
+          if (tokenClean === currentProfileNpub.toLowerCase() ||
+              (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
+            hasOurBy = true;
+            break;
+          }
+        }
+      }
+      const shouldScope = hasOurBy;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
       const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
@@ -1020,7 +1038,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopingEnabled, userManuallyDisabledScoping]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1206,13 +1224,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (currentProfileNpub && profileScopingEnabled && !userManuallyDisabledScoping && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
-      // Try to use NIP-05 if available, otherwise fall back to npub
-      let byValue = currentProfileNpub;
-      if (profileScopeUser?.profile?.nip05) {
-        byValue = profileScopeUser.profile.nip05;
+    if (currentProfileNpub && profileScopingEnabled && !userManuallyDisabledScoping) {
+      // Check if query already has our profile's by: filter
+      const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+      let hasOurBy = false;
+      let m: RegExpExecArray | null;
+      while ((m = rx.exec(displayVal)) !== null) {
+        const token = (m[2] || '').toLowerCase();
+        const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
+        const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
+        if (tokenClean === currentProfileNpub.toLowerCase() ||
+            (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
+          hasOurBy = true;
+          break;
+        }
       }
-      displayVal = `${displayVal} by:${byValue}`.trim();
+
+      if (!hasOurBy) {
+        // Try to use NIP-05 if available, otherwise fall back to npub
+        let byValue = currentProfileNpub;
+        if (profileScopeUser?.profile?.nip05) {
+          byValue = profileScopeUser.profile.nip05;
+        }
+        displayVal = `${displayVal} by:${byValue}`.trim();
+      }
     }
     setQuery(displayVal);
     if (manageUrl) {
@@ -1220,7 +1255,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         // Update URL immediately
         updateUrlForSearch(displayVal);
         // Backend search should include implicit author on profile pages
-        const shouldScope = profileScopingEnabled && !userManuallyDisabledScoping;
+        // Check if we should scope based on query content
+        let hasOurBy = false;
+        if (currentProfileNpub) {
+          const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
+          let m: RegExpExecArray | null;
+          while ((m = rx.exec(displayVal)) !== null) {
+            const token = (m[2] || '').toLowerCase();
+            const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
+            const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
+            if (tokenClean === currentProfileNpub.toLowerCase() ||
+                (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
+              hasOurBy = true;
+              break;
+            }
+          }
+        }
+        const shouldScope = hasOurBy;
         const backend = shouldScope ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
         handleSearch(backend.trim());
       } else {
@@ -2024,12 +2075,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               }
 
               const currentQuery = query.trim();
+              // More robust regex to match by: followed by identifier (handles nip05 with underscores)
               const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
               let hasOurBy = false;
               let m: RegExpExecArray | null;
               while ((m = rx.exec(currentQuery)) !== null) {
                 const token = (m[2] || '').toLowerCase();
-                if (token === currentProfileNpub.toLowerCase() || (nip05 && token === nip05.toLowerCase())) {
+                // Check if token matches npub or nip05 (nip05 might have underscores)
+                const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
+                if (tokenClean === currentProfileNpub.toLowerCase() ||
+                    (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
                   hasOurBy = true;
                   break;
                 }
@@ -2042,7 +2097,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 // Remove our profile's by: filter
                 const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
                   const t = (token || '').toLowerCase();
-                  if (t === currentProfileNpub.toLowerCase() || (nip05 && t === nip05.toLowerCase())) {
+                  const tClean = t.replace(/^_+/, ''); // Remove leading underscores
+                  if (tClean === currentProfileNpub.toLowerCase() ||
+                      (nip05 && (tClean === nip05.toLowerCase() || t === nip05.toLowerCase()))) {
                     return pre ? pre : '';
                   }
                   return full; // keep other authors' by:
