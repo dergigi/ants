@@ -89,7 +89,7 @@ export function addProfileScope(query: string, identifiers: ProfileScopeIdentifi
   const tokens = trimmed.split(/\s+/);
   for (const token of tokens) {
     if (tokenMatchesProfile(token.replace(/^by:/i, ''), identifiers)) {
-      return trimmed;
+      return replaceProfileScopeIdentifier(trimmed, identifiers);
     }
   }
   return `${trimmed} by:${value}`.trim();
@@ -101,8 +101,4 @@ export function removeProfileScope(query: string, identifiers: ProfileScopeIdent
     return tokenMatchesProfile(token || '', identifiers) ? pre || '' : full;
   });
   return result.replace(/\s{2,}/g, ' ').trim();
-}
-
-export function applyProfileScopePreference(query: string, identifiers: ProfileScopeIdentifiers, enabled: boolean): string {
-  return enabled ? addProfileScope(query, identifiers) : removeProfileScope(query, identifiers);
 }
