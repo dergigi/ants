@@ -9,6 +9,7 @@ export const searchExamples = [
   '#gratefulchain',
   '#dogstr or #pugstr or #catstr or #horsestr or #goatstr',
   'nevent',
+  'habla.news',
   
   // Author
   'by:dergigi',
@@ -32,6 +33,7 @@ export const searchExamples = [
   '(PoW OR WoT) by:dergigi',
   'free by:ulbricht',
   '(nostr OR 🫂) by:snowden',
+  '"GM PV" by:derek',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -60,6 +62,7 @@ export const searchExamples = [
   'has:video',
   'is:video',
   'has:gif',
+  '"habla.news"',
 
   // Mixed media + text
   'GM has:video',
