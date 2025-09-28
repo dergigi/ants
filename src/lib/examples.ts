@@ -18,18 +18,15 @@ export const searchExamples = [
   'by:pablof7z',
   'by:corndalorian',
   'by:fiatjaf',
-  'by:edward',
   'by:snowden',
-  'by:ross',
-  'by:ulbricht',
   'by:plato',
   'by:socrates',
-  'by:odell',
 
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
   'good by:socrates',
+  'stay humble by:odell',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
   'NIP-EE by:jeffg',
@@ -43,6 +40,8 @@ export const searchExamples = [
   'free by:ulbricht',
   '(nostr OR 🫂) by:snowden',
   '"GM PV" by:derek',
+  'free by:ross',
+  'freedom by:ulbricht',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -56,7 +55,8 @@ export const searchExamples = [
   'p:zaps.lol',
   'p:nostrplebs.com',
   'p:dave',
-  'p:NewsBot or p:RSS',
+  'p:edward',
+  'p:(NewsBot or RSS)',
   'p:twentyone.world',
   'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
