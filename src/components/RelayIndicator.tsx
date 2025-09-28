@@ -24,7 +24,7 @@ export default function RelayIndicator({
   return (
     <button
       type="button"
-      className="flex items-center gap-2 text-sm transition-colors touch-manipulation"
+      className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onToggle}
       title={formatConnectionTooltip(connectionDetails)}
     >
@@ -32,15 +32,15 @@ export default function RelayIndicator({
         icon={faServer} 
         className={`w-3 h-3 ${
           connectionStatus === 'connected' ? 'text-blue-400' : 
-          connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-400'
+          connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-500'
         }`} 
       />
-      <span className="text-xs text-gray-400">
+      <span className="text-xs">
         {connectedCount}/{totalCount}
       </span>
       <FontAwesomeIcon 
         icon={showConnectionDetails ? faChevronUp : faChevronDown} 
-        className="w-3 h-3 text-gray-400" 
+        className="w-3 h-3" 
       />
     </button>
   );
