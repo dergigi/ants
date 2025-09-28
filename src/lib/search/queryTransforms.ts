@@ -23,11 +23,12 @@ export function toImplicitUrlQuery(explicitQuery: string, currentNpub: string | 
 }
 
 // For the input on /p pages: ensure by:<current npub> is visible/explicit alongside urlQuery
-export function toExplicitInputFromUrl(urlQuery: string, currentNpub: string | null): string {
+export function toExplicitInputFromUrl(urlQuery: string, currentNpub: string | null, displayIdentifier?: string | null): string {
   if (!currentNpub) return (urlQuery || '').trim();
   const base = (urlQuery || '').trim();
-  if (!base) return `by:${currentNpub}`;
-  return /(^|\s)by:\S+(?=\s|$)/i.test(base) ? base : `${base} by:${currentNpub}`;
+  const identifier = displayIdentifier || currentNpub;
+  if (!base) return `by:${identifier}`;
+  return /(^|\s)by:\S+(?=\s|$)/i.test(base) ? base : `${base} by:${identifier}`;
 }
 
 // For backend searches on /p pages: ensure by:<current npub> filter is included

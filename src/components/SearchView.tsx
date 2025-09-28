@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKRelaySet, NDKUser, type NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKRelaySet, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
@@ -16,16 +16,20 @@ import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
+import { profileEventFromPubkey } from '@/lib/vertex';
+import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
+import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -58,6 +62,7 @@ function SearchIconButton({
     </button>
   );
 }
+
 
 // Component for truncating long text with fade effect and expand arrow
 function TruncatedText({ 
@@ -585,14 +590,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setTopExamples(null);
   }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
+  const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
+
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
+    const newValue = e.target.value;
+    setQuery(newValue);
+    // Release suppression on next tick so explicit submit still works
+    setTimeout(() => { suppressSearchRef.current = false; }, 0);
   }, [setQuery]);
 
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
+  // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
+  const suppressSearchRef = useRef(false);
 
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
@@ -741,7 +753,65 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     updateUrlForSearch(query);
   }, [updateUrlForSearch]);
 
+  useEffect(() => {
+    if (!manageUrl) {
+      setProfileScopeUser(null);
+      return;
+    }
+
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!currentProfileNpub) {
+      setProfileScopeUser(null);
+      return;
+    }
+
+    // Get profile data using the existing profile system
+    const setupProfileUser = async () => {
+      try {
+        const decoded = nip19.decode(currentProfileNpub);
+        if (decoded?.type === 'npub' && typeof decoded.data === 'string') {
+          const pubkey = decoded.data;
+          // Use the existing profile system that caches and fetches properly
+          const profileEvent = await profileEventFromPubkey(pubkey);
+          if (profileEvent) {
+            const user = new NDKUser({ pubkey });
+            user.ndk = ndk;
+            // Attach the profile data from the cached/complete profile event
+            user.profile = profileEvent.content ? JSON.parse(profileEvent.content) : {};
+            setProfileScopeUser(user);
+          } else {
+            setProfileScopeUser(null);
+          }
+        } else {
+          setProfileScopeUser(null);
+        }
+      } catch {
+        setProfileScopeUser(null);
+      }
+    };
+
+    setupProfileUser();
+  }, [manageUrl, pathname]);
+
+  // Determine scope identifiers for current profile
+  const profileScopeIdentifiers = useMemo(() => {
+    const currentProfileNpub = getCurrentProfileNpub(pathname);
+    if (!currentProfileNpub) return null;
+    const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+    if (!identifiers) return null;
+    return identifiers;
+  }, [profileScopeUser, pathname]);
+
+  const profileScoped = useMemo(() => {
+    if (!profileScopeIdentifiers) return false;
+    return hasProfileScope(query, profileScopeIdentifiers);
+  }, [query, profileScopeIdentifiers]);
   const handleSearch = useCallback(async (searchQuery: string) => {
+    if (suppressSearchRef.current) {
+      // Clear the flag and ignore this invocation
+      suppressSearchRef.current = false;
+      return;
+    }
     if (!searchQuery.trim()) {
       setResults([]);
       setResolvingAuthor(false);
@@ -864,7 +934,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       const expanded = await applySimpleReplacements(effectiveQuery);
-      const searchResults = await searchEvents(expanded, 200, undefined, undefined, abortController.signal);
+      const currentProfileNpub = getCurrentProfileNpub(pathname);
+      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+      const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
+      const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
+      const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -891,7 +965,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1031,7 +1105,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         runSlashCommand(urlQuery);
         handleSearch(urlQuery);
       } else {
-        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub);
+        // Use normalized NIP-05 if available for display, otherwise use npub
+        const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+        const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
+        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub, displayIdentifier);
         setQuery(display);
         const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
         handleSearch(backend);
@@ -1046,7 +1123,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
       handleSearch(urlQuery);
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand]);
+  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1070,18 +1147,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (currentProfileNpub && !/(^|\s)by:\S+(?=\s|$)/i.test(displayVal)) {
-      displayVal = `${displayVal} by:${currentProfileNpub}`.trim();
+    const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+    if (identifiers && profileScoped) {
+      displayVal = addProfileScope(displayVal, identifiers);
     }
     setQuery(displayVal);
     if (manageUrl) {
       if (displayVal) {
         // Update URL immediately
         updateUrlForSearch(displayVal);
-        // Backend search should include implicit author on profile pages
-        const backend = ensureAuthorForBackend(displayVal, currentProfileNpub);
+        const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+        const shouldScope = identifiers ? hasProfileScope(displayVal, identifiers) : false;
+        const backend = shouldScope ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
         handleSearch(backend.trim());
       } else {
         const params = new URLSearchParams(searchParams.toString());
@@ -1864,9 +1942,27 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
 
   return (
-    <div className={`w-full ${(results.length > 0 || topCommandText) ? 'pt-4' : 'min-h-screen flex items-center'}`}>
+    <div className="w-full pt-4">
       <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
         <div className="flex gap-2">
+          <ProfileScopeIndicator
+            key={profileScopeUser?.npub || 'no-user'}
+            user={profileScopeUser}
+            isEnabled={profileScoped}
+            onToggle={() => {
+              if (!profileScopeIdentifiers) return;
+              suppressSearchRef.current = true;
+              const currentQuery = query.trim();
+              const hasScope = hasProfileScope(currentQuery, profileScopeIdentifiers);
+              const updatedQuery = hasScope
+                ? removeProfileScope(currentQuery, profileScopeIdentifiers)
+                : addProfileScope(currentQuery, profileScopeIdentifiers);
+              setQuery(updatedQuery);
+              setTimeout(() => {
+                suppressSearchRef.current = false;
+              }, 0);
+            }}
+          />
           <div className="flex-1 relative">
             <input
               ref={searchInputRef}
@@ -1937,7 +2033,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             type={showExternalButton ? "button" : "submit"} 
             onClick={showExternalButton ? handleOpenExternal : undefined}
             className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
-            title={showExternalButton ? "Open URL in new tab" : "Search"}
+            title={showExternalButton ? "Open URL in new tab" : profileScopeUser ? `Searching in ${profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || shortenNpub(profileScopeUser.npub)}'s posts` : "Search"}
           >
             {loading ? (
               resolvingAuthor ? (
