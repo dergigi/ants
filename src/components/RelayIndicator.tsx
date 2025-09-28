@@ -1,4 +1,6 @@
 import { ConnectionStatus } from '@/lib/ndk';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faServer } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayIndicatorProps {
   connectionStatus: 'connecting' | 'connected' | 'timeout';
@@ -18,16 +20,17 @@ export default function RelayIndicator({
   return (
     <button
       type="button"
-      className="w-3 h-3 touch-manipulation"
+      className="touch-manipulation"
       onClick={onToggle}
       title={formatConnectionTooltip(connectionDetails)}
     >
-      <div className="relative w-3 h-3">
-        <div className={`w-3 h-3 rounded-full border-2 border-white/20 shadow-sm ${
-          connectionStatus === 'connected' ? 'bg-blue-400' : 
-          connectionStatus === 'timeout' ? 'bg-yellow-400' : 'bg-gray-400'
-        }`} />
-      </div>
+      <FontAwesomeIcon 
+        icon={faServer} 
+        className={`w-3 h-3 ${
+          connectionStatus === 'connected' ? 'text-blue-400' : 
+          connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-400'
+        }`} 
+      />
     </button>
   );
 }
