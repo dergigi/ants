@@ -756,14 +756,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    const trimmedQuery = (query || '').trim();
-    const hasExplicitScope = /(^|\s)by:\S+(?=\s|$)/i.test(trimmedQuery);
-    
-    if (hasExplicitScope) {
-      setProfileScopeUser(null);
-      return;
-    }
-
     // Create NDKUser for the profile scope and fetch profile
     const setupProfileUser = async () => {
       try {
