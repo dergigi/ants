@@ -1,4 +1,5 @@
 import { decodeMaybe } from '@/lib/utils';
+import { nip19 } from 'nostr-tools';
 
 const NIP19_PREFIXES = [
   'npub',
@@ -59,10 +60,10 @@ function tryParseUrl(value: string): URL | null {
  * Handles identifiers found in path segments, query parameters and fragments,
  * and gracefully de-duplicates results.
  */
-export function extractNip19IdentifiersFromUrl(url: string): string[] {
-  if (typeof url !== 'string') return [];
+export function extractNip19Identifiers(urlLike: string): string[] {
+  if (typeof urlLike !== 'string') return [];
 
-  const trimmed = url.trim();
+  const trimmed = urlLike.trim();
   if (!trimmed) return [];
 
   const seen = new Set<string>();
@@ -111,4 +112,60 @@ export function extractNip19IdentifiersFromUrl(url: string): string[] {
 export const NIP19_BOUNDARY_REGEX = new RegExp(BOUNDED_NIP19_PATTERN, 'gi');
 
 export type Nip19Prefix = typeof NIP19_PREFIXES[number];
+
+export type Nip19Pointer =
+  | { type: 'nevent'; id: string; relays?: string[]; author?: string; kind?: number }
+  | { type: 'note'; id: string }
+  | { type: 'naddr'; pubkey: string; identifier: string; kind: number; relays?: string[] }
+  | { type: 'nprofile'; pubkey: string; relays?: string[] }
+  | { type: 'npub'; pubkey: string }
+  | { type: 'nrelay'; relay: string }
+  | { type: 'nsec' };
+
+export function decodeNip19Pointer(identifier: string): Nip19Pointer | null {
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  try {
+    const decoded = nip19.decode(trimmed);
+    switch (decoded.type) {
+      case 'nevent': {
+        const data = decoded.data as { id: string; relays?: string[]; author?: string; kind?: number };
+        return {
+          type: 'nevent',
+          id: typeof data.id === 'string' ? data.id : '',
+          relays: Array.isArray(data.relays) ? data.relays : undefined,
+          author: typeof data.author === 'string' ? data.author : undefined,
+          kind: typeof data.kind === 'number' ? data.kind : undefined
+        };
+      }
+      case 'note':
+        return { type: 'note', id: decoded.data as string };
+      case 'naddr':
+        return {
+          type: 'naddr',
+          pubkey: (decoded.data as { pubkey: string }).pubkey,
+          identifier: (decoded.data as { identifier: string }).identifier,
+          kind: (decoded.data as { kind: number }).kind,
+          relays: (decoded.data as { relays?: string[] }).relays
+        };
+      case 'nprofile':
+        return {
+          type: 'nprofile',
+          pubkey: (decoded.data as { pubkey: string }).pubkey,
+          relays: (decoded.data as { relays?: string[] }).relays
+        };
+      case 'npub':
+        return { type: 'npub', pubkey: decoded.data as string };
+      case 'nrelay':
+        return { type: 'nrelay', relay: decoded.data as string };
+      case 'nsec':
+        return { type: 'nsec' };
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
 

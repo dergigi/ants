@@ -23,7 +23,7 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
-import { extractNip19IdentifiersFromUrl } from '@/lib/utils/nostrIdentifiers';
+import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
@@ -86,13 +86,13 @@ function TruncatedText({
     urls.forEach(url => {
       effectiveLength = effectiveLength - url.length + TEXT_LINK_CHAR_COUNT;
 
-      const nestedIdentifiers = extractNip19IdentifiersFromUrl(url);
+      const nestedIdentifiers = extractNip19Identifiers(url);
       nestedIdentifiers.forEach(identifier => {
         effectiveLength = effectiveLength - identifier.length + TEXT_LINK_CHAR_COUNT;
       });
     });
 
-    const directIdentifiers = extractNip19IdentifiersFromUrl(text);
+    const directIdentifiers = extractNip19Identifiers(text);
     directIdentifiers.forEach(identifier => {
       const alreadyCovered = urls.some(url => url.includes(identifier));
       if (alreadyCovered) return;
@@ -746,6 +746,41 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
     const isOnTagPath = pathname?.startsWith('/t/');
+    const normalizedInput = searchQuery.trim();
+    const nip19Identifiers = extractNip19Identifiers(normalizedInput);
+    const pointerToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
+    const pointerLower = pointerToken ? pointerToken.toLowerCase() : null;
+    const firstPointer = pointerLower ? decodeNip19Pointer(pointerLower) : null;
+
+    if (pointerLower && firstPointer) {
+      const stripped = normalizedInput
+        .replace(/^web\+nostr:/i, '')
+        .replace(/^nostr:/i, '')
+        .replace(/[\s),.;]*$/, '')
+        .trim()
+        .toLowerCase();
+      const pointerOnly = stripped === pointerLower;
+      const pointerInUrl = !pointerOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(pointerLower);
+
+      if (pointerOnly || pointerInUrl) {
+        setTopCommandText(null);
+        setTopExamples(null);
+        setShowExternalButton(false);
+        setResults([]);
+        setLoading(false);
+        setResolvingAuthor(false);
+
+        if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
+          router.push(`/e/${pointerLower}`);
+          return;
+        }
+        if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
+          router.push(`/p/${pointerLower}`);
+          return;
+        }
+      }
+    }
+
     const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
     
     if (!(isOnTagPath && isHashtagQuery)) {
