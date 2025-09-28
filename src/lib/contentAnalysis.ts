@@ -1,5 +1,6 @@
 import emojiRegex from 'emoji-regex';
 import { extractNonMediaUrls } from '@/lib/utils/urlUtils';
+import { extractNip19Identifiers } from '@/lib/utils/nostrIdentifiers';
 import { BRIDGED_KEYWORDS } from '@/lib/constants';
 
 /**
@@ -39,8 +40,7 @@ export function countMentions(text: string): number {
   
   // Match Nostr bech32-encoded entities (npub, nsec, note, nprofile, nevent, nrelay, naddr)
   // These are bech32-encoded strings that start with the appropriate prefix
-  const nostrEntityRegex = /\b(npub|nsec|note|nprofile|nevent|nrelay|naddr)[a-z0-9]+/g;
-  const nostrMatches = text.match(nostrEntityRegex) || [];
+  const nostrMatches = extractNip19Identifiers(text);
   
   return usernameMatches.length + nostrMatches.length;
 }

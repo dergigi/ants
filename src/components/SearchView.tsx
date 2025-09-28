@@ -23,6 +23,7 @@ import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import CopyButton from '@/components/CopyButton';
 import { nip19 } from 'nostr-tools';
+import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import emojiRegex from 'emoji-regex';
@@ -78,22 +79,26 @@ function TruncatedText({
   const calculateEffectiveLength = (text: string): number => {
     // Regex patterns for different types of links
     const urlPattern = /https?:\/\/[^\s]+/g;
-    const nostrPattern = /(nevent|naddr|nprofile|npub|nsec|note)1[a-z0-9]+/g;
-    
+
     let effectiveLength = text.length;
-    
-    // Replace URLs with configured character count
+
     const urls = text.match(urlPattern) || [];
     urls.forEach(url => {
       effectiveLength = effectiveLength - url.length + TEXT_LINK_CHAR_COUNT;
+
+      const nestedIdentifiers = extractNip19Identifiers(url);
+      nestedIdentifiers.forEach(identifier => {
+        effectiveLength = effectiveLength - identifier.length + TEXT_LINK_CHAR_COUNT;
+      });
     });
-    
-    // Replace nostr-native links with configured character count
-    const nostrLinks = text.match(nostrPattern) || [];
-    nostrLinks.forEach(link => {
-      effectiveLength = effectiveLength - link.length + TEXT_LINK_CHAR_COUNT;
+
+    const directIdentifiers = extractNip19Identifiers(text);
+    directIdentifiers.forEach(identifier => {
+      const alreadyCovered = urls.some(url => url.includes(identifier));
+      if (alreadyCovered) return;
+      effectiveLength = effectiveLength - identifier.length + TEXT_LINK_CHAR_COUNT;
     });
-    
+
     return effectiveLength;
   };
   
@@ -477,6 +482,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastPointerRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchRowRef = useRef<HTMLFormElement | null>(null);
@@ -741,6 +747,45 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
     const isOnTagPath = pathname?.startsWith('/t/');
+    const normalizedInput = searchQuery.trim();
+    const nip19Identifiers = extractNip19Identifiers(normalizedInput);
+    const pointerToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
+    const pointerLower = pointerToken ? pointerToken.toLowerCase() : null;
+    const firstPointer = pointerLower ? decodeNip19Pointer(pointerLower) : null;
+
+    if (pointerLower && pointerLower === lastPointerRedirectRef.current) {
+      lastPointerRedirectRef.current = null;
+    } else if (pointerLower && firstPointer) {
+      const stripped = normalizedInput
+        .replace(/^web\+nostr:/i, '')
+        .replace(/^nostr:/i, '')
+        .replace(/[\s),.;]*$/, '')
+        .trim()
+        .toLowerCase();
+      const pointerOnly = stripped === pointerLower;
+      const pointerInUrl = !pointerOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(pointerLower);
+
+      if (pointerOnly || pointerInUrl) {
+        setTopCommandText(null);
+        setTopExamples(null);
+        setShowExternalButton(false);
+        setResults([]);
+        setLoading(false);
+        setResolvingAuthor(false);
+
+        if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
+          lastPointerRedirectRef.current = pointerLower;
+          router.push(`/e/${pointerLower}`);
+          return;
+        }
+        if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
+          lastPointerRedirectRef.current = pointerLower;
+          router.push(`/p/${pointerLower}`);
+          return;
+        }
+      }
+    }
+
     const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
     
     if (!(isOnTagPath && isHashtagQuery)) {
@@ -1250,6 +1295,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
     const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
     const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
+    const nostrNoteRegex = /(nostr:note1[0-9a-z]+)(?!\w)/gi;
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -1418,15 +1464,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           let isMounted = true;
           (async () => {
             try {
-              const m = token.match(/^(nostr:(?:nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+              const m = token.match(/^(nostr:(?:nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
               const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
               const decoded = nip19.decode(coreToken);
-              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr')) {
+              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr' && decoded.type !== 'note')) {
                 throw new Error('Unsupported pointer');
               }
 
               let fetched: NDKEvent | null = null;
-              if (decoded.type === 'nevent') {
+              if (decoded.type === 'nevent' || decoded.type === 'note') {
                 const data = decoded.data as { id: string; relays?: string[] };
                 const { id, relays } = data;
                 fetched = await fetchWithRelayHints([{ ids: [id] }], relays ?? []);
@@ -1519,15 +1565,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
 
         // Now split this chunk for nevent tokens if enabled
-        const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}`;
-        const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
-        const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1)[0-9a-z]+[),.;]*$`, 'i');
+    const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}|${nostrNoteRegex.source}`;
+    const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
+    const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1|note1)[0-9a-z]+[),.;]*$`, 'i');
         const seenPointers = new Set<string>();
         nostrSplit.forEach((sub, subIdx) => {
           if (!sub) return;
           const isNostrToken = combinedRegex.test(sub);
           if (!options?.disableNevent && isNostrToken) {
-            const match = sub.match(/^(nostr:(nevent1|naddr1)[0-9a-z]+)([),.;]*)$/i);
+            const match = sub.match(/^(nostr:(nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
             const coreToken = match ? match[1] : sub;
             const type = match ? match[2] : '';
             const trailing = (match && match[3]) || '';
@@ -1537,10 +1583,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               return;
             }
             seenPointers.add(normalizedPointer);
-            if (type?.toLowerCase().startsWith('nevent')) {
+            const typeLower = type?.toLowerCase() || '';
+            if (typeLower.startsWith('nevent') || typeLower.startsWith('note')) {
               try {
                 const decoded = nip19.decode(coreToken.replace(/^nostr:/i, ''));
-                const pointerId = decoded?.type === 'nevent' ? ((decoded.data as { id: string }).id || '').toLowerCase() : '';
+                let pointerId = '';
+                if (decoded?.type === 'nevent') {
+                  pointerId = ((decoded.data as { id: string }).id || '').toLowerCase();
+                } else if (decoded?.type === 'note') {
+                  pointerId = (decoded.data as string) || '';
+                  pointerId = pointerId.toLowerCase();
+                }
                 if (pointerId && options?.skipPointerIds?.has(pointerId)) {
                   if (trailing) finalNodes.push(trailing);
                   return;
@@ -1551,7 +1604,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   <InlineNostrReference token={coreToken} />
                 </div>
               );
-            } else if (type?.toLowerCase().startsWith('naddr')) {
+            } else if (typeLower.startsWith('naddr')) {
               finalNodes.push(
                 <div key={`naddr-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
                   <InlineNostrReference token={coreToken} />

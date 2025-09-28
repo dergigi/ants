@@ -23,6 +23,7 @@ export function shortenString(
 
 // Re-export URL utilities from centralized module
 export { extractDomainFromUrl } from './utils/urlUtils';
+export { extractNip19Identifiers, decodeNip19Pointer, NIP19_BOUNDARY_REGEX, type Nip19Prefix, type Nip19Pointer } from './utils/nostrIdentifiers';
 
 /**
  * Shortens an npub string using the standard format
