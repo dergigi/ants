@@ -79,16 +79,12 @@ function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers
 export function containsProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
   BY_TOKEN_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
-  console.log('DEBUG: containsProfileScope - query:', query, 'identifiers:', identifiers);
   while ((match = BY_TOKEN_REGEX.exec(query)) !== null) {
     const token = match[2] || '';
-    console.log('DEBUG: found by: token:', token);
     if (tokenMatchesProfile(token, identifiers)) {
-      console.log('DEBUG: token matches profile, returning true');
       return true;
     }
   }
-  console.log('DEBUG: no matching tokens found, returning false');
   return false;
 }
 
