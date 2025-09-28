@@ -17,6 +17,7 @@ import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
 import { profileEventFromPubkey } from '@/lib/vertex';
+import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
 import Image from 'next/image';
 import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
@@ -631,8 +632,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
-  const [profileScopingEnabled, setProfileScopingEnabled] = useState(true);
-  const [userManuallyDisabledScoping, setUserManuallyDisabledScoping] = useState(false);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -835,35 +834,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setupProfileUser();
   }, [manageUrl, pathname]);
 
-  // Sync toggle state with actual query content
-  useEffect(() => {
-    if (!manageUrl) return;
+  // Determine scope identifiers for current profile
+  const profileScopeIdentifiers = useMemo(() => {
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-    if (!currentProfileNpub) return;
+    if (!currentProfileNpub) return null;
+    const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+    if (!identifiers) return null;
+    return identifiers;
+  }, [profileScopeUser, pathname]);
 
-    // Check if query contains our profile's by: filter
-    const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-    let hasOurBy = false;
-    let m: RegExpExecArray | null;
-    while ((m = rx.exec(query)) !== null) {
-      const token = (m[2] || '').toLowerCase();
-      const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
-      if (tokenClean === currentProfileNpub.toLowerCase() ||
-          (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
-        hasOurBy = true;
-        break;
-      }
-    }
-
-    // Update toggle state to match query content
-    if (hasOurBy && !profileScopingEnabled) {
-      setProfileScopingEnabled(true);
-      setUserManuallyDisabledScoping(false);
-    } else if (!hasOurBy && profileScopingEnabled && !userManuallyDisabledScoping) {
-      setProfileScopingEnabled(false);
-    }
-  }, [manageUrl, pathname, profileScopeUser?.profile?.nip05, query, profileScopingEnabled, userManuallyDisabledScoping]);
+  const profileScoped = useMemo(() => {
+    if (!profileScopeIdentifiers) return false;
+    return hasProfileScope(query, profileScopeIdentifiers);
+  }, [query, profileScopeIdentifiers]);
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (suppressSearchRef.current) {
       // Clear the flag and ignore this invocation
@@ -993,23 +976,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const expanded = await applySimpleReplacements(effectiveQuery);
       const currentProfileNpub = getCurrentProfileNpub(pathname);
-      // Check if we should scope based on query content
-      let hasOurBy = false;
-      if (currentProfileNpub) {
-        const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(expanded)) !== null) {
-          const token = (m[2] || '').toLowerCase();
-          const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
-          const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-          if (tokenClean === currentProfileNpub.toLowerCase() ||
-              (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
-            hasOurBy = true;
-            break;
-          }
-        }
-      }
-      const shouldScope = hasOurBy;
+      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+      const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
       const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
       
@@ -1222,56 +1190,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    // Keep input explicit; on /p add missing by:<current npub> to the input value on submit
     let displayVal = raw;
-    if (currentProfileNpub && profileScopingEnabled && !userManuallyDisabledScoping) {
-      // Check if query already has our profile's by: filter
-      const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-      let hasOurBy = false;
-      let m: RegExpExecArray | null;
-      while ((m = rx.exec(displayVal)) !== null) {
-        const token = (m[2] || '').toLowerCase();
-        const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
-        const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-        if (tokenClean === currentProfileNpub.toLowerCase() ||
-            (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
-          hasOurBy = true;
-          break;
-        }
-      }
-
-      if (!hasOurBy) {
-        // Try to use NIP-05 if available, otherwise fall back to npub
-        let byValue = currentProfileNpub;
-        if (profileScopeUser?.profile?.nip05) {
-          byValue = profileScopeUser.profile.nip05;
-        }
-        displayVal = `${displayVal} by:${byValue}`.trim();
-      }
+    const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+    if (identifiers && profileScoped) {
+      displayVal = addProfileScope(displayVal, identifiers);
     }
     setQuery(displayVal);
     if (manageUrl) {
       if (displayVal) {
         // Update URL immediately
         updateUrlForSearch(displayVal);
-        // Backend search should include implicit author on profile pages
-        // Check if we should scope based on query content
-        let hasOurBy = false;
-        if (currentProfileNpub) {
-          const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-          let m: RegExpExecArray | null;
-          while ((m = rx.exec(displayVal)) !== null) {
-            const token = (m[2] || '').toLowerCase();
-            const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
-            const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-            if (tokenClean === currentProfileNpub.toLowerCase() ||
-                (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
-              hasOurBy = true;
-              break;
-            }
-          }
-        }
-        const shouldScope = hasOurBy;
+        const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+        const shouldScope = identifiers ? hasProfileScope(displayVal, identifiers) : false;
         const backend = shouldScope ? ensureAuthorForBackend(displayVal, currentProfileNpub) : displayVal;
         handleSearch(backend.trim());
       } else {
@@ -2061,58 +1991,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <ProfileScopeIndicator
             key={profileScopeUser?.npub || 'no-user'}
             user={profileScopeUser}
-            isEnabled={profileScopingEnabled}
+            isEnabled={profileScoped}
             onToggle={() => {
-              const currentProfileNpub = getCurrentProfileNpub(pathname);
-              const nip05 = (profileScopeUser?.profile?.nip05 as string | undefined) || undefined;
-
-              if (!currentProfileNpub) return;
-
-              // Determine the by: value to use
-              let byValue = currentProfileNpub;
-              if (nip05) {
-                byValue = nip05;
-              }
-
-              const currentQuery = query.trim();
-              // More robust regex to match by: followed by identifier (handles nip05 with underscores)
-              const rx = /(^|\s)by:([^\s),.;]+)(?=[\s),.;]|$)/ig;
-              let hasOurBy = false;
-              let m: RegExpExecArray | null;
-              while ((m = rx.exec(currentQuery)) !== null) {
-                const token = (m[2] || '').toLowerCase();
-                // Check if token matches npub or nip05 (nip05 might have underscores)
-                const tokenClean = token.replace(/^_+/, ''); // Remove leading underscores
-                if (tokenClean === currentProfileNpub.toLowerCase() ||
-                    (nip05 && (tokenClean === nip05.toLowerCase() || token === nip05.toLowerCase()))) {
-                  hasOurBy = true;
-                  break;
-                }
-              }
-
-              // Update the search box content without triggering search
+              if (!profileScopeIdentifiers) return;
               suppressSearchRef.current = true;
-
-              if (hasOurBy) {
-                // Remove our profile's by: filter
-                const updatedQuery = currentQuery.replace(rx, (full, pre: string, token: string) => {
-                  const t = (token || '').toLowerCase();
-                  const tClean = t.replace(/^_+/, ''); // Remove leading underscores
-                  if (tClean === currentProfileNpub.toLowerCase() ||
-                      (nip05 && (tClean === nip05.toLowerCase() || t === nip05.toLowerCase()))) {
-                    return pre ? pre : '';
-                  }
-                  return full; // keep other authors' by:
-                }).replace(/\s{2,}/g, ' ').trim();
-                setQuery(updatedQuery);
-              } else {
-                // Add our profile's by: filter
-                const updatedQuery = currentQuery ? `${currentQuery} by:${byValue}` : `by:${byValue}`;
-                setQuery(updatedQuery.trim());
-              }
-
-              // Release suppression on next tick
-              setTimeout(() => { suppressSearchRef.current = false; }, 0);
+              const currentQuery = query.trim();
+              const hasScope = hasProfileScope(currentQuery, profileScopeIdentifiers);
+              const updatedQuery = hasScope
+                ? removeProfileScope(currentQuery, profileScopeIdentifiers)
+                : addProfileScope(currentQuery, profileScopeIdentifiers);
+              setQuery(updatedQuery);
+              setTimeout(() => {
+                suppressSearchRef.current = false;
+              }, 0);
             }}
           />
           <div className="flex-1 relative">
