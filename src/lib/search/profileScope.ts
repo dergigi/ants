@@ -30,9 +30,7 @@ function normalizeIdentifier(value?: string): string {
   const trimmed = (value || '').trim();
   const withoutLeadingUnderscores = trimmed.replace(/^_+/, '');
   const withoutAtPrefix = withoutLeadingUnderscores.replace(/^@+/, '');
-  const normalized = withoutAtPrefix.toLowerCase();
-  console.log('DEBUG: normalizeIdentifier - input:', value, 'output:', normalized);
-  return normalized;
+  return withoutAtPrefix.toLowerCase();
 }
 
 function extractNip05(user: NDKUser | null): string | undefined {
@@ -69,15 +67,10 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
 function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers): boolean {
   const normalizedToken = normalizeIdentifier(token);
   if (!normalizedToken) return false;
-  const matches = normalizedToken === identifiers.normalizedIdentifier || 
-                  normalizedToken === identifiers.normalizedNpub || 
-                  (identifiers.normalizedNip05 && normalizedToken === identifiers.normalizedNip05);
-  console.log('DEBUG: tokenMatchesProfile - token:', token, 'normalizedToken:', normalizedToken, 'matches:', matches, 'identifiers:', {
-    normalizedIdentifier: identifiers.normalizedIdentifier,
-    normalizedNpub: identifiers.normalizedNpub,
-    normalizedNip05: identifiers.normalizedNip05
-  });
-  return matches;
+  if (normalizedToken === identifiers.normalizedIdentifier) return true;
+  if (normalizedToken === identifiers.normalizedNpub) return true;
+  if (identifiers.normalizedNip05 && normalizedToken === identifiers.normalizedNip05) return true;
+  return false;
 }
 
 export function containsProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
