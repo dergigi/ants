@@ -2105,7 +2105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Expandable connection details - now shows below relay indicator */}
       {showConnectionDetails && connectionDetails && (
-        <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs">
+        <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
           <div className="flex items-center justify-end mb-2">
             <button
               type="button"
