@@ -75,36 +75,72 @@ export function LoginButton() {
     void handleLogin();
   };
 
+  const handleFaviconClick = () => {
+    router.push('/');
+  };
+
   if (isLoading) {
     return (
-      <button
-        disabled
-        className="fixed top-4 right-4 text-sm text-gray-400 transition-colors"
-      >
-        loading...
-      </button>
+      <>
+        {/* Favicon on the left */}
+        <button
+          onClick={handleFaviconClick}
+          className="fixed top-4 left-4 hover:opacity-90 transition-opacity"
+          aria-label="Go to home page"
+        >
+          <img 
+            src="/favicon-32x32.png" 
+            alt="ants" 
+            className="w-6 h-6"
+          />
+        </button>
+        
+        {/* Loading text on the right */}
+        <button
+          disabled
+          className="fixed top-4 right-4 text-sm text-gray-400 transition-colors"
+        >
+          loading...
+        </button>
+      </>
     );
   }
 
   return (
-    <button
-      id="header-avatar"
-      onClick={handleAvatarClick}
-      className="fixed top-4 right-4 hover:opacity-90 transition-opacity"
-      aria-label={user ? 'Open profile page' : 'login'}
-    >
-      {user ? (
-        <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
-          <ProfileImage 
-            user={user} 
-            size={40}
-            className="w-full h-full object-cover"
-            fallbackClassName="w-full h-full flex items-center justify-center text-xs text-gray-300"
-          />
-        </div>
-      ) : (
-        <span className="text-sm text-gray-400 hover:text-gray-200">login</span>
-      )}
-    </button>
+    <>
+      {/* Favicon on the left */}
+      <button
+        onClick={handleFaviconClick}
+        className="fixed top-4 left-4 hover:opacity-90 transition-opacity"
+        aria-label="Go to home page"
+      >
+        <img 
+          src="/favicon-32x32.png" 
+          alt="ants" 
+          className="w-6 h-6"
+        />
+      </button>
+      
+      {/* Login button on the right */}
+      <button
+        id="header-avatar"
+        onClick={handleAvatarClick}
+        className="fixed top-4 right-4 hover:opacity-90 transition-opacity"
+        aria-label={user ? 'Open profile page' : 'login'}
+      >
+        {user ? (
+          <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
+            <ProfileImage 
+              user={user} 
+              size={40}
+              className="w-full h-full object-cover"
+              fallbackClassName="w-full h-full flex items-center justify-center text-xs text-gray-300"
+            />
+          </div>
+        ) : (
+          <span className="text-sm text-gray-400 hover:text-gray-200">login</span>
+        )}
+      </button>
+    </>
   );
 } 
