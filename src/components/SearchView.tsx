@@ -723,6 +723,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
+  // Update recently active relays immediately when connection status changes
+  useEffect(() => {
+    setRecentlyActive(getRecentlyActiveRelays());
+  }, [connectionDetails]);
+
+  // Periodically update recently active relays to catch relay activity changes
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRecentlyActive(getRecentlyActiveRelays());
+    }, 2000); // Update every 2 seconds to catch relay activity
+    return () => clearInterval(id);
+  }, []);
+
 
   // Removed separate RecentlyActiveRelays section; now merged into Reachable
 
