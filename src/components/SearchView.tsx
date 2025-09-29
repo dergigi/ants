@@ -1053,6 +1053,40 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const strippedContent = stripAllUrls(content, successfulPreviews);
     if (!strippedContent) return null;
 
+    const initialPointerIds = options?.skipPointerIds
+      ? Array.from(options.skipPointerIds, (id) => id.toLowerCase())
+      : [];
+    const seenPointerIds = new Set<string>(initialPointerIds);
+
+    const derivePointerKey = (token: string): string | null => {
+      if (!/^nostr:(?:nevent1|naddr1|note1)/i.test(token)) return null;
+      try {
+        const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
+        if (!decoded) return null;
+
+        if (decoded.type === 'nevent') {
+          const data = decoded.data as { id?: string };
+          const id = (data?.id || '').toLowerCase();
+          return id || null;
+        }
+
+        if (decoded.type === 'note') {
+          const noteId = (decoded.data as string) || '';
+          return noteId ? noteId.toLowerCase() : null;
+        }
+
+        if (decoded.type === 'naddr') {
+          const data = decoded.data as { pubkey?: string; identifier?: string; kind?: number };
+          const kind = typeof data?.kind === 'number' ? data.kind : '';
+          const pubkey = (data?.pubkey || '').toLowerCase();
+          const identifier = (data?.identifier || '').toLowerCase();
+          if (!pubkey || !identifier || kind === '') return null;
+          return `${kind}:${pubkey}:${identifier}`;
+        }
+      } catch {}
+      return null;
+    };
+
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
     const nostrPattern = createNostrTokenRegex();
     const hashtagRegex = /(#\w+)/g;
@@ -1155,21 +1189,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         if (nostrTokens[partIndex]) {
           const token = nostrTokens[partIndex];
           
-          // Check if we should skip this pointer
-          if (options?.skipPointerIds) {
-            try {
-              const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
-              let pointerId = '';
-              if (decoded?.type === 'nevent') {
-                pointerId = ((decoded.data as { id: string }).id || '').toLowerCase();
-              } else if (decoded?.type === 'note') {
-                pointerId = (decoded.data as string) || '';
-                pointerId = pointerId.toLowerCase();
-              }
-              if (pointerId && options.skipPointerIds.has(pointerId)) {
-                return;
-              }
-            } catch {}
+          const pointerKey = derivePointerKey(token);
+          if (pointerKey) {
+            if (seenPointerIds.has(pointerKey)) {
+              return;
+            }
+            seenPointerIds.add(pointerKey);
           }
           
           if (options?.disableNevent && /^nostr:(?:nevent1|naddr1|note1)/i.test(token)) {
@@ -1196,7 +1221,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
       if (eTags.length === 0) return null;
-      const replyTag = eTags.find((t) => t[3] === 'reply') || eTags.find((t) => t[3] === 'root') || eTags[eTags.length - 1];
+
+      // Deduplicate e tags by event ID to prevent duplicate quoted events
+      const uniqueETags = new Map<string, typeof eTags[0]>();
+      eTags.forEach((tag) => {
+        const eventId = tag[1];
+        if (eventId && !uniqueETags.has(eventId)) {
+          uniqueETags.set(eventId, tag);
+        }
+      });
+      const deduplicatedETags = Array.from(uniqueETags.values());
+
+      const replyTag = deduplicatedETags.find((t) => t[3] === 'reply') || deduplicatedETags.find((t) => t[3] === 'root') || deduplicatedETags[deduplicatedETags.length - 1];
       return replyTag && replyTag[1] ? replyTag[1] : null;
     } catch {
       return null;
