@@ -31,8 +31,7 @@ export default function RelayIndicator({
       <FontAwesomeIcon 
         icon={faServer} 
         className={`w-3 h-3 ${
-          connectionStatus === 'connected' ? 'text-blue-400' : 
-          connectionStatus === 'timeout' ? 'text-yellow-400' : 'text-gray-500'
+          connectionStatus === 'connected' ? 'text-blue-400' : 'text-gray-500'
         }`} 
       />
       <span className="text-xs">

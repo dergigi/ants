@@ -1,4 +1,4 @@
-import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterSqliteWasm from '@nostr-dev-kit/ndk-cache-sqlite-wasm';
 import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
@@ -11,20 +11,108 @@ const cacheAdapter = new NDKCacheAdapterSqliteWasm({
   wasmUrl: '/ndk/sql-wasm.wasm'
 });
 let cacheInitialized = false;
+let cacheDisabledDueToError = false;
+let cacheErrorHandlersInstalled = false;
+
+function isUndefinedBindWasmError(error: unknown): boolean {
+  try {
+    const message = (error instanceof Error ? error.message : String(error || '')) || '';
+    const lower = message.toLowerCase();
+    // Heuristic match for sqlite wasm binding undefined issue
+    return (
+      lower.includes('wrong api use') && lower.includes('unknown type') && lower.includes('undefined')
+    ) || lower.includes('tried to bind a value of an unknown type') || lower.includes('wasm cache adapter')
+    || lower.includes('sqlite') && lower.includes('undefined') || lower.includes('binding') && lower.includes('undefined');
+  } catch {
+    return false;
+  }
+}
+
+function disableCacheAdapter(reason?: unknown): void {
+  if (cacheDisabledDueToError) return;
+  try {
+    console.warn('Disabling NDK sqlite-wasm cache adapter due to runtime error; falling back to live relays only.', reason);
+    ndk.cacheAdapter = undefined;
+  } catch {}
+  cacheDisabledDueToError = true;
+}
+
+/**
+ * Wrapper function to safely execute NDK operations with WASM error handling
+ * If a WASM cache error occurs, it will disable the cache and retry with live data
+ * @param operation - Function that performs NDK operations
+ * @param fallbackValue - Value to return if operation fails after cache is disabled
+ * @returns Promise that resolves to the operation result or fallback value
+ */
+export async function safeExecuteWithCacheFallback<T>(
+  operation: () => T | Promise<T>,
+  fallbackValue: T
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isUndefinedBindWasmError(error)) {
+      console.warn('WASM cache error detected, disabling cache and falling back to live data');
+      disableCacheAdapter(error);
+      try {
+        // Retry the operation with cache disabled
+        return await operation();
+      } catch (retryError) {
+        console.error('Operation failed even after disabling cache:', retryError);
+        return fallbackValue;
+      }
+    }
+    // For non-WASM errors, just return the fallback
+    console.error('Operation failed with non-WASM error:', error);
+    return fallbackValue;
+  }
+}
+
+function isNoFiltersToMergeError(error: unknown): boolean {
+  try {
+    const message = (error instanceof Error ? error.message : String(error || '')) || '';
+    return message.toLowerCase().includes('no filters to merge');
+  } catch {
+    return false;
+  }
+}
 
 export async function ensureCacheInitialized(): Promise<void> {
   if (cacheInitialized) return;
   // Avoid initializing in SSR environments
   if (!isBrowser()) { cacheInitialized = true; return; }
+  
+  // Install global error handlers first to catch any initialization errors
+  if (!cacheErrorHandlersInstalled && typeof window !== 'undefined') {
+    try {
+      const handleAnyError = (err: unknown) => {
+        const reason = err && (err as { reason?: unknown; error?: unknown }).reason;
+        const payload = (reason as unknown) || err;
+        if (isUndefinedBindWasmError(payload)) {
+          console.warn('Caught WASM cache binding error, disabling cache:', payload);
+          disableCacheAdapter(payload);
+        }
+      };
+      window.addEventListener('error', (ev) => handleAnyError(ev.error || ev.message));
+      window.addEventListener('unhandledrejection', (ev) => handleAnyError((ev as PromiseRejectionEvent).reason));
+      cacheErrorHandlersInstalled = true;
+    } catch {}
+  }
+  
   try {
     // ndk-cache-sqlite-wasm v0.5.x exposes initializeAsync()
     await cacheAdapter.initializeAsync();
   } catch (error) {
     console.warn('Failed to initialize sqlite-wasm cache adapter, disabling cache and continuing:', error);
-    try {
-      // Disable cache usage to avoid "Database not initialized" paths
-      ndk.cacheAdapter = undefined;
-    } catch {}
+    // If it's a WASM binding error, disable the cache immediately
+    if (isUndefinedBindWasmError(error)) {
+      disableCacheAdapter(error);
+    } else {
+      // For other errors, still disable cache to avoid issues
+      try {
+        ndk.cacheAdapter = undefined;
+      } catch {}
+    }
   } finally {
     cacheInitialized = true;
   }
@@ -361,7 +449,7 @@ export const isValidFilter = (filter: NDKFilter): boolean => {
 };
 
 /**
- * Safely subscribe with NDK with proper filter validation
+ * Safely subscribe with NDK with proper filter validation and WASM error handling
  * @param filters - Array of filters to validate and subscribe with
  * @param options - Subscription options
  * @returns NDK subscription or null if filters are invalid
@@ -382,6 +470,23 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   try {
     return ndk.subscribe(validFilters, options);
   } catch (error) {
+    // If the sqlite-wasm cache throws the binding error, disable cache and retry once live-only
+    if (isUndefinedBindWasmError(error)) {
+      console.warn('WASM cache binding error detected, disabling cache and retrying with live data only');
+      disableCacheAdapter(error);
+      try {
+        // Force cache usage to ONLY_RELAY to bypass cache completely
+        const liveOptions = { ...options, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY };
+        return ndk.subscribe(validFilters, liveOptions);
+      } catch (e2) {
+        console.error('Failed to create NDK subscription after disabling cache:', e2);
+        return null;
+      }
+    } else if (isNoFiltersToMergeError(error)) {
+      // Gracefully ignore and return null subscription
+      console.warn('Ignoring subscription with no effective filters');
+      return null;
+    }
     console.error('Failed to create NDK subscription:', error);
     return null;
   }

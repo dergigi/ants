@@ -1,0 +1,126 @@
+'use client';
+
+import { useCallback } from 'react';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
+import { safeSubscribe } from '@/lib/ndk';
+import { shortenNevent, shortenString } from '@/lib/utils';
+import EventCard from '@/components/EventCard';
+import TruncatedText from '@/components/TruncatedText';
+import { TEXT_MAX_LENGTH } from '@/lib/constants';
+
+interface ParentChainProps {
+  childEvent: NDKEvent;
+  isTop?: boolean;
+  expandedParents: Record<string, NDKEvent | 'loading'>;
+  onParentToggle: (parentId: string, parent: NDKEvent | 'loading' | null) => void;
+  onAuthorClick: (npub: string) => void;
+  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => React.ReactNode;
+  renderNoteMedia: (content: string) => React.ReactNode;
+}
+
+export default function ParentChain({
+  childEvent,
+  isTop = true,
+  expandedParents,
+  onParentToggle,
+  onAuthorClick,
+  renderContentWithClickableHashtags,
+  renderNoteMedia
+}: ParentChainProps) {
+  const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
+    try {
+      const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
+      if (eTags.length === 0) return null;
+      const replyTag = eTags.find((t) => t[3] === 'reply') || eTags.find((t) => t[3] === 'root') || eTags[eTags.length - 1];
+      return replyTag && replyTag[1] ? replyTag[1] : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
+    return new Promise<NDKEvent | null>((resolve) => {
+      let found: NDKEvent | null = null;
+      const sub = safeSubscribe([{ ids: [eventId] }], { closeOnEose: true });
+      if (!sub) {
+        resolve(null);
+        return;
+      }
+      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
+      sub.on('event', (evt: NDKEvent) => { found = evt; });
+      sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
+      sub.start();
+    });
+  }, []);
+
+  const parentId = getReplyToEventId(childEvent);
+  if (!parentId) return null;
+  
+  const parentState = expandedParents[parentId];
+  const isLoading = parentState === 'loading';
+  const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
+
+  const handleToggle = async () => {
+    if (expandedParents[parentId]) {
+      onParentToggle(parentId, null);
+      return;
+    }
+    onParentToggle(parentId, 'loading');
+    const fetched = await fetchEventById(parentId);
+    onParentToggle(parentId, fetched || 'loading');
+  };
+
+  if (!parentEvent) {
+    const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] ${
+      isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'
+    } rounded-b-none border-b-0`;
+    const parentLabel = (() => {
+      if (!parentId) return 'Unknown parent';
+      const normalized = parentId.trim();
+      if (/^[0-9a-f]{64}$/i.test(normalized)) {
+        try {
+          return shortenNevent(nip19.neventEncode({ id: normalized }));
+        } catch {}
+      }
+      return shortenString(normalized, 10, 6);
+    })();
+    return (
+      <div className={barClasses}>
+        <button type="button" onClick={handleToggle} className="w-full text-left">
+          {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <ParentChain
+        childEvent={parentEvent}
+        isTop={isTop}
+        expandedParents={expandedParents}
+        onParentToggle={onParentToggle}
+        onAuthorClick={onAuthorClick}
+        renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+        renderNoteMedia={renderNoteMedia}
+      />
+      <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
+        <EventCard
+          event={parentEvent}
+          onAuthorClick={onAuthorClick}
+          renderContent={(text) => (
+            <TruncatedText 
+              content={text} 
+              maxLength={TEXT_MAX_LENGTH}
+              className="text-gray-100 whitespace-pre-wrap break-words"
+              renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+            />
+          )}
+          mediaRenderer={renderNoteMedia}
+          className="p-0 border-0 bg-transparent"
+        />
+      </div>
+    </>
+  );
+}

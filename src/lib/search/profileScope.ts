@@ -63,12 +63,6 @@ export function getProfileScopeIdentifiers(user: NDKUser | null, currentProfileN
 
 function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers): boolean {
   const normalizedToken = normalizeIdentifier(token);
-  console.log('DEBUG: tokenMatchesProfile - token:', token, 'normalizedToken:', normalizedToken);
-  console.log('DEBUG: comparing against:', {
-    normalizedIdentifier: identifiers.normalizedIdentifier,
-    normalizedNpub: identifiers.normalizedNpub,
-    normalizedNip05: identifiers.normalizedNip05
-  });
   if (!normalizedToken) return false;
   if (normalizedToken === identifiers.normalizedIdentifier) return true;
   if (normalizedToken === identifiers.normalizedNpub) return true;

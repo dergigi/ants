@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
+import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { calculateRelayCounts } from '@/lib/relayCounts';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKRelaySet, type NDKFilter } from '@nostr-dev-kit/ndk';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
-import { isAbsoluteHttpUrl, formatUrlForDisplay, extractImageUrls, extractVideoUrls, extractNonMediaUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
+import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
+import { stripAllUrls } from '@/lib/utils/textUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
@@ -19,7 +20,6 @@ import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensu
 import { profileEventFromPubkey } from '@/lib/vertex';
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
 import EventCard from '@/components/EventCard';
-import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
@@ -29,15 +29,19 @@ import RelayStatusDisplay from '@/components/RelayStatusDisplay';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
+import SearchInput from '@/components/SearchInput';
+import QueryTranslation from '@/components/QueryTranslation';
+import InlineNostrToken from '@/components/InlineNostrToken';
+import ParentChain from '@/components/ParentChain';
+import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faExternalLink, faUser, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
-import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
@@ -86,7 +90,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const lastPointerRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [avatarOverlap, setAvatarOverlap] = useState(false);
-  const searchRowRef = useRef<HTMLFormElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
@@ -94,7 +97,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
-  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
@@ -919,63 +921,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return tooltip.trim();
   };
 
-  const extractImageUrlsFromText = useCallback((text: string): string[] => {
-    return extractImageUrls(text).slice(0, 3);
-  }, []);
-
-  const extractVideoUrlsFromText = useCallback((text: string): string[] => {
-    return extractVideoUrls(text).slice(0, 2);
-  }, []);
-
-  const extractNonMediaUrlsFromText = (text: string): string[] => {
-    return extractNonMediaUrls(text).slice(0, 2);
-  };
 
   // Use the utility function from urlUtils
 
-  // Shared utility for normalizing whitespace while preserving newlines
-  const normalizeWhitespace = useCallback((text: string): string => {
-    return text.replace(/[ \t]{2,}/g, ' ').trim();
-  }, []);
-
-  const stripMediaUrls = useCallback((text: string): string => {
-    if (!text) return '';
-    const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
-      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
-      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
-    return normalizeWhitespace(cleaned);
-  }, [normalizeWhitespace]);
-
-  const stripPreviewUrls = useCallback((text: string): string => {
-    if (!text) return '';
-    let cleaned = text;
-    successfulPreviews.forEach((url) => {
-      if (!url) return;
-      const trimmedUrl = url.replace(/[),.;]+$/, '');
-      if (!trimmedUrl) return;
-      const escapedUrl = trimmedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      try {
-        const regex = new RegExp(`${escapedUrl}[),.;]*`, 'gi');
-        cleaned = cleaned.replace(regex, '');
-      } catch (error) {
-        cleaned = cleaned.split(trimmedUrl).join('');
-        console.warn('Failed to strip preview URL', url, error);
-      }
-    });
-    return normalizeWhitespace(cleaned);
-  }, [successfulPreviews, normalizeWhitespace]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
-    const strippedContent = stripPreviewUrls(stripMediaUrls(content));
+    const strippedContent = stripAllUrls(content, successfulPreviews);
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrIdentityRegex = /(nostr:(?:nprofile1|npub1)[0-9a-z]+)(?!\w)/gi;
-    const nostrEventRegex = /(nostr:nevent1[0-9a-z]+)(?!\w)/gi;
-    const nostrAddressRegex = /(nostr:naddr1[0-9a-z]+)(?!\w)/gi;
-    const nostrNoteRegex = /(nostr:note1[0-9a-z]+)(?!\w)/gi;
+    const nostrTokenRegex = /(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)(?!\w)/gi;
+    const hashtagRegex = /(#\w+)/g;
+    const emojiRx = emojiRegex();
 
     const splitByUrls = strippedContent.split(urlRegex);
     const finalNodes: (string | React.ReactNode)[] = [];
@@ -1030,321 +987,102 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return;
       }
 
-      // For non-URL text, process inline nprofile/npub tokens first, then nevent (unless disabled), then hashtags and emojis
-      const nprofileSplit = segment.split(nostrIdentityRegex);
-
-      // Inline component to resolve nprofile to a username
-      function InlineNprofile({ token }: { token: string }) {
-        const [label, setLabel] = useState<string>('');
-        const [npub, setNpub] = useState<string>('');
-
-        useEffect(() => {
-          let isMounted = true;
-          (async () => {
-            try {
-              const m = token.match(/^(nostr:nprofile1[0-9a-z]+)([),.;]*)$/i);
-              const core = (m ? m[1] : token).replace(/^nostr:/i, '');
-              const { type, data } = nip19.decode(core);
-              let pubkey: string | undefined;
-              if (type === 'nprofile') pubkey = (data as { pubkey: string }).pubkey;
-              else if (type === 'npub') pubkey = data as string;
-              else return;
-              const user = new NDKUser({ pubkey });
-              user.ndk = ndk;
-              try { await user.fetchProfile(); } catch {}
-              if (!isMounted) return;
-              type UserProfileLike = { display?: string; displayName?: string; name?: string } | undefined;
-              const profile = user.profile as UserProfileLike;
-              const display = profile?.displayName || profile?.display || profile?.name || '';
-              const npubVal = nip19.npubEncode(pubkey);
-              setNpub(npubVal);
-              setLabel(display || `npub:${shortenNpub(npubVal)}`);
-            } catch {
-              if (!isMounted) return;
-              setLabel(token);
-            }
-          })();
-          return () => { isMounted = false; };
-        }, [token]);
-
-        return (
-          <button
-            type="button"
-            className="text-blue-400 hover:text-blue-300 hover:underline inline"
-            title={token}
-            onClick={() => {
-              if (!npub) return;
-              goToProfile(npub);
-            }}
-          >
-            {label || token}
-          </button>
-        );
-      }
-
-      const fetchWithRelayHints = async (filters: NDKFilter[], relayUrls?: string[], hintedTimeout = 5000, fallbackTimeout = 8000): Promise<NDKEvent | null> => {
-        const attempt = async (options: { relaySet?: NDKRelaySet | null; timeout: number }): Promise<NDKEvent | null> => {
-          return new Promise<NDKEvent | null>((resolve) => {
-            const sub = safeSubscribe(filters, { closeOnEose: true, relaySet: options.relaySet ?? undefined });
-            if (!sub) {
-              resolve(null);
-              return;
-            }
-            let resolved = false;
-            const finish = (result: NDKEvent | null) => {
-              if (resolved) return;
-              resolved = true;
-              try { sub.stop(); } catch {}
-              resolve(result);
-            };
-            const timer = setTimeout(() => finish(null), options.timeout);
-            sub.on('event', (evt: NDKEvent) => {
-              clearTimeout(timer);
-              finish(evt);
-            });
-            sub.on('eose', () => {
-              clearTimeout(timer);
-              finish(null);
-            });
-            sub.start();
-          });
-        };
-
-        const hintedRelays = Array.isArray(relayUrls)
-          ? Array.from(
-              new Set(
-                relayUrls
-                  .map((r) => (typeof r === 'string' ? r.trim() : ''))
-                  .filter(Boolean)
-                  .map((r) => (/^wss?:\/\//i.test(r) ? r : `wss://${r}`))
-              )
-            )
-          : [];
-
-        if (hintedRelays.length > 0) {
-          try {
-            const relaySet = NDKRelaySet.fromRelayUrls(hintedRelays, ndk);
-            const viaHints = await attempt({ relaySet, timeout: hintedTimeout });
-            if (viaHints) return viaHints;
-          } catch {
-            // Ignore relay set creation issues and fall back
-          }
-        }
-
-        return attempt({ relaySet: null, timeout: fallbackTimeout });
-      };
-
-      // Inline component to render embedded/quoted nevent or naddr pointer
-      function InlineNostrReference({ token }: { token: string }) {
-        const [embedded, setEmbedded] = useState<NDKEvent | null>(null);
-        const [loading, setLoading] = useState<boolean>(true);
-        const [error, setError] = useState<string | null>(null);
-
-        useEffect(() => {
-          let isMounted = true;
-          (async () => {
-            try {
-              const m = token.match(/^(nostr:(?:nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
-              const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
-              const decoded = nip19.decode(coreToken);
-              if (!decoded || (decoded.type !== 'nevent' && decoded.type !== 'naddr' && decoded.type !== 'note')) {
-                throw new Error('Unsupported pointer');
-              }
-
-              let fetched: NDKEvent | null = null;
-              if (decoded.type === 'nevent' || decoded.type === 'note') {
-                const data = decoded.data as { id: string; relays?: string[] };
-                const { id, relays } = data;
-                fetched = await fetchWithRelayHints([{ ids: [id] }], relays ?? []);
-              } else if (decoded.type === 'naddr') {
-                const data = decoded.data as { pubkey: string; identifier: string; kind: number; relays?: string[] };
-                const filter: NDKFilter = {
-                  kinds: [data.kind],
-                  authors: [data.pubkey],
-                  '#d': [data.identifier],
-                  limit: 1
-                };
-                fetched = await fetchWithRelayHints([filter], data.relays ?? []);
-              }
-
-              if (!isMounted) return;
-              if (fetched) {
-                setEmbedded(fetched);
-              } else {
-                setError('Not found');
-              }
-            } catch (err) {
-              if (!isMounted) return;
-              setError(err instanceof Error ? err.message : 'Invalid reference');
-            } finally {
-              if (isMounted) setLoading(false);
-            }
-          })();
-          return () => { isMounted = false; };
-        }, [token]);
-
-        if (loading) {
-          return (
-            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1">Loading note...</span>
-          );
-        }
-        if (error || !embedded) {
-          return (
-            <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1" title={token}>Quoted note unavailable</span>
-          );
-        }
-
-        const createdAt = embedded.created_at;
-
-        return (
-          <div className="w-full">
-            <EventCard
-              event={embedded}
-              onAuthorClick={goToProfile}
-              renderContent={(text) => (
-                <TruncatedText 
-                  content={text} 
-                  maxLength={TEXT_MAX_LENGTH}
-                  className="text-gray-100 whitespace-pre-wrap break-words"
-                renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { disableNevent: true, skipPointerIds: new Set([embedded.id?.toLowerCase?.() || '']) })}
-                />
-              )}
-              variant="inline"
-              footerRight={createdAt ? (
-                <button
-                  type="button"
-                  className="text-xs hover:underline opacity-80"
-                  title="Search this reference"
-                  onClick={() => {
-                    const q = token;
-                    setQueryAndUpdateUrl(q);
-                    handleSearch(q);
-                  }}
-                >
-                  {formatRelativeTimeAuto(createdAt)}
-                </button>
-              ) : null}
-            />
-          </div>
-        );
-      }
-
-      nprofileSplit.forEach((chunk, chunkIdx) => {
-        const isNostrIdentityToken = /^nostr:(?:nprofile1|npub1)[0-9a-z]+[),.;]*$/i.test(chunk);
-        if (isNostrIdentityToken) {
-          const m = chunk.match(/^(nostr:(?:nprofile1|npub1)[0-9a-z]+)([),.;]*)$/i);
-          const coreToken = m ? m[1] : chunk;
-          const trailing = (m && m[2]) || '';
-          finalNodes.push(
-            <span key={`nprofile-${segIndex}-${chunkIdx}`} className="inline">
-              <InlineNprofile token={coreToken} />
-              {trailing}
-            </span>
-          );
-          return;
-        }
-
-        // Now split this chunk for nevent tokens if enabled
-    const combinedSource = `${nostrEventRegex.source}|${nostrAddressRegex.source}|${nostrNoteRegex.source}`;
-    const nostrSplit = options?.disableNevent ? [chunk] : chunk.split(new RegExp(`(${combinedSource})`, 'gi'));
-    const combinedRegex = new RegExp(`^nostr:(?:nevent1|naddr1|note1)[0-9a-z]+[),.;]*$`, 'i');
-        const seenPointers = new Set<string>();
-        nostrSplit.forEach((sub, subIdx) => {
-          if (!sub) return;
-          const isNostrToken = combinedRegex.test(sub);
-          if (!options?.disableNevent && isNostrToken) {
-            const match = sub.match(/^(nostr:(nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
-            const coreToken = match ? match[1] : sub;
-            const type = match ? match[2] : '';
-            const trailing = (match && match[3]) || '';
-            const normalizedPointer = coreToken.trim().toLowerCase();
-            if (seenPointers.has(normalizedPointer)) {
-              if (trailing) finalNodes.push(trailing);
-              return;
-            }
-            seenPointers.add(normalizedPointer);
-            const typeLower = type?.toLowerCase() || '';
-            if (typeLower.startsWith('nevent') || typeLower.startsWith('note')) {
-              try {
-                const decoded = nip19.decode(coreToken.replace(/^nostr:/i, ''));
-                let pointerId = '';
-                if (decoded?.type === 'nevent') {
-                  pointerId = ((decoded.data as { id: string }).id || '').toLowerCase();
-                } else if (decoded?.type === 'note') {
-                  pointerId = (decoded.data as string) || '';
-                  pointerId = pointerId.toLowerCase();
-                }
-                if (pointerId && options?.skipPointerIds?.has(pointerId)) {
-                  if (trailing) finalNodes.push(trailing);
-                  return;
-                }
-              } catch {}
-              finalNodes.push(
-                <div key={`nevent-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
-                  <InlineNostrReference token={coreToken} />
-                </div>
-              );
-            } else if (typeLower.startsWith('naddr')) {
-              finalNodes.push(
-                <div key={`naddr-${segIndex}-${chunkIdx}-${subIdx}`} className="my-2 w-full">
-                  <InlineNostrReference token={coreToken} />
-                </div>
-              );
-            }
-            if (trailing) finalNodes.push(trailing);
-            return;
-          }
-
-          // Process hashtags and emojis within the remaining text
-          const parts = (sub || '').split(/(#\w+)/g);
-          parts.forEach((part, index) => {
-            if (part.startsWith('#')) {
+      // Process nostr tokens, hashtags, and emojis
+      const nostrSplit = segment.split(nostrTokenRegex);
+      const nostrTokens = segment.match(nostrTokenRegex) || [];
+      
+      nostrSplit.forEach((textPart, partIndex) => {
+        if (textPart) {
+          // Process hashtags and emojis in text
+          const hashtagSplit = textPart.split(hashtagRegex);
+          hashtagSplit.forEach((hashtagPart, hashtagIndex) => {
+            if (hashtagPart.startsWith('#')) {
               finalNodes.push(
                 <button
-                  key={`hashtag-${segIndex}-${chunkIdx}-${subIdx}-${index}`}
+                  key={`hashtag-${segIndex}-${partIndex}-${hashtagIndex}`}
                   onClick={() => {
-                    const nextQuery = part;
+                    const nextQuery = hashtagPart;
                     setQuery(nextQuery);
                     updateUrlForSearch(nextQuery);
                     handleSearch(nextQuery);
                   }}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
-                  {part}
+                  {hashtagPart}
                 </button>
               );
-            } else if (part && part.trim()) {
-              const emojiRx = emojiRegex();
-              const emojiParts = part.split(emojiRx);
-              const emojis = part.match(emojiRx) || [];
-              for (let i = 0; i < emojiParts.length; i++) {
-                if (emojiParts[i]) finalNodes.push(emojiParts[i]);
-                if (emojis[i]) {
+            } else if (hashtagPart && hashtagPart.trim()) {
+              // Process emojis
+              const emojiSplit = hashtagPart.split(emojiRx);
+              const emojis = hashtagPart.match(emojiRx) || [];
+              emojiSplit.forEach((emojiPart, emojiIndex) => {
+                if (emojiPart) finalNodes.push(emojiPart);
+                if (emojis[emojiIndex]) {
                   finalNodes.push(
                     <button
-                      key={`emoji-${segIndex}-${chunkIdx}-${subIdx}-${index}-${i}`}
+                      key={`emoji-${segIndex}-${partIndex}-${hashtagIndex}-${emojiIndex}`}
                       onClick={() => {
-                        const nextQuery = emojis[i] as string;
+                        const nextQuery = emojis[emojiIndex] as string;
                         setQueryAndUpdateUrl(nextQuery);
                         handleSearch(nextQuery);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
                     >
-                      {emojis[i]}
+                      {emojis[emojiIndex]}
                     </button>
                   );
                 }
-              }
+              });
             } else {
-              finalNodes.push(part);
+              finalNodes.push(hashtagPart);
             }
           });
-        });
+        }
+        
+        // Add nostr token if it exists
+        if (nostrTokens[partIndex]) {
+          const token = nostrTokens[partIndex];
+          
+          // Check if we should skip this pointer
+          if (options?.skipPointerIds) {
+            try {
+              const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
+              let pointerId = '';
+              if (decoded?.type === 'nevent') {
+                pointerId = ((decoded.data as { id: string }).id || '').toLowerCase();
+              } else if (decoded?.type === 'note') {
+                pointerId = (decoded.data as string) || '';
+                pointerId = pointerId.toLowerCase();
+              }
+              if (pointerId && options.skipPointerIds.has(pointerId)) {
+                finalNodes.push(token);
+                return;
+              }
+            } catch {}
+          }
+          
+          if (options?.disableNevent && /^nostr:(?:nevent1|naddr1|note1)/i.test(token)) {
+            finalNodes.push(token);
+          } else {
+            finalNodes.push(
+              <InlineNostrToken
+                key={`nostr-${segIndex}-${partIndex}`}
+                token={token}
+                onProfileClick={goToProfile}
+                onSearch={(query) => {
+                  setQueryAndUpdateUrl(query);
+                  handleSearch(query);
+                }}
+                renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+              />
+            );
+          }
+        }
       });
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
+  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1359,323 +1097,124 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // toPlainEvent moved to shared util; RawEventJson will use it.
 
-  const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
-    try { await connect(); } catch {}
-    return new Promise<NDKEvent | null>((resolve) => {
-      let found: NDKEvent | null = null;
-      const sub = safeSubscribe([{ ids: [eventId] }], { closeOnEose: true });
-      if (!sub) {
-        resolve(null);
-        return;
-      }
-      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
-      sub.on('event', (evt: NDKEvent) => { found = evt; });
-      sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
-      sub.start();
-    });
-  }, []);
 
   const renderNoteMedia = useCallback((content: string) => (
-    <>
-      {extractImageUrlsFromText(content).length > 0 && (
-        <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractImageUrlsFromText(content).map((src, index) => {
-            const trimmedSrc = src.trim();
-            return (
-            <div key={`image-${index}-${trimmedSrc}`} className="relative">
-              {isAbsoluteHttpUrl(trimmedSrc) ? (
-                <ImageWithBlurhash
-                  src={trimImageUrl(trimmedSrc)}
-                  alt="linked media"
-                  width={1024}
-                  height={1024}
-                  dim={null}
-                  onClickSearch={() => {
-                    const filename = getFilenameFromUrl(trimmedSrc);
-                    const nextQuery = filename;
-                    setQuery(filename);
-                    if (manageUrl) {
-                      updateUrlForSearch(filename);
-                    }
-                    (async () => {
-                      setLoading(true);
-                      try {
-                        const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                        setResults(searchResults);
-                      } catch (error) {
-                        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                          return;
-                        }
-                        console.error('Search error:', error);
-                        setResults([]);
-                      } finally {
-                        setLoading(false);
-                      }
-                    })();
-                  }}
-                />
-              ) : null}
-            </div>
-            );
-          })}
-        </div>
-      )}
-      {extractVideoUrlsFromText(content).length > 0 && (
-        <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractVideoUrlsFromText(content).map((src, index) => {
-            const trimmedSrc = src.trim();
-            return (
-            <div key={`video-${index}-${trimmedSrc}`} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-              <video controls playsInline className="w-full h-auto">
-                <source src={trimmedSrc} />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-            );
-          })}
-        </div>
-      )}
-      {extractNonMediaUrlsFromText(content).length > 0 && (
-        <div className="mt-3 grid grid-cols-1 gap-3">
-          {extractNonMediaUrlsFromText(content).map((u, index) => (
-            <UrlPreview
-              key={`url-${index}-${u}`}
-              url={u}
-              onLoaded={(loadedUrl) => {
-                setSuccessfulPreviews((prev) => {
-                  if (prev.has(loadedUrl)) return prev;
-                  const next = new Set(prev);
-                  next.add(loadedUrl);
-                  return next;
-                });
-              }}
-              onSearch={(targetUrl) => {
-                const nextQuery = targetUrl;
-                setQueryAndUpdateUrl(nextQuery);
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </>
-  ), [extractImageUrlsFromText, extractVideoUrlsFromText, setQuery, manageUrl, setQueryAndUpdateUrl, updateUrlForSearch]);
+    <NoteMedia
+      content={content}
+      onSearch={(query) => {
+        setQueryAndUpdateUrl(query);
+        (async () => {
+          setLoading(true);
+          try {
+            const searchResults = await searchEvents(query, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
+            setResults(searchResults);
+          } catch (error) {
+            if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
+              return;
+            }
+            console.error('Search error:', error);
+            setResults([]);
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }}
+      onUrlLoaded={(loadedUrl) => {
+        setSuccessfulPreviews((prev) => {
+          if (prev.has(loadedUrl)) return prev;
+          const next = new Set(prev);
+          next.add(loadedUrl);
+          return next;
+        });
+      }}
+    />
+  ), [setQueryAndUpdateUrl, setLoading, setResults, abortControllerRef]);
+
+  const handleParentToggle = useCallback((parentId: string, parent: NDKEvent | 'loading' | null) => {
+    if (parent === null) {
+      const updated = { ...expandedParents };
+      delete updated[parentId];
+      setExpandedParents(updated);
+    } else {
+      setExpandedParents((prev) => ({ ...prev, [parentId]: parent }));
+    }
+  }, [expandedParents, setExpandedParents]);
 
   const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
-    const parentId = getReplyToEventId(childEvent);
-    if (!parentId) return null;
-    const parentState = expandedParents[parentId];
-    const isLoading = parentState === 'loading';
-    const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
-
-    const handleToggle = async () => {
-      if (expandedParents[parentId]) {
-        const updated = { ...expandedParents };
-        delete updated[parentId];
-        setExpandedParents(updated);
-        return;
-      }
-      setExpandedParents((prev) => ({ ...prev, [parentId]: 'loading' }));
-      const fetched = await fetchEventById(parentId);
-      setExpandedParents((prev) => ({ ...prev, [parentId]: fetched || 'loading' }));
-    };
-
-    if (!parentEvent) {
-      const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] ${
-        isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'
-      } rounded-b-none border-b-0`;
-      const parentLabel = (() => {
-        if (!parentId) return 'Unknown parent';
-        const normalized = parentId.trim();
-        if (/^[0-9a-f]{64}$/i.test(normalized)) {
-          try {
-            return shortenNevent(nip19.neventEncode({ id: normalized }));
-          } catch {}
-        }
-        return shortenString(normalized, 10, 6);
-      })();
-      return (
-        <div className={barClasses}>
-          <button type="button" onClick={handleToggle} className="w-full text-left">
-            {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
-          </button>
-        </div>
-      );
-    }
-
     return (
-      <>
-        {renderParentChain(parentEvent, isTop)}
-        <div className={`${isTop ? 'rounded-t-lg' : 'rounded-none border-t-0'} rounded-b-none border-b-0 p-4 bg-[#2d2d2d] border border-[#3d3d3d]`}>
-          <EventCard
-            event={parentEvent}
-            onAuthorClick={goToProfile}
-            renderContent={(text) => (
-              <TruncatedText 
-                content={text} 
-                maxLength={TEXT_MAX_LENGTH}
-                className="text-gray-100 whitespace-pre-wrap break-words"
-                renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-              />
-            )}
-            mediaRenderer={renderNoteMedia}
-            className="p-0 border-0 bg-transparent"
-          />
-        </div>
-      </>
+      <ParentChain
+        childEvent={childEvent}
+        isTop={isTop}
+        expandedParents={expandedParents}
+        onParentToggle={handleParentToggle}
+        onAuthorClick={goToProfile}
+        renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+        renderNoteMedia={renderNoteMedia}
+      />
     );
-  }, [getReplyToEventId, expandedParents, setExpandedParents, fetchEventById, renderNoteMedia, goToProfile, renderContentWithClickableHashtags]);
+  }, [expandedParents, handleParentToggle, goToProfile, renderContentWithClickableHashtags, renderNoteMedia]);
+
+  const handleClear = useCallback(() => {
+    // Abort any ongoing search immediately
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    currentSearchId.current++;
+    setQuery('');
+    setResults([]);
+    setLoading(false);
+    setResolvingAuthor(false);
+    setTopCommandText(null);
+    setTopExamples(null);
+    // Always reset to root path when clearing
+    router.replace('/');
+  }, [router]);
+
+  const handleExampleNext = useCallback(() => {
+    setPlaceholder(nextExample());
+    setRotationProgress(0);
+    setRotationSeed((s) => s + 1);
+  }, []);
 
   return (
     <div className="w-full pt-4">
-      <form ref={searchRowRef} onSubmit={handleSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
-        <div className="flex gap-2">
-          <ProfileScopeIndicator
-            key={profileScopeUser?.npub || 'no-user'}
-            user={profileScopeUser}
-            isEnabled={profileScoped}
-            onToggle={() => {
-              if (!profileScopeIdentifiers) return;
-              suppressSearchRef.current = true;
-              const currentQuery = query.trim();
-              const hasScope = hasProfileScope(currentQuery, profileScopeIdentifiers);
-              const updatedQuery = hasScope
-                ? removeProfileScope(currentQuery, profileScopeIdentifiers)
-                : addProfileScope(currentQuery, profileScopeIdentifiers);
-              setQuery(updatedQuery);
-              setTimeout(() => {
-                suppressSearchRef.current = false;
-              }, 0);
-            }}
-          />
-          <div className="flex-1 relative">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={query}
-              onChange={handleInputChange}
-              placeholder={placeholder}
-              className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
-              style={{ paddingRight: '3rem' }}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  // Abort any ongoing search immediately
-                  if (abortControllerRef.current) {
-                    abortControllerRef.current.abort();
-                  }
-                  currentSearchId.current++;
-                  setQuery('');
-                  setResults([]);
-                  setLoading(false);
-                  setResolvingAuthor(false);
-                  setTopCommandText(null);
-                  setTopExamples(null);
-                  // Always reset to root path when clearing
-                  router.replace('/');
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
-            {!query && !loading && (
-            <button
-                type="button"
-                aria-label="Next example"
-                title="Show next example"
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 cursor-pointer"
-              onClick={() => { setPlaceholder(nextExample()); setRotationProgress(0); setRotationSeed((s) => s + 1); }}
-              >
-                <svg viewBox="0 0 36 36" className="w-5 h-5">
-                  <circle cx="18" cy="18" r="16" stroke="#3d3d3d" strokeWidth="3" fill="none" />
-                  <circle cx="18" cy="18" r="16" stroke="#9ca3af" strokeWidth="3" fill="none"
-                    strokeDasharray={`${Math.max(1, Math.floor(rotationProgress * 100))}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
-                </svg>
-              </button>
-            )}
-          </div>
-          <button 
-            type={showExternalButton ? "button" : "submit"} 
-            onClick={showExternalButton ? handleOpenExternal : undefined}
-            className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
-            title={showExternalButton ? "Open URL in new tab" : profileScopeUser ? `Searching in ${profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || shortenNpub(profileScopeUser.npub)}'s posts` : "Search"}
-          >
-            {loading ? (
-              resolvingAuthor ? (
-                <FontAwesomeIcon icon={faUser} className="animate-spin" />
-              ) : (
-                <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
-              )
-            ) : showExternalButton ? (
-              <FontAwesomeIcon icon={faExternalLink} />
-            ) : (
-              <FontAwesomeIcon icon={faMagnifyingGlass} />
-            )}
-          </button>
-        </div>
-        
-        {translation && (
-          <div 
-            id="search-explanation" 
-            className={`mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2 ${
-              translation.split('\n').length > 2 ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
-            }`}
-            onClick={() => {
-              if (translation.split('\n').length > 2) {
-                setIsExplanationExpanded(!isExplanationExpanded);
-              }
-            }}
-          >
-            <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              {translation.split('\n').length > 2 && !isExplanationExpanded ? (
-                <>
-                  <div className="overflow-hidden" style={{ 
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
-                  }}>
-                    {translation.split('\n').slice(0, 2).join('\n')}
-                  </div>
-                  <div className="flex items-center justify-center mt-1 text-gray-500">
-                    <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span>{translation}</span>
-                  {translation.split('\n').length > 2 && (
-                    <div className="flex items-center justify-center mt-1 text-gray-500">
-                      <FontAwesomeIcon icon={faChevronUp} className="text-[10px]" />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        
-        {/* Removed inline expanded-term filter buttons (gif/gifs/apng etc.) per design update */}
-      </form>
+      <div className="flex gap-2">
+        <ProfileScopeIndicator
+          key={profileScopeUser?.npub || 'no-user'}
+          user={profileScopeUser}
+          isEnabled={profileScoped}
+          onToggle={() => {
+            if (!profileScopeIdentifiers) return;
+            suppressSearchRef.current = true;
+            const currentQuery = query.trim();
+            const hasScope = hasProfileScope(currentQuery, profileScopeIdentifiers);
+            const updatedQuery = hasScope
+              ? removeProfileScope(currentQuery, profileScopeIdentifiers)
+              : addProfileScope(currentQuery, profileScopeIdentifiers);
+            setQuery(updatedQuery);
+            setTimeout(() => {
+              suppressSearchRef.current = false;
+            }, 0);
+          }}
+        />
+        <SearchInput
+          query={query}
+          placeholder={placeholder}
+          loading={loading}
+          resolvingAuthor={resolvingAuthor}
+          showExternalButton={showExternalButton}
+          avatarOverlap={avatarOverlap}
+          profileScopeUser={profileScopeUser}
+          onInputChange={handleInputChange}
+          onClear={handleClear}
+          onOpenExternal={handleOpenExternal}
+          onSubmit={handleSubmit}
+          onExampleNext={handleExampleNext}
+          rotationProgress={rotationProgress}
+        />
+      </div>
+      
+      <QueryTranslation translation={translation} />
 
       {/* Command output will be injected as first result card below */}
 
@@ -1695,7 +1234,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             />
 
             <FilterCollapsed
-              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || loading || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
               hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
               filteredCount={fuseFilteredResults.length}
               resultCount={results.length}
@@ -1909,7 +1448,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       onAuthorClick={goToProfile}
                       renderContent={() => {
                         const urls = extractImetaVideoUrls(event);
-                        const contentUrls = extractVideoUrlsFromText(event.content || '');
+                        const contentUrls = extractVideoUrls(event.content || '').slice(0, 2);
                         const blurhashes = extractImetaBlurhashes(event);
                         const dimensions = extractImetaDimensions(event);
                         const hashes = extractImetaHashes(event);
@@ -2047,7 +1586,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, extractVideoUrlsFromText, setQueryAndUpdateUrl, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, setQueryAndUpdateUrl, updateUrlForSearch])}
     </div>
   );
 }
