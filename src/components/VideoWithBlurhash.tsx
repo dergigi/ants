@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Blurhash } from 'react-blurhash';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage, faExternalLink } from '@fortawesome/free-solid-svg-icons';
-import { isAbsoluteHttpUrl, trimImageUrl } from '@/lib/utils/urlUtils';
+import { isAbsoluteHttpUrl } from '@/lib/utils/urlUtils';
 import SearchIconButton from './SearchIconButton';
 import ReverseImageSearchButton from './ReverseImageSearchButton';
 

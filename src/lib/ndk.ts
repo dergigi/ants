@@ -153,25 +153,30 @@ async function measureRelayPing(relayUrl: string): Promise<number> {
         resolve(-1); // Timeout
       }, 5000); // 5 second timeout
 
-      const sub = relay.subscribe([{ kinds: [1], limit: 1 }], {
+      const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
         closeOnEose: true,
-        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
+        cacheUsage: 'ONLY_RELAY' as const
       });
 
-      sub.on('eose', () => {
-        clearTimeout(timeout);
-        const pingTime = Math.round(performance.now() - startTime);
-        relayPings.set(relayUrl, pingTime);
-        resolve(pingTime);
-      });
+      if (sub) {
+        sub.on('eose', () => {
+          clearTimeout(timeout);
+          const pingTime = Math.round(performance.now() - startTime);
+          relayPings.set(relayUrl, pingTime);
+          resolve(pingTime);
+        });
 
-      sub.on('error', () => {
+        sub.on('closed', () => {
+          clearTimeout(timeout);
+          resolve(-1);
+        });
+
+        // Start the subscription
+        sub.start();
+      } else {
         clearTimeout(timeout);
         resolve(-1);
-      });
-
-      // Start the subscription
-      sub.start();
+      }
     });
   } catch {
     return -1;

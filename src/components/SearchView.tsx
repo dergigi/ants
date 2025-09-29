@@ -21,7 +21,6 @@ import EventCard from '@/components/EventCard';
 import UrlPreview from '@/components/UrlPreview';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
-import CopyButton from '@/components/CopyButton';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import FilterCollapsed from '@/components/FilterCollapsed';
 import RelayCollapsed from '@/components/RelayCollapsed';
@@ -35,11 +34,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { shortenNevent, shortenNpub, shortenString, trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
-import { faMagnifyingGlass, faImage, faExternalLink, faUser, faEye, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faExternalLink, faUser, faChevronDown, faChevronUp, faEquals } from '@fortawesome/free-solid-svg-icons';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
-import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
