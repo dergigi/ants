@@ -1,7 +1,7 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
-import { calculateRelayCounts } from '@/lib/relayCounts';
+import { getRelayLists } from '@/lib/relayCounts';
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
@@ -13,24 +13,12 @@ export default function RelayStatusDisplay({
   recentlyActive 
 }: RelayStatusDisplayProps) {
   // Use shared calculation logic to ensure consistency with other components
-  const { eventsReceivedCount, totalCount } = calculateRelayCounts(connectionDetails, recentlyActive);
-  
-  // Group relays by "Events received" and "Others"
-  
-  // Events received: connected relays + recently active relays (no duplicates)
-  const eventsReceivedRelays = Array.from(new Set([
-    ...(connectionDetails?.connectedRelays || []),
-    ...recentlyActive
-  ]));
-  
-  // Create a set of all relays that received events to ensure mutual exclusivity
-  const eventsReceivedSet = new Set(eventsReceivedRelays);
-  
-  // Others: connecting + failed relays (excluding those that received events)
-  const otherRelays = [
-    ...(connectionDetails?.connectingRelays || []),
-    ...(connectionDetails?.failedRelays || [])
-  ].filter(relay => !eventsReceivedSet.has(relay));
+  const { 
+    eventsReceivedRelays, 
+    otherRelays, 
+    eventsReceivedCount, 
+    totalCount 
+  } = getRelayLists(connectionDetails, recentlyActive);
   
   // Use the shared calculation results for consistency
   const displayEventsReceivedCount = eventsReceivedCount;

@@ -30,3 +30,48 @@ export function calculateRelayCounts(
     totalCount: eventsReceivedRelays.length + otherRelays.length
   };
 }
+
+/**
+ * Get the actual relay lists with mutual exclusivity
+ * Returns both the relay arrays and counts for consistent display
+ */
+export function getRelayLists(
+  connectionDetails: ConnectionStatus | null,
+  recentlyActive: string[]
+): { 
+  eventsReceivedRelays: string[]; 
+  otherRelays: string[]; 
+  eventsReceivedCount: number; 
+  totalCount: number; 
+} {
+  if (!connectionDetails) {
+    return { 
+      eventsReceivedRelays: [], 
+      otherRelays: [], 
+      eventsReceivedCount: 0, 
+      totalCount: 0 
+    };
+  }
+  
+  // Events received: connected relays + recently active relays (no duplicates)
+  const eventsReceivedRelays = Array.from(new Set([
+    ...(connectionDetails.connectedRelays || []),
+    ...recentlyActive
+  ]));
+  
+  // Create a set of all relays that received events to ensure mutual exclusivity
+  const eventsReceivedSet = new Set(eventsReceivedRelays);
+  
+  // Others: connecting + failed relays (excluding those that received events)
+  const otherRelays = [
+    ...(connectionDetails.connectingRelays || []),
+    ...(connectionDetails.failedRelays || [])
+  ].filter(relay => !eventsReceivedSet.has(relay));
+  
+  return {
+    eventsReceivedRelays,
+    otherRelays,
+    eventsReceivedCount: eventsReceivedRelays.length,
+    totalCount: eventsReceivedRelays.length + otherRelays.length
+  };
+}
