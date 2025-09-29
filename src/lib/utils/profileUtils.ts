@@ -1,5 +1,5 @@
 import { NDKUser } from '@nostr-dev-kit/ndk';
-import { shortenNpub } from './utils';
+import { shortenNpub } from '../utils';
 
 export function getDisplayName(user: NDKUser): string {
   if (!user) return '';
