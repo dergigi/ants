@@ -1,6 +1,6 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWifi, faServer, faHardDrive } from '@fortawesome/free-solid-svg-icons';
+import { faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 
 interface RelayStatusDisplayProps {
@@ -36,10 +36,7 @@ export default function RelayStatusDisplay({
       {/* Events received relays */}
       {eventsReceivedRelays.length > 0 && (
         <div className="mb-2">
-          <div className="text-blue-400 font-medium mb-1 flex items-center">
-            <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a] mr-2">
-              <FontAwesomeIcon icon={faWifi} className="text-xs" />
-            </div>
+          <div className="text-blue-400 font-medium mb-1">
             Events received ({displayEventsReceivedCount})
           </div>
           <div className="space-y-1">
@@ -72,10 +69,7 @@ export default function RelayStatusDisplay({
       {/* Other relays */}
       {otherRelays.length > 0 && (
         <div className="mb-2">
-          <div className="text-gray-400 font-medium mb-1 flex items-center">
-            <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a] mr-2">
-              <FontAwesomeIcon icon={faServer} className="text-xs" />
-            </div>
+          <div className="text-gray-400 font-medium mb-1">
             Other Relays ({displayOthersCount})
           </div>
           <div className="space-y-1">
