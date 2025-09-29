@@ -115,7 +115,7 @@ function useNip05Status(user: NDKUser): Nip05CheckResult {
   return { isVerified: verified, value: nip05Value ?? undefined };
 }
 
-export default function Nip05Display({ user, compact }: { user: NDKUser; compact?: boolean }) {
+export default function Nip05Display({ user, compact, onProfileClick }: { user: NDKUser; compact?: boolean; onProfileClick?: (npub: string) => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -132,14 +132,14 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!value) return;
-          const current = searchParams ? searchParams.toString() : '';
-          const params = new URLSearchParams(current);
-          params.set('q', value);
-          router.push(`/?${params.toString()}`);
+          if (onProfileClick && user.npub) {
+            onProfileClick(user.npub);
+          } else {
+            router.push(`/p/${user.npub}`);
+          }
         }}
         className="hover:opacity-80 transition-opacity"
-        title={`Search for ${value}`}
+        title={`Open ${user.npub ? 'profile' : 'user profile'}`}
       >
         {effectiveVerified && isRootNip05(value) ? (
           <>
@@ -154,8 +154,17 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
         <>
           <button
             type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onProfileClick && user.npub) {
+                onProfileClick(user.npub);
+              } else {
+                router.push(`/p/${user.npub}`);
+              }
+            }}
             className="hover:underline truncate max-w-[14rem] text-left hidden sm:block"
-            title={cleanNip05Display(value) || undefined}
+            title={`Open ${user.npub ? 'profile' : 'user profile'}`}
           >
             <span className="truncate max-w-[14rem]">{cleanNip05Display(value) || value}</span>
           </button>
@@ -165,14 +174,14 @@ export default function Nip05Display({ user, compact }: { user: NDKUser; compact
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (!value) return;
-              const current = searchParams ? searchParams.toString() : '';
-              const params = new URLSearchParams(current);
-              params.set('q', value);
-              router.push(`/?${params.toString()}`);
+              if (onProfileClick && user.npub) {
+                onProfileClick(user.npub);
+              } else {
+                router.push(`/p/${user.npub}`);
+              }
             }}
             className="hover:underline truncate max-w-[8rem] text-left sm:hidden"
-            title={cleanNip05Display(value) || undefined}
+            title={`Open ${user.npub ? 'profile' : 'user profile'}`}
           >
             <span className="truncate max-w-[8rem]">{getDomainWithoutTld(value)}</span>
           </button>

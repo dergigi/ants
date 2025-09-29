@@ -5,24 +5,8 @@ import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { shortenNpub, trimImageUrl } from '@/lib/utils';
-
-function getDisplayName(user: NDKUser): string {
-  if (!user) return '';
-  
-  // Try to get display name from profile
-  const profile = user.profile;
-  if (profile?.displayName) {
-    return profile.displayName;
-  }
-  if (profile?.name) {
-    return profile.name;
-  }
-  
-  // Fallback to shortened npub
-  const npub = user.npub;
-  return shortenNpub(npub);
-}
+import { trimImageUrl } from '@/lib/utils';
+import { getDisplayName } from '@/lib/utils/profileUtils';
 
 export function LoginButton() {
   const [user, setUser] = useState<NDKUser | null>(null);

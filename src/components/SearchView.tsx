@@ -36,6 +36,7 @@ import ParentChain from '@/components/ParentChain';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
+import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -324,6 +325,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     if (!manageUrl) return;
     
+    // If query is empty, remove q parameter and navigate to clean URL
+    if (!searchQuery.trim()) {
+      const currentProfileNpub = getCurrentProfileNpub(pathname);
+      if (currentProfileNpub) {
+        // On profile pages, just remove the q parameter
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('q');
+        const newUrl = params.toString() ? `?${params.toString()}` : '';
+        router.replace(newUrl);
+      } else {
+        // On root pages, navigate to clean root
+        router.replace('/');
+      }
+      return;
+    }
+    
     // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
@@ -338,20 +355,43 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
-      params.set('q', urlValue);
-      router.replace(`?${params.toString()}`);
+      
+      // Check if query is effectively empty after removing profile scope
+      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+      const isOnlyProfileScope = identifiers ? removeProfileScope(searchQuery, identifiers).trim() === '' : false;
+      
+      if (urlValue.trim() && !isOnlyProfileScope) {
+        params.set('q', urlValue);
+        router.replace(`?${params.toString()}`);
+      } else {
+        // If implicit query is empty or only contains profile scope, remove q parameter
+        params.delete('q');
+        const newUrl = params.toString() ? `?${params.toString()}` : '';
+        router.replace(newUrl);
+      }
     } else {
       const params = new URLSearchParams(searchParams.toString());
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
     }
-  }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
+  }, [manageUrl, onUrlUpdate, pathname, searchParams, router, profileScopeUser]);
 
-  // DRY helper function for setting query and updating URL
-  const setQueryAndUpdateUrl = useCallback((query: string) => {
+
+  // DRY helper function for root searches (always navigate to root path)
+  const setQueryAndNavigateToRoot = useCallback((query: string) => {
     setQuery(query);
-    updateUrlForSearch(query);
-  }, [updateUrlForSearch]);
+    if (query.trim()) {
+      router.replace(`/?q=${encodeURIComponent(query)}`);
+    } else {
+      router.replace('/');
+    }
+  }, [router]);
+
+  // DRY helper for content-based search triggers (always root searches)
+  const handleContentSearch = useCallback((query: string) => {
+    setQueryAndNavigateToRoot(query);
+  }, [setQueryAndNavigateToRoot]);
+
 
   useEffect(() => {
     if (!manageUrl) {
@@ -885,6 +925,36 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     router.push(`/p/${npub}`);
   }, [router]);
 
+  // DRY helper for nevent search buttons
+  const handleNeventSearch = useCallback((eventId: string) => {
+    try {
+      const nevent = nip19.neventEncode({ id: eventId });
+      setQuery(nevent);
+      updateUrlForSearch(nevent);
+      handleSearch(nevent);
+    } catch {}
+  }, [setQuery, updateUrlForSearch, handleSearch]);
+
+  // DRY component for nevent search buttons
+  const NeventSearchButton = useCallback(({ eventId, timestamp }: { eventId: string; timestamp: string }) => (
+    <button
+      type="button"
+      className="text-xs hover:underline"
+      title="Search this nevent"
+      onClick={() => handleNeventSearch(eventId)}
+    >
+      {timestamp}
+    </button>
+  ), [handleNeventSearch]);
+
+  // DRY helper for common EventCard props
+  const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
+    event,
+    onAuthorClick: goToProfile,
+    className,
+    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />
+  }), [goToProfile, NeventSearchButton]);
+
 
 
   const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
@@ -930,7 +1000,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrTokenRegex = /(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)(?!\w)/gi;
+    const nostrPattern = createNostrTokenRegex();
     const hashtagRegex = /(#\w+)/g;
     const emojiRx = emojiRegex();
 
@@ -949,23 +1019,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
               onClick={(e) => { 
                 e.stopPropagation();
-                const nextQuery = fullUrl;
-                setQueryAndUpdateUrl(nextQuery);
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
+                handleContentSearch(fullUrl);
               }}
               title={`Search for: ${fullUrl}`}
             >
@@ -988,8 +1042,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       // Process nostr tokens, hashtags, and emojis
-      const nostrSplit = segment.split(nostrTokenRegex);
-      const nostrTokens = segment.match(nostrTokenRegex) || [];
+      const nostrSplitRegex = new RegExp(nostrPattern.source, nostrPattern.flags);
+      const segmentTokens: string[] = [];
+      const segmentParts: string[] = [];
+      let lastIndex = 0;
+      let execMatch: RegExpExecArray | null;
+      while ((execMatch = nostrSplitRegex.exec(segment)) !== null) {
+        const tokenStart = execMatch.index;
+        const tokenEnd = tokenStart + execMatch[0].length;
+        segmentParts.push(segment.slice(lastIndex, tokenStart));
+        segmentTokens.push(execMatch[0]);
+        lastIndex = tokenEnd;
+      }
+      segmentParts.push(segment.slice(lastIndex));
+      const nostrSplit = segmentParts;
+      const nostrTokens = segmentTokens;
       
       nostrSplit.forEach((textPart, partIndex) => {
         if (textPart) {
@@ -1000,12 +1067,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               finalNodes.push(
                 <button
                   key={`hashtag-${segIndex}-${partIndex}-${hashtagIndex}`}
-                  onClick={() => {
-                    const nextQuery = hashtagPart;
-                    setQuery(nextQuery);
-                    updateUrlForSearch(nextQuery);
-                    handleSearch(nextQuery);
-                  }}
+                  onClick={() => handleContentSearch(hashtagPart)}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
                   {hashtagPart}
@@ -1021,11 +1083,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   finalNodes.push(
                     <button
                       key={`emoji-${segIndex}-${partIndex}-${hashtagIndex}-${emojiIndex}`}
-                      onClick={() => {
-                        const nextQuery = emojis[emojiIndex] as string;
-                        setQueryAndUpdateUrl(nextQuery);
-                        handleSearch(nextQuery);
-                      }}
+                      onClick={() => handleContentSearch(emojis[emojiIndex] as string)}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
                     >
                       {emojis[emojiIndex]}
@@ -1055,7 +1113,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 pointerId = pointerId.toLowerCase();
               }
               if (pointerId && options.skipPointerIds.has(pointerId)) {
-                finalNodes.push(token);
                 return;
               }
             } catch {}
@@ -1069,10 +1126,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 key={`nostr-${segIndex}-${partIndex}`}
                 token={token}
                 onProfileClick={goToProfile}
-                onSearch={(query) => {
-                  setQueryAndUpdateUrl(query);
-                  handleSearch(query);
-                }}
+                onSearch={handleContentSearch}
                 renderContentWithClickableHashtags={renderContentWithClickableHashtags}
               />
             );
@@ -1082,7 +1136,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
+  }, [successfulPreviews, handleContentSearch, goToProfile]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1101,24 +1155,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const renderNoteMedia = useCallback((content: string) => (
     <NoteMedia
       content={content}
-      onSearch={(query) => {
-        setQueryAndUpdateUrl(query);
-        (async () => {
-          setLoading(true);
-          try {
-            const searchResults = await searchEvents(query, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-            setResults(searchResults);
-          } catch (error) {
-            if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-              return;
-            }
-            console.error('Search error:', error);
-            setResults([]);
-          } finally {
-            setLoading(false);
-          }
-        })();
-      }}
+      onSearch={handleContentSearch}
       onUrlLoaded={(loadedUrl) => {
         setSuccessfulPreviews((prev) => {
           if (prev.has(loadedUrl)) return prev;
@@ -1128,7 +1165,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         });
       }}
     />
-  ), [setQueryAndUpdateUrl, setLoading, setResults, abortControllerRef]);
+  ), [handleContentSearch]);
 
   const handleParentToggle = useCallback((parentId: string, parent: NDKEvent | 'loading' | null) => {
     if (parent === null) {
@@ -1286,10 +1323,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           <button
                             type="button"
                             className="text-left w-full hover:underline"
-                            onClick={() => {
-                              setQueryAndUpdateUrl(ex);
-                              handleSearch(ex);
-                            }}
+                            onClick={() => handleContentSearch(ex)}
                           >
                             {ex}
                           </button>
@@ -1335,8 +1369,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
                         <TruncatedText 
                           content={text} 
@@ -1346,30 +1379,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === 20 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => {
                         const urls = extractImetaImageUrls(event);
                         const blurhashes = extractImetaBlurhashes(event);
@@ -1393,28 +1406,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     width={dim?.width || 1024}
                                     height={dim?.height || 1024}
                                     dim={dim || null}
-                                    onClickSearch={() => {
-                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQuery(nextQuery);
-                                      if (manageUrl) {
-                                        updateUrlForSearch(nextQuery);
-                                      }
-                                      (async () => {
-                                        setLoading(true);
-                                        try {
-                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                                          setResults(searchResults);
-                                        } catch (error) {
-                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                                            return;
-                                          }
-                                          console.error('Search error:', error);
-                                          setResults([]);
-                                        } finally {
-                                          setLoading(false);
-                                        }
-                                      })();
-                                    }}
+                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
                                   />
                                 </div>
                               );
@@ -1422,30 +1414,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === 21 || event.kind === 22 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => {
                         const urls = extractImetaVideoUrls(event);
                         const contentUrls = extractVideoUrls(event.content || '').slice(0, 2);
@@ -1471,28 +1443,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     dim={dim || null}
-                                    onClickSearch={() => {
-                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQuery(nextQuery);
-                                      if (manageUrl) {
-                                        updateUrlForSearch(nextQuery);
-                                      }
-                                      (async () => {
-                                        setLoading(true);
-                                        try {
-                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                                          setResults(searchResults);
-                                        } catch (error) {
-                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                                            return;
-                                          }
-                                          console.error('Search error:', error);
-                                          setResults([]);
-                                        } finally {
-                                          setLoading(false);
-                                        }
-                                      })();
-                                    }}
+                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
                                   />
                                 </div>
                               );
@@ -1500,30 +1451,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
                         <TruncatedText 
                           content={text} 
@@ -1533,51 +1464,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => (
                         <RawEventJson event={event} />
-                      )}
-                      className={noteCardClasses}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
                       )}
                     />
                   )}
@@ -1586,7 +1478,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, setQueryAndUpdateUrl, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps])}
     </div>
   );
 }
