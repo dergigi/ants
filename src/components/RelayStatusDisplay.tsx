@@ -35,7 +35,9 @@ export default function RelayStatusDisplay({
       {eventsReceivedRelays.length > 0 && (
         <div className="mb-2">
           <div className="text-blue-400 font-medium mb-1 flex items-center">
-            <FontAwesomeIcon icon={faWifi} className="mr-1" />
+            <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a] mr-2">
+              <FontAwesomeIcon icon={faWifi} className="text-xs" />
+            </div>
             Events received ({displayEventsReceivedCount})
           </div>
           <div className="space-y-1">
@@ -56,7 +58,9 @@ export default function RelayStatusDisplay({
       {otherRelays.length > 0 && (
         <div className="mb-2">
           <div className="text-gray-400 font-medium mb-1 flex items-center">
-            <FontAwesomeIcon icon={faServer} className="mr-1" />
+            <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a] mr-2">
+              <FontAwesomeIcon icon={faServer} className="text-xs" />
+            </div>
             Other Relays ({displayOthersCount})
           </div>
           <div className="space-y-1">
