@@ -46,7 +46,7 @@ export default function RelayStatusDisplay({
       {/* Events received relays */}
       {eventsReceivedRelays.length > 0 && (
         <div className="mb-2">
-          <div className="text-green-400 font-medium mb-1">
+          <div className="text-green-400 font-medium mb-1 flex items-center">
             <FontAwesomeIcon icon={faWifi} className="mr-1" />
             Events received ({displayEventsReceivedCount})
           </div>
@@ -67,7 +67,7 @@ export default function RelayStatusDisplay({
       {/* Other relays */}
       {otherRelays.length > 0 && (
         <div className="mb-2">
-          <div className="text-gray-400 font-medium mb-1">
+          <div className="text-gray-400 font-medium mb-1 flex items-center">
             <FontAwesomeIcon icon={faServer} className="mr-1" />
             Other Relays ({displayOthersCount})
           </div>
