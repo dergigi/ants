@@ -27,13 +27,13 @@ export function Footer() {
           Gigi
         </a>
         <span className="mx-2">·</span>
-        Birthed during{' '}
+        Birthed at{' '}
         <a
           href="#"
           onClick={handleSearchClick('(#SovEng OR by:sovereignengineering.io)')}
           className="underline hover:text-gray-300"
         >
-          SEC-04
+          #SovEng
         </a>
         <span className="mx-2">·</span>
         Using{' '}
