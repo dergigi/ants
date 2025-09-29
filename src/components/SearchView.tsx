@@ -355,8 +355,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
-      params.set('q', urlValue);
-      router.replace(`?${params.toString()}`);
+      if (urlValue.trim()) {
+        params.set('q', urlValue);
+        router.replace(`?${params.toString()}`);
+      } else {
+        // If implicit query is empty, remove q parameter
+        params.delete('q');
+        const newUrl = params.toString() ? `?${params.toString()}` : '';
+        router.replace(newUrl);
+      }
     } else {
       const params = new URLSearchParams(searchParams.toString());
       params.set('q', searchQuery);
