@@ -1196,7 +1196,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
       if (eTags.length === 0) return null;
-      const replyTag = eTags.find((t) => t[3] === 'reply') || eTags.find((t) => t[3] === 'root') || eTags[eTags.length - 1];
+      
+      // Deduplicate e tags by event ID to prevent duplicate quoted events
+      const uniqueETags = new Map<string, typeof eTags[0]>();
+      eTags.forEach(tag => {
+        const eventId = tag[1];
+        if (eventId && !uniqueETags.has(eventId)) {
+          uniqueETags.set(eventId, tag);
+        }
+      });
+      const deduplicatedETags = Array.from(uniqueETags.values());
+      
+      const replyTag = deduplicatedETags.find((t) => t[3] === 'reply') || deduplicatedETags.find((t) => t[3] === 'root') || deduplicatedETags[deduplicatedETags.length - 1];
       return replyTag && replyTag[1] ? replyTag[1] : null;
     } catch {
       return null;
