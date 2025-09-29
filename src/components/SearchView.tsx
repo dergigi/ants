@@ -9,6 +9,7 @@ import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search'
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
+import { stripAllUrls } from '@/lib/utils/textUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 // Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
@@ -923,42 +924,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Use the utility function from urlUtils
 
-  // Shared utility for normalizing whitespace while preserving newlines
-  const normalizeWhitespace = useCallback((text: string): string => {
-    return text.replace(/[ \t]{2,}/g, ' ').trim();
-  }, []);
-
-  const stripMediaUrls = useCallback((text: string): string => {
-    if (!text) return '';
-    const cleaned = text
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
-      .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
-      .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
-      .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
-    return normalizeWhitespace(cleaned);
-  }, [normalizeWhitespace]);
-
-  const stripPreviewUrls = useCallback((text: string): string => {
-    if (!text) return '';
-    let cleaned = text;
-    successfulPreviews.forEach((url) => {
-      if (!url) return;
-      const trimmedUrl = url.replace(/[),.;]+$/, '');
-      if (!trimmedUrl) return;
-      const escapedUrl = trimmedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      try {
-        const regex = new RegExp(`${escapedUrl}[),.;]*`, 'gi');
-        cleaned = cleaned.replace(regex, '');
-      } catch (error) {
-        cleaned = cleaned.split(trimmedUrl).join('');
-        console.warn('Failed to strip preview URL', url, error);
-      }
-    });
-    return normalizeWhitespace(cleaned);
-  }, [successfulPreviews, normalizeWhitespace]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
-    const strippedContent = stripPreviewUrls(stripMediaUrls(content));
+    const strippedContent = stripAllUrls(content, successfulPreviews);
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
@@ -1114,7 +1082,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [stripPreviewUrls, stripMediaUrls, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
+  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
