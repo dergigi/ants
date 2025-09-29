@@ -8,12 +8,10 @@ export function Footer() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // DRY: Reusable function for search navigation
+  // DRY: Reusable function for search navigation - always go to root
   const handleSearchClick = (query: string) => (e: React.MouseEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', query);
-    router.replace(`?${params.toString()}`);
+    router.replace(`/?q=${encodeURIComponent(query)}`);
   };
 
   const handleGitHubExternalClick = (e: React.MouseEvent) => {

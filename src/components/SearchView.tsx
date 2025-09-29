@@ -353,6 +353,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     updateUrlForSearch(query);
   }, [updateUrlForSearch]);
 
+  // DRY helper function for root searches (always navigate to root path)
+  const setQueryAndNavigateToRoot = useCallback((query: string) => {
+    setQuery(query);
+    router.replace(`/?q=${encodeURIComponent(query)}`);
+  }, [router]);
+
   useEffect(() => {
     if (!manageUrl) {
       setProfileScopeUser(null);
@@ -950,22 +956,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               onClick={(e) => { 
                 e.stopPropagation();
                 const nextQuery = fullUrl;
-                setQueryAndUpdateUrl(nextQuery);
-                (async () => {
-                  setLoading(true);
-                  try {
-                    const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                    setResults(searchResults);
-                  } catch (error) {
-                    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                      return;
-                    }
-                    console.error('Search error:', error);
-                    setResults([]);
-                  } finally {
-                    setLoading(false);
-                  }
-                })();
+                setQueryAndNavigateToRoot(nextQuery);
               }}
               title={`Search for: ${fullUrl}`}
             >
@@ -1002,9 +993,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   key={`hashtag-${segIndex}-${partIndex}-${hashtagIndex}`}
                   onClick={() => {
                     const nextQuery = hashtagPart;
-                    setQuery(nextQuery);
-                    updateUrlForSearch(nextQuery);
-                    handleSearch(nextQuery);
+                    setQueryAndNavigateToRoot(nextQuery);
                   }}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
@@ -1023,8 +1012,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       key={`emoji-${segIndex}-${partIndex}-${hashtagIndex}-${emojiIndex}`}
                       onClick={() => {
                         const nextQuery = emojis[emojiIndex] as string;
-                        setQueryAndUpdateUrl(nextQuery);
-                        handleSearch(nextQuery);
+                        setQueryAndNavigateToRoot(nextQuery);
                       }}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
                     >
@@ -1070,8 +1058,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 token={token}
                 onProfileClick={goToProfile}
                 onSearch={(query) => {
-                  setQueryAndUpdateUrl(query);
-                  handleSearch(query);
+                  setQueryAndNavigateToRoot(query);
                 }}
                 renderContentWithClickableHashtags={renderContentWithClickableHashtags}
               />
@@ -1102,22 +1089,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     <NoteMedia
       content={content}
       onSearch={(query) => {
-        setQueryAndUpdateUrl(query);
-        (async () => {
-          setLoading(true);
-          try {
-            const searchResults = await searchEvents(query, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-            setResults(searchResults);
-          } catch (error) {
-            if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-              return;
-            }
-            console.error('Search error:', error);
-            setResults([]);
-          } finally {
-            setLoading(false);
-          }
-        })();
+        setQueryAndNavigateToRoot(query);
       }}
       onUrlLoaded={(loadedUrl) => {
         setSuccessfulPreviews((prev) => {
@@ -1287,8 +1259,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                             type="button"
                             className="text-left w-full hover:underline"
                             onClick={() => {
-                              setQueryAndUpdateUrl(ex);
-                              handleSearch(ex);
+                              setQueryAndNavigateToRoot(ex);
                             }}
                           >
                             {ex}
@@ -1395,25 +1366,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     dim={dim || null}
                                     onClickSearch={() => {
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQuery(nextQuery);
-                                      if (manageUrl) {
-                                        updateUrlForSearch(nextQuery);
-                                      }
-                                      (async () => {
-                                        setLoading(true);
-                                        try {
-                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                                          setResults(searchResults);
-                                        } catch (error) {
-                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                                            return;
-                                          }
-                                          console.error('Search error:', error);
-                                          setResults([]);
-                                        } finally {
-                                          setLoading(false);
-                                        }
-                                      })();
+                                      setQueryAndNavigateToRoot(nextQuery);
                                     }}
                                   />
                                 </div>
@@ -1473,25 +1426,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     dim={dim || null}
                                     onClickSearch={() => {
                                       const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQuery(nextQuery);
-                                      if (manageUrl) {
-                                        updateUrlForSearch(nextQuery);
-                                      }
-                                      (async () => {
-                                        setLoading(true);
-                                        try {
-                                          const searchResults = await searchEvents(nextQuery, undefined as unknown as number, { exact: true }, undefined, abortControllerRef.current?.signal);
-                                          setResults(searchResults);
-                                        } catch (error) {
-                                          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-                                            return;
-                                          }
-                                          console.error('Search error:', error);
-                                          setResults([]);
-                                        } finally {
-                                          setLoading(false);
-                                        }
-                                      })();
+                                      setQueryAndNavigateToRoot(nextQuery);
                                     }}
                                   />
                                 </div>
