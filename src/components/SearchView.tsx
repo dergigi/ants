@@ -1632,7 +1632,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
-        {loading && !topCommandText && finalResults.length === 0 && (
+        {loading && finalResults.length === 0 && (
           <SearchResultsPlaceholder 
             count={isDirectQuery ? 1 : 2} 
             searchType={detectSearchType(query)}
