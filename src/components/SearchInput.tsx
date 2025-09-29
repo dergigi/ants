@@ -1,9 +1,8 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
-import { nextExample } from '@/lib/ndk';
 
 interface SearchInputProps {
   query: string;
@@ -37,6 +36,27 @@ export default function SearchInput({
   rotationProgress
 }: SearchInputProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const getButtonIcon = () => {
+    if (loading) {
+      return resolvingAuthor ? (
+        <FontAwesomeIcon icon={faUser} className="animate-spin" />
+      ) : (
+        <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+      );
+    }
+    return showExternalButton ? (
+      <FontAwesomeIcon icon={faExternalLink} />
+    ) : (
+      <FontAwesomeIcon icon={faMagnifyingGlass} />
+    );
+  };
+
+  const getButtonTitle = () => {
+    if (showExternalButton) return "Open URL in new tab";
+    if (profileScopeUser) return `Searching in ${profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || 'user'}'s posts`;
+    return "Search";
+  };
 
   return (
     <form onSubmit={onSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
@@ -81,19 +101,9 @@ export default function SearchInput({
           type={showExternalButton ? "button" : "submit"} 
           onClick={showExternalButton ? onOpenExternal : undefined}
           className="px-6 py-2 bg-[#3d3d3d] text-gray-100 rounded-lg hover:bg-[#4d4d4d] focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] transition-colors"
-          title={showExternalButton ? "Open URL in new tab" : profileScopeUser ? `Searching in ${profileScopeUser.profile?.displayName || profileScopeUser.profile?.name || 'user'}'s posts` : "Search"}
+          title={getButtonTitle()}
         >
-          {loading ? (
-            resolvingAuthor ? (
-              <FontAwesomeIcon icon={faUser} className="animate-spin" />
-            ) : (
-              <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
-            )
-          ) : showExternalButton ? (
-            <FontAwesomeIcon icon={faExternalLink} />
-          ) : (
-            <FontAwesomeIcon icon={faMagnifyingGlass} />
-          )}
+          {getButtonIcon()}
         </button>
       </div>
     </form>
