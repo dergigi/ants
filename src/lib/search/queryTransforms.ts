@@ -14,23 +14,12 @@ export function getCurrentProfileNpub(pathname: string | null | undefined): stri
 export function toImplicitUrlQuery(explicitQuery: string, currentNpub: string | null): string {
   if (!explicitQuery) return '';
   if (!currentNpub) return explicitQuery.trim();
-  
-  // First strip matching by:npub tokens
-  let result = explicitQuery.replace(BY_NPUB_RX, (m, pre: string, npub: string) => {
-    return npub.toLowerCase() === currentNpub.toLowerCase() ? (pre ? pre : '') : m;
-  });
-  
-  // Then strip any other by: tokens that might match the current profile
-  // This handles cases where the profile might be identified by nip05 or other identifiers
-  result = result.replace(BY_TOKEN_RX, (m, pre: string, token: string) => {
-    // If the token matches the current npub (case-insensitive), remove it
-    if (token.toLowerCase() === currentNpub.toLowerCase()) {
-      return pre ? pre : '';
-    }
-    return m;
-  });
-  
-  return result.replace(/\s{2,}/g, ' ').trim();
+  return explicitQuery
+    .replace(BY_NPUB_RX, (m, pre: string, npub: string) => {
+      return npub.toLowerCase() === currentNpub.toLowerCase() ? (pre ? pre : '') : m;
+    })
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // For the input on /p pages: ensure by:<current npub> is visible/explicit alongside urlQuery
