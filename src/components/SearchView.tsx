@@ -542,8 +542,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
         if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
           // Only redirect if we're not already on the /e/[id] page
-          const isOnEventPage = pathname?.startsWith('/e/');
-          if (!isOnEventPage) {
+          if (!pathname?.startsWith('/e/')) {
             lastPointerRedirectRef.current = pointerLower;
             router.push(`/e/${pointerLower}`);
             return;
