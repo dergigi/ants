@@ -475,33 +475,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
     
-    // Check if this is a hashtag-only query and we're not already on a profile page
+    // Detect current path type
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     const isOnTagPath = pathname?.startsWith('/t/');
+    const isOnEventPath = pathname?.startsWith('/e/');
+    const isOnProfilePath = currentProfileNpub !== null;
     
-    if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
+    // Handle hashtag-only queries
+    if (!isOnProfilePath && isHashtagOnlyQuery(searchQuery)) {
       const hashtagUrl = hashtagQueryToUrl(searchQuery);
       if (hashtagUrl) {
-        // If we're already on a tag path, update the same path
-        // If we're on a different path, navigate to the tag path
-        if (isOnTagPath) {
-          router.replace(`/t/${hashtagUrl}`);
-        } else {
-          router.replace(`/t/${hashtagUrl}`);
-        }
+        router.replace(`/t/${hashtagUrl}`);
         return;
       }
     }
     
-    // If we're on a tag path but the query is not hashtag-only, navigate to root with query
-    if (isOnTagPath && !isHashtagOnlyQuery(searchQuery)) {
+    // Handle transitions from special paths to root with query
+    if ((isOnTagPath || isOnEventPath) && !isHashtagOnlyQuery(searchQuery)) {
       const params = new URLSearchParams();
       params.set('q', searchQuery);
       router.replace(`/?${params.toString()}`);
       return;
     }
     
-    if (currentProfileNpub) {
+    // Handle profile pages
+    if (isOnProfilePath) {
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
@@ -520,6 +518,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         router.replace(newUrl);
       }
     } else {
+      // Handle root path
       const params = new URLSearchParams(searchParams.toString());
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
@@ -662,8 +661,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
-    const isOnTagPath = pathname?.startsWith('/t/');
+    // Update URL immediately when search is triggered
     const normalizedInput = searchQuery.trim();
     const nip19Identifiers = extractNip19Identifiers(normalizedInput);
     const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
@@ -708,8 +706,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     }
 
-    const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
-    
     // Always update URL to reflect the current search
     updateUrlForSearch(searchQuery);
 
