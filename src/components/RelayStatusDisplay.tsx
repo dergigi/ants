@@ -11,19 +11,21 @@ export default function RelayStatusDisplay({
 }: RelayStatusDisplayProps) {
   // Group relays by "Events received" and "Others"
   const connectedSet = new Set(connectionDetails?.connectedRelays || []);
-  const recentlyActiveSet = new Set(recentlyActive);
   
-  // Events received: connected relays + recently active relays
+  // Events received: connected relays + recently active relays (no duplicates)
   const eventsReceivedRelays = Array.from(new Set([
     ...(connectionDetails?.connectedRelays || []),
     ...recentlyActive
   ]));
   
+  // Create a set of all relays that received events to ensure mutual exclusivity
+  const eventsReceivedSet = new Set(eventsReceivedRelays);
+  
   // Others: connecting + failed relays (excluding those that received events)
   const otherRelays = [
     ...(connectionDetails?.connectingRelays || []),
     ...(connectionDetails?.failedRelays || [])
-  ].filter(relay => !connectedSet.has(relay) && !recentlyActiveSet.has(relay));
+  ].filter(relay => !eventsReceivedSet.has(relay));
 
   return (
     <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
@@ -39,7 +41,6 @@ export default function RelayStatusDisplay({
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               const isConnected = connectedSet.has(relay);
-              const isRecentlyActive = recentlyActiveSet.has(relay);
               const statusIcon = isConnected ? '🟢' : '🔵';
               return (
                 <div key={idx} className="text-gray-300 ml-2">
