@@ -1,6 +1,7 @@
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import Image from 'next/image';
-import { shortenNpub, trimImageUrl } from '@/lib/utils';
+import { trimImageUrl } from '@/lib/utils';
+import { getDisplayName } from '@/lib/utils/profileUtils';
 
 interface ProfileScopeIndicatorProps {
   user: NDKUser | null;
@@ -38,7 +39,7 @@ export default function ProfileScopeIndicator({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
-            {(user.profile?.displayName || user.profile?.name || shortenNpub(user.npub)).slice(0, 2).toUpperCase()}
+            {getDisplayName(user).slice(0, 2).toUpperCase()}
           </div>
         )}
       </button>
