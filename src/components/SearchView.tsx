@@ -359,6 +359,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setQueryAndNavigateToRoot(query);
   }, [setQueryAndNavigateToRoot]);
 
+
   useEffect(() => {
     if (!manageUrl) {
       setProfileScopeUser(null);
@@ -891,6 +892,36 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     router.push(`/p/${npub}`);
   }, [router]);
 
+  // DRY helper for nevent search buttons
+  const handleNeventSearch = useCallback((eventId: string) => {
+    try {
+      const nevent = nip19.neventEncode({ id: eventId });
+      setQuery(nevent);
+      updateUrlForSearch(nevent);
+      handleSearch(nevent);
+    } catch {}
+  }, [setQuery, updateUrlForSearch, handleSearch]);
+
+  // DRY component for nevent search buttons
+  const NeventSearchButton = useCallback(({ eventId, timestamp }: { eventId: string; timestamp: string }) => (
+    <button
+      type="button"
+      className="text-xs hover:underline"
+      title="Search this nevent"
+      onClick={() => handleNeventSearch(eventId)}
+    >
+      {timestamp}
+    </button>
+  ), [handleNeventSearch]);
+
+  // DRY helper for common EventCard props
+  const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
+    event,
+    onAuthorClick: goToProfile,
+    className,
+    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />
+  }), [goToProfile, NeventSearchButton]);
+
 
 
   const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
@@ -1293,8 +1324,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
                         <TruncatedText 
                           content={text} 
@@ -1304,30 +1334,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === 20 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => {
                         const urls = extractImetaImageUrls(event);
                         const blurhashes = extractImetaBlurhashes(event);
@@ -1359,30 +1369,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === 21 || event.kind === 22 ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => {
                         const urls = extractImetaVideoUrls(event);
                         const contentUrls = extractVideoUrls(event.content || '').slice(0, 2);
@@ -1416,30 +1406,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
                         <TruncatedText 
                           content={text} 
@@ -1449,51 +1419,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
-                      )}
-                      className={noteCardClasses}
                     />
                   ) : (
                     <EventCard
-                      event={event}
-                      onAuthorClick={goToProfile}
+                      {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => (
                         <RawEventJson event={event} />
-                      )}
-                      className={noteCardClasses}
-                      footerRight={(
-                        <button
-                          type="button"
-                          className="text-xs hover:underline"
-                          title="Search this nevent"
-                          onClick={() => {
-                            try {
-                              const nevent = nip19.neventEncode({ id: event.id });
-                              const q = nevent;
-                              setQuery(q);
-                              updateUrlForSearch(q);
-                              handleSearch(q);
-                            } catch {}
-                          }}
-                        >
-                          {formatEventTimestamp(event)}
-                        </button>
                       )}
                     />
                   )}
@@ -1502,7 +1433,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps])}
     </div>
   );
 }
