@@ -37,6 +37,15 @@ function disableCacheAdapter(reason?: unknown): void {
   cacheDisabledDueToError = true;
 }
 
+function isNoFiltersToMergeError(error: unknown): boolean {
+  try {
+    const message = (error instanceof Error ? error.message : String(error || '')) || '';
+    return message.toLowerCase().includes('no filters to merge');
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureCacheInitialized(): Promise<void> {
   if (cacheInitialized) return;
   // Avoid initializing in SSR environments
@@ -431,6 +440,10 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
         console.error('Failed to create NDK subscription after disabling cache:', e2);
         return null;
       }
+    } else if (isNoFiltersToMergeError(error)) {
+      // Gracefully ignore and return null subscription
+      console.warn('Ignoring subscription with no effective filters');
+      return null;
     }
     console.error('Failed to create NDK subscription:', error);
     return null;
