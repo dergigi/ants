@@ -185,3 +185,87 @@ export function decodeNip19Pointer(identifier: string): Nip19Pointer | null {
   }
 }
 
+/**
+ * Normalizes a raw identifier by removing nostr: prefix and handling common cases
+ */
+export function normalizeNostrIdentifier(rawId: string): string {
+  let token = decodeMaybe(rawId).trim();
+  if (!token) return '';
+  if (/^nostr:/i.test(token)) token = token.replace(/^nostr:/i, '');
+  return token.toLowerCase();
+}
+
+/**
+ * Parses an identifier for event pages (/e/[id]) - handles nevent, note, and hex event IDs
+ */
+export function parseEventIdentifier(rawId: string): string {
+  const token = normalizeNostrIdentifier(rawId);
+  if (!token) return '';
+
+  // If it's bech32 nevent/note, pass through unchanged
+  try {
+    const decoded = nip19.decode(token);
+    if (decoded?.type === 'nevent' || decoded?.type === 'note') {
+      return token;
+    }
+  } catch {}
+
+  // If it's a 64-char hex event id, encode as nevent so search can fetch by id
+  if (/^[0-9a-fA-F]{64}$/.test(token)) {
+    try {
+      const nevent = nip19.neventEncode({ id: token.toLowerCase() });
+      return nevent;
+    } catch {}
+  }
+
+  // Fallback: use whatever was passed
+  return token;
+}
+
+/**
+ * Parses an identifier for profile pages (/p/[id]) - handles nprofile, npub, and other identifiers
+ */
+export function parseProfileIdentifier(rawId: string): string {
+  const token = normalizeNostrIdentifier(rawId);
+  if (!token) return '';
+
+  try {
+    const decoded = nip19.decode(token);
+    if (decoded?.type === 'nprofile') {
+      const pk = (decoded.data as { pubkey: string }).pubkey;
+      return nip19.npubEncode(pk);
+    }
+    if (decoded?.type === 'npub') {
+      return token;
+    }
+  } catch {}
+
+  return token;
+}
+
+/**
+ * Checks if an identifier is a valid nevent or note
+ */
+export function isValidEventIdentifier(identifier: string): boolean {
+  if (!identifier) return false;
+  try {
+    const decoded = nip19.decode(identifier);
+    return decoded?.type === 'nevent' || decoded?.type === 'note';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Checks if an identifier is a valid npub
+ */
+export function isValidNpub(identifier: string): boolean {
+  if (!identifier) return false;
+  try {
+    const decoded = nip19.decode(identifier);
+    return decoded?.type === 'npub' && typeof decoded.data === 'string';
+  } catch {
+    return false;
+  }
+}
+

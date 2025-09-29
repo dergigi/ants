@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { nip19 } from 'nostr-tools';
 import SearchView from '@/components/SearchView';
 import ProfileCard from '@/components/ProfileCard';
 import { resolveNip05ToPubkey } from '@/lib/vertex';
 import { useNostrUser } from '@/hooks/useNostrUser';
-import { decodeMaybe } from '@/lib/utils';
 import { LoadingLayout } from '@/components/LoadingLayout';
+import { parseProfileIdentifier, isValidNpub } from '@/lib/utils/nostrIdentifiers';
+import { nip19 } from 'nostr-tools';
 
 // shared hook imported from '@/hooks/useNostrUser'
 
@@ -19,39 +19,16 @@ export default function PidPage() {
   const rawId = params?.id || '';
   const q = searchParams?.get('q') || '';
 
-  const id = useMemo(() => {
-    let token = decodeMaybe(rawId).trim();
-    if (!token) return '';
-    if (/^nostr:/i.test(token)) token = token.replace(/^nostr:/i, '');
-    const lower = token.toLowerCase();
-    try {
-      const decoded = nip19.decode(lower);
-      if (decoded?.type === 'nprofile') {
-        const pk = (decoded.data as { pubkey: string }).pubkey;
-        return nip19.npubEncode(pk);
-      }
-      if (decoded?.type === 'npub') {
-        return lower;
-      }
-    } catch {}
-    return token;
-  }, [rawId]);
+  const id = useMemo(() => parseProfileIdentifier(rawId), [rawId]);
 
   const looksLikeNip05 = useMemo(() => /@/.test(id) || /\./.test(id), [id]);
-  const isValidNpub = useMemo(() => {
-    try {
-      const decoded = nip19.decode(id);
-      return decoded?.type === 'npub' && typeof decoded.data === 'string';
-    } catch {
-      return false;
-    }
-  }, [id]);
+  const isValidNpubValue = useMemo(() => isValidNpub(id), [id]);
 
-  const [mode, setMode] = useState<'profile' | 'psearch' | 'checking'>(() => (isValidNpub ? 'profile' : (looksLikeNip05 ? 'checking' : 'psearch')));
-  const npub = useMemo(() => (isValidNpub ? id : null), [isValidNpub, id]);
+  const [mode, setMode] = useState<'profile' | 'psearch' | 'checking'>(() => (isValidNpubValue ? 'profile' : (looksLikeNip05 ? 'checking' : 'psearch')));
+  const npub = useMemo(() => (isValidNpubValue ? id : null), [isValidNpubValue, id]);
 
   useEffect(() => {
-    if (isValidNpub) { setMode('profile'); return; }
+    if (isValidNpubValue) { setMode('profile'); return; }
     if (!looksLikeNip05) { setMode('psearch'); return; }
 
     let cancelled = false;
@@ -72,7 +49,7 @@ export default function PidPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [id, isValidNpub, looksLikeNip05, q, router]);
+  }, [id, isValidNpubValue, looksLikeNip05, q, router]);
 
   useEffect(() => {
     if (mode !== 'psearch') return;
