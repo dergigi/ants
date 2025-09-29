@@ -69,7 +69,7 @@ export default function RelayStatusDisplay({
         <div className="mb-2">
           <div className="text-gray-400 font-medium mb-1">
             <FontAwesomeIcon icon={faServer} className="mr-1" />
-            Others ({displayOthersCount})
+            Other Relays ({displayOthersCount})
           </div>
           <div className="space-y-1">
             {otherRelays.map((relay, idx) => {
