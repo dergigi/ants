@@ -1,6 +1,4 @@
 import { ConnectionStatus } from '@/lib/ndk';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
@@ -12,7 +10,6 @@ export default function RelayStatusDisplay({
   recentlyActive 
 }: RelayStatusDisplayProps) {
   // Group relays by "Events received" and "Others"
-  const connectedSet = new Set(connectionDetails?.connectedRelays || []);
   
   // Events received: connected relays + recently active relays (no duplicates)
   const eventsReceivedRelays = Array.from(new Set([
@@ -42,13 +39,9 @@ export default function RelayStatusDisplay({
             {eventsReceivedRelays.map((relay, idx) => {
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
-              const isConnected = connectedSet.has(relay);
-              const statusIcon = isConnected ? '🟢' : (
-                <FontAwesomeIcon icon={faWifi} className="text-blue-400" />
-              );
               return (
                 <div key={idx} className="text-gray-300 ml-2">
-                  {statusIcon} {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                  • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
@@ -66,17 +59,9 @@ export default function RelayStatusDisplay({
             {otherRelays.map((relay, idx) => {
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
-              const isConnecting = connectionDetails?.connectingRelays?.includes(relay);
-              const isFailed = connectionDetails?.failedRelays?.includes(relay);
-              const statusIcon = (
-                <FontAwesomeIcon 
-                  icon={faServer} 
-                  className={isConnecting ? 'text-yellow-400' : isFailed ? 'text-red-400' : 'text-gray-400'} 
-                />
-              );
               return (
                 <div key={idx} className="text-gray-300 ml-2">
-                  {statusIcon} {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                  • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
