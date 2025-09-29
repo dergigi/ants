@@ -594,6 +594,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResults([]);
     setLoading(true);
     
+    // Ensure loading animation is visible for direct lookups
+    const isDirectLookup = !manageUrl && initialQuery === searchQuery;
+    const minLoadingTime = isDirectLookup ? 800 : 0;
+    
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const needsAuthorResolution = byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]);
@@ -694,8 +698,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
-        setLoading(false);
-        setResolvingAuthor(false);
+        // Ensure minimum loading time for direct lookups to show animation
+        if (minLoadingTime > 0) {
+          setTimeout(() => {
+            if (currentSearchId.current === searchId) {
+              setLoading(false);
+              setResolvingAuthor(false);
+            }
+          }, minLoadingTime);
+        } else {
+          setLoading(false);
+          setResolvingAuthor(false);
+        }
       }
     }
   }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser]);
