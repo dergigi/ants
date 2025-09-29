@@ -208,5 +208,23 @@ export default function InlineNostrToken({
     );
   }
 
+  // Fallback: if content is null/undefined, render the original token as a clickable link
+  if (!content) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSearch(token);
+        }}
+        className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+        title={`Search for: ${token}`}
+      >
+        {token}
+      </button>
+    );
+  }
+
   return <>{content}</>;
 }
