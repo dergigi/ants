@@ -1,7 +1,5 @@
 import { NDKUser } from '@nostr-dev-kit/ndk';
-import Image from 'next/image';
-import { trimImageUrl } from '@/lib/utils';
-import { getDisplayName } from '@/lib/utils/profileUtils';
+import ProfileImage from '@/components/ProfileImage';
 
 interface ProfileScopeIndicatorProps {
   user: NDKUser | null;
@@ -28,20 +26,12 @@ export default function ProfileScopeIndicator({
         }`}
         title={isEnabled ? 'Disable profile scoping' : 'Enable profile scoping'}
       >
-        {user.profile?.image ? (
-          <Image
-            src={trimImageUrl(user.profile.image)}
-            alt="Profile"
-            width={40}
-            height={40}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
-            {getDisplayName(user).slice(0, 2).toUpperCase()}
-          </div>
-        )}
+        <ProfileImage 
+          user={user} 
+          size={40}
+          className="w-full h-full object-cover"
+          fallbackClassName="w-full h-full flex items-center justify-center text-xs text-gray-300"
+        />
       </button>
     </div>
   );

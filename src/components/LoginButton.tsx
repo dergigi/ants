@@ -3,10 +3,8 @@
 import { login, restoreLogin } from '@/lib/nip07';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { trimImageUrl } from '@/lib/utils';
-import { getDisplayName } from '@/lib/utils/profileUtils';
+import ProfileImage from '@/components/ProfileImage';
 
 export function LoginButton() {
   const [user, setUser] = useState<NDKUser | null>(null);
@@ -97,20 +95,12 @@ export function LoginButton() {
     >
       {user ? (
         <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
-          {user.profile?.image ? (
-            <Image
-              src={trimImageUrl(user.profile.image)}
-              alt="Profile"
-              width={40}
-              height={40}
-              className="w-full h-full object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
-              {getDisplayName(user).slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <ProfileImage 
+            user={user} 
+            size={40}
+            className="w-full h-full object-cover"
+            fallbackClassName="w-full h-full flex items-center justify-center text-xs text-gray-300"
+          />
         </div>
       ) : (
         <span className="text-sm text-gray-400 hover:text-gray-200">login</span>
