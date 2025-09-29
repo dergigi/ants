@@ -1,6 +1,6 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWifi } from '@fortawesome/free-solid-svg-icons';
+import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
@@ -60,7 +60,8 @@ export default function RelayStatusDisplay({
       {otherRelays.length > 0 && (
         <div className="mb-2">
           <div className="text-gray-400 font-medium mb-1">
-            ⚪ Others ({otherRelays.length})
+            <FontAwesomeIcon icon={faServer} className="mr-1" />
+            Others ({otherRelays.length})
           </div>
           <div className="space-y-1">
             {otherRelays.map((relay, idx) => {
