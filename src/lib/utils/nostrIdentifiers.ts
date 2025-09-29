@@ -132,7 +132,7 @@ export const NOSTR_TOKEN_PARSE_REGEX = new RegExp(
 
 export type Nip19Prefix = typeof NIP19_PREFIXES[number];
 
-export type Nip19Pointer =
+export type Nip19Identifier =
   | { type: 'nevent'; id: string; relays?: string[]; author?: string; kind?: number }
   | { type: 'note'; id: string }
   | { type: 'naddr'; pubkey: string; identifier: string; kind: number; relays?: string[] }
@@ -140,7 +140,7 @@ export type Nip19Pointer =
   | { type: 'npub'; pubkey: string }
   | { type: 'nsec' };
 
-export function decodeNip19Pointer(identifier: string): Nip19Pointer | null {
+export function decodeNip19Identifier(identifier: string): Nip19Identifier | null {
   const trimmed = identifier.trim();
   if (!trimmed) return null;
 

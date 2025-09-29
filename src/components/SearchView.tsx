@@ -35,7 +35,7 @@ import InlineNostrToken from '@/components/InlineNostrToken';
 import ParentChain from '@/components/ParentChain';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
-import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
+import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
 import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
@@ -81,7 +81,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
@@ -89,7 +89,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const lastPointerRedirectRef = useRef<string | null>(null);
+  const lastIdentifierRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -526,23 +526,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isOnTagPath = pathname?.startsWith('/t/');
     const normalizedInput = searchQuery.trim();
     const nip19Identifiers = extractNip19Identifiers(normalizedInput);
-    const pointerToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
-    const pointerLower = pointerToken ? pointerToken.toLowerCase() : null;
-    const firstPointer = pointerLower ? decodeNip19Pointer(pointerLower) : null;
+    const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
+    const identifierLower = identifierToken ? identifierToken.toLowerCase() : null;
+    const firstIdentifier = identifierLower ? decodeNip19Identifier(identifierLower) : null;
 
-    if (pointerLower && pointerLower === lastPointerRedirectRef.current) {
-      lastPointerRedirectRef.current = null;
-    } else if (pointerLower && firstPointer) {
+    if (identifierLower && identifierLower === lastIdentifierRedirectRef.current) {
+      lastIdentifierRedirectRef.current = null;
+    } else if (identifierLower && firstIdentifier) {
       const stripped = normalizedInput
         .replace(/^web\+nostr:/i, '')
         .replace(/^nostr:/i, '')
         .replace(/[\s),.;]*$/, '')
         .trim()
         .toLowerCase();
-      const pointerOnly = stripped === pointerLower;
-      const pointerInUrl = !pointerOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(pointerLower);
+      const identifierOnly = stripped === identifierLower;
+      const identifierInUrl =
+        !identifierOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(identifierLower);
 
-      if (pointerOnly || pointerInUrl) {
+      if (identifierOnly || identifierInUrl) {
         setTopCommandText(null);
         setTopExamples(null);
         setShowExternalButton(false);
@@ -550,18 +551,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setLoading(false);
         setResolvingAuthor(false);
 
-        if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
+        if (firstIdentifier.type === 'nevent' || firstIdentifier.type === 'note' || firstIdentifier.type === 'naddr') {
           // Only redirect if we're not already on the /e/[id] page
           if (!pathname?.startsWith('/e/')) {
-            lastPointerRedirectRef.current = pointerLower;
-            router.push(`/e/${pointerLower}`);
+            lastIdentifierRedirectRef.current = identifierLower;
+            router.push(`/e/${identifierLower}`);
             return;
           }
           // If we're already on the /e/[id] page, continue with the search instead of redirecting
         }
-        if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
-          lastPointerRedirectRef.current = pointerLower;
-          router.push(`/p/${pointerLower}`);
+        if (firstIdentifier.type === 'nprofile' || firstIdentifier.type === 'npub') {
+          lastIdentifierRedirectRef.current = identifierLower;
+          router.push(`/p/${identifierLower}`);
           return;
         }
       }
@@ -592,6 +593,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
     setResults([]);
     setLoading(true);
+    
+    // Update translation immediately for new searches
+    setTranslation('');
+    
+    // Ensure loading animation is visible for direct lookups
+    const isDirectLookup = !manageUrl && initialQuery === searchQuery;
+    const minLoadingTime = isDirectLookup ? 800 : 0;
     
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
@@ -639,6 +647,90 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
         // Resolution phase complete (either way)
         setResolvingAuthor(false);
+        
+        // Update translation after author resolution
+        try {
+          const afterReplacements = await applySimpleReplacements(effectiveQuery);
+          const distributed = expandParenthesizedOr(afterReplacements);
+          
+          // Helper: resolve all by:<author> tokens within a single query string
+          const resolveByTokensInQuery = async (q: string): Promise<string> => {
+            const rx = /(^|\s)by:(\S+)/gi;
+            let result = '';
+            let lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = rx.exec(q)) !== null) {
+              const full = m[0];
+              const pre = m[1] || '';
+              const raw = m[2] || '';
+              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+              const core = (match && match[1]) || raw;
+              const suffix = (match && match[2]) || '';
+              let replacement = core;
+              try {
+                const npub = await resolveAuthorToNpub(core);
+                if (npub) replacement = npub;
+              } catch {}
+              result += q.slice(lastIndex, m.index);
+              result += `${pre}by:${replacement}${suffix}`;
+              lastIndex = m.index + full.length;
+            }
+            result += q.slice(lastIndex);
+            return result;
+          };
+          
+          // Helper: normalize p:<token> where token may be hex, npub or nprofile
+          const resolvePTokensInQuery = (q: string): string => {
+            const rx = /(^|\s)p:(\S+)/gi;
+            let result = '';
+            let lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = rx.exec(q)) !== null) {
+              const full = m[0];
+              const pre = m[1] || '';
+              const raw = m[2] || '';
+              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+              const core = (match && match[1]) || raw;
+              const suffix = (match && match[2]) || '';
+              let replacement = core;
+              if (/^[0-9a-fA-F]{64}$/.test(core)) {
+                try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
+              } else if (/^npub1[0-9a-z]+$/i.test(core)) {
+                replacement = core;
+              } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
+                try {
+                  const decoded = nip19.decode(core);
+                  if (decoded?.type === 'nprofile') {
+                    const pk = (decoded.data as { pubkey: string }).pubkey;
+                    replacement = nip19.npubEncode(pk);
+                  }
+                } catch {}
+              }
+              result += q.slice(lastIndex, m.index);
+              result += `${pre}p:${replacement}${suffix}`;
+              lastIndex = m.index + full.length;
+            }
+            result += q.slice(lastIndex);
+            return result;
+          };
+          
+          const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
+          const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
+          const finalQueriesSet = new Set<string>();
+          for (const q of withPResolved) {
+            const parts = parseOrQuery(q);
+            if (parts.length > 1) {
+              parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+            } else {
+              const s = q.trim(); if (s) finalQueriesSet.add(s);
+            }
+          }
+          const finalQueries = Array.from(finalQueriesSet);
+          const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+          setTranslation(preview);
+        } catch {
+          setTranslation('');
+        }
       }
 
       const expanded = await applySimpleReplacements(effectiveQuery);
@@ -693,11 +785,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
-        setLoading(false);
-        setResolvingAuthor(false);
+        // Ensure minimum loading time for direct lookups to show animation
+        if (minLoadingTime > 0) {
+          setTimeout(() => {
+            if (currentSearchId.current === searchId) {
+              setLoading(false);
+              setResolvingAuthor(false);
+            }
+          }, minLoadingTime);
+        } else {
+          setLoading(false);
+          setResolvingAuthor(false);
+        }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1072,16 +1174,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Use the utility function from urlUtils
 
 
-  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
+  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => {
     const strippedContent = stripAllUrls(content, successfulPreviews);
     if (!strippedContent) return null;
 
-    const initialPointerIds = options?.skipPointerIds
-      ? Array.from(options.skipPointerIds, (id) => id.toLowerCase())
+    const initialIdentifierIds = options?.skipIdentifierIds
+      ? Array.from(options.skipIdentifierIds, (id) => id.toLowerCase())
       : [];
-    const seenPointerIds = new Set<string>(initialPointerIds);
+    const seenIdentifierIds = new Set<string>(initialIdentifierIds);
 
-    const derivePointerKey = (token: string): string | null => {
+    const deriveIdentifierKey = (token: string): string | null => {
       if (!/^nostr:(?:nevent1|naddr1|note1)/i.test(token)) return null;
       try {
         const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
@@ -1212,12 +1314,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         if (nostrTokens[partIndex]) {
           const token = nostrTokens[partIndex];
           
-          const pointerKey = derivePointerKey(token);
-          if (pointerKey) {
-            if (seenPointerIds.has(pointerKey)) {
+          const identifierKey = deriveIdentifierKey(token);
+          if (identifierKey) {
+            if (seenIdentifierIds.has(identifierKey)) {
               return;
             }
-            seenPointerIds.add(pointerKey);
+            seenIdentifierIds.add(identifierKey);
           }
           
           if (options?.disableNevent && /^nostr:(?:nevent1|naddr1|note1)/i.test(token)) {
@@ -1487,7 +1589,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                  renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
@@ -1572,7 +1674,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}

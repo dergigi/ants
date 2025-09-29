@@ -16,7 +16,7 @@ interface InlineNostrTokenProps {
   token: string;
   onProfileClick: (npub: string) => void;
   onSearch: (query: string) => void;
-  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => React.ReactNode;
+  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => React.ReactNode;
 }
 
 export default function InlineNostrToken({ 
@@ -158,7 +158,7 @@ export default function InlineNostrToken({
                       content={text} 
                       maxLength={TEXT_MAX_LENGTH}
                       className="text-gray-100 whitespace-pre-wrap break-words"
-                      renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { disableNevent: true, skipPointerIds: new Set([fetched.id?.toLowerCase?.() || '']) })}
+                      renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { disableNevent: true, skipIdentifierIds: new Set([fetched.id?.toLowerCase?.() || '']) })}
                     />
                   )}
                   variant="inline"

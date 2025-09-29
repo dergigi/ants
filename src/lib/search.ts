@@ -530,7 +530,7 @@ function sanitizeRelayUrls(relays: unknown): string[] {
   return Array.from(new Set(normalized));
 }
 
-async function fetchEventByPointer(
+async function fetchEventByIdentifier(
   options: {
     id?: string;
     filter?: NDKFilter;
@@ -854,13 +854,13 @@ export async function searchEvents(
     const decoded = nip19.decode(extCleanedQuery);
     if (decoded?.type === 'nevent') {
       const data = decoded.data as { id: string; relays?: string[] };
-      const results = await fetchEventByPointer({ id: data.id, relayHints: data.relays }, abortSignal);
+      const results = await fetchEventByIdentifier({ id: data.id, relayHints: data.relays }, abortSignal);
       if (results.length > 0) return results;
       return [];
     }
     if (decoded?.type === 'note') {
       const id = decoded.data as string;
-      const results = await fetchEventByPointer({ id }, abortSignal);
+      const results = await fetchEventByIdentifier({ id }, abortSignal);
       if (results.length > 0) return results;
       return [];
     }
@@ -872,7 +872,7 @@ export async function searchEvents(
         '#d': [data.identifier],
         limit: 1
       };
-      const results = await fetchEventByPointer({ filter: pointerFilter, relayHints: data.relays }, abortSignal);
+      const results = await fetchEventByIdentifier({ filter: pointerFilter, relayHints: data.relays }, abortSignal);
       if (results.length > 0) return results;
       return [];
     }
