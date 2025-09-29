@@ -325,6 +325,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     if (!manageUrl) return;
     
+    // If query is empty, remove q parameter and navigate to clean URL
+    if (!searchQuery.trim()) {
+      const currentProfileNpub = getCurrentProfileNpub(pathname);
+      if (currentProfileNpub) {
+        // On profile pages, just remove the q parameter
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('q');
+        const newUrl = params.toString() ? `?${params.toString()}` : '';
+        router.replace(newUrl);
+      } else {
+        // On root pages, navigate to clean root
+        router.replace('/');
+      }
+      return;
+    }
+    
     // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
@@ -352,7 +368,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
     setQuery(query);
-    router.replace(`/?q=${encodeURIComponent(query)}`);
+    if (query.trim()) {
+      router.replace(`/?q=${encodeURIComponent(query)}`);
+    } else {
+      router.replace('/');
+    }
   }, [router]);
 
   // DRY helper for content-based search triggers (always root searches)
