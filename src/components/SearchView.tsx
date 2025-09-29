@@ -419,6 +419,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             // Attach the profile data from the cached/complete profile event
             user.profile = profileEvent.content ? JSON.parse(profileEvent.content) : {};
             setProfileScopeUser(user);
+
+            // In some cases the image URL is not available on the very first render.
+            // Kick off a background refresh and update state once fetched to force a re-render.
+            (async () => {
+              try {
+                const refreshed = new NDKUser({ pubkey });
+                refreshed.ndk = ndk;
+                try { await refreshed.fetchProfile(); } catch {}
+                if (!refreshed.profile) return;
+                // Only update if we actually learned something new (e.g. image or picture field appears)
+                const hadImage = typeof (user.profile as unknown as { image?: string; picture?: string } | undefined)?.image === 'string'
+                  || typeof (user.profile as unknown as { image?: string; picture?: string } | undefined)?.picture === 'string';
+                const hasNewImage = typeof (refreshed.profile as unknown as { image?: string; picture?: string } | undefined)?.image === 'string'
+                  || typeof (refreshed.profile as unknown as { image?: string; picture?: string } | undefined)?.picture === 'string';
+                if (!hadImage && hasNewImage) {
+                  setProfileScopeUser(refreshed);
+                }
+              } catch {}
+            })();
           } else {
             setProfileScopeUser(null);
           }
