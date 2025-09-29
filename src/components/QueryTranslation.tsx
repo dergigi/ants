@@ -13,7 +13,7 @@ export default function QueryTranslation({ translation }: QueryTranslationProps)
 
   if (!translation) return null;
 
-  const isLongTranslation = translation.split('\n').length > 2;
+  const isLongTranslation = translation.split('\n').length > 4;
 
   return (
     <div 
@@ -33,10 +33,10 @@ export default function QueryTranslation({ translation }: QueryTranslationProps)
           <>
             <div className="overflow-hidden" style={{ 
               display: '-webkit-box',
-              WebkitLineClamp: 2,
+              WebkitLineClamp: 4,
               WebkitBoxOrient: 'vertical'
             }}>
-              {translation.split('\n').slice(0, 2).join('\n')}
+              {translation.split('\n').slice(0, 4).join('\n')}
             </div>
             <div className="flex items-center justify-center mt-1 text-gray-500">
               <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
