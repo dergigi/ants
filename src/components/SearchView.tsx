@@ -58,6 +58,9 @@ import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
+import { useClearTrigger } from '@/lib/ClearTrigger';
+import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
+import { detectSearchType } from '@/lib/search/searchTypeDetection';
 
 type Props = {
   initialQuery?: string;
@@ -90,6 +93,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
+  const initialSearchDoneRef = useRef(false);
+  const initialQueryNormalizedRef = useRef<string | null>(initialQuery.trim() || null);
+  const initialQueryRef = useRef(initialQuery);
+  const lastHashQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
+  const lastExecutedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
+  const lastTranslatedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -106,6 +115,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { onLoginTrigger } = useLoginTrigger();
+  const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
   const shouldEnableFilters = useMemo(() => {
@@ -819,14 +829,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setConnectionStatus('timeout');
       }
       
-      if (initialQuery && !manageUrl) {
-        setQuery(initialQuery);
-        if (isSlashCommand(initialQuery)) runSlashCommand(initialQuery);
-        handleSearch(initialQuery);
+      if (initialQueryRef.current && !manageUrl) {
+        const normalizedInitial = initialQueryRef.current.trim();
+        if (normalizedInitial && !initialSearchDoneRef.current) {
+          initialSearchDoneRef.current = true;
+          initialQueryNormalizedRef.current = normalizedInitial;
+          lastHashQueryRef.current = normalizedInitial;
+          setTranslation(normalizedInitial);
+          setQuery(initialQueryRef.current);
+          if (isSlashCommand(initialQueryRef.current)) {
+            runSlashCommand(initialQueryRef.current);
+            handleSearch(initialQueryRef.current);
+          } else {
+            handleSearch(normalizedInitial);
+          }
+        }
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery, manageUrl, runSlashCommand, isSlashCommand]);
+  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -933,49 +954,100 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Listen for login trigger from Header
   useEffect(() => {
     const cleanup = onLoginTrigger(() => {
-      setQuery('/login');
-      // Focus the search input
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
+      // Always attempt login, but only set /login in search field if it's empty
+      if (!query.trim()) {
+        setQuery('/login');
+        // Focus the search input
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        // Update URL immediately
+        updateUrlForSearch('/login');
       }
-      // Update URL immediately
-      updateUrlForSearch('/login');
-      // Execute the /login command immediately
+      // Always execute the /login command regardless of search field state
       runSlashCommand('/login');
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
+
 
   useEffect(() => {
     if (!manageUrl) return;
     const urlQueryRaw = searchParams.get('q') || '';
-    const urlQuery = decodeUrlQuery(urlQueryRaw);
+    const decodedQuery = decodeUrlQuery(urlQueryRaw);
+    const normalizedQuery = decodedQuery.trim();
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+
+    const executeSearch = (displayValue: string, backendValue: string, translationValue: string) => {
+      if (lastHashQueryRef.current === translationValue) return;
+      lastHashQueryRef.current = translationValue;
+      setQuery(displayValue);
+      if (lastTranslatedQueryRef.current !== translationValue) {
+        setTranslation(translationValue);
+        lastTranslatedQueryRef.current = translationValue;
+      }
+      lastExecutedQueryRef.current = translationValue;
+      handleSearch(backendValue);
+    };
+
     if (currentProfileNpub) {
-      if (isSlashCommand(urlQuery)) {
-        setQuery(urlQuery);
-        runSlashCommand(urlQuery);
-        handleSearch(urlQuery);
+      if (!normalizedQuery) {
+        const normalizedInitial = initialQueryNormalizedRef.current;
+        if (normalizedInitial) {
+          executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub), normalizedInitial);
+        } else if (lastHashQueryRef.current) {
+          setQuery('');
+          setTranslation('');
+          lastHashQueryRef.current = null;
+          lastExecutedQueryRef.current = null;
+          lastTranslatedQueryRef.current = null;
+        }
+        return;
+      }
+
+      if (lastHashQueryRef.current === normalizedQuery) return;
+
+      if (isSlashCommand(normalizedQuery)) {
+        executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+        runSlashCommand(normalizedQuery);
       } else {
-        // Use normalized NIP-05 if available for display, otherwise use npub
         const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
         const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
-        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub, displayIdentifier);
-        setQuery(display);
-        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-        handleSearch(backend);
-        // Normalize URL to implicit form if needed
-        const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
-        if (implicit !== urlQuery) {
-        updateSearchQuery(searchParams, router, implicit);
+        const displayValue = toExplicitInputFromUrl(normalizedQuery, currentProfileNpub, displayIdentifier);
+        executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub), normalizedQuery);
+
+        const implicit = toImplicitUrlQuery(normalizedQuery, currentProfileNpub);
+        if (implicit !== normalizedQuery) {
+          updateSearchQuery(searchParams, router, implicit);
         }
       }
-    } else if (urlQuery) {
-      setQuery(urlQuery);
-      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
-      handleSearch(urlQuery);
+      return;
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
+
+    if (!normalizedQuery) {
+      const normalizedInitial = initialQueryNormalizedRef.current;
+      if (normalizedInitial) {
+        executeSearch(normalizedInitial, normalizedInitial, normalizedInitial);
+      } else if (lastHashQueryRef.current) {
+        setQuery('');
+        setTranslation('');
+        lastHashQueryRef.current = null;
+        lastExecutedQueryRef.current = null;
+        lastTranslatedQueryRef.current = null;
+      }
+      return;
+    }
+
+    if (lastHashQueryRef.current === normalizedQuery) return;
+
+    if (isSlashCommand(normalizedQuery)) {
+      executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+      runSlashCommand(normalizedQuery);
+      return;
+    }
+
+    executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1117,7 +1189,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
           // Format compact preview
           const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-          if (!cancelled) setTranslation(preview);
+          // For hashtag queries, always show the translation even if it's the same as the original
+          const finalPreview = (preview === query && isHashtagOnlyQuery(query)) ? `Searching for: ${query}` : preview;
+          if (!cancelled) setTranslation(finalPreview);
         } catch {
           if (!cancelled) setTranslation('');
         }
@@ -1422,14 +1496,60 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     router.replace('/');
   }, [router]);
 
+  // Register clear handler for favicon click
+  useEffect(() => {
+    setClearHandler(handleClear);
+  }, [setClearHandler, handleClear]);
+
   const handleExampleNext = useCallback(() => {
     setPlaceholder(nextExample());
     setRotationProgress(0);
     setRotationSeed((s) => s + 1);
   }, []);
 
+  // Helper to determine if current query is a direct identifier query
+  const isDirectQuery = useMemo(() => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return false;
+    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
+    if (nip19Identifiers.length === 0) return false;
+    
+    const identifierToken = nip19Identifiers[0].trim();
+    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
+    
+    if (!firstIdentifier) return false;
+    
+    // Check if the query is just the identifier (direct query)
+    const normalizedInput = trimmedQuery
+      .replace(/^web\+nostr:/i, '')
+      .replace(/^nostr:/i, '')
+      .replace(/[\s),.;]*$/, '')
+      .trim()
+      .toLowerCase();
+    
+    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
+    if (identifierOnly) return true;
+
+    if (pathname?.startsWith('/e/')) {
+      const segment = pathname.split('/')[2]?.trim().toLowerCase();
+      if (segment && segment === identifierToken.toLowerCase()) {
+        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
+      }
+    }
+    return false;
+  }, [query, pathname]);
+
+  useEffect(() => {
+    if (initialQueryRef.current !== initialQuery) {
+      initialQueryRef.current = initialQuery;
+      initialQueryNormalizedRef.current = initialQuery.trim() || null;
+      initialSearchDoneRef.current = false;
+    }
+  }, [initialQuery]);
+
   return (
     <div className="w-full pt-4">
+      <PlaceholderStyles />
       <div className="flex gap-2">
         <ProfileScopeIndicator
           key={profileScopeUser?.npub || 'no-user'}
@@ -1567,6 +1687,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 showFooter={false}
               />
             ) : null}
+            {loading && finalResults.length === 0 && (
+              <SearchResultsPlaceholder 
+                count={isDirectQuery ? 1 : 2} 
+                searchType={detectSearchType(query)}
+              />
+            )}
             {finalResults.map((event, idx) => {
               const parentId = getReplyToEventId(event);
               const parent = parentId ? expandedParents[parentId] : undefined;
@@ -1692,7 +1818,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }
