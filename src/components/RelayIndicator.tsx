@@ -26,7 +26,6 @@ export default function RelayIndicator({
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onToggle}
-      title={formatConnectionTooltip(connectionDetails)}
     >
       <FontAwesomeIcon 
         icon={faServer} 

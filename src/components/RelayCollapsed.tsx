@@ -28,7 +28,6 @@ export default function RelayCollapsed({
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onExpand}
-      title={formatConnectionTooltip(connectionDetails)}
     >
       <FontAwesomeIcon 
         icon={faServer} 
