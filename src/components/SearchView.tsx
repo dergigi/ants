@@ -58,6 +58,7 @@ import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
+import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
 
@@ -114,6 +115,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { onLoginTrigger } = useLoginTrigger();
+  const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
   const shouldEnableFilters = useMemo(() => {
@@ -965,6 +967,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return cleanup;
   }, [onLoginTrigger, runSlashCommand, updateUrlForSearch]);
 
+
   useEffect(() => {
     if (!manageUrl) return;
     const urlQueryRaw = searchParams.get('q') || '';
@@ -1489,6 +1492,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     // Always reset to root path when clearing
     router.replace('/');
   }, [router]);
+
+  // Register clear handler for favicon click
+  useEffect(() => {
+    setClearHandler(handleClear);
+  }, [setClearHandler, handleClear]);
 
   const handleExampleNext = useCallback(() => {
     setPlaceholder(nextExample());

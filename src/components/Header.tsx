@@ -7,12 +7,14 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileImage from '@/components/ProfileImage';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
+import { useClearTrigger } from '@/lib/ClearTrigger';
 
 export function Header() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { triggerLogin } = useLoginTrigger();
+  const { triggerClear } = useClearTrigger();
 
   // Restore login state on mount
   useEffect(() => {
@@ -66,9 +68,8 @@ export function Header() {
   };
 
   const handleFaviconClick = () => {
-    // Clear search by navigating to root with no query parameters
-    // This triggers the same behavior as the clear button in SearchView
-    router.replace('/');
+    // Trigger the same clear behavior as the "x" button in search
+    triggerClear();
   };
 
   if (isLoading) {
