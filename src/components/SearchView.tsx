@@ -2133,10 +2133,27 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 </div>
               )}
 
-              {/* Recently active relays (but not currently connected) */}
+              {/* Recently active relays (but not currently connected or failed) */}
               {(() => {
                 const connectedSet = new Set(connectionDetails?.connectedRelays || []);
-                const recentlyActiveOnly = recentlyActive.filter(relay => !connectedSet.has(relay));
+                const failedSet = new Set(connectionDetails?.failedRelays || []);
+                const connectingSet = new Set(connectionDetails?.connectingRelays || []);
+                
+                // Debug logging
+                console.log('Relay status debug:', {
+                  connected: connectionDetails?.connectedRelays || [],
+                  failed: connectionDetails?.failedRelays || [],
+                  connecting: connectionDetails?.connectingRelays || [],
+                  recentlyActive: recentlyActive
+                });
+                
+                // Only show recently active relays that are not connected, not failed, and not connecting
+                const recentlyActiveOnly = recentlyActive.filter(relay => 
+                  !connectedSet.has(relay) && 
+                  !failedSet.has(relay) && 
+                  !connectingSet.has(relay)
+                );
+                
                 if (recentlyActiveOnly.length === 0) return null;
                 return (
                   <div className="mb-2">
