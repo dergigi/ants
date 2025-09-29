@@ -783,11 +783,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (searchInputRef.current) {
         searchInputRef.current.focus();
       }
+      // Update URL immediately
+      updateUrlForSearch('/login');
       // Execute the /login command immediately
       runSlashCommand('/login');
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch]);
 
   useEffect(() => {
     if (!manageUrl) return;
