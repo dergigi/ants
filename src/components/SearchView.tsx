@@ -36,6 +36,7 @@ import ParentChain from '@/components/ParentChain';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
+import { NOSTR_TOKEN_REGEX } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -967,7 +968,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrTokenRegex = /(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+|(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)(?!\w)/gi;
+    const nostrTokenRegex = NOSTR_TOKEN_REGEX;
     const hashtagRegex = /(#\w+)/g;
     const emojiRx = emojiRegex();
 

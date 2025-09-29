@@ -7,6 +7,7 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe } from '@/lib/ndk';
 import { shortenNpub } from '@/lib/utils';
 import { TEXT_MAX_LENGTH } from '@/lib/constants';
+import { NOSTR_TOKEN_PARSE_REGEX } from '@/lib/utils/nostrIdentifiers';
 import EventCard from '@/components/EventCard';
 import TruncatedText from '@/components/TruncatedText';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
@@ -83,7 +84,7 @@ export default function InlineNostrToken({
     let isMounted = true;
     (async () => {
       try {
-        const m = token.match(/^(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+|(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
+        const m = token.match(NOSTR_TOKEN_PARSE_REGEX);
         const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
         const decoded = nip19.decode(coreToken);
         

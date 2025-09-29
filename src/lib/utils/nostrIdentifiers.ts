@@ -111,6 +111,21 @@ export function extractNip19Identifiers(urlLike: string): string[] {
 
 export const NIP19_BOUNDARY_REGEX = new RegExp(BOUNDED_NIP19_PATTERN, 'gi');
 
+// Shared regex patterns for nostr identifiers in content
+export const NOSTR_IDENTIFIER_TYPES = '(?:nprofile1|npub1|nevent1|naddr1|note1)';
+
+// Regex to match nostr tokens (with or without 'nostr:' prefix)
+export const NOSTR_TOKEN_REGEX = new RegExp(
+  `(nostr:${NOSTR_IDENTIFIER_TYPES}[0-9a-z]+|${NOSTR_IDENTIFIER_TYPES}[0-9a-z]+)(?!\\w)`,
+  'gi'
+);
+
+// Regex to match and parse nostr tokens with optional suffix
+export const NOSTR_TOKEN_PARSE_REGEX = new RegExp(
+  `^(nostr:${NOSTR_IDENTIFIER_TYPES}[0-9a-z]+|${NOSTR_IDENTIFIER_TYPES}[0-9a-z]+)([),.;]*)$`,
+  'i'
+);
+
 export type Nip19Prefix = typeof NIP19_PREFIXES[number];
 
 export type Nip19Pointer =
