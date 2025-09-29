@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { calculateRelayCounts } from '@/lib/relayCounts';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -40,6 +39,7 @@ import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrId
 import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { getRelayLists } from '@/lib/relayCounts';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
@@ -207,6 +207,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
   // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
   const suppressSearchRef = useRef(false);
+ 
+  const relayInfo = useMemo(() => {
+    const base = getRelayLists(connectionDetails, recentlyActive);
+    return {
+      ...base,
+      relayPings: connectionDetails?.relayPings ?? new Map<string, number>(),
+    };
+  }, [connectionDetails, recentlyActive]);
 
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
@@ -1341,14 +1349,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
               connectionStatus={connectionStatus}
-              connectedCount={Math.max(
-                calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount,
-                recentlyActive.length || 0
-              )}
-              totalCount={Math.max(
-                calculateRelayCounts(connectionDetails, recentlyActive).totalCount,
-                recentlyActive.length || 1 // Fallback to show at least 1 if we have recent activity
-              )}
+              connectedCount={relayInfo.eventsReceivedCount}
+              totalCount={relayInfo.totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               isExpanded={showConnectionDetails}
             />
@@ -1364,10 +1366,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           </div>
 
           {/* Expanded views - below button row, full width */}
-          {showConnectionDetails && connectionDetails && (
+          {showConnectionDetails && connectionDetails && relayInfo.totalCount > 0 && (
             <RelayStatusDisplay 
               connectionDetails={connectionDetails}
-              recentlyActive={recentlyActive}
+              relayInfo={relayInfo}
               onSearch={handleSearch}
             />
           )}

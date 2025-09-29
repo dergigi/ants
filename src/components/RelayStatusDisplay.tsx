@@ -3,26 +3,26 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 
+type RelayInfo = ReturnType<typeof getRelayLists> & { relayPings?: Map<string, number> };
+
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
-  recentlyActive: string[];
+  relayInfo: RelayInfo;
   onSearch?: (query: string) => void;
 }
 
 export default function RelayStatusDisplay({ 
-  connectionDetails, 
-  recentlyActive,
+  connectionDetails,
+  relayInfo,
   onSearch
 }: RelayStatusDisplayProps) {
-  // Use shared calculation logic to ensure consistency with other components
   const { 
     eventsReceivedRelays, 
     otherRelays, 
     eventsReceivedCount, 
     totalCount 
-  } = getRelayLists(connectionDetails, recentlyActive);
-  
-  // Use the shared calculation results for consistency
+  } = relayInfo;
+
   const displayEventsReceivedCount = eventsReceivedCount;
   const displayOthersCount = totalCount - eventsReceivedCount;
 
@@ -41,7 +41,7 @@ export default function RelayStatusDisplay({
           </div>
           <div className="space-y-1">
             {eventsReceivedRelays.map((relay, idx) => {
-              const ping = connectionDetails?.relayPings?.get(relay);
+              const ping = connectionDetails?.relayPings?.get?.(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
@@ -74,7 +74,7 @@ export default function RelayStatusDisplay({
           </div>
           <div className="space-y-1">
             {otherRelays.map((relay, idx) => {
-              const ping = connectionDetails?.relayPings?.get(relay);
+              const ping = connectionDetails?.relayPings?.get?.(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
