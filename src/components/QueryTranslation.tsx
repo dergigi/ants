@@ -18,7 +18,7 @@ export default function QueryTranslation({ translation }: QueryTranslationProps)
   return (
     <div 
       id="search-explanation" 
-      className={`mt-1 text-[11px] text-gray-400 font-mono break-words whitespace-pre-wrap flex items-start gap-2 ${
+      className={`mt-1 text-[11px] text-gray-400 font-mono break-all whitespace-pre-wrap flex items-start gap-2 ${
         isLongTranslation ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
       }`}
       onClick={() => {
@@ -28,7 +28,7 @@ export default function QueryTranslation({ translation }: QueryTranslationProps)
       }}
     >
       <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {isLongTranslation && !isExplanationExpanded ? (
           <>
             <div className="overflow-hidden" style={{ 
