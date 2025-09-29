@@ -849,7 +849,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
