@@ -1,12 +1,11 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 
 export function Footer() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // DRY: Reusable function for search navigation - always go to root
   const handleSearchClick = (query: string) => (e: React.MouseEvent) => {

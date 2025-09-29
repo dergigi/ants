@@ -347,11 +347,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
 
-  // DRY helper function for setting query and updating URL
-  const setQueryAndUpdateUrl = useCallback((query: string) => {
-    setQuery(query);
-    updateUrlForSearch(query);
-  }, [updateUrlForSearch]);
 
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
@@ -1065,7 +1060,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch, handleContentSearch]);
+  }, [successfulPreviews, handleContentSearch, goToProfile]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1507,7 +1502,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, setQueryAndUpdateUrl, updateUrlForSearch, handleContentSearch])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, updateUrlForSearch])}
     </div>
   );
 }
