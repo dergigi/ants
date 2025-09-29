@@ -76,7 +76,9 @@ export function LoginButton() {
   };
 
   const handleFaviconClick = () => {
-    router.push('/');
+    // Clear search by navigating to root with no query parameters
+    // This triggers the same behavior as the clear button in SearchView
+    router.replace('/');
   };
 
   if (isLoading) {
