@@ -3,17 +3,19 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 
-type RelayInfo = ReturnType<typeof getRelayLists> & { relayPings?: Map<string, number> };
+type RelayInfo = ReturnType<typeof getRelayLists>;
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
   relayInfo: RelayInfo;
+  activeRelays: Set<string>;
   onSearch?: (query: string) => void;
 }
 
 export default function RelayStatusDisplay({ 
   connectionDetails,
   relayInfo,
+  activeRelays,
   onSearch
 }: RelayStatusDisplayProps) {
   const { 
@@ -43,9 +45,13 @@ export default function RelayStatusDisplay({
             {eventsReceivedRelays.map((relay, idx) => {
               const ping = connectionDetails?.relayPings?.get?.(relay.url);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+              const cleanedUrl = relay.url.replace(/\/$/, '');
+              const isActive = activeRelays.has(cleanedUrl);
               const iconClasses = relay.isSearchRelay
-                ? 'text-blue-300 bg-blue-900/40 border border-blue-400/20'
-                : 'text-blue-400 bg-transparent';
+                ? `border border-blue-400/20 ${isActive ? 'text-blue-300 bg-blue-900/60' : 'text-blue-300 bg-blue-900/30'}`
+                : isActive
+                  ? 'text-blue-300 bg-blue-700/40 border border-blue-400/30'
+                  : 'text-blue-400 bg-transparent';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
                   <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
@@ -54,13 +60,13 @@ export default function RelayStatusDisplay({
                   {onSearch ? (
                     <button
                       type="button"
-                      onClick={() => onSearch(relay.url.replace(/\/$/, ''))}
+                      onClick={() => onSearch(cleanedUrl)}
                       className="hover:text-gray-200 hover:underline cursor-pointer"
                     >
-                      {relay.url.replace(/\/$/, '')}{pingDisplay}
+                      {cleanedUrl}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{relay.url.replace(/\/$/, '')}{pingDisplay}</span>
+                    <span>{cleanedUrl}{pingDisplay}</span>
                   )}
                 </div>
               );
@@ -79,9 +85,13 @@ export default function RelayStatusDisplay({
             {otherRelays.map((relay, idx) => {
               const ping = connectionDetails?.relayPings?.get?.(relay.url);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+              const cleanedUrl = relay.url.replace(/\/$/, '');
+              const isActive = activeRelays.has(cleanedUrl);
               const iconClasses = relay.isSearchRelay
-                ? 'text-gray-200 bg-blue-900/30 border border-blue-400/10'
-                : 'text-gray-300 bg-transparent';
+                ? `border border-blue-400/10 ${isActive ? 'text-blue-200 bg-blue-900/40' : 'text-gray-200 bg-blue-900/20'}`
+                : isActive
+                  ? 'text-blue-200 bg-blue-700/30 border border-blue-400/20'
+                  : 'text-gray-300 bg-transparent';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
                   <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
@@ -90,13 +100,13 @@ export default function RelayStatusDisplay({
                   {onSearch ? (
                     <button
                       type="button"
-                      onClick={() => onSearch(relay.url.replace(/\/$/, ''))}
+                      onClick={() => onSearch(cleanedUrl)}
                       className="hover:text-gray-200 hover:underline cursor-pointer"
                     >
-                      {relay.url.replace(/\/$/, '')}{pingDisplay}
+                      {cleanedUrl}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{relay.url.replace(/\/$/, '')}{pingDisplay}</span>
+                    <span>{cleanedUrl}{pingDisplay}</span>
                   )}
                 </div>
               );

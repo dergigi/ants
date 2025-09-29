@@ -193,6 +193,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
+  const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -654,6 +655,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+
+      // Track relays that returned events for this search
+      const relays = new Set<string>();
+      const extractRelaysFromEvent = (event: NDKEvent): string[] => {
+        const eventWithSources = event as NDKEvent & {
+          relaySource?: string;
+          relaySources?: string[];
+        };
+        if (Array.isArray(eventWithSources.relaySources)) {
+          return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
+        }
+        if (typeof eventWithSources.relaySource === 'string') {
+          return [eventWithSources.relaySource];
+        }
+        return [];
+      };
+
+      searchResults.forEach(evt => {
+        const relaySources = extractRelaysFromEvent(evt);
+        relaySources.forEach(url => {
+          if (url) relays.add(url.replace(/\/$/, ''));
+        });
+      });
+      setSuccessfullyActiveRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
@@ -1371,6 +1396,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               connectionDetails={connectionDetails}
               relayInfo={relayInfo}
               onSearch={handleSearch}
+              activeRelays={successfullyActiveRelays}
             />
           )}
 
