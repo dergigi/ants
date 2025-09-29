@@ -1525,7 +1525,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
-            {loading && !topCommandText && (
+            {loading && !topCommandText && finalResults.length === 0 && (
               <SearchResultsPlaceholder count={3} />
             )}
             {topCommandText ? (

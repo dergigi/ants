@@ -17,17 +17,20 @@ export default function HashtagsPage() {
 
   // Custom URL management for hashtag pages
   const handleUrlUpdate = useCallback((query: string) => {
+    // Only update URL if the query has actually changed
+    if (query === normalizedQuery) return;
+    
     if (isHashtagOnlyQuery(query)) {
       // If it's hashtag-only, update to /t/ path
       const hashtagUrl = hashtagQueryToUrl(query);
-      if (hashtagUrl) {
+      if (hashtagUrl && hashtagUrl !== rawHashtags) {
         router.replace(`/t/${hashtagUrl}`);
       }
     } else {
       // If it's not hashtag-only, redirect to main search
       router.replace(`/?q=${encodeURIComponent(query)}`);
     }
-  }, [router]);
+  }, [router, rawHashtags, normalizedQuery]);
 
   return (
     <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
