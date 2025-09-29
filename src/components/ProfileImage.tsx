@@ -20,7 +20,10 @@ export default function ProfileImage({
   alt = "Profile",
   fallbackClassName = "w-full h-full flex items-center justify-center text-xs text-gray-300"
 }: ProfileImageProps) {
-  const avatarUrl = user.profile?.image;
+  // Some profiles provide "picture" instead of "image"; keep it resilient.
+  const imageCandidate = (user.profile as unknown as { image?: string; picture?: string } | undefined)?.image
+    ?? (user.profile as unknown as { image?: string; picture?: string } | undefined)?.picture;
+  const avatarUrl = imageCandidate;
   const showAvatar = typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl);
   
   if (!showAvatar) {
