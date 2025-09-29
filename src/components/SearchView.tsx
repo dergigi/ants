@@ -1014,39 +1014,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
 
 
-  const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
-    if (!details) return 'Connection status unknown';
-    
-    const { connectedRelays, failedRelays } = details;
-    const connectedCount = connectedRelays.length;
-    const failedCount = failedRelays.length;
-    
-    let tooltip = '';
-    
-    
-    if (connectedCount > 0) {
-      tooltip += `✅ Reachable (WebSocket) ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
-      connectedRelays.forEach(relay => {
-        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
-        tooltip += `  • ${shortName}\n`;
-      });
-    }
-    
-    if (failedCount > 0) {
-      if (connectedCount > 0) tooltip += '\n';
-      tooltip += `❌ Unreachable (socket closed) ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
-      failedRelays.forEach(relay => {
-        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
-        tooltip += `  • ${shortName}\n`;
-      });
-    }
-    
-    if (connectedCount === 0 && failedCount === 0) {
-      tooltip = 'No relay connection information available';
-    }
-    
-    return tooltip.trim();
-  };
 
 
   // Use the utility function from urlUtils
@@ -1357,8 +1324,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               connectedCount={calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount}
               totalCount={calculateRelayCounts(connectionDetails, recentlyActive).totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
-              formatConnectionTooltip={formatConnectionTooltip}
-              connectionDetails={connectionDetails}
               isExpanded={showConnectionDetails}
             />
 

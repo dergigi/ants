@@ -7,15 +7,13 @@ interface RelayIndicatorProps {
   connectionDetails: ConnectionStatus | null;
   showConnectionDetails: boolean;
   onToggle: () => void;
-  formatConnectionTooltip: (details: ConnectionStatus | null) => string;
 }
 
 export default function RelayIndicator({
   connectionStatus,
   connectionDetails,
   showConnectionDetails,
-  onToggle,
-  formatConnectionTooltip
+  onToggle
 }: RelayIndicatorProps) {
   // Calculate connected and total relay counts
   const connectedCount = connectionDetails?.connectedRelays?.length || 0;
