@@ -967,7 +967,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrTokenRegex = /(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)(?!\w)/gi;
+    const nostrTokenRegex = /(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+|(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)(?!\w)/gi;
     const hashtagRegex = /(#\w+)/g;
     const emojiRx = emojiRegex();
 

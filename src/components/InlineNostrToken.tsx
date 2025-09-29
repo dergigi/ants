@@ -83,7 +83,7 @@ export default function InlineNostrToken({
     let isMounted = true;
     (async () => {
       try {
-        const m = token.match(/^(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
+        const m = token.match(/^(nostr:(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+|(?:nprofile1|npub1|nevent1|naddr1|note1)[0-9a-z]+)([),.;]*)$/i);
         const coreToken = (m ? m[1] : token).replace(/^nostr:/i, '');
         const decoded = nip19.decode(coreToken);
         
