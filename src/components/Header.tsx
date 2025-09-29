@@ -6,7 +6,7 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
 import ProfileImage from '@/components/ProfileImage';
 
-export function LoginButton() {
+export function Header() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -83,43 +83,40 @@ export function LoginButton() {
 
   if (isLoading) {
     return (
-      <>
+      <header className="flex items-center justify-between px-4 py-1 bg-[#1a1a1a] border-b border-[#2d2d2d]">
         {/* Favicon on the left */}
         <button
           onClick={handleFaviconClick}
-          className="fixed top-4 left-4 hover:opacity-90 transition-opacity"
+          className="hover:opacity-90 transition-opacity"
           aria-label="Go to home page"
         >
           <img 
             src="/favicon-32x32.png" 
             alt="ants" 
-            className="w-6 h-6"
+            className="w-5 h-5"
           />
         </button>
         
-        {/* Loading text on the right */}
-        <button
-          disabled
-          className="fixed top-4 right-4 text-sm text-gray-400 transition-colors"
-        >
-          loading...
-        </button>
-      </>
+        {/* Loading spinner on the right */}
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+        </div>
+      </header>
     );
   }
 
   return (
-    <>
+    <header className="flex items-center justify-between px-4 py-1 bg-[#1a1a1a] border-b border-[#2d2d2d]">
       {/* Favicon on the left */}
       <button
         onClick={handleFaviconClick}
-        className="fixed top-4 left-4 hover:opacity-90 transition-opacity"
+        className="hover:opacity-90 transition-opacity"
         aria-label="Go to home page"
       >
         <img 
           src="/favicon-32x32.png" 
           alt="ants" 
-          className="w-6 h-6"
+          className="w-5 h-5"
         />
       </button>
       
@@ -127,7 +124,7 @@ export function LoginButton() {
       <button
         id="header-avatar"
         onClick={handleAvatarClick}
-        className="fixed top-4 right-4 hover:opacity-90 transition-opacity"
+        className="hover:opacity-90 transition-opacity"
         aria-label={user ? 'Open profile page' : 'login'}
       >
         {user ? (
@@ -143,6 +140,6 @@ export function LoginButton() {
           <span className="text-sm text-gray-400 hover:text-gray-200">login</span>
         )}
       </button>
-    </>
+    </header>
   );
-} 
+}

@@ -90,7 +90,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastPointerRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
-  const [avatarOverlap, setAvatarOverlap] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
@@ -746,24 +745,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return () => { cancelAnimationFrame(rafId); };
   }, [query, loading, rotationSeed]);
 
-  // Dynamically add right padding only when the fixed header avatar overlaps the search row
-  useEffect(() => {
-    const computeOverlap = () => {
-      const avatar = document.getElementById('header-avatar');
-      const row = document.getElementById('search-row');
-      if (!avatar || !row) { setAvatarOverlap(false); return; }
-      const a = avatar.getBoundingClientRect();
-      const r = row.getBoundingClientRect();
-      const intersectsVertically = a.bottom > r.top && a.top < r.bottom;
-      const intersectsHorizontally = a.left < r.right && a.right > r.left;
-      setAvatarOverlap(intersectsVertically && intersectsHorizontally);
-    };
-    computeOverlap();
-    const onResize = () => computeOverlap();
-    window.addEventListener('resize', onResize);
-    const interval = setInterval(computeOverlap, 500);
-    return () => { window.removeEventListener('resize', onResize); clearInterval(interval); };
-  }, []);
 
   // Auto-focus the search input on component mount
   useEffect(() => {
@@ -1334,7 +1315,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           loading={loading}
           resolvingAuthor={resolvingAuthor}
           showExternalButton={showExternalButton}
-          avatarOverlap={avatarOverlap}
           profileScopeUser={profileScopeUser}
           onInputChange={handleInputChange}
           onClear={handleClear}

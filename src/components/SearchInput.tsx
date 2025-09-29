@@ -10,7 +10,6 @@ interface SearchInputProps {
   loading: boolean;
   resolvingAuthor: boolean;
   showExternalButton: boolean;
-  avatarOverlap: boolean;
   profileScopeUser: { profile?: { displayName?: string; name?: string } } | null;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClear: () => void;
@@ -26,7 +25,6 @@ export default function SearchInput({
   loading,
   resolvingAuthor,
   showExternalButton,
-  avatarOverlap,
   profileScopeUser,
   onInputChange,
   onClear,
@@ -59,7 +57,7 @@ export default function SearchInput({
   };
 
   return (
-    <form onSubmit={onSubmit} className={`w-full ${avatarOverlap ? 'pr-16' : ''}`} id="search-row">
+    <form onSubmit={onSubmit} className="w-full" id="search-row">
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <input
