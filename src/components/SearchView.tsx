@@ -1331,7 +1331,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Collapsed state - always in same row */}
       {(loading || results.length > 0) && (
-        <div className="w-full">
+        <div className="w-full mt-2">
           {/* Button row - always collapsed states */}
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed

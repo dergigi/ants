@@ -4,6 +4,7 @@ import { login, restoreLogin } from '@/lib/nip07';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import ProfileImage from '@/components/ProfileImage';
 
 export function Header() {
@@ -90,9 +91,11 @@ export function Header() {
           className="hover:opacity-90 transition-opacity"
           aria-label="Go to home page"
         >
-          <img 
+          <Image 
             src="/favicon-32x32.png" 
             alt="ants" 
+            width={20}
+            height={20}
             className="w-5 h-5"
           />
         </button>
@@ -113,9 +116,11 @@ export function Header() {
         className="hover:opacity-90 transition-opacity"
         aria-label="Go to home page"
       >
-        <img 
+        <Image 
           src="/favicon-32x32.png" 
           alt="ants" 
+          width={20}
+          height={20}
           className="w-5 h-5"
         />
       </button>
@@ -137,7 +142,7 @@ export function Header() {
             />
           </div>
         ) : (
-          <span className="text-sm text-gray-400 hover:text-gray-200">login</span>
+          <span className="text-xs text-gray-400 hover:text-gray-200">login</span>
         )}
       </button>
     </header>
