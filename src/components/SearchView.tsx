@@ -359,6 +359,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     router.replace(`/?q=${encodeURIComponent(query)}`);
   }, [router]);
 
+  // DRY helper for content-based search triggers (always root searches)
+  const handleContentSearch = useCallback((query: string) => {
+    setQueryAndNavigateToRoot(query);
+  }, [setQueryAndNavigateToRoot]);
+
   useEffect(() => {
     if (!manageUrl) {
       setProfileScopeUser(null);
@@ -955,8 +960,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
               onClick={(e) => { 
                 e.stopPropagation();
-                const nextQuery = fullUrl;
-                setQueryAndNavigateToRoot(nextQuery);
+                handleContentSearch(fullUrl);
               }}
               title={`Search for: ${fullUrl}`}
             >
@@ -991,10 +995,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               finalNodes.push(
                 <button
                   key={`hashtag-${segIndex}-${partIndex}-${hashtagIndex}`}
-                  onClick={() => {
-                    const nextQuery = hashtagPart;
-                    setQueryAndNavigateToRoot(nextQuery);
-                  }}
+                  onClick={() => handleContentSearch(hashtagPart)}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
                   {hashtagPart}
@@ -1010,10 +1011,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   finalNodes.push(
                     <button
                       key={`emoji-${segIndex}-${partIndex}-${hashtagIndex}-${emojiIndex}`}
-                      onClick={() => {
-                        const nextQuery = emojis[emojiIndex] as string;
-                        setQueryAndNavigateToRoot(nextQuery);
-                      }}
+                      onClick={() => handleContentSearch(emojis[emojiIndex] as string)}
                       className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
                     >
                       {emojis[emojiIndex]}
@@ -1057,9 +1055,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 key={`nostr-${segIndex}-${partIndex}`}
                 token={token}
                 onProfileClick={goToProfile}
-                onSearch={(query) => {
-                  setQueryAndNavigateToRoot(query);
-                }}
+                onSearch={handleContentSearch}
                 renderContentWithClickableHashtags={renderContentWithClickableHashtags}
               />
             );
@@ -1069,7 +1065,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch]);
+  }, [successfulPreviews, setQuery, handleSearch, setLoading, setResults, abortControllerRef, goToProfile, setQueryAndUpdateUrl, updateUrlForSearch, handleContentSearch]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1088,9 +1084,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const renderNoteMedia = useCallback((content: string) => (
     <NoteMedia
       content={content}
-      onSearch={(query) => {
-        setQueryAndNavigateToRoot(query);
-      }}
+      onSearch={handleContentSearch}
       onUrlLoaded={(loadedUrl) => {
         setSuccessfulPreviews((prev) => {
           if (prev.has(loadedUrl)) return prev;
@@ -1100,7 +1094,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         });
       }}
     />
-  ), [setQueryAndUpdateUrl, setLoading, setResults, abortControllerRef]);
+  ), [handleContentSearch]);
 
   const handleParentToggle = useCallback((parentId: string, parent: NDKEvent | 'loading' | null) => {
     if (parent === null) {
@@ -1258,9 +1252,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           <button
                             type="button"
                             className="text-left w-full hover:underline"
-                            onClick={() => {
-                              setQueryAndNavigateToRoot(ex);
-                            }}
+                            onClick={() => handleContentSearch(ex)}
                           >
                             {ex}
                           </button>
@@ -1364,10 +1356,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     width={dim?.width || 1024}
                                     height={dim?.height || 1024}
                                     dim={dim || null}
-                                    onClickSearch={() => {
-                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQueryAndNavigateToRoot(nextQuery);
-                                    }}
+                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
                                   />
                                 </div>
                               );
@@ -1424,10 +1413,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                     src={trimImageUrl(src)}
                                     blurhash={blurhash}
                                     dim={dim || null}
-                                    onClickSearch={() => {
-                                      const nextQuery = hash ? hash : getFilenameFromUrl(src);
-                                      setQueryAndNavigateToRoot(nextQuery);
-                                    }}
+                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
                                   />
                                 </div>
                               );
@@ -1521,7 +1507,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, setQueryAndUpdateUrl, updateUrlForSearch])}
+      }, [fuseFilteredResults, expandedParents, manageUrl, goToProfile, handleSearch, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, setQueryAndUpdateUrl, updateUrlForSearch, handleContentSearch])}
     </div>
   );
 }
