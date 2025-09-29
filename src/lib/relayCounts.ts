@@ -11,9 +11,13 @@ export function calculateRelayCounts(
   if (!connectionDetails) return { eventsReceivedCount: 0, totalCount: 0 };
   
   // Events received: connected relays + recently active relays (no duplicates)
+  // But exclude any that are in connecting or failed states
+  const connectingSet = new Set(connectionDetails.connectingRelays || []);
+  const failedSet = new Set(connectionDetails.failedRelays || []);
+  
   const eventsReceivedRelays = Array.from(new Set([
     ...(connectionDetails.connectedRelays || []),
-    ...recentlyActive
+    ...recentlyActive.filter(relay => !connectingSet.has(relay) && !failedSet.has(relay))
   ]));
   
   // Create a set of all relays that received events to ensure mutual exclusivity
@@ -54,9 +58,13 @@ export function getRelayLists(
   }
   
   // Events received: connected relays + recently active relays (no duplicates)
+  // But exclude any that are in connecting or failed states
+  const connectingSet = new Set(connectionDetails.connectingRelays || []);
+  const failedSet = new Set(connectionDetails.failedRelays || []);
+  
   const eventsReceivedRelays = Array.from(new Set([
     ...(connectionDetails.connectedRelays || []),
-    ...recentlyActive
+    ...recentlyActive.filter(relay => !connectingSet.has(relay) && !failedSet.has(relay))
   ]));
   
   // Create a set of all relays that received events to ensure mutual exclusivity
