@@ -352,15 +352,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
     
     if (currentProfileNpub) {
-      // URL should be implicit on profile pages: strip matching by:npub or by:nip05
+      // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
       
       // Check if query is effectively empty after removing profile scope
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-      const queryWithoutProfileScope = identifiers ? removeProfileScope(searchQuery, identifiers) : searchQuery;
+      const isOnlyProfileScope = identifiers ? removeProfileScope(searchQuery, identifiers).trim() === '' : false;
       
-      if (urlValue.trim() && queryWithoutProfileScope.trim()) {
+      if (urlValue.trim() && !isOnlyProfileScope) {
         params.set('q', urlValue);
         router.replace(`?${params.toString()}`);
       } else {
