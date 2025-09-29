@@ -1,6 +1,6 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWifi } from '@fortawesome/free-solid-svg-icons';
+import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
@@ -68,7 +68,12 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               const isConnecting = connectionDetails?.connectingRelays?.includes(relay);
               const isFailed = connectionDetails?.failedRelays?.includes(relay);
-              const statusIcon = isConnecting ? '🟡' : isFailed ? '🔴' : '⚪';
+              const statusIcon = (
+                <FontAwesomeIcon 
+                  icon={faServer} 
+                  className={isConnecting ? 'text-yellow-400' : isFailed ? 'text-red-400' : 'text-gray-400'} 
+                />
+              );
               return (
                 <div key={idx} className="text-gray-300 ml-2">
                   {statusIcon} {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
