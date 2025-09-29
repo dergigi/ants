@@ -26,8 +26,12 @@ export default function RelayStatusDisplay({
     ...(connectionDetails?.failedRelays || [])
   ].filter(relay => !eventsReceivedSet.has(relay));
 
+
   return (
-    <div className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
+    <div 
+      key={`relay-status-${eventsReceivedRelays.length}-${otherRelays.length}`}
+      className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full"
+    >
       
       {/* Events received relays */}
       {eventsReceivedRelays.length > 0 && (
