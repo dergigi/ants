@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { LoginButton } from "@/components/LoginButton";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Suspense } from "react";
 
@@ -60,7 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans min-h-screen flex flex-col">
-        <LoginButton />
+        <Header />
         <div className="flex-1">
           {children}
         </div>
