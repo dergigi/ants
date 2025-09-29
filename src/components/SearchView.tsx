@@ -492,6 +492,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Handle transitions from special paths to root with query
     if ((isOnTagPath || isOnEventPath) && !isHashtagOnlyQuery(searchQuery)) {
+      console.log('Transitioning from special path to root with query:', searchQuery);
       const params = new URLSearchParams();
       params.set('q', searchQuery);
       router.replace(`/?${params.toString()}`);
@@ -707,6 +708,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
 
     // Always update URL to reflect the current search
+    console.log('Updating URL for search:', searchQuery, 'on path:', pathname);
     updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
