@@ -20,6 +20,7 @@ export const searchExamples = [
   'by:fiatjaf',
   'by:snowden',
   'by:socrates',
+  'engineering by:lyn',
   '≠ by:dergigi.com',
 
   // Combined
