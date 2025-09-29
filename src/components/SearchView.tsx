@@ -1631,9 +1631,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
-            {loading && !topCommandText && finalResults.length === 0 && (
-              <SearchResultsPlaceholder count={isDirectQuery ? 1 : 3} />
-            )}
+        {loading && !topCommandText && finalResults.length === 0 && (
+          <SearchResultsPlaceholder count={isDirectQuery ? 1 : 2} />
+        )}
             {topCommandText ? (
               <EventCard
                 event={new NDKEvent(ndk)}

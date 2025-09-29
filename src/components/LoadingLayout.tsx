@@ -17,7 +17,7 @@ export function LoadingLayout({
       <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
         <div className="text-sm text-gray-400">{message}</div>
         {showProfilePlaceholder && <ProfileCardPlaceholder />}
-        {showSearchPlaceholders && <SearchResultsPlaceholder count={3} />}
+                {showSearchPlaceholders && <SearchResultsPlaceholder count={2} />}
       </div>
     </main>
   );
