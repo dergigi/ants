@@ -81,7 +81,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
-  const [loading, setLoading] = useState(initialQuery && !manageUrl);
+  const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
@@ -799,7 +799,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
