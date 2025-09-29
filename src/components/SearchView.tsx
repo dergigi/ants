@@ -374,7 +374,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
     }
-  }, [manageUrl, onUrlUpdate, pathname, searchParams, router]);
+  }, [manageUrl, onUrlUpdate, pathname, searchParams, router, profileScopeUser]);
 
 
   // DRY helper function for root searches (always navigate to root path)
