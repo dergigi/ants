@@ -5,17 +5,19 @@ import React from 'react';
 interface PlaceholderProps {
   className?: string;
   children?: React.ReactNode;
+  style?: React.CSSProperties;
 }
 
 // Base placeholder component with shimmer animation
-const Placeholder: React.FC<PlaceholderProps> = ({ className = '', children }) => {
+const Placeholder: React.FC<PlaceholderProps> = ({ className = '', children, style }) => {
   return (
     <div 
       className={`bg-gray-700 animate-pulse rounded ${className}`}
       style={{
         background: 'linear-gradient(90deg, #374151 25%, #4B5563 50%, #374151 75%)',
         backgroundSize: '200% 100%',
-        animation: 'shimmer 1.5s infinite'
+        animation: 'shimmer 1.5s infinite',
+        ...style
       }}
     >
       {children}

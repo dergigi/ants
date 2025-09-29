@@ -7,7 +7,7 @@ import ProfileCard from '@/components/ProfileCard';
 import { resolveNip05ToPubkey } from '@/lib/vertex';
 import { useNostrUser } from '@/hooks/useNostrUser';
 import { LoadingLayout } from '@/components/LoadingLayout';
-import { ProfileCardPlaceholder, SearchResultsPlaceholder, PlaceholderStyles } from '@/components/Placeholder';
+import { ProfileCardPlaceholder, PlaceholderStyles } from '@/components/Placeholder';
 import { parseProfileIdentifier, isValidNpub } from '@/lib/utils/nostrIdentifiers';
 import { nip19 } from 'nostr-tools';
 

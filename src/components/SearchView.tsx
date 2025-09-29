@@ -91,6 +91,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
+  const initialSearchDoneRef = useRef(false);
+  const initialQueryNormalizedRef = useRef<string | null>(initialQuery.trim() || null);
+  const initialQueryRef = useRef(initialQuery);
+  const lastHashQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
+  const lastExecutedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
+  const lastTranslatedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -820,14 +826,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setConnectionStatus('timeout');
       }
       
-      if (initialQuery && !manageUrl) {
-        setQuery(initialQuery);
-        if (isSlashCommand(initialQuery)) runSlashCommand(initialQuery);
-        handleSearch(initialQuery);
+      if (initialQueryRef.current && !manageUrl) {
+        const normalizedInitial = initialQueryRef.current.trim();
+        if (normalizedInitial && !initialSearchDoneRef.current) {
+          initialSearchDoneRef.current = true;
+          initialQueryNormalizedRef.current = normalizedInitial;
+          lastHashQueryRef.current = normalizedInitial;
+          setTranslation(normalizedInitial);
+          setQuery(initialQueryRef.current);
+          if (isSlashCommand(initialQueryRef.current)) {
+            runSlashCommand(initialQueryRef.current);
+            handleSearch(initialQueryRef.current);
+          } else {
+            handleSearch(normalizedInitial);
+          }
+        }
       }
     };
     initializeNDK();
-  }, [handleSearch, initialQuery, manageUrl, runSlashCommand, isSlashCommand]);
+  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -950,33 +967,80 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     if (!manageUrl) return;
     const urlQueryRaw = searchParams.get('q') || '';
-    const urlQuery = decodeUrlQuery(urlQueryRaw);
+    const decodedQuery = decodeUrlQuery(urlQueryRaw);
+    const normalizedQuery = decodedQuery.trim();
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+
+    const executeSearch = (displayValue: string, backendValue: string, translationValue: string) => {
+      if (lastHashQueryRef.current === translationValue) return;
+      lastHashQueryRef.current = translationValue;
+      setQuery(displayValue);
+      if (lastTranslatedQueryRef.current !== translationValue) {
+        setTranslation(translationValue);
+        lastTranslatedQueryRef.current = translationValue;
+      }
+      lastExecutedQueryRef.current = translationValue;
+      handleSearch(backendValue);
+    };
+
     if (currentProfileNpub) {
-      if (isSlashCommand(urlQuery)) {
-        setQuery(urlQuery);
-        runSlashCommand(urlQuery);
-        handleSearch(urlQuery);
+      if (!normalizedQuery) {
+        const normalizedInitial = initialQueryNormalizedRef.current;
+        if (normalizedInitial) {
+          executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub), normalizedInitial);
+        } else if (lastHashQueryRef.current) {
+          setQuery('');
+          setTranslation('');
+          lastHashQueryRef.current = null;
+          lastExecutedQueryRef.current = null;
+          lastTranslatedQueryRef.current = null;
+        }
+        return;
+      }
+
+      if (lastHashQueryRef.current === normalizedQuery) return;
+
+      if (isSlashCommand(normalizedQuery)) {
+        executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+        runSlashCommand(normalizedQuery);
       } else {
-        // Use normalized NIP-05 if available for display, otherwise use npub
         const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
         const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
-        const display = toExplicitInputFromUrl(urlQuery, currentProfileNpub, displayIdentifier);
-        setQuery(display);
-        const backend = ensureAuthorForBackend(urlQuery, currentProfileNpub);
-        handleSearch(backend);
-        // Normalize URL to implicit form if needed
-        const implicit = toImplicitUrlQuery(urlQuery, currentProfileNpub);
-        if (implicit !== urlQuery) {
-        updateSearchQuery(searchParams, router, implicit);
+        const displayValue = toExplicitInputFromUrl(normalizedQuery, currentProfileNpub, displayIdentifier);
+        executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub), normalizedQuery);
+
+        const implicit = toImplicitUrlQuery(normalizedQuery, currentProfileNpub);
+        if (implicit !== normalizedQuery) {
+          updateSearchQuery(searchParams, router, implicit);
         }
       }
-    } else if (urlQuery) {
-      setQuery(urlQuery);
-      if (isSlashCommand(urlQuery)) runSlashCommand(urlQuery);
-      handleSearch(urlQuery);
+      return;
     }
-  }, [searchParams, handleSearch, manageUrl, pathname, router, runSlashCommand, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
+
+    if (!normalizedQuery) {
+      const normalizedInitial = initialQueryNormalizedRef.current;
+      if (normalizedInitial) {
+        executeSearch(normalizedInitial, normalizedInitial, normalizedInitial);
+      } else if (lastHashQueryRef.current) {
+        setQuery('');
+        setTranslation('');
+        lastHashQueryRef.current = null;
+        lastExecutedQueryRef.current = null;
+        lastTranslatedQueryRef.current = null;
+      }
+      return;
+    }
+
+    if (lastHashQueryRef.current === normalizedQuery) return;
+
+    if (isSlashCommand(normalizedQuery)) {
+      executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+      runSlashCommand(normalizedQuery);
+      return;
+    }
+
+    executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1433,8 +1497,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Helper to determine if current query is a direct identifier query
   const isDirectQuery = useMemo(() => {
-    if (!query.trim()) return false;
-    const nip19Identifiers = extractNip19Identifiers(query.trim());
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return false;
+    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
     if (nip19Identifiers.length === 0) return false;
     
     const identifierToken = nip19Identifiers[0].trim();
@@ -1443,15 +1508,32 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!firstIdentifier) return false;
     
     // Check if the query is just the identifier (direct query)
-    const normalizedInput = query.trim()
+    const normalizedInput = trimmedQuery
       .replace(/^web\+nostr:/i, '')
       .replace(/^nostr:/i, '')
       .replace(/[\s),.;]*$/, '')
       .trim()
       .toLowerCase();
     
-    return normalizedInput === identifierToken.toLowerCase();
-  }, [query]);
+    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
+    if (identifierOnly) return true;
+
+    if (pathname?.startsWith('/e/')) {
+      const segment = pathname.split('/')[2]?.trim().toLowerCase();
+      if (segment && segment === identifierToken.toLowerCase()) {
+        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
+      }
+    }
+    return false;
+  }, [query, pathname]);
+
+  useEffect(() => {
+    if (initialQueryRef.current !== initialQuery) {
+      initialQueryRef.current = initialQuery;
+      initialQueryNormalizedRef.current = initialQuery.trim() || null;
+      initialSearchDoneRef.current = false;
+    }
+  }, [initialQuery]);
 
   return (
     <div className="w-full pt-4">
@@ -1721,7 +1803,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading])}
     </div>
   );
 }
