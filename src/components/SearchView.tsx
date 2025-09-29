@@ -1081,7 +1081,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 pointerId = pointerId.toLowerCase();
               }
               if (pointerId && options.skipPointerIds.has(pointerId)) {
-                finalNodes.push(token);
                 return;
               }
             } catch {}
