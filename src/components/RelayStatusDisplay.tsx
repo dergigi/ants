@@ -43,8 +43,8 @@ export default function RelayStatusDisplay({
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
-                <div key={idx} className="text-gray-300 ml-2">
-                  • {relay.replace(/\/$/, '')}{pingDisplay}
+                <div key={idx} className="text-gray-300 ml-2 font-mono">
+                  {relay.replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
@@ -64,8 +64,8 @@ export default function RelayStatusDisplay({
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
-                <div key={idx} className="text-gray-300 ml-2">
-                  • {relay.replace(/\/$/, '')}{pingDisplay}
+                <div key={idx} className="text-gray-300 ml-2 font-mono">
+                  {relay.replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
