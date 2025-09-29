@@ -1431,6 +1431,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setRotationSeed((s) => s + 1);
   }, []);
 
+  // Helper to determine if current query is a direct identifier query
+  const isDirectQuery = useMemo(() => {
+    if (!query.trim()) return false;
+    const nip19Identifiers = extractNip19Identifiers(query.trim());
+    if (nip19Identifiers.length === 0) return false;
+    
+    const identifierToken = nip19Identifiers[0].trim();
+    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
+    
+    if (!firstIdentifier) return false;
+    
+    // Check if the query is just the identifier (direct query)
+    const normalizedInput = query.trim()
+      .replace(/^web\+nostr:/i, '')
+      .replace(/^nostr:/i, '')
+      .replace(/[\s),.;]*$/, '')
+      .trim()
+      .toLowerCase();
+    
+    return normalizedInput === identifierToken.toLowerCase();
+  }, [query]);
+
   return (
     <div className="w-full pt-4">
       <PlaceholderStyles />
@@ -1528,7 +1550,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return (
           <div className="mt-8 space-y-4">
             {loading && !topCommandText && finalResults.length === 0 && (
-              <SearchResultsPlaceholder count={3} />
+              <SearchResultsPlaceholder count={isDirectQuery ? 1 : 3} />
             )}
             {topCommandText ? (
               <EventCard
