@@ -541,9 +541,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
 
         if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
-          lastPointerRedirectRef.current = pointerLower;
-          router.push(`/e/${pointerLower}`);
-          return;
+          // Only redirect if we're not already on the /e/[id] page
+          if (!pathname?.startsWith('/e/')) {
+            lastPointerRedirectRef.current = pointerLower;
+            router.push(`/e/${pointerLower}`);
+            return;
+          }
+          // If we're already on the /e/[id] page, continue with the search instead of redirecting
         }
         if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
           lastPointerRedirectRef.current = pointerLower;
