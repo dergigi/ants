@@ -58,6 +58,7 @@ import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
+import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 
 type Props = {
   initialQuery?: string;
@@ -1430,6 +1431,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   return (
     <div className="w-full pt-4">
+      <PlaceholderStyles />
       <div className="flex gap-2">
         <ProfileScopeIndicator
           key={profileScopeUser?.npub || 'no-user'}
@@ -1523,6 +1525,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const finalResults = fuseFilteredResults;
         return (
           <div className="mt-8 space-y-4">
+            {loading && !topCommandText && (
+              <SearchResultsPlaceholder count={3} />
+            )}
             {topCommandText ? (
               <EventCard
                 event={new NDKEvent(ndk)}

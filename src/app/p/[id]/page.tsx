@@ -7,6 +7,7 @@ import ProfileCard from '@/components/ProfileCard';
 import { resolveNip05ToPubkey } from '@/lib/vertex';
 import { useNostrUser } from '@/hooks/useNostrUser';
 import { LoadingLayout } from '@/components/LoadingLayout';
+import { ProfileCardPlaceholder, SearchResultsPlaceholder, PlaceholderStyles } from '@/components/Placeholder';
 import { parseProfileIdentifier, isValidNpub } from '@/lib/utils/nostrIdentifiers';
 import { nip19 } from 'nostr-tools';
 
@@ -60,16 +61,19 @@ export default function PidPage() {
   const { profileEvent } = useNostrUser(npub || undefined);
 
   if (mode === 'checking') {
-    return <LoadingLayout message="Trying to resolve NIP-05..." />;
+    return <LoadingLayout message="Trying to resolve NIP-05..." showProfilePlaceholder={true} />;
   }
 
   if (mode === 'profile' && npub) {
     return (
       <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
+        <PlaceholderStyles />
         <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
           {profileEvent ? (
             <ProfileCard event={profileEvent} onAuthorClick={() => {}} showBanner={true} />
-          ) : null}
+          ) : (
+            <ProfileCardPlaceholder />
+          )}
           <div className="mt-4">
             <SearchView initialQuery={q || `by:${npub}`} manageUrl={true} />
           </div>
