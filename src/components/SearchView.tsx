@@ -35,7 +35,7 @@ import InlineNostrToken from '@/components/InlineNostrToken';
 import ParentChain from '@/components/ParentChain';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
-import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
+import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
 import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
@@ -89,7 +89,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const lastPointerRedirectRef = useRef<string | null>(null);
+  const lastIdentifierRedirectRef = useRef<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -526,23 +526,24 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isOnTagPath = pathname?.startsWith('/t/');
     const normalizedInput = searchQuery.trim();
     const nip19Identifiers = extractNip19Identifiers(normalizedInput);
-    const pointerToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
-    const pointerLower = pointerToken ? pointerToken.toLowerCase() : null;
-    const firstPointer = pointerLower ? decodeNip19Pointer(pointerLower) : null;
+    const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
+    const identifierLower = identifierToken ? identifierToken.toLowerCase() : null;
+    const firstIdentifier = identifierLower ? decodeNip19Identifier(identifierLower) : null;
 
-    if (pointerLower && pointerLower === lastPointerRedirectRef.current) {
-      lastPointerRedirectRef.current = null;
-    } else if (pointerLower && firstPointer) {
+    if (identifierLower && identifierLower === lastIdentifierRedirectRef.current) {
+      lastIdentifierRedirectRef.current = null;
+    } else if (identifierLower && firstIdentifier) {
       const stripped = normalizedInput
         .replace(/^web\+nostr:/i, '')
         .replace(/^nostr:/i, '')
         .replace(/[\s),.;]*$/, '')
         .trim()
         .toLowerCase();
-      const pointerOnly = stripped === pointerLower;
-      const pointerInUrl = !pointerOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(pointerLower);
+      const identifierOnly = stripped === identifierLower;
+      const identifierInUrl =
+        !identifierOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(identifierLower);
 
-      if (pointerOnly || pointerInUrl) {
+      if (identifierOnly || identifierInUrl) {
         setTopCommandText(null);
         setTopExamples(null);
         setShowExternalButton(false);
@@ -550,18 +551,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setLoading(false);
         setResolvingAuthor(false);
 
-        if (firstPointer.type === 'nevent' || firstPointer.type === 'note' || firstPointer.type === 'naddr') {
+        if (firstIdentifier.type === 'nevent' || firstIdentifier.type === 'note' || firstIdentifier.type === 'naddr') {
           // Only redirect if we're not already on the /e/[id] page
           if (!pathname?.startsWith('/e/')) {
-            lastPointerRedirectRef.current = pointerLower;
-            router.push(`/e/${pointerLower}`);
+            lastIdentifierRedirectRef.current = identifierLower;
+            router.push(`/e/${identifierLower}`);
             return;
           }
           // If we're already on the /e/[id] page, continue with the search instead of redirecting
         }
-        if (firstPointer.type === 'nprofile' || firstPointer.type === 'npub') {
-          lastPointerRedirectRef.current = pointerLower;
-          router.push(`/p/${pointerLower}`);
+        if (firstIdentifier.type === 'nprofile' || firstIdentifier.type === 'npub') {
+          lastIdentifierRedirectRef.current = identifierLower;
+          router.push(`/p/${identifierLower}`);
           return;
         }
       }
@@ -1072,16 +1073,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Use the utility function from urlUtils
 
 
-  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => {
+  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => {
     const strippedContent = stripAllUrls(content, successfulPreviews);
     if (!strippedContent) return null;
 
-    const initialPointerIds = options?.skipPointerIds
-      ? Array.from(options.skipPointerIds, (id) => id.toLowerCase())
+    const initialIdentifierIds = options?.skipIdentifierIds
+      ? Array.from(options.skipIdentifierIds, (id) => id.toLowerCase())
       : [];
-    const seenPointerIds = new Set<string>(initialPointerIds);
+    const seenIdentifierIds = new Set<string>(initialIdentifierIds);
 
-    const derivePointerKey = (token: string): string | null => {
+    const deriveIdentifierKey = (token: string): string | null => {
       if (!/^nostr:(?:nevent1|naddr1|note1)/i.test(token)) return null;
       try {
         const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
@@ -1212,12 +1213,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         if (nostrTokens[partIndex]) {
           const token = nostrTokens[partIndex];
           
-          const pointerKey = derivePointerKey(token);
-          if (pointerKey) {
-            if (seenPointerIds.has(pointerKey)) {
+          const identifierKey = deriveIdentifierKey(token);
+          if (identifierKey) {
+            if (seenIdentifierIds.has(identifierKey)) {
               return;
             }
-            seenPointerIds.add(pointerKey);
+            seenIdentifierIds.add(identifierKey);
           }
           
           if (options?.disableNevent && /^nostr:(?:nevent1|naddr1|note1)/i.test(token)) {
@@ -1487,7 +1488,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                  renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
@@ -1572,7 +1573,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipPointerIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}

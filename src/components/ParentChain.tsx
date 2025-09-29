@@ -15,7 +15,7 @@ interface ParentChainProps {
   expandedParents: Record<string, NDKEvent | 'loading'>;
   onParentToggle: (parentId: string, parent: NDKEvent | 'loading' | null) => void;
   onAuthorClick: (npub: string) => void;
-  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => React.ReactNode;
+  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => React.ReactNode;
   renderNoteMedia: (content: string) => React.ReactNode;
 }
 
