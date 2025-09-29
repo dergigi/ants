@@ -60,6 +60,44 @@ import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 
+// Function to detect search type based on query
+function detectSearchType(query: string): 'profile' | 'media' | 'text' | 'generic' {
+  const trimmedQuery = query.trim().toLowerCase();
+  
+  // Check for profile searches (p: prefix)
+  if (trimmedQuery.includes('p:') || trimmedQuery.includes('by:')) {
+    return 'profile';
+  }
+  
+  // Check for media searches
+  const mediaPatterns = [
+    'is:image', 'is:video', 'kind:1064', 'kind:1065', // NIP-94 media kinds
+    'has:image', 'has:video', 'has:media',
+    'image', 'video', 'photo', 'picture', 'gif', 'mp4', 'mov'
+  ];
+  
+  for (const pattern of mediaPatterns) {
+    if (trimmedQuery.includes(pattern)) {
+      return 'media';
+    }
+  }
+  
+  // Check for text-focused searches
+  const textPatterns = [
+    'is:text', 'kind:1', 'kind:30023', // text notes and articles
+    'text', 'note', 'post', 'article'
+  ];
+  
+  for (const pattern of textPatterns) {
+    if (trimmedQuery.includes(pattern)) {
+      return 'text';
+    }
+  }
+  
+  // Default to generic for mixed or unknown queries
+  return 'generic';
+}
+
 type Props = {
   initialQuery?: string;
   manageUrl?: boolean;
@@ -1632,7 +1670,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return (
           <div className="mt-8 space-y-4">
         {loading && !topCommandText && finalResults.length === 0 && (
-          <SearchResultsPlaceholder count={isDirectQuery ? 1 : 2} />
+          <SearchResultsPlaceholder 
+            count={isDirectQuery ? 1 : 2} 
+            searchType={detectSearchType(query)}
+          />
         )}
             {topCommandText ? (
               <EventCard
@@ -1803,7 +1844,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }

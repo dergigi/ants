@@ -114,15 +114,71 @@ export const EventCardPlaceholder: React.FC<{ className?: string }> = ({ classNa
   );
 };
 
-// Search results placeholder
-export const SearchResultsPlaceholder: React.FC<{ count?: number; className?: string }> = ({ 
+// Media placeholder for image/video searches
+export const MediaPlaceholder: React.FC<{ className?: string }> = ({ className = '' }) => {
+  return (
+    <div className={`bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-4 ${className}`}>
+      <div className="space-y-3">
+        <RectPlaceholder height={200} className="w-full" />
+        <div className="flex items-start space-x-3">
+          <CirclePlaceholder size={40} />
+          <div className="flex-1 space-y-2">
+            <Placeholder className="h-4 w-24" />
+            <TextPlaceholder lines={2} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Generic text results placeholder
+export const TextResultsPlaceholder: React.FC<{ className?: string }> = ({ className = '' }) => {
+  return (
+    <div className={`bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-4 ${className}`}>
+      <div className="space-y-3">
+        <TextPlaceholder lines={4} />
+        <div className="flex items-center justify-between">
+          <div className="flex space-x-4">
+            <Placeholder className="h-4 w-12" />
+            <Placeholder className="h-4 w-12" />
+          </div>
+          <Placeholder className="h-4 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Search results placeholder with dynamic type detection
+export const SearchResultsPlaceholder: React.FC<{ 
+  count?: number; 
+  className?: string;
+  searchType?: 'profile' | 'media' | 'text' | 'generic';
+}> = ({ 
   count = 3, 
-  className = '' 
+  className = '',
+  searchType = 'generic'
 }) => {
+  const renderPlaceholder = () => {
+    switch (searchType) {
+      case 'profile':
+        return <ProfileCardPlaceholder />;
+      case 'media':
+        return <MediaPlaceholder />;
+      case 'text':
+        return <TextResultsPlaceholder />;
+      default:
+        return <EventCardPlaceholder />;
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
-        <EventCardPlaceholder key={i} />
+        <div key={i}>
+          {renderPlaceholder()}
+        </div>
       ))}
     </div>
   );
