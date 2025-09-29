@@ -41,23 +41,26 @@ export default function RelayStatusDisplay({
           </div>
           <div className="space-y-1">
             {eventsReceivedRelays.map((relay, idx) => {
-              const ping = connectionDetails?.relayPings?.get?.(relay);
+              const ping = connectionDetails?.relayPings?.get?.(relay.url);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+              const iconClasses = relay.isSearchRelay
+                ? 'text-blue-300 bg-blue-900/40 border border-blue-400/20'
+                : 'text-blue-400 bg-transparent';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                  <div className="w-5 h-5 rounded-md text-blue-400 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]">
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
                     <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
                   </div>
                   {onSearch ? (
                     <button
                       type="button"
-                      onClick={() => onSearch(relay.replace(/\/$/, ''))}
+                      onClick={() => onSearch(relay.url.replace(/\/$/, ''))}
                       className="hover:text-gray-200 hover:underline cursor-pointer"
                     >
-                      {relay.replace(/\/$/, '')}{pingDisplay}
+                      {relay.url.replace(/\/$/, '')}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{relay.replace(/\/$/, '')}{pingDisplay}</span>
+                    <span>{relay.url.replace(/\/$/, '')}{pingDisplay}</span>
                   )}
                 </div>
               );
@@ -74,23 +77,26 @@ export default function RelayStatusDisplay({
           </div>
           <div className="space-y-1">
             {otherRelays.map((relay, idx) => {
-              const ping = connectionDetails?.relayPings?.get?.(relay);
+              const ping = connectionDetails?.relayPings?.get?.(relay.url);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
+              const iconClasses = relay.isSearchRelay
+                ? 'text-gray-200 bg-blue-900/30 border border-blue-400/10'
+                : 'text-gray-300 bg-transparent';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                  <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]">
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
                     <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
                   </div>
                   {onSearch ? (
                     <button
                       type="button"
-                      onClick={() => onSearch(relay.replace(/\/$/, ''))}
+                      onClick={() => onSearch(relay.url.replace(/\/$/, ''))}
                       className="hover:text-gray-200 hover:underline cursor-pointer"
                     >
-                      {relay.replace(/\/$/, '')}{pingDisplay}
+                      {relay.url.replace(/\/$/, '')}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{relay.replace(/\/$/, '')}{pingDisplay}</span>
+                    <span>{relay.url.replace(/\/$/, '')}{pingDisplay}</span>
                   )}
                 </div>
               );
