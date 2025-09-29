@@ -1,6 +1,6 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
+import { faWifi, faServer, faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 
 interface RelayStatusDisplayProps {
@@ -47,7 +47,8 @@ export default function RelayStatusDisplay({
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
-                <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2">
+                <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2 flex items-center gap-1">
+                  <FontAwesomeIcon icon={faHardDrive} className="text-xs text-gray-500" />
                   {onSearch ? (
                     <button
                       type="button"
@@ -80,7 +81,8 @@ export default function RelayStatusDisplay({
               const ping = connectionDetails?.relayPings?.get(relay);
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
-                <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2">
+                <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2 flex items-center gap-1">
+                  <FontAwesomeIcon icon={faHardDrive} className="text-xs text-gray-500" />
                   {onSearch ? (
                     <button
                       type="button"
