@@ -481,6 +481,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isOnEventPath = pathname?.startsWith('/e/');
     const isOnProfilePath = currentProfileNpub !== null;
     
+    console.log('updateUrlForSearch debug:', {
+      searchQuery,
+      pathname,
+      isOnTagPath,
+      isOnEventPath,
+      isOnProfilePath,
+      isHashtagOnly: isHashtagOnlyQuery(searchQuery)
+    });
+    
     // Handle hashtag-only queries
     if (!isOnProfilePath && isHashtagOnlyQuery(searchQuery)) {
       const hashtagUrl = hashtagQueryToUrl(searchQuery);
