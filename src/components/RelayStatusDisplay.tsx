@@ -44,7 +44,7 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-gray-300 ml-2">
-                  • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                  • {relay.replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
@@ -65,7 +65,7 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-gray-300 ml-2">
-                  • {relay.replace(/^wss:\/\//, '').replace(/\/$/, '')}{pingDisplay}
+                  • {relay.replace(/\/$/, '')}{pingDisplay}
                 </div>
               );
             })}
