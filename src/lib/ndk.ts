@@ -11,6 +11,31 @@ const cacheAdapter = new NDKCacheAdapterSqliteWasm({
   wasmUrl: '/ndk/sql-wasm.wasm'
 });
 let cacheInitialized = false;
+let cacheDisabledDueToError = false;
+let cacheErrorHandlersInstalled = false;
+
+function isUndefinedBindWasmError(error: unknown): boolean {
+  try {
+    const message = (error instanceof Error ? error.message : String(error || '')) || '';
+    const lower = message.toLowerCase();
+    // Heuristic match for sqlite wasm binding undefined issue
+    return (
+      lower.includes('wrong api use') && lower.includes('unknown type') && lower.includes('undefined')
+    ) || lower.includes('tried to bind a value of an unknown type') || lower.includes('wasm cache adapter');
+  } catch {
+    return false;
+  }
+}
+
+function disableCacheAdapter(reason?: unknown): void {
+  if (cacheDisabledDueToError) return;
+  try {
+    // eslint-disable-next-line no-console
+    console.warn('Disabling NDK sqlite-wasm cache adapter due to runtime error; falling back to live relays only.', reason);
+    ndk.cacheAdapter = undefined;
+  } catch {}
+  cacheDisabledDueToError = true;
+}
 
 export async function ensureCacheInitialized(): Promise<void> {
   if (cacheInitialized) return;
@@ -19,6 +44,21 @@ export async function ensureCacheInitialized(): Promise<void> {
   try {
     // ndk-cache-sqlite-wasm v0.5.x exposes initializeAsync()
     await cacheAdapter.initializeAsync();
+    // Install global guards to catch sqlite-wasm binding issues at runtime
+    if (!cacheErrorHandlersInstalled && typeof window !== 'undefined') {
+      try {
+        const handleAnyError = (err: unknown) => {
+          const reason = err && (err as { reason?: unknown; error?: unknown }).reason;
+          const payload = (reason as unknown) || err;
+          if (isUndefinedBindWasmError(payload)) {
+            disableCacheAdapter(payload);
+          }
+        };
+        window.addEventListener('error', (ev) => handleAnyError(ev.error || ev.message));
+        window.addEventListener('unhandledrejection', (ev) => handleAnyError((ev as PromiseRejectionEvent).reason));
+        cacheErrorHandlersInstalled = true;
+      } catch {}
+    }
   } catch (error) {
     console.warn('Failed to initialize sqlite-wasm cache adapter, disabling cache and continuing:', error);
     try {
@@ -382,6 +422,16 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   try {
     return ndk.subscribe(validFilters, options);
   } catch (error) {
+    // If the sqlite-wasm cache throws the binding error, disable cache and retry once live-only
+    if (isUndefinedBindWasmError(error)) {
+      disableCacheAdapter(error);
+      try {
+        return ndk.subscribe(validFilters, options);
+      } catch (e2) {
+        console.error('Failed to create NDK subscription after disabling cache:', e2);
+        return null;
+      }
+    }
     console.error('Failed to create NDK subscription:', error);
     return null;
   }
