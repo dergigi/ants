@@ -604,8 +604,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResults([]);
     setLoading(true);
     
-    // Update translation immediately for new searches
-    setTranslation('');
+    // Don't clear translation immediately - let the new translation be set asynchronously
+    // This prevents the search explanation from disappearing during OR searches
     
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
@@ -757,6 +757,92 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+      
+      // Set translation for searches without author resolution
+      if (!needsAuthorResolution) {
+        try {
+          const afterReplacements = await applySimpleReplacements(effectiveQuery);
+          const distributed = expandParenthesizedOr(afterReplacements);
+          
+          // Helper: resolve all by:<author> tokens within a single query string
+          const resolveByTokensInQuery = async (q: string): Promise<string> => {
+            const rx = /(^|\s)by:(\S+)/gi;
+            let result = '';
+            let lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = rx.exec(q)) !== null) {
+              const full = m[0];
+              const pre = m[1] || '';
+              const raw = m[2] || '';
+              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+              const core = (match && match[1]) || raw;
+              const suffix = (match && match[2]) || '';
+              let replacement = core;
+              try {
+                const npub = await resolveAuthorToNpub(core);
+                if (npub) replacement = npub;
+              } catch {}
+              result += q.slice(lastIndex, m.index);
+              result += `${pre}by:${replacement}${suffix}`;
+              lastIndex = m.index + full.length;
+            }
+            result += q.slice(lastIndex);
+            return result;
+          };
+          
+          // Helper: normalize p:<token> where token may be hex, npub or nprofile
+          const resolvePTokensInQuery = (q: string): string => {
+            const rx = /(^|\s)p:(\S+)/gi;
+            let result = '';
+            let lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = rx.exec(q)) !== null) {
+              const full = m[0];
+              const pre = m[1] || '';
+              const raw = m[2] || '';
+              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+              const core = (match && match[1]) || raw;
+              const suffix = (match && match[2]) || '';
+              let replacement = core;
+              if (/^[0-9a-fA-F]{64}$/.test(core)) {
+                try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
+              } else if (/^npub1[0-9a-z]+$/i.test(core)) {
+                replacement = core;
+              } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
+                try {
+                  const decoded = nip19.decode(core);
+                  if (decoded?.type === 'nprofile') {
+                    const pk = (decoded.data as { pubkey: string }).pubkey;
+                    replacement = nip19.npubEncode(pk);
+                  }
+                } catch {}
+              }
+              result += q.slice(lastIndex, m.index);
+              result += `${pre}p:${replacement}${suffix}`;
+              lastIndex = m.index + full.length;
+            }
+            result += q.slice(lastIndex);
+            return result;
+          };
+          
+          const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
+          const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
+          const finalQueriesSet = new Set<string>();
+          for (const q of withPResolved) {
+            const parts = parseOrQuery(q);
+            if (parts.length > 1) {
+              parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+            } else {
+              const s = q.trim(); if (s) finalQueriesSet.add(s);
+            }
+          }
+          const finalQueries = Array.from(finalQueriesSet);
+          const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+          setTranslation(preview);
+        } catch {
+          setTranslation('');
+        }
+      }
 
       // Track relays that returned events for this search
       const relays = new Set<string>();
