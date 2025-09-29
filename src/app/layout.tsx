@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { LoginTriggerProvider } from "@/lib/LoginTrigger";
 import { Suspense } from "react";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://search.dergigi.com";
@@ -60,13 +61,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans min-h-screen flex flex-col">
-        <Header />
-        <div className="flex-1">
-          {children}
-        </div>
-        <Suspense fallback={<div className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">Loading...</div>}>
-          <Footer />
-        </Suspense>
+        <LoginTriggerProvider>
+          <Header />
+          <div className="flex-1">
+            {children}
+          </div>
+          <Suspense fallback={<div className="text-center text-xs text-gray-400 py-6 select-none bg-[#1a1a1a]">Loading...</div>}>
+            <Footer />
+          </Suspense>
+        </LoginTriggerProvider>
       </body>
     </html>
   );

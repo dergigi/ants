@@ -6,11 +6,13 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileImage from '@/components/ProfileImage';
+import { useLoginTrigger } from '@/lib/LoginTrigger';
 
 export function Header() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { triggerLogin } = useLoginTrigger();
 
   // Restore login state on mount
   useEffect(() => {
@@ -73,7 +75,8 @@ export function Header() {
       router.push(`/p/${user.npub}`);
       return;
     }
-    void handleLogin();
+    // Trigger the /login command in SearchView
+    triggerLogin();
   };
 
   const handleFaviconClick = () => {

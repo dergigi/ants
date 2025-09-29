@@ -57,6 +57,7 @@ import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import { useLoginTrigger } from '@/lib/LoginTrigger';
 
 type Props = {
   initialQuery?: string;
@@ -104,6 +105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  const { onLoginTrigger } = useLoginTrigger();
   
   // Determine if filters should be enabled based on filterMode
   const shouldEnableFilters = useMemo(() => {
@@ -772,6 +774,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [loading]);
+
+  // Listen for login trigger from Header
+  useEffect(() => {
+    const cleanup = onLoginTrigger(() => {
+      setQuery('/login');
+      // Focus the search input
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    });
+    return cleanup;
+  }, [onLoginTrigger]);
 
   useEffect(() => {
     if (!manageUrl) return;
