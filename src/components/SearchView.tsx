@@ -954,18 +954,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Listen for login trigger from Header
   useEffect(() => {
     const cleanup = onLoginTrigger(() => {
-      setQuery('/login');
-      // Focus the search input
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
+      // Only set /login if the search field is empty
+      if (!query.trim()) {
+        setQuery('/login');
+        // Focus the search input
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        // Update URL immediately
+        updateUrlForSearch('/login');
+        // Execute the /login command immediately
+        runSlashCommand('/login');
       }
-      // Update URL immediately
-      updateUrlForSearch('/login');
-      // Execute the /login command immediately
-      runSlashCommand('/login');
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
 
 
   useEffect(() => {
