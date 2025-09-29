@@ -2,7 +2,6 @@
 
 import { extractMediaFromContent, getSearchQueryFromMedia, isValidMediaUrl, getTrimmedMediaUrl } from '@/lib/utils/mediaUtils';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
-import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import UrlPreview from '@/components/UrlPreview';
 
 interface NoteMediaProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { safeSubscribe } from '@/lib/ndk';

@@ -30,7 +30,6 @@ function isUndefinedBindWasmError(error: unknown): boolean {
 function disableCacheAdapter(reason?: unknown): void {
   if (cacheDisabledDueToError) return;
   try {
-    // eslint-disable-next-line no-console
     console.warn('Disabling NDK sqlite-wasm cache adapter due to runtime error; falling back to live relays only.', reason);
     ndk.cacheAdapter = undefined;
   } catch {}

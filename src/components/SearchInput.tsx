@@ -11,7 +11,7 @@ interface SearchInputProps {
   resolvingAuthor: boolean;
   showExternalButton: boolean;
   avatarOverlap: boolean;
-  profileScopeUser: any;
+  profileScopeUser: { profile?: { displayName?: string; name?: string } } | null;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClear: () => void;
   onOpenExternal: () => void;
