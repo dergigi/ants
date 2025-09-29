@@ -954,7 +954,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Listen for login trigger from Header
   useEffect(() => {
     const cleanup = onLoginTrigger(() => {
-      // Only set /login if the search field is empty
+      // Always attempt login, but only set /login in search field if it's empty
       if (!query.trim()) {
         setQuery('/login');
         // Focus the search input
@@ -963,9 +963,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
         // Update URL immediately
         updateUrlForSearch('/login');
-        // Execute the /login command immediately
-        runSlashCommand('/login');
       }
+      // Always execute the /login command regardless of search field state
+      runSlashCommand('/login');
     });
     return cleanup;
   }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
