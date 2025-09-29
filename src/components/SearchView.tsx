@@ -446,7 +446,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 const asyncUser = new NDKUser({ pubkey });
                 asyncUser.ndk = ndk;
                 await connect();
-                await asyncUser.fetchProfile({ skipCache: false });
+                await asyncUser.fetchProfile();
                 if (cancelled) return;
                 const hadImage = profileHasHttpImage(baseUser.profile);
                 const hasImageNow = profileHasHttpImage(asyncUser.profile);
