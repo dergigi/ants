@@ -477,12 +477,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Check if this is a hashtag-only query and we're not already on a profile page
     const currentProfileNpub = getCurrentProfileNpub(pathname);
+    const isOnTagPath = pathname?.startsWith('/t/');
+    
     if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
       const hashtagUrl = hashtagQueryToUrl(searchQuery);
       if (hashtagUrl) {
-        router.replace(`/t/${hashtagUrl}`);
+        // If we're already on a tag path, update the same path
+        // If we're on a different path, navigate to the tag path
+        if (isOnTagPath) {
+          router.replace(`/t/${hashtagUrl}`);
+        } else {
+          router.replace(`/t/${hashtagUrl}`);
+        }
         return;
       }
+    }
+    
+    // If we're on a tag path but the query is not hashtag-only, navigate to root with query
+    if (isOnTagPath && !isHashtagOnlyQuery(searchQuery)) {
+      const params = new URLSearchParams();
+      params.set('q', searchQuery);
+      router.replace(`/?${params.toString()}`);
+      return;
     }
     
     if (currentProfileNpub) {
@@ -694,9 +710,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
     
-    if (!(isOnTagPath && isHashtagQuery)) {
-      updateUrlForSearch(searchQuery);
-    }
+    // Always update URL to reflect the current search
+    updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
     if (abortControllerRef.current) {
