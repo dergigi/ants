@@ -1684,8 +1684,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
               connectionStatus={connectionStatus}
-              connectedCount={connectionDetails?.connectedRelays?.length || 0}
-              totalCount={(connectionDetails?.connectedRelays?.length || 0) + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0)}
+              connectedCount={Array.from(new Set([
+                ...(connectionDetails?.connectedRelays || []),
+                ...recentlyActive
+              ])).length}
+              totalCount={(() => {
+                // Calculate total count to match the new grouping logic
+                const eventsReceivedCount = Array.from(new Set([
+                  ...(connectionDetails?.connectedRelays || []),
+                  ...recentlyActive
+                ])).length;
+                const othersCount = [
+                  ...(connectionDetails?.connectingRelays || []),
+                  ...(connectionDetails?.failedRelays || [])
+                ].filter(relay => 
+                  !(connectionDetails?.connectedRelays || []).includes(relay) && 
+                  !recentlyActive.includes(relay)
+                ).length;
+                return eventsReceivedCount + othersCount;
+              })()}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               formatConnectionTooltip={formatConnectionTooltip}
               connectionDetails={connectionDetails}
