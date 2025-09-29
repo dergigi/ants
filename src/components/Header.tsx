@@ -1,16 +1,18 @@
 'use client';
 
-import { login, restoreLogin } from '@/lib/nip07';
+import { restoreLogin } from '@/lib/nip07';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileImage from '@/components/ProfileImage';
+import { useLoginTrigger } from '@/lib/LoginTrigger';
 
 export function Header() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { triggerLogin } = useLoginTrigger();
 
   // Restore login state on mount
   useEffect(() => {
@@ -54,26 +56,13 @@ export function Header() {
     };
   }, []);
 
-  const handleLogin = async () => {
-    try {
-      const loggedInUser = await login();
-      if (loggedInUser) {
-        // Fetch the user's profile to get the display name
-        await loggedInUser.fetchProfile();
-        setUser(loggedInUser);
-        console.log('Logged in successfully');
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
-
   const handleAvatarClick = () => {
     if (user) {
       router.push(`/p/${user.npub}`);
       return;
     }
-    void handleLogin();
+    // Trigger the /login command in SearchView
+    triggerLogin();
   };
 
   const handleFaviconClick = () => {

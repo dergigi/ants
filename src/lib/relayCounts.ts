@@ -1,4 +1,5 @@
 import { ConnectionStatus } from './ndk';
+import { RELAYS } from './relays';
 
 // Create a canonical identifier for a relay URL to ensure consistent
 // de-duplication across sources (connected, recentlyActive, connecting, failed)
@@ -62,6 +63,10 @@ export function calculateRelayCounts(
   };
 }
 
+const SEARCH_RELAY_IDS = new Set<string>(
+  [...RELAYS.SEARCH, ...RELAYS.PROFILE_SEARCH].map((url) => canonicalRelayId(url))
+);
+
 /**
  * Get the actual relay lists with mutual exclusivity
  * Returns both the relay arrays and counts for consistent display
@@ -70,8 +75,8 @@ export function getRelayLists(
   connectionDetails: ConnectionStatus | null,
   recentlyActive: string[]
 ): { 
-  eventsReceivedRelays: string[]; 
-  otherRelays: string[]; 
+  eventsReceivedRelays: Array<{ url: string; isSearchRelay: boolean }>; 
+  otherRelays: Array<{ url: string; isSearchRelay: boolean }>; 
   eventsReceivedCount: number; 
   totalCount: number; 
 } {
@@ -121,8 +126,14 @@ export function getRelayLists(
     if (!eventsReceivedIds.has(id)) otherIds.add(id);
   });
 
-  const eventsReceivedRelays = Array.from(eventsReceivedIds).map(id => idToOriginal.get(id) || id);
-  const otherRelays = Array.from(otherIds).map(id => idToOriginal.get(id) || id);
+  const eventsReceivedRelays = Array.from(eventsReceivedIds).map(id => ({
+    url: idToOriginal.get(id) || id,
+    isSearchRelay: SEARCH_RELAY_IDS.has(id)
+  }));
+  const otherRelays = Array.from(otherIds).map(id => ({
+    url: idToOriginal.get(id) || id,
+    isSearchRelay: SEARCH_RELAY_IDS.has(id)
+  }));
   
   return {
     eventsReceivedRelays,

@@ -7,15 +7,13 @@ interface RelayIndicatorProps {
   connectionDetails: ConnectionStatus | null;
   showConnectionDetails: boolean;
   onToggle: () => void;
-  formatConnectionTooltip: (details: ConnectionStatus | null) => string;
 }
 
 export default function RelayIndicator({
   connectionStatus,
   connectionDetails,
   showConnectionDetails,
-  onToggle,
-  formatConnectionTooltip
+  onToggle
 }: RelayIndicatorProps) {
   // Calculate connected and total relay counts
   const connectedCount = connectionDetails?.connectedRelays?.length || 0;
@@ -26,7 +24,6 @@ export default function RelayIndicator({
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onToggle}
-      title={formatConnectionTooltip(connectionDetails)}
     >
       <FontAwesomeIcon 
         icon={faServer} 

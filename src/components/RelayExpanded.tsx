@@ -2,15 +2,12 @@
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faServer, faChevronUp } from '@fortawesome/free-solid-svg-icons';
-import { ConnectionStatus } from '@/lib/ndk';
 
 interface RelayExpandedProps {
   connectionStatus: 'connecting' | 'connected' | 'timeout';
   connectedCount: number;
   totalCount: number;
   onCollapse: () => void;
-  formatConnectionTooltip: (details: ConnectionStatus | null) => string;
-  connectionDetails: ConnectionStatus | null;
   children: React.ReactNode;
 }
 
@@ -19,8 +16,6 @@ export default function RelayExpanded({
   connectedCount,
   totalCount,
   onCollapse,
-  formatConnectionTooltip,
-  connectionDetails,
   children
 }: RelayExpandedProps) {
   return (
@@ -31,7 +26,6 @@ export default function RelayExpanded({
           type="button"
           className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
           onClick={onCollapse}
-          title={formatConnectionTooltip(connectionDetails)}
         >
           <FontAwesomeIcon 
             icon={faServer} 

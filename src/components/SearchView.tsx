@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { calculateRelayCounts } from '@/lib/relayCounts';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -40,6 +39,7 @@ import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrId
 import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { getRelayLists } from '@/lib/relayCounts';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
@@ -57,6 +57,7 @@ import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import { useLoginTrigger } from '@/lib/LoginTrigger';
 
 type Props = {
   initialQuery?: string;
@@ -104,6 +105,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  const { onLoginTrigger } = useLoginTrigger();
   
   // Determine if filters should be enabled based on filterMode
   const shouldEnableFilters = useMemo(() => {
@@ -191,6 +193,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
+  const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +208,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
   // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
   const suppressSearchRef = useRef(false);
+ 
+  const relayInfo = useMemo(() => {
+    const base = getRelayLists(connectionDetails, recentlyActive);
+    return {
+      ...base,
+      relayPings: connectionDetails?.relayPings ?? new Map<string, number>(),
+    };
+  }, [connectionDetails, recentlyActive]);
 
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
@@ -644,6 +655,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+
+      // Track relays that returned events for this search
+      const relays = new Set<string>();
+      const extractRelaysFromEvent = (event: NDKEvent): string[] => {
+        const eventWithSources = event as NDKEvent & {
+          relaySource?: string;
+          relaySources?: string[];
+        };
+        if (Array.isArray(eventWithSources.relaySources)) {
+          return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
+        }
+        if (typeof eventWithSources.relaySource === 'string') {
+          return [eventWithSources.relaySource];
+        }
+        return [];
+      };
+
+      searchResults.forEach(evt => {
+        const relaySources = extractRelaysFromEvent(evt);
+        relaySources.forEach(url => {
+          if (url) relays.add(url.replace(/\/$/, ''));
+        });
+      });
+      setSuccessfullyActiveRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
@@ -721,6 +756,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
+  // Update recently active relays immediately when connection status changes
+  useEffect(() => {
+    setRecentlyActive(getRecentlyActiveRelays());
+  }, [connectionDetails]);
+
+  // Periodically update recently active relays to catch relay activity changes
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRecentlyActive(getRecentlyActiveRelays());
+    }, 1000); // Update every 1 second to catch relay activity more quickly
+    return () => clearInterval(id);
+  }, []);
+
+  // Update recently active relays when results change (events received)
+  useEffect(() => {
+    if (results.length > 0) {
+      setRecentlyActive(getRecentlyActiveRelays());
+    }
+  }, [results.length]);
+
 
   // Removed separate RecentlyActiveRelays section; now merged into Reachable
 
@@ -772,6 +827,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [loading]);
+
+  // Listen for login trigger from Header
+  useEffect(() => {
+    const cleanup = onLoginTrigger(() => {
+      setQuery('/login');
+      // Focus the search input
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+      // Update URL immediately
+      updateUrlForSearch('/login');
+      // Execute the /login command immediately
+      runSlashCommand('/login');
+    });
+    return cleanup;
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch]);
 
   useEffect(() => {
     if (!manageUrl) return;
@@ -996,39 +1067,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
 
 
-  const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
-    if (!details) return 'Connection status unknown';
-    
-    const { connectedRelays, failedRelays } = details;
-    const connectedCount = connectedRelays.length;
-    const failedCount = failedRelays.length;
-    
-    let tooltip = '';
-    
-    
-    if (connectedCount > 0) {
-      tooltip += `✅ Reachable (WebSocket) ${connectedCount} relay${connectedCount > 1 ? 's' : ''}:\n`;
-      connectedRelays.forEach(relay => {
-        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
-        tooltip += `  • ${shortName}\n`;
-      });
-    }
-    
-    if (failedCount > 0) {
-      if (connectedCount > 0) tooltip += '\n';
-      tooltip += `❌ Unreachable (socket closed) ${failedCount} relay${failedCount > 1 ? 's' : ''}:\n`;
-      failedRelays.forEach(relay => {
-        const shortName = relay.replace(/^wss:\/\//, '').replace(/\/$/, '');
-        tooltip += `  • ${shortName}\n`;
-      });
-    }
-    
-    if (connectedCount === 0 && failedCount === 0) {
-      tooltip = 'No relay connection information available';
-    }
-    
-    return tooltip.trim();
-  };
 
 
   // Use the utility function from urlUtils
@@ -1336,11 +1374,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
               connectionStatus={connectionStatus}
-              connectedCount={calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount}
-              totalCount={calculateRelayCounts(connectionDetails, recentlyActive).totalCount}
+              connectedCount={relayInfo.eventsReceivedCount}
+              totalCount={relayInfo.totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
-              formatConnectionTooltip={formatConnectionTooltip}
-              connectionDetails={connectionDetails}
               isExpanded={showConnectionDetails}
             />
 
@@ -1355,10 +1391,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           </div>
 
           {/* Expanded views - below button row, full width */}
-          {showConnectionDetails && connectionDetails && (
+          {showConnectionDetails && connectionDetails && relayInfo.totalCount > 0 && (
             <RelayStatusDisplay 
               connectionDetails={connectionDetails}
-              recentlyActive={recentlyActive}
+              relayInfo={relayInfo}
+              onSearch={handleSearch}
+              activeRelays={successfullyActiveRelays}
             />
           )}
 
