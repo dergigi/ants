@@ -732,9 +732,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     const id = setInterval(() => {
       setRecentlyActive(getRecentlyActiveRelays());
-    }, 2000); // Update every 2 seconds to catch relay activity
+    }, 1000); // Update every 1 second to catch relay activity more quickly
     return () => clearInterval(id);
   }, []);
+
+  // Update recently active relays when results change (events received)
+  useEffect(() => {
+    if (results.length > 0) {
+      setRecentlyActive(getRecentlyActiveRelays());
+    }
+  }, [results.length]);
 
 
   // Removed separate RecentlyActiveRelays section; now merged into Reachable
@@ -1334,8 +1341,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
               connectionStatus={connectionStatus}
-              connectedCount={calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount}
-              totalCount={calculateRelayCounts(connectionDetails, recentlyActive).totalCount}
+              connectedCount={Math.max(
+                calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount,
+                recentlyActive.length || 0
+              )}
+              totalCount={Math.max(
+                calculateRelayCounts(connectionDetails, recentlyActive).totalCount,
+                recentlyActive.length || 1 // Fallback to show at least 1 if we have recent activity
+              )}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               isExpanded={showConnectionDetails}
             />
