@@ -45,7 +45,7 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2 flex items-center gap-1">
-                  <div className="w-5 h-5 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]">
+                  <div className="w-5 h-5 rounded-md text-blue-400 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]">
                     <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
                   </div>
                   {onSearch ? (
