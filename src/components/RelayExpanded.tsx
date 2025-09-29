@@ -3,6 +3,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faServer, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { ConnectionStatus } from '@/lib/ndk';
+import { calculateRelayCounts } from '@/lib/relayCounts';
 
 interface RelayExpandedProps {
   connectionStatus: 'connecting' | 'connected' | 'timeout';

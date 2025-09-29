@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays, safeSubscribe } from '@/lib/ndk';
+import { calculateRelayCounts } from '@/lib/relayCounts';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent, NDKRelaySet, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -883,6 +884,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [router]);
 
 
+
   const formatConnectionTooltip = (details: ConnectionStatus | null): string => {
     if (!details) return 'Connection status unknown';
     
@@ -1684,25 +1686,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
               connectionStatus={connectionStatus}
-              connectedCount={Array.from(new Set([
-                ...(connectionDetails?.connectedRelays || []),
-                ...recentlyActive
-              ])).length}
-              totalCount={(() => {
-                // Calculate total count to match the new grouping logic
-                const eventsReceivedCount = Array.from(new Set([
-                  ...(connectionDetails?.connectedRelays || []),
-                  ...recentlyActive
-                ])).length;
-                const othersCount = [
-                  ...(connectionDetails?.connectingRelays || []),
-                  ...(connectionDetails?.failedRelays || [])
-                ].filter(relay => 
-                  !(connectionDetails?.connectedRelays || []).includes(relay) && 
-                  !recentlyActive.includes(relay)
-                ).length;
-                return eventsReceivedCount + othersCount;
-              })()}
+              connectedCount={calculateRelayCounts(connectionDetails, recentlyActive).eventsReceivedCount}
+              totalCount={calculateRelayCounts(connectionDetails, recentlyActive).totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               formatConnectionTooltip={formatConnectionTooltip}
               connectionDetails={connectionDetails}

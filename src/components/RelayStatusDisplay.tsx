@@ -1,6 +1,7 @@
 import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWifi, faServer } from '@fortawesome/free-solid-svg-icons';
+import { calculateRelayCounts } from '@/lib/relayCounts';
 
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
@@ -11,6 +12,9 @@ export default function RelayStatusDisplay({
   connectionDetails, 
   recentlyActive 
 }: RelayStatusDisplayProps) {
+  // Use shared calculation logic to ensure consistency with other components
+  const { eventsReceivedCount, totalCount } = calculateRelayCounts(connectionDetails, recentlyActive);
+  
   // Group relays by "Events received" and "Others"
   
   // Events received: connected relays + recently active relays (no duplicates)
@@ -27,6 +31,10 @@ export default function RelayStatusDisplay({
     ...(connectionDetails?.connectingRelays || []),
     ...(connectionDetails?.failedRelays || [])
   ].filter(relay => !eventsReceivedSet.has(relay));
+  
+  // Use the shared calculation results for consistency
+  const displayEventsReceivedCount = eventsReceivedCount;
+  const displayOthersCount = totalCount - eventsReceivedCount;
 
 
   return (
@@ -40,7 +48,7 @@ export default function RelayStatusDisplay({
         <div className="mb-2">
           <div className="text-green-400 font-medium mb-1">
             <FontAwesomeIcon icon={faWifi} className="mr-1" />
-            Events received ({eventsReceivedRelays.length})
+            Events received ({displayEventsReceivedCount})
           </div>
           <div className="space-y-1">
             {eventsReceivedRelays.map((relay, idx) => {
@@ -61,7 +69,7 @@ export default function RelayStatusDisplay({
         <div className="mb-2">
           <div className="text-gray-400 font-medium mb-1">
             <FontAwesomeIcon icon={faServer} className="mr-1" />
-            Others ({otherRelays.length})
+            Others ({displayOthersCount})
           </div>
           <div className="space-y-1">
             {otherRelays.map((relay, idx) => {
