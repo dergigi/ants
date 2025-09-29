@@ -1368,6 +1368,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             <RelayStatusDisplay 
               connectionDetails={connectionDetails}
               recentlyActive={recentlyActive}
+              onSearch={handleSearch}
             />
           )}
 

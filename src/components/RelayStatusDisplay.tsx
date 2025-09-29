@@ -6,11 +6,13 @@ import { getRelayLists } from '@/lib/relayCounts';
 interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
   recentlyActive: string[];
+  onSearch?: (query: string) => void;
 }
 
 export default function RelayStatusDisplay({ 
   connectionDetails, 
-  recentlyActive 
+  recentlyActive,
+  onSearch
 }: RelayStatusDisplayProps) {
   // Use shared calculation logic to ensure consistency with other components
   const { 
@@ -46,7 +48,17 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2">
-                  {relay.replace(/\/$/, '')}{pingDisplay}
+                  {onSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => onSearch(relay.replace(/\/$/, ''))}
+                      className="hover:text-gray-200 hover:underline cursor-pointer"
+                    >
+                      {relay.replace(/\/$/, '')}{pingDisplay}
+                    </button>
+                  ) : (
+                    <span>{relay.replace(/\/$/, '')}{pingDisplay}</span>
+                  )}
                 </div>
               );
             })}
@@ -69,7 +81,17 @@ export default function RelayStatusDisplay({
               const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
               return (
                 <div key={idx} className="text-[11px] text-gray-400 font-mono ml-2">
-                  {relay.replace(/\/$/, '')}{pingDisplay}
+                  {onSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => onSearch(relay.replace(/\/$/, ''))}
+                      className="hover:text-gray-200 hover:underline cursor-pointer"
+                    >
+                      {relay.replace(/\/$/, '')}{pingDisplay}
+                    </button>
+                  ) : (
+                    <span>{relay.replace(/\/$/, '')}{pingDisplay}</span>
+                  )}
                 </div>
               );
             })}
