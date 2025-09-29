@@ -8,7 +8,7 @@ interface TruncatedTextProps {
   content: string;
   maxLength?: number;
   className?: string;
-  renderContentWithClickableHashtags: (content: string) => React.ReactNode;
+  renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipPointerIds?: Set<string> }) => React.ReactNode;
 }
 
 export default function TruncatedText({ 

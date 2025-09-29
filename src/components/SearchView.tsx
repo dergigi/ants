@@ -36,7 +36,7 @@ import ParentChain from '@/components/ParentChain';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Pointer } from '@/lib/utils/nostrIdentifiers';
-import { NOSTR_TOKEN_REGEX } from '@/lib/utils/nostrIdentifiers';
+import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -968,7 +968,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!strippedContent) return null;
 
     const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrTokenRegex = NOSTR_TOKEN_REGEX;
+    const nostrPattern = createNostrTokenRegex();
     const hashtagRegex = /(#\w+)/g;
     const emojiRx = emojiRegex();
 
@@ -1010,8 +1010,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       // Process nostr tokens, hashtags, and emojis
-      const nostrSplit = segment.split(nostrTokenRegex);
-      const nostrTokens = segment.match(nostrTokenRegex) || [];
+      const nostrSplitRegex = new RegExp(nostrPattern.source, nostrPattern.flags);
+      const segmentTokens: string[] = [];
+      const segmentParts: string[] = [];
+      let lastIndex = 0;
+      let execMatch: RegExpExecArray | null;
+      while ((execMatch = nostrSplitRegex.exec(segment)) !== null) {
+        const tokenStart = execMatch.index;
+        const tokenEnd = tokenStart + execMatch[0].length;
+        segmentParts.push(segment.slice(lastIndex, tokenStart));
+        segmentTokens.push(execMatch[0]);
+        lastIndex = tokenEnd;
+      }
+      segmentParts.push(segment.slice(lastIndex));
+      const nostrSplit = segmentParts;
+      const nostrTokens = segmentTokens;
       
       nostrSplit.forEach((textPart, partIndex) => {
         if (textPart) {
