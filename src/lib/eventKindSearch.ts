@@ -1,41 +1,46 @@
+import { loadRules } from './search/replacements';
+
+let cachedKindToSearchMap: Record<number, string> | null = null;
+
 /**
- * Maps Nostr event kinds to their corresponding is: search queries
- * Based on the replacements.txt mapping
+ * Load the kind to search query mappings from replacements.txt
+ * @returns Promise resolving to the mapping object
  */
-export const KIND_TO_SEARCH_MAP: Record<number, string> = {
-  1: 'is:tweet',
-  6: 'is:repost', 
-  7: 'is:reaction',
-  20: 'is:image',
-  21: 'is:video',
-  22: 'is:video',
-  1063: 'is:file',
-  1617: 'is:patch',
-  1621: 'is:issue',
-  1984: 'is:report',
-  9735: 'is:zap',
-  9321: 'is:nutzap',
-  9802: 'is:highlight',
-  30023: 'is:blogpost',
-  10000: 'is:muted',
-  10001: 'is:pin',
-  10003: 'is:bookmark',
-};
+async function loadKindToSearchMap(): Promise<Record<number, string>> {
+  if (cachedKindToSearchMap) return cachedKindToSearchMap;
+  
+  const rules = await loadRules();
+  const map: Record<number, string> = {};
+  
+  for (const rule of rules) {
+    if (rule.kind === 'is' && rule.expansion.startsWith('kind:')) {
+      const kindNum = parseInt(rule.expansion.slice(5), 10);
+      if (!isNaN(kindNum)) {
+        map[kindNum] = `is:${rule.key}`;
+      }
+    }
+  }
+  
+  cachedKindToSearchMap = map;
+  return map;
+}
 
 /**
  * Get the search query for a given event kind
  * @param kind - The Nostr event kind number
- * @returns The is: search query or null if not found
+ * @returns Promise resolving to the is: search query or null if not found
  */
-export function getKindSearchQuery(kind: number): string | null {
-  return KIND_TO_SEARCH_MAP[kind] || null;
+export async function getKindSearchQuery(kind: number): Promise<string | null> {
+  const map = await loadKindToSearchMap();
+  return map[kind] || null;
 }
 
 /**
  * Check if a given event kind has a corresponding search query
  * @param kind - The Nostr event kind number
- * @returns True if the kind has a search query, false otherwise
+ * @returns Promise resolving to true if the kind has a search query, false otherwise
  */
-export function hasKindSearchQuery(kind: number): boolean {
-  return kind in KIND_TO_SEARCH_MAP;
+export async function hasKindSearchQuery(kind: number): Promise<boolean> {
+  const map = await loadKindToSearchMap();
+  return kind in map;
 }

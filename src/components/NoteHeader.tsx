@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,7 +8,7 @@ import { faReply, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
-import { getEventKindIcon } from '@/lib/eventKindIcons';
+import { getEventKindIcon, getEventKindDisplayName } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
 
 interface NoteHeaderProps {
@@ -26,6 +26,26 @@ export default function NoteHeader({
   onSearch,
   className = ''
 }: NoteHeaderProps) {
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
+
+  // Load the search query for this event kind
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const query = await getKindSearchQuery(event.kind);
+        if (isMounted) {
+          setSearchQuery(query);
+        }
+      } catch {
+        if (isMounted) {
+          setSearchQuery(null);
+        }
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [event.kind]);
+
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
@@ -98,7 +118,6 @@ export default function NoteHeader({
 
   const handleKindClick = () => {
     if (!onSearch) return;
-    const searchQuery = getKindSearchQuery(displayEvent.kind);
     if (searchQuery) {
       onSearch(searchQuery);
     }
@@ -149,17 +168,18 @@ export default function NoteHeader({
           <div className="flex-1 text-left flex items-center gap-2">
             {(() => {
               const kindIcon = getEventKindIcon(displayEvent.kind);
+              const displayName = getEventKindDisplayName(displayEvent.kind);
               return kindIcon ? (
                 <button
                   type="button"
                   onClick={handleKindClick}
                   className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  title={getKindSearchQuery(displayEvent.kind) || 'Note'}
+                  title={searchQuery || displayName}
                 >
                   <FontAwesomeIcon icon={kindIcon} className="text-xs" />
                 </button>
               ) : (
-                <span className="text-gray-400">Note</span>
+                <span className="text-gray-400">{displayName}</span>
               );
             })()}
           </div>

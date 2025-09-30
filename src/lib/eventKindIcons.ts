@@ -14,6 +14,7 @@ import {
   faEyeSlash, 
   faThumbtack, 
   faBookmark,
+  faCircleUser,
   type IconDefinition
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -22,6 +23,7 @@ import {
  * Based on the mapping in public/kind-icons.txt
  */
 export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
+  0: faCircleUser,     // Profile metadata
   1: faFeather,        // Text notes
   6: faRetweet,        // Reposts
   7: faHeart,          // Reactions
@@ -57,6 +59,7 @@ export function getEventKindIcon(kind: number): IconDefinition | null {
  */
 export function getEventKindIconName(kind: number): string | null {
   const iconMap: Record<number, string> = {
+    0: 'fa-circle-user',
     1: 'fa-feather',
     6: 'fa-retweet', 
     7: 'fa-heart',
@@ -77,4 +80,34 @@ export function getEventKindIconName(kind: number): string | null {
   };
   
   return iconMap[kind] || null;
+}
+
+/**
+ * Get the display name for a given event kind
+ * @param kind - The Nostr event kind number
+ * @returns The display name string or "Note" as fallback
+ */
+export function getEventKindDisplayName(kind: number): string {
+  const displayNames: Record<number, string> = {
+    0: 'Profile',
+    1: 'Note',
+    6: 'Repost',
+    7: 'Reaction',
+    20: 'Image',
+    21: 'Video',
+    22: 'Video',
+    1063: 'File',
+    1617: 'Code',
+    1621: 'Issue',
+    1984: 'Report',
+    9735: 'Zap',
+    9321: 'Nutzap',
+    9802: 'Highlight',
+    30023: 'Article',
+    10000: 'Mute List',
+    10001: 'Pin List',
+    10003: 'Bookmark List',
+  };
+  
+  return displayNames[kind] || 'Note';
 }

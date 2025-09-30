@@ -1,3 +1,4 @@
+kind:0 = fa-circle-user
 kind:1 = fa-feather
 kind:6 = fa-retweet
 kind:7 = fa-heart

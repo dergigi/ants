@@ -31,6 +31,7 @@ has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 has:gif => (.gif OR .gifs OR .apng)
 
 # --- KINDS ---
+is:profile => kind:0
 is:tweet => kind:1
 is:repost => kind:6
 is:reaction => kind:7
