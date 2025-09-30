@@ -155,7 +155,7 @@ async function checkNip50SupportViaNip11(relayUrl: string): Promise<boolean> {
   try {
     // Convert wss:// to https:// for NIP-11
     const httpUrl = relayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
-    const nip11Url = `https://${httpUrl.split('/')[0]}/.well-known/nostr.json`;
+    const nip11Url = `${httpUrl}/.well-known/nostr.json`;
     
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
