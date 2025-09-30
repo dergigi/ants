@@ -6,6 +6,7 @@ import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashComman
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
+import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -869,32 +870,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       // Track relays that returned events for this search
-      const relays = new Set<string>();
-      const extractRelaysFromEvent = (event: NDKEvent): string[] => {
-        const eventWithSources = event as NDKEvent & {
-          relaySource?: string;
-          relaySources?: string[];
-        };
-        if (Array.isArray(eventWithSources.relaySources)) {
-          return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
-        }
-        if (typeof eventWithSources.relaySource === 'string') {
-          return [eventWithSources.relaySource];
-        }
-        return [];
-      };
-
+      const relayUrls: string[] = [];
+      
       searchResults.forEach(evt => {
-        const relaySources = extractRelaysFromEvent(evt);
-        relaySources.forEach(url => {
-          if (url) {
-            const normalizedUrl = url.replace(/\/$/, '');
-            relays.add(normalizedUrl);
-            console.log(`[RELAY TRACKING] Added relay: ${normalizedUrl}`);
-          }
-        });
+        const relaySources = extractRelaySourcesFromEvent(evt);
+        relayUrls.push(...relaySources);
       });
-      console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
+      
+      const relays = createRelaySet(relayUrls);
       setSuccessfullyActiveRelays(relays);
       
       // Check if this was a URL query and if we got 0 results

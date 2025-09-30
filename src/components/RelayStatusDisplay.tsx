@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass, faServer } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 import { relayInfoCache } from '@/lib/relays';
+import { normalizeRelayUrl } from '@/lib/urlUtils';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -20,7 +21,6 @@ export default function RelayStatusDisplay({
   activeRelays,
   onSearch
 }: RelayStatusDisplayProps) {
-  console.log(`[RELAY DISPLAY] activeRelays prop:`, Array.from(activeRelays));
   
   const eventsReceivedRelays = useMemo(() => relayData.eventsReceivedRelays || [], [relayData.eventsReceivedRelays]);
   const otherRelays = useMemo(() => relayData.otherRelays || [], [relayData.otherRelays]);
@@ -83,14 +83,10 @@ export default function RelayStatusDisplay({
           {allRelays.map((relay, idx) => {
             const ping = connectionDetails?.relayPings?.get?.(relay.url);
             const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
-            const cleanedUrl = relay.url.replace(/\/$/, '');
-            const isActive = activeRelays.has(cleanedUrl);
+            const normalizedUrl = normalizeRelayUrl(relay.url);
+            const isActive = activeRelays.has(normalizedUrl);
             // Blue icon only if this relay provided results for current search
-            const providedResults = activeRelays.has(cleanedUrl);
-            
-            console.log(`[RELAY DISPLAY] Checking relay: ${cleanedUrl}`);
-            console.log(`[RELAY DISPLAY] activeRelays has this relay: ${providedResults}`);
-            console.log(`[RELAY DISPLAY] activeRelays contents:`, Array.from(activeRelays));
+            const providedResults = activeRelays.has(normalizedUrl);
             
             const iconClasses = providedResults
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
@@ -129,13 +125,13 @@ export default function RelayStatusDisplay({
                     {onSearch ? (
                       <button
                         type="button"
-                        onClick={() => onSearch(cleanedUrl)}
+                        onClick={() => onSearch(normalizedUrl)}
                         className="hover:text-gray-200 hover:underline cursor-pointer text-left"
                       >
-                        {cleanedUrl}{pingDisplay}
+                        {normalizedUrl}{pingDisplay}
                       </button>
                     ) : (
-                      <span>{cleanedUrl}{pingDisplay}</span>
+                      <span>{normalizedUrl}{pingDisplay}</span>
                     )}
                   </div>
                   

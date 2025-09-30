@@ -3,6 +3,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { extractRelaySourcesFromEvent } from '@/lib/urlUtils';
 
 interface RelayIndicatorProps {
   event: NDKEvent;
@@ -10,23 +11,7 @@ interface RelayIndicatorProps {
 }
 
 export default function RelayIndicator({ event, className = '' }: RelayIndicatorProps) {
-  // Extract relay sources from the event
-  const getRelaySources = (event: NDKEvent): string[] => {
-    const eventWithSources = event as NDKEvent & {
-      relaySource?: string;
-      relaySources?: string[];
-    };
-    
-    if (Array.isArray(eventWithSources.relaySources)) {
-      return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
-    }
-    if (typeof eventWithSources.relaySource === 'string') {
-      return [eventWithSources.relaySource];
-    }
-    return [];
-  };
-
-  const relaySources = getRelaySources(event);
+  const relaySources = extractRelaySourcesFromEvent(event);
   
   if (relaySources.length === 0) {
     return null;

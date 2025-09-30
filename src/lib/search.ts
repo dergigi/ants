@@ -5,6 +5,7 @@ import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, r
 import { nip19 } from 'nostr-tools';
 import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 import { getUserRelayAdditions } from './storage';
+import { normalizeRelayUrl } from './urlUtils';
 // legacy import removed
 
 // Type definitions for relay objects
@@ -348,7 +349,6 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
       sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
-      console.log(`[SEARCH] Event from relay: ${relayUrl}`);
       
       // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
@@ -358,14 +358,16 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       if (!collected.has(event.id)) {
         // First time seeing this event
         const eventWithSource = event as NDKEventWithRelaySource;
-        eventWithSource.relaySource = relayUrl;
-        eventWithSource.relaySources = [relayUrl];
+        const normalizedUrl = normalizeRelayUrl(relayUrl);
+        eventWithSource.relaySource = normalizedUrl;
+        eventWithSource.relaySources = [normalizedUrl];
         collected.set(event.id, eventWithSource);
       } else {
         // Event already exists, add this relay to the sources
         const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
-        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
-          existingEvent.relaySources.push(relayUrl);
+        const normalizedUrl = normalizeRelayUrl(relayUrl);
+        if (existingEvent.relaySources && !existingEvent.relaySources.includes(normalizedUrl)) {
+          existingEvent.relaySources.push(normalizedUrl);
         }
       }
     });
