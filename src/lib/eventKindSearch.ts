@@ -3,6 +3,7 @@
  * Based on the replacements.txt mapping
  */
 export const KIND_TO_SEARCH_MAP: Record<number, string> = {
+  0: 'is:profile',
   1: 'is:tweet',
   6: 'is:repost', 
   7: 'is:reaction',
