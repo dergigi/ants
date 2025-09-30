@@ -3,7 +3,7 @@ import { ConnectionStatus, ndk } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
-import { getRelayInfo } from '@/lib/relays';
+import { getRelayInfo, RELAYS } from '@/lib/relays';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -92,6 +92,11 @@ export default function RelayStatusDisplay({
             const isActive = activeRelays.has(cleanedUrl);
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(cleanedUrl);
+            
+            // Debug logging
+            if (activeRelays.size > 0) {
+              console.log(`[RELAY DEBUG] Checking ${cleanedUrl}: providedResults=${providedResults}, activeRelays=`, Array.from(activeRelays));
+            }
             const iconClasses = providedResults
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
               : isActive
@@ -99,7 +104,15 @@ export default function RelayStatusDisplay({
                 : 'text-gray-500 bg-transparent';
             const relayData = relayInfo.get(relay.url) || {};
             const { supportedNips = [] } = relayData;
-            const supportsNip50 = supportedNips.includes(50);
+            
+            // Check if relay supports NIP-50 from loaded info, or if it's in our known search relays
+            const knownSearchRelays = new Set([
+              ...RELAYS.SEARCH,
+              ...RELAYS.PROFILE_SEARCH
+            ]);
+            const isKnownSearchRelay = knownSearchRelays.has(relay.url);
+            const supportsNip50 = supportedNips.includes(50) || isKnownSearchRelay;
+            
             // Match magnifying glass color to relay icon color
             const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
             
