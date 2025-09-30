@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { clearNip50Cache, clearNip50SupportCache } from '@/lib/relays';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -77,7 +78,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     { key: 'help', label: '/help', description: 'Show this help' },
     { key: 'examples', label: '/examples', description: 'List example queries' },
     { key: 'login', label: '/login', description: 'Connect with NIP-07' },
-    { key: 'logout', label: '/logout', description: 'Clear session' }
+    { key: 'logout', label: '/logout', description: 'Clear session' },
+    { key: 'clear', label: '/clear', description: 'Clear all caches' }
   ] as const), []);
   const router = useRouter();
   const pathname = usePathname();
@@ -310,6 +312,26 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       setTopExamples(null);
+      return;
+    }
+    if (cmd === 'clear') {
+      setTopCommandText(buildCli('clear', 'Clearing all caches...'));
+      setTopExamples(null);
+      (async () => {
+        try {
+          // Clear NIP-50 caches
+          clearNip50Cache();
+          clearNip50SupportCache();
+          
+          // Clear localStorage caches
+          localStorage.removeItem('ants_nip50_support_cache');
+          localStorage.removeItem('ants_nip50_cache');
+          
+          setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
+        } catch (error) {
+          setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
+        }
+      })();
       return;
     }
     setTopCommandText(buildCli(cmd, 'Unknown command'));
