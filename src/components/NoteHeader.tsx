@@ -10,7 +10,6 @@ import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
-import IconButton from '@/components/IconButton';
 
 interface NoteHeaderProps {
   event: NDKEvent;

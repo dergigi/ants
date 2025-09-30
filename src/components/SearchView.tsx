@@ -1611,7 +1611,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} />}
       />
     ));
-  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton, formatEventTimestamp]);
+  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
