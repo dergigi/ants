@@ -959,7 +959,7 @@ export async function searchEvents(
 
   // Full-text profile search `p:<term>` (not only username)
   // Also supports hex or npub directly to fetch that exact profile
-  const fullProfileMatch = cleanedQuery.match(/^p:(.+)$/i);
+  const fullProfileMatch = cleanedQuery.match(/^p:(\S+)/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
     if (!term) return [];
@@ -982,6 +982,38 @@ export async function searchEvents(
     // Otherwise, do a general full-text profile search
     try {
       const profiles = await searchProfilesFullText(term);
+      
+      // If there's additional text after the profile term, search for events from those profiles
+      const remainingQuery = cleanedQuery.replace(/^p:\S+\s+/, '').trim();
+      if (remainingQuery && profiles.length > 0) {
+        // Extract pubkeys from found profiles
+        const pubkeys = profiles.map(p => p.pubkey).filter(Boolean);
+        if (pubkeys.length > 0) {
+          console.log(`[PROFILE SEARCH] Found ${profiles.length} profiles, searching for "${remainingQuery}" from ${pubkeys.length} authors`);
+          
+          // Search for events from these profiles with the remaining query
+          const authorFilter: NDKFilter = {
+            kinds: effectiveKinds,
+            authors: pubkeys,
+            search: buildSearchQueryWithExtensions(remainingQuery, nip50Extensions),
+            limit: Math.max(limit, 200)
+          };
+          
+          const results = isStreaming
+            ? await subscribeAndStream(authorFilter, {
+                timeoutMs: streamingOptions?.timeoutMs || 30000,
+                maxResults: streamingOptions?.maxResults || 1000,
+                onResults: streamingOptions?.onResults,
+                relaySet: chosenRelaySet,
+                abortSignal
+              })
+            : await subscribeAndCollect(authorFilter, 8000, chosenRelaySet, abortSignal);
+          
+          console.log(`[PROFILE SEARCH] Found ${results.length} events from profile authors`);
+          return results;
+        }
+      }
+      
       return profiles;
     } catch (error) {
       console.warn('Full-text profile search failed:', error);
