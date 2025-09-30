@@ -14,6 +14,7 @@ import {
   faEyeSlash, 
   faThumbtack, 
   faBookmark,
+  faCircleUser,
   type IconDefinition
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -22,6 +23,7 @@ import {
  * Based on the mapping in public/kind-icons.txt
  */
 export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
+  0: faCircleUser,     // Profile metadata
   1: faFeather,        // Text notes
   6: faRetweet,        // Reposts
   7: faHeart,          // Reactions
@@ -57,6 +59,7 @@ export function getEventKindIcon(kind: number): IconDefinition | null {
  */
 export function getEventKindIconName(kind: number): string | null {
   const iconMap: Record<number, string> = {
+    0: 'fa-circle-user',
     1: 'fa-feather',
     6: 'fa-retweet', 
     7: 'fa-heart',
