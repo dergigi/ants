@@ -1,5 +1,5 @@
-import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
-import { ndk, safeSubscribe, ensureCacheInitialized } from './ndk';
+import { NDKRelaySet } from '@nostr-dev-kit/ndk';
+import { ndk, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
 import { getUserRelayUrls } from './search';
@@ -184,52 +184,6 @@ async function checkNip50SupportViaNip11(relayUrl: string): Promise<boolean> {
   }
 }
 
-// Test NIP-50 support with a minimal search query
-async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
-  await ensureCacheInitialized();
-  return new Promise((resolve) => {
-    const testRelaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndk);
-    let hasSearchResponse = false;
-    
-    const sub = safeSubscribe([{ 
-      kinds: [1], 
-      search: 'antstestuniquesearchterm', 
-      limit: 1
-    }], { 
-      closeOnEose: true, 
-      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
-      relaySet: testRelaySet
-    });
-    
-    if (!sub) {
-      resolve(false);
-      return;
-    }
-    
-    const timer = setTimeout(() => {
-      try { sub.stop(); } catch {}
-      // Only consider it NIP-50 supported if we got a search response
-      resolve(hasSearchResponse);
-    }, 2000); // 2s timeout - shorter for faster detection
-    
-    sub.on('event', () => {
-      hasSearchResponse = true;
-      clearTimeout(timer);
-      try { sub.stop(); } catch {}
-      resolve(true);
-    });
-    
-    sub.on('eose', () => {
-      clearTimeout(timer);
-      try { sub.stop(); } catch {}
-      resolve(hasSearchResponse);
-    });
-    
-    // Note: NDK doesn't have an 'error' event, so we'll rely on timeout and response
-    
-    sub.start();
-  });
-}
 
 // Check if relay supports NIP-50 (with caching)
 export async function checkNip50Support(relayUrl: string): Promise<boolean> {
@@ -239,13 +193,8 @@ export async function checkNip50Support(relayUrl: string): Promise<boolean> {
     return cached.supported;
   }
   
-  // Try NIP-11 first (most efficient)
-  let supported = await checkNip50SupportViaNip11(relayUrl);
-  
-  // If NIP-11 fails, try test query
-  if (!supported) {
-    supported = await checkNip50SupportViaTest(relayUrl);
-  }
+  // Use only NIP-11 method for reliable detection
+  const supported = await checkNip50SupportViaNip11(relayUrl);
   
   // Cache the result
   nip50SupportCache.set(relayUrl, { 
