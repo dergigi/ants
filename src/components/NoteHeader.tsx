@@ -114,7 +114,14 @@ export default function NoteHeader({
             )}
           </button>
         ) : (
-          <div className="flex-1 text-left flex items-center gap-2">
+          <button 
+            type="button" 
+            className="flex-1 text-left flex items-center gap-2"
+            onClick={() => {
+              // TODO: Add click handler for event kind actions
+              console.log('Event kind clicked:', event.kind);
+            }}
+          >
             {(() => {
               const kindIcon = getEventKindIcon(event.kind);
               return kindIcon ? (
@@ -123,7 +130,7 @@ export default function NoteHeader({
                 <span className="text-gray-400">Note</span>
               );
             })()}
-          </div>
+          </button>
         )}
         <RelayIndicator event={event} className="ml-2" />
       </div>
