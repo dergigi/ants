@@ -3,7 +3,7 @@ import { ConnectionStatus, ndk } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
-import { checkNip50Support } from '@/lib/relays';
+import { getRelayInfo } from '@/lib/relays';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -26,13 +26,27 @@ export default function RelayStatusDisplay({
   // Combine all relays into a single list
   const allRelays = useMemo(() => [...eventsReceivedRelays, ...otherRelays], [eventsReceivedRelays, otherRelays]);
   
-  // Track NIP-50 support and relay info for each relay
-  const [relayInfo, setRelayInfo] = useState<Map<string, { supportsNip50: boolean; supportedNips: number[] }>>(new Map());
+  // Track complete relay info for each relay
+  const [relayInfo, setRelayInfo] = useState<Map<string, {
+    supportedNips?: number[];
+    name?: string;
+    description?: string;
+    contact?: string;
+    software?: string;
+    version?: string;
+  }>>(new Map());
 
-  // Check NIP-50 support and get relay info for connected relays only
+  // Get complete relay info for connected relays
   useEffect(() => {
-    const checkSupport = async () => {
-      const infoMap = new Map<string, { supportsNip50: boolean; supportedNips: number[] }>();
+    const getRelayInfoData = async () => {
+      const infoMap = new Map<string, {
+        supportedNips?: number[];
+        name?: string;
+        description?: string;
+        contact?: string;
+        software?: string;
+        version?: string;
+      }>();
 
       // Filter to only relays that are actually connected to NDK
       const connectedRelays = allRelays.filter(relay => {
@@ -40,15 +54,15 @@ export default function RelayStatusDisplay({
         return ndkRelay && ndkRelay.status === 1; // status 1 = connected
       });
 
-      console.log(`[NIP-50] Checking ${connectedRelays.length}/${allRelays.length} connected relays for NIP-50 support`);
+      console.log(`[RELAY] Checking ${connectedRelays.length}/${allRelays.length} connected relays for complete info`);
 
       const promises = connectedRelays.map(async (relay) => {
         try {
-          const result = await checkNip50Support(relay.url);
+          const result = await getRelayInfo(relay.url);
           infoMap.set(relay.url, result);
         } catch (error) {
-          console.warn(`Failed to check NIP-50 support for ${relay.url}:`, error);
-          infoMap.set(relay.url, { supportsNip50: false, supportedNips: [] });
+          console.warn(`Failed to get relay info for ${relay.url}:`, error);
+          infoMap.set(relay.url, {});
         }
       });
 
@@ -59,7 +73,7 @@ export default function RelayStatusDisplay({
     };
 
     if (allRelays.length > 0) {
-      checkSupport();
+      getRelayInfoData();
     }
   }, [allRelays]);
 
@@ -83,8 +97,9 @@ export default function RelayStatusDisplay({
               : isActive
                 ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
                 : 'text-gray-500 bg-transparent';
-            const relayData = relayInfo.get(relay.url) || { supportsNip50: false, supportedNips: [] };
-            const { supportsNip50, supportedNips } = relayData;
+            const relayData = relayInfo.get(relay.url) || {};
+            const { supportedNips = [] } = relayData;
+            const supportsNip50 = supportedNips.includes(50);
             // Match magnifying glass color to relay icon color
             const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
             
@@ -109,14 +124,33 @@ export default function RelayStatusDisplay({
                       onClick={() => onSearch(cleanedUrl)}
                       className="hover:text-gray-200 hover:underline cursor-pointer text-left"
                     >
-                      {cleanedUrl}{pingDisplay}
+                      {relayData.name || cleanedUrl}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{cleanedUrl}{pingDisplay}</span>
+                    <span>{relayData.name || cleanedUrl}{pingDisplay}</span>
                   )}
+
                   {supportedNips.length > 0 && (
                     <span className="text-[10px] text-gray-500 mt-0.5">
                       NIPs: {supportedNips.join(', ')}
+                    </span>
+                  )}
+
+                  {relayData.description && (
+                    <span className="text-[9px] text-gray-600 mt-0.5 max-w-xs truncate" title={relayData.description}>
+                      {relayData.description}
+                    </span>
+                  )}
+
+                  {relayData.contact && (
+                    <span className="text-[9px] text-gray-600 mt-0.5">
+                      Contact: {relayData.contact}
+                    </span>
+                  )}
+
+                  {relayData.software && (
+                    <span className="text-[9px] text-gray-600 mt-0.5">
+                      {relayData.software} {relayData.version && `v${relayData.version}`}
                     </span>
                   )}
                 </div>

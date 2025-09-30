@@ -4,38 +4,57 @@ import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
-// Cache for NIP-50 support status
-const nip50SupportCache = new Map<string, { supported: boolean; supportedNips?: number[]; timestamp: number }>();
+// Cache for relay information (complete NIP-11 data)
+const relayInfoCache = new Map<string, {
+  supportedNips?: number[];
+  name?: string;
+  description?: string;
+  contact?: string;
+  software?: string;
+  version?: string;
+  timestamp: number;
+}>();
 const CACHE_DURATION_MS = 60 * 1000; // 1 minute
-const CACHE_STORAGE_KEY = 'ants_nip50_cache';
+const CACHE_STORAGE_KEY = 'ants_relay_info_cache';
 
 // Load cache from localStorage on initialization (browser only)
 function loadCacheFromStorage(): void {
   try {
-    const loaded = loadMapFromStorage<{ supported: boolean; supportedNips?: number[]; timestamp: number }>(CACHE_STORAGE_KEY);
+    const loaded = loadMapFromStorage<{
+      supported?: boolean;
+      supportedNips?: number[];
+      name?: string;
+      description?: string;
+      contact?: string;
+      software?: string;
+      version?: string;
+      timestamp: number;
+    }>(CACHE_STORAGE_KEY);
+
     for (const [url, entry] of loaded.entries()) {
-      nip50SupportCache.set(url, entry);
+      relayInfoCache.set(url, entry);
     }
+
     if (loaded.size > 0) {
-      console.log(`[NIP-50 CACHE] Loaded ${loaded.size} cache entries from storage (TTL: 1min):`);
+      console.log(`[RELAY CACHE] Loaded ${loaded.size} relay info entries from storage (TTL: 1min):`);
       for (const [url, entry] of loaded.entries()) {
         const age = Math.round((Date.now() - entry.timestamp) / (1000 * 60)); // minutes
         const nips = entry.supportedNips?.length ? entry.supportedNips.join(', ') : 'none';
-        const status = entry.supported ? '✅' : '❌';
-        console.log(`[NIP-50 CACHE]   ${status} ${url} - NIPs: [${nips}], Age: ${age}m`);
+        const name = entry.name ? `"${entry.name}"` : 'unnamed';
+        console.log(`[RELAY CACHE]   ${name} (${url}) - NIPs: [${nips}], Age: ${age}m`);
       }
     }
   } catch (error) {
-    console.warn('Failed to load NIP-50 cache from storage:', error);
+    console.warn('Failed to load relay info cache from storage:', error);
   }
 }
 
 // Save cache to localStorage (browser only)
 function saveCacheToStorage(): void {
   try {
-    saveMapToStorage(CACHE_STORAGE_KEY, nip50SupportCache);
+    saveMapToStorage(CACHE_STORAGE_KEY, relayInfoCache);
   } catch (error) {
-    console.warn('Failed to save NIP-50 cache to storage:', error);
+    console.warn('Failed to save relay info cache to storage:', error);
   }
 }
 
@@ -312,48 +331,88 @@ export async function createRelaySet(urls: string[]): Promise<NDKRelaySet> {
   return NDKRelaySet.fromRelayUrls(urls, ndk);
 }
 
-// Check NIP-50 support using multiple detection methods
-async function checkNip50SupportViaNDK(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
+// Get complete relay information using multiple detection methods
+export async function getRelayInfo(relayUrl: string): Promise<{
+  supportedNips?: number[];
+  name?: string;
+  description?: string;
+  contact?: string;
+  software?: string;
+  version?: string;
+}> {
   try {
-    // Method 1: Check if relay is in our known NIP-50 supporting relays list
-    const knownNip50Relays = new Set<string>([
+    // Check cache first
+    const cached = relayInfoCache.get(relayUrl);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION_MS) {
+      console.log(`[RELAY CACHE] Using cached info for ${relayUrl}`);
+      return cached;
+    }
+
+    console.log(`[RELAY] Getting fresh info for ${relayUrl}`);
+
+    // Method 1: Check if relay is in our known relays list and assume standard NIPs
+    const knownSearchRelays = new Set<string>([
       ...RELAYS.SEARCH,
       ...RELAYS.PROFILE_SEARCH
     ]);
 
-    if (knownNip50Relays.has(relayUrl)) {
-      console.log(`[NIP-50] ${relayUrl} is in known NIP-50 supporting relays list`);
-      return { supportsNip50: true, supportedNips: [1, 50] };
+    if (knownSearchRelays.has(relayUrl)) {
+      console.log(`[RELAY] ${relayUrl} is in known search relays list`);
+      const result = { supportedNips: [1, 50] };
+      // Cache this result
+      relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
+      saveCacheToStorage();
+      return result;
     }
 
     // Method 2: Check NDK's cached relay info
     const relay = ndk.pool?.relays?.get(relayUrl);
     if (relay) {
-      console.log(`[NIP-50 DEBUG] Checking relay info for ${relayUrl}`);
-      console.log(`[NIP-50 DEBUG] Relay status:`, relay.status);
+      console.log(`[RELAY DEBUG] Checking NDK relay info for ${relayUrl}`);
+      console.log(`[RELAY DEBUG] Relay status:`, relay.status);
 
       // Check if relay has info cached from NIP-11
       const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
       if (relayInfo && relayInfo.supported_nips) {
-        const supportsNip50 = relayInfo.supported_nips.includes(50);
-        console.log(`[NIP-50 DEBUG] ${relayUrl} cached supported_nips:`, relayInfo.supported_nips, `NIP-50 support: ${supportsNip50}`);
-        return { supportsNip50, supportedNips: relayInfo.supported_nips };
+        console.log(`[RELAY DEBUG] ${relayUrl} cached supported_nips:`, relayInfo.supported_nips);
+        const result = { supportedNips: relayInfo.supported_nips };
+        // Cache this result
+        relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
+        saveCacheToStorage();
+        return result;
       }
     }
 
     // Method 3: Try HTTP NIP-11 detection as fallback
-    console.log(`[NIP-50] ${relayUrl} - trying HTTP NIP-11 detection`);
-    return await checkNip50SupportViaHttp(relayUrl);
+    console.log(`[RELAY] ${relayUrl} - trying HTTP detection`);
+    const httpResult = await checkRelayInfoViaHttp(relayUrl);
+
+    if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
+      // Cache this result
+      relayInfoCache.set(relayUrl, { ...httpResult, timestamp: Date.now() });
+      saveCacheToStorage();
+      return httpResult;
+    }
+
+    console.log(`[RELAY] ${relayUrl} - no relay info found`);
+    return {};
   } catch (error) {
-    console.warn(`Failed to check NIP-50 support for ${relayUrl}:`, error);
-    return { supportsNip50: false, supportedNips: [] };
+    console.warn(`Failed to get relay info for ${relayUrl}:`, error);
+    return {};
   }
 }
 
-// Check NIP-50 support via HTTP (NIP-11 compatible)
-async function checkNip50SupportViaHttp(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
+// Check relay information via HTTP (NIP-11 compatible)
+async function checkRelayInfoViaHttp(relayUrl: string): Promise<{
+  supportedNips?: number[];
+  name?: string;
+  description?: string;
+  contact?: string;
+  software?: string;
+  version?: string;
+}> {
   try {
-    console.log(`[NIP-50 HTTP] Checking relay info for ${relayUrl}`);
+    console.log(`[RELAY HTTP] Checking relay info for ${relayUrl}`);
 
     // Convert wss:// to https:// for HTTP requests (NIP-11 compatible)
     const httpUrl = relayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
@@ -367,7 +426,7 @@ async function checkNip50SupportViaHttp(relayUrl: string): Promise<{ supportsNip
 
     for (const testUrl of possibleUrls) {
       try {
-        console.log(`[NIP-50 HTTP] Trying ${testUrl}`);
+        console.log(`[RELAY HTTP] Trying ${testUrl}`);
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 2000); // 2s per attempt
@@ -381,86 +440,78 @@ async function checkNip50SupportViaHttp(relayUrl: string): Promise<{ supportsNip
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`[NIP-50 HTTP] ${relayUrl} - found data at ${testUrl}:`, data);
+          console.log(`[RELAY HTTP] ${relayUrl} - found data at ${testUrl}:`, data);
 
-          const supportedNips = data?.supported_nips || [];
-          const supportsNip50 = supportedNips.includes(50);
-          console.log(`[NIP-50 HTTP] ${relayUrl} - supported_nips:`, supportedNips, `NIP-50 support: ${supportsNip50}`);
-
-          return { supportsNip50, supportedNips };
+          // Return complete relay information
+          return {
+            supportedNips: data?.supported_nips || [],
+            name: data?.name,
+            description: data?.description,
+            contact: data?.contact,
+            software: data?.software,
+            version: data?.version
+          };
         } else {
-          console.log(`[NIP-50 HTTP] ${testUrl} - not available (${response.status})`);
+          console.log(`[RELAY HTTP] ${testUrl} - not available (${response.status})`);
         }
       } catch (error) {
-        console.log(`[NIP-50 HTTP] ${testUrl} - failed:`, error);
+        console.log(`[RELAY HTTP] ${testUrl} - failed:`, error);
       }
     }
 
-    console.log(`[NIP-50 HTTP] ${relayUrl} - no NIP-11 info found at any endpoint`);
-    return { supportsNip50: false, supportedNips: [] };
+    console.log(`[RELAY HTTP] ${relayUrl} - no relay info found at any endpoint`);
+    return {};
   } catch (error) {
-    console.log(`[NIP-50 HTTP] ${relayUrl} - HTTP detection failed:`, error);
-    return { supportsNip50: false, supportedNips: [] };
+    console.log(`[RELAY HTTP] ${relayUrl} - HTTP detection failed:`, error);
+    return {};
   }
 }
 
 
-// Check if relay supports NIP-50 (with caching)
+
+
+
+// Clear relay info cache (useful for debugging)
+export function clearRelayInfoCache(): void {
+  relayInfoCache.clear();
+  try {
+    clearStorageKey(CACHE_STORAGE_KEY);
+    console.log('Relay info cache cleared');
+  } catch (error) {
+    console.warn('Failed to clear relay info cache:', error);
+  }
+}
+
+// Backward compatibility - keep old function names
+export const clearNip50SupportCache = clearRelayInfoCache;
+export const clearNip50Cache = clearRelayInfoCache;
+
+// Backward compatibility function for NIP-50 support checking
 export async function checkNip50Support(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
-  // Check cache first
-  const cached = nip50SupportCache.get(relayUrl);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION_MS) {
+  const relayInfo = await getRelayInfo(relayUrl);
+
+  if (relayInfo.supportedNips) {
     return {
-      supportsNip50: cached.supported,
-      supportedNips: cached.supportedNips || (cached.supported ? [50] : [])
+      supportsNip50: relayInfo.supportedNips.includes(50),
+      supportedNips: relayInfo.supportedNips
     };
   }
 
-  // Use NDK's relay information for NIP-50 detection
-  const result = await checkNip50SupportViaNDK(relayUrl);
-
-  // Only cache results when we actually get valid responses from relays
-  // Don't cache "unknown" or timeout results to avoid preventing future attempts
-  if (result.supportedNips.length > 0 || result.supportsNip50) {
-    console.log(`[NIP-50 CACHE] Caching result for ${relayUrl}:`, result);
-    nip50SupportCache.set(relayUrl, {
-      supported: result.supportsNip50,
-      supportedNips: result.supportedNips,
-      timestamp: Date.now()
-    });
-
-    // Save to localStorage
-    saveCacheToStorage();
-  } else {
-    console.log(`[NIP-50 CACHE] Not caching uncertain result for ${relayUrl}:`, result);
-  }
-
-  return result;
-}
-
-// Clear NIP-50 support cache (useful for debugging)
-export function clearNip50SupportCache(): void {
-  nip50SupportCache.clear();
-  try {
-    clearStorageKey('ants_nip50_support_cache');
-    console.log('NIP-50 support cache cleared');
-  } catch (error) {
-    console.warn('Failed to clear NIP-50 support cache:', error);
-  }
+  return { supportsNip50: false, supportedNips: [] };
 }
 
 // Filter relays to only those supporting NIP-50
 export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> {
   const results = await Promise.allSettled(
-    relayUrls.map(async (url) => ({
-      url,
-      supported: await checkNip50Support(url)
-    }))
+    relayUrls.map(async (url) => {
+      const nip50Info = await checkNip50Support(url);
+      return { url, nip50Info };
+    })
   );
 
   return results
-    .filter((result): result is PromiseFulfilledResult<{ url: string; supported: { supportsNip50: boolean; supportedNips: number[] } }> =>
-      result.status === 'fulfilled' && result.value.supported.supportsNip50
+    .filter((result): result is PromiseFulfilledResult<{ url: string; nip50Info: { supportsNip50: boolean; supportedNips: number[] } }> =>
+      result.status === 'fulfilled' && result.value.nip50Info.supportsNip50
     )
     .map(result => result.value.url);
 }
@@ -495,29 +546,3 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   return createRelaySet(nip50Relays);
 }
 
-// Clear NIP-50 cache (useful for debugging or forcing re-detection)
-export function clearNip50Cache(): void {
-  nip50SupportCache.clear();
-  try {
-    clearStorageKey(CACHE_STORAGE_KEY);
-    console.log('NIP-50 cache cleared');
-  } catch (error) {
-    console.warn('Failed to clear NIP-50 cache from storage:', error);
-  }
-}
-
-// Get cache statistics
-export function getNip50CacheStats(): { size: number; entries: Array<{ url: string; supported: boolean; supportedNips?: number[]; age: number }> } {
-  const now = Date.now();
-  const entries = Array.from(nip50SupportCache.entries()).map(([url, entry]) => ({
-    url,
-    supported: entry.supported,
-    supportedNips: entry.supportedNips,
-    age: Math.round((now - entry.timestamp) / (1000 * 60 * 60)) // age in hours
-  }));
-
-  return {
-    size: nip50SupportCache.size,
-    entries
-  };
-}
