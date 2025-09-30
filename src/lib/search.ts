@@ -337,6 +337,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       const relayContributions = new Map<string, number>();
       finalResults.forEach(event => {
         const eventWithSource = event as NDKEventWithRelaySource;
+        console.log(`[SEARCH DEBUG] Event ${event.id} sources:`, eventWithSource.relaySources);
         if (eventWithSource.relaySources) {
           eventWithSource.relaySources.forEach(relayUrl => {
             relayContributions.set(relayUrl, (relayContributions.get(relayUrl) || 0) + 1);
@@ -380,13 +381,18 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         eventWithSource.relaySources = [normalizedUrl];
         collected.set(event.id, eventWithSource);
         console.log(`[SEARCH DEBUG] New event from ${normalizedUrl}, total collected: ${collected.size}`);
+        console.log(`[SEARCH DEBUG] Event ${event.id} assigned to relay: ${normalizedUrl}`);
       } else {
         // Event already exists, add this relay to the sources
         const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
         const normalizedUrl = normalizeRelayUrl(relayUrl);
+        console.log(`[SEARCH DEBUG] Duplicate event ${event.id} from ${normalizedUrl}`);
+        console.log(`[SEARCH DEBUG] Existing sources:`, existingEvent.relaySources);
         if (existingEvent.relaySources && !existingEvent.relaySources.includes(normalizedUrl)) {
           existingEvent.relaySources.push(normalizedUrl);
-          console.log(`[SEARCH DEBUG] Duplicate event from ${normalizedUrl}, added to sources`);
+          console.log(`[SEARCH DEBUG] Added ${normalizedUrl} to sources. New sources:`, existingEvent.relaySources);
+        } else {
+          console.log(`[SEARCH DEBUG] Relay ${normalizedUrl} already in sources or no relaySources array`);
         }
       }
     });
