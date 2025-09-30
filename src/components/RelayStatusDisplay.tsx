@@ -14,37 +14,36 @@ interface RelayStatusDisplayProps {
   onSearch?: (query: string) => void;
 }
 
-export default function RelayStatusDisplay({ 
+export default function RelayStatusDisplay({
   connectionDetails,
-  relayInfo,
+  relayInfo: relayData,
   activeRelays,
   onSearch
 }: RelayStatusDisplayProps) {
-  const { 
-    eventsReceivedRelays, 
-    otherRelays
-  } = relayInfo;
+  const eventsReceivedRelays = useMemo(() => relayData.eventsReceivedRelays || [], [relayData.eventsReceivedRelays]);
+  const otherRelays = useMemo(() => relayData.otherRelays || [], [relayData.otherRelays]);
 
   // Combine all relays into a single list
   const allRelays = useMemo(() => [...eventsReceivedRelays, ...otherRelays], [eventsReceivedRelays, otherRelays]);
   
-  // Track NIP-50 support for each relay
-  const [nip50Support, setNip50Support] = useState<Map<string, boolean>>(new Map());
+  // Track NIP-50 support and relay info for each relay
+  const [relayInfo, setRelayInfo] = useState<Map<string, { supportsNip50: boolean; supportedNips: number[] }>>(new Map());
 
-  // Check NIP-50 support for all relays
+  // Check NIP-50 support and get relay info for all relays
   useEffect(() => {
     const checkSupport = async () => {
-      const supportMap = new Map<string, boolean>();
+      const infoMap = new Map<string, { supportsNip50: boolean; supportedNips: number[] }>();
       const promises = allRelays.map(async (relay) => {
         try {
-          const supported = await checkNip50Support(relay.url);
-          supportMap.set(relay.url, supported);
-        } catch {
-          supportMap.set(relay.url, false);
+          const result = await checkNip50Support(relay.url);
+          infoMap.set(relay.url, result);
+        } catch (error) {
+          console.warn(`Failed to check NIP-50 support for ${relay.url}:`, error);
+          infoMap.set(relay.url, { supportsNip50: false, supportedNips: [] });
         }
       });
       await Promise.allSettled(promises);
-      setNip50Support(supportMap);
+      setRelayInfo(infoMap);
     };
 
     if (allRelays.length > 0) {
@@ -72,7 +71,8 @@ export default function RelayStatusDisplay({
               : isActive
                 ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
                 : 'text-gray-500 bg-transparent';
-            const supportsNip50 = nip50Support.get(relay.url) || false;
+            const relayData = relayInfo.get(relay.url) || { supportsNip50: false, supportedNips: [] };
+            const { supportsNip50, supportedNips } = relayData;
             // Match magnifying glass color to relay icon color
             const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
             
@@ -90,17 +90,24 @@ export default function RelayStatusDisplay({
                     <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
                   </div>
                 </div>
-                {onSearch ? (
-                  <button
-                    type="button"
-                    onClick={() => onSearch(cleanedUrl)}
-                    className="hover:text-gray-200 hover:underline cursor-pointer"
-                  >
-                    {cleanedUrl}{pingDisplay}
-                  </button>
-                ) : (
-                  <span>{cleanedUrl}{pingDisplay}</span>
-                )}
+                <div className="flex flex-col">
+                  {onSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => onSearch(cleanedUrl)}
+                      className="hover:text-gray-200 hover:underline cursor-pointer text-left"
+                    >
+                      {cleanedUrl}{pingDisplay}
+                    </button>
+                  ) : (
+                    <span>{cleanedUrl}{pingDisplay}</span>
+                  )}
+                  {supportedNips.length > 0 && (
+                    <span className="text-[10px] text-gray-500 mt-0.5">
+                      NIPs: {supportedNips.join(', ')}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
