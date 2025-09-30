@@ -36,8 +36,15 @@ export default function RelayStatusDisplay({
     version?: string;
   }>>(new Map());
 
-  // Get complete relay info for connected relays
+  // Track if we've already loaded relay info to prevent repeated requests
+  const [hasLoadedRelayInfo, setHasLoadedRelayInfo] = useState(false);
+
+  // Get complete relay info for connected relays (only once)
   useEffect(() => {
+    if (hasLoadedRelayInfo || allRelays.length === 0) {
+      return;
+    }
+
     const getRelayInfoData = async () => {
       const infoMap = new Map<string, {
         supportedNips?: number[];
@@ -54,7 +61,7 @@ export default function RelayStatusDisplay({
         return ndkRelay && ndkRelay.status === 1; // status 1 = connected
       });
 
-      console.log(`[RELAY] Checking ${connectedRelays.length}/${allRelays.length} connected relays for complete info`);
+      console.log(`[RELAY] Checking ${connectedRelays.length}/${allRelays.length} connected relays for complete info (one-time)`);
 
       const promises = connectedRelays.map(async (relay) => {
         try {
@@ -70,12 +77,11 @@ export default function RelayStatusDisplay({
         await Promise.allSettled(promises);
       }
       setRelayInfo(infoMap);
+      setHasLoadedRelayInfo(true);
     };
 
-    if (allRelays.length > 0) {
-      getRelayInfoData();
-    }
-  }, [allRelays]);
+    getRelayInfoData();
+  }, [allRelays, hasLoadedRelayInfo]);
 
   return (
     <div 

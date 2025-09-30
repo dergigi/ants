@@ -350,48 +350,58 @@ export async function getRelayInfo(relayUrl: string): Promise<{
 
     console.log(`[RELAY] Getting fresh info for ${relayUrl}`);
 
-    // Method 1: Check if relay is in our known relays list and assume standard NIPs
-    const knownSearchRelays = new Set<string>([
-      ...RELAYS.SEARCH,
-      ...RELAYS.PROFILE_SEARCH
-    ]);
+    // Add a global timeout for the entire relay info checking process
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Relay info check timeout')), 10000); // 10 second timeout
+    });
 
-    if (knownSearchRelays.has(relayUrl)) {
-      console.log(`[RELAY] ${relayUrl} is in known search relays list - will try HTTP detection`);
-      // Don't hard-code supported NIPs - let HTTP detection determine actual capabilities
-    }
+    const relayInfoPromise = (async () => {
+      // Method 1: Check if relay is in our known relays list and assume standard NIPs
+      const knownSearchRelays = new Set<string>([
+        ...RELAYS.SEARCH,
+        ...RELAYS.PROFILE_SEARCH
+      ]);
 
-    // Method 2: Check NDK's cached relay info
-    const relay = ndk.pool?.relays?.get(relayUrl);
-    if (relay) {
-      console.log(`[RELAY DEBUG] Checking NDK relay info for ${relayUrl}`);
-      console.log(`[RELAY DEBUG] Relay status:`, relay.status);
-
-      // Check if relay has info cached from NIP-11
-      const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
-      if (relayInfo && relayInfo.supported_nips) {
-        console.log(`[RELAY DEBUG] ${relayUrl} cached supported_nips:`, relayInfo.supported_nips);
-        const result = { supportedNips: relayInfo.supported_nips };
-        // Cache this result
-        relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
-        saveCacheToStorage();
-        return result;
+      if (knownSearchRelays.has(relayUrl)) {
+        console.log(`[RELAY] ${relayUrl} is in known search relays list - will try HTTP detection`);
+        // Don't hard-code supported NIPs - let HTTP detection determine actual capabilities
       }
-    }
 
-    // Method 3: Try HTTP NIP-11 detection as fallback
-    console.log(`[RELAY] ${relayUrl} - trying HTTP detection`);
-    const httpResult = await checkRelayInfoViaHttp(relayUrl);
+      // Method 2: Check NDK's cached relay info
+      const relay = ndk.pool?.relays?.get(relayUrl);
+      if (relay) {
+        console.log(`[RELAY DEBUG] Checking NDK relay info for ${relayUrl}`);
+        console.log(`[RELAY DEBUG] Relay status:`, relay.status);
 
-    if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
-      // Cache this result
-      relayInfoCache.set(relayUrl, { ...httpResult, timestamp: Date.now() });
-      saveCacheToStorage();
-      return httpResult;
-    }
+        // Check if relay has info cached from NIP-11
+        const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
+        if (relayInfo && relayInfo.supported_nips) {
+          console.log(`[RELAY DEBUG] ${relayUrl} cached supported_nips:`, relayInfo.supported_nips);
+          const result = { supportedNips: relayInfo.supported_nips };
+          // Cache this result
+          relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
+          saveCacheToStorage();
+          return result;
+        }
+      }
 
-    console.log(`[RELAY] ${relayUrl} - no relay info found`);
-    return {};
+      // Method 3: Try HTTP NIP-11 detection as fallback
+      console.log(`[RELAY] ${relayUrl} - trying HTTP detection`);
+      const httpResult = await checkRelayInfoViaHttp(relayUrl);
+
+      if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
+        // Cache this result
+        relayInfoCache.set(relayUrl, { ...httpResult, timestamp: Date.now() });
+        saveCacheToStorage();
+        return httpResult;
+      }
+
+      console.log(`[RELAY] ${relayUrl} - no relay info found`);
+      return {};
+    })();
+
+    // Race between the relay info promise and the timeout
+    return await Promise.race([relayInfoPromise, timeoutPromise]);
   } catch (error) {
     console.warn(`Failed to get relay info for ${relayUrl}:`, error);
     return {};

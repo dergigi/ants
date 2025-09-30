@@ -971,11 +971,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     };
   }, []);
 
-  // Periodically refresh recently active relays while panel open
+  // Periodically refresh recently active relays while panel open (reduced frequency)
   useEffect(() => {
     if (!showConnectionDetails) return;
     setRecentlyActive(getRecentlyActiveRelays());
-    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 5000);
+    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 15000); // Reduced from 5s to 15s
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
@@ -984,11 +984,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setRecentlyActive(getRecentlyActiveRelays());
   }, [connectionDetails]);
 
-  // Periodically update recently active relays to catch relay activity changes
+  // Periodically update recently active relays to catch relay activity changes (reduced frequency)
   useEffect(() => {
     const id = setInterval(() => {
       setRecentlyActive(getRecentlyActiveRelays());
-    }, 1000); // Update every 1 second to catch relay activity more quickly
+    }, 10000); // Reduced from 1s to 10s
     return () => clearInterval(id);
   }, []);
 

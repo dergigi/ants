@@ -362,27 +362,31 @@ export const startRelayMonitoring = () => {
   if (relayMonitorInterval) return; // Already monitoring
   
   relayMonitorInterval = setInterval(async () => {
-    const currentStatus = await checkRelayStatus();
-    if (globalConnectionStatus) {
-      // Only update if status changed
-      const statusChanged = 
-        currentStatus.connectedRelays.length !== globalConnectionStatus.connectedRelays.length ||
-        currentStatus.connectingRelays.length !== globalConnectionStatus.connectingRelays.length ||
-        currentStatus.failedRelays.length !== globalConnectionStatus.failedRelays.length ||
-        currentStatus.connectedRelays.some(url => !globalConnectionStatus!.connectedRelays.includes(url)) ||
-        currentStatus.connectingRelays.some(url => !globalConnectionStatus!.connectingRelays.includes(url)) ||
-        currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
-      
-      if (statusChanged) {
-        console.log('Relay status changed:', { 
-          connected: currentStatus.connectedRelays, 
-          connecting: currentStatus.connectingRelays,
-          failed: currentStatus.failedRelays 
-        });
-        updateConnectionStatus(currentStatus);
+    try {
+      const currentStatus = await checkRelayStatus();
+      if (globalConnectionStatus) {
+        // Only update if status changed
+        const statusChanged = 
+          currentStatus.connectedRelays.length !== globalConnectionStatus.connectedRelays.length ||
+          currentStatus.connectingRelays.length !== globalConnectionStatus.connectingRelays.length ||
+          currentStatus.failedRelays.length !== globalConnectionStatus.failedRelays.length ||
+          currentStatus.connectedRelays.some(url => !globalConnectionStatus!.connectedRelays.includes(url)) ||
+          currentStatus.connectingRelays.some(url => !globalConnectionStatus!.connectingRelays.includes(url)) ||
+          currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
+        
+        if (statusChanged) {
+          console.log('Relay status changed:', { 
+            connected: currentStatus.connectedRelays, 
+            connecting: currentStatus.connectingRelays,
+            failed: currentStatus.failedRelays 
+          });
+          updateConnectionStatus(currentStatus);
+        }
       }
+    } catch (error) {
+      console.warn('Relay monitoring error:', error);
     }
-  }, 10000); // Check every 10 seconds
+  }, 30000); // Check every 30 seconds (reduced from 10 seconds)
 };
 
 export const stopRelayMonitoring = () => {
