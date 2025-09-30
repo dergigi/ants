@@ -116,69 +116,41 @@ export default function RelayStatusDisplay({
                     <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {onSearch ? (
-                    <button
-                      type="button"
-                      onClick={() => onSearch(cleanedUrl)}
-                      className="hover:text-gray-200 hover:underline cursor-pointer text-left"
-                    >
-                      {cleanedUrl}{pingDisplay}
-                    </button>
-                  ) : (
-                    <span>{cleanedUrl}{pingDisplay}</span>
-                  )}
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    {onSearch ? (
+                      <button
+                        type="button"
+                        onClick={() => onSearch(cleanedUrl)}
+                        className="hover:text-gray-200 hover:underline cursor-pointer text-left"
+                      >
+                        {cleanedUrl}{pingDisplay}
+                      </button>
+                    ) : (
+                      <span>{cleanedUrl}{pingDisplay}</span>
+                    )}
+                  </div>
                   
                   {supportedNips.length > 0 && (
-                    <span className="text-[10px] text-gray-500">
-                      [
-                      {supportedNips.length > 8 ? (
-                        <>
-                          {supportedNips.slice(0, 6).map((nip, nipIdx) => (
-                            <span key={nipIdx}>
-                              {onSearch ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onSearch(`nip:${nip}`)}
-                                  className="hover:text-blue-300 hover:underline cursor-pointer"
-                                  title={`Search for NIP-${nip}`}
-                                >
-                                  {nip}
-                                </button>
-                              ) : (
-                                <span>{nip}</span>
-                              )}
-                              {nipIdx < 5 && ', '}
-                            </span>
-                          ))}
-                          <span 
-                            className="hover:text-blue-300 cursor-pointer"
-                            title={`All NIPs: ${supportedNips.join(', ')}`}
-                          >
-                            ...+{supportedNips.length - 6} more
-                          </span>
-                        </>
-                      ) : (
-                        supportedNips.map((nip, nipIdx) => (
-                          <span key={nipIdx}>
-                            {onSearch ? (
-                              <button
-                                type="button"
-                                onClick={() => onSearch(`nip:${nip}`)}
-                                className="hover:text-blue-300 hover:underline cursor-pointer"
-                                title={`Search for NIP-${nip}`}
-                              >
-                                {nip}
-                              </button>
-                            ) : (
-                              <span>{nip}</span>
-                            )}
-                            {nipIdx < supportedNips.length - 1 && ', '}
-                          </span>
-                        ))
-                      )}
-                      ]
-                    </span>
+                    <div className="text-[10px] text-gray-500 mt-0.5">
+                      [{supportedNips.map((nip, nipIdx) => (
+                        <span key={nipIdx}>
+                          {onSearch ? (
+                            <button
+                              type="button"
+                              onClick={() => onSearch(`nip:${nip}`)}
+                              className="hover:text-blue-300 hover:underline cursor-pointer"
+                              title={`Search for NIP-${nip}`}
+                            >
+                              {nip}
+                            </button>
+                          ) : (
+                            <span>{nip}</span>
+                          )}
+                          {nipIdx < supportedNips.length - 1 && ', '}
+                        </span>
+                      ))}]
+                    </div>
                   )}
                 </div>
               </div>
