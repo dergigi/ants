@@ -8,6 +8,7 @@ import { faReply } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
+import { getEventKindIcon } from '@/lib/eventKindIcons';
 
 interface NoteHeaderProps {
   event: NDKEvent;
@@ -114,7 +115,14 @@ export default function NoteHeader({
           </button>
         ) : (
           <div className="flex-1 text-left flex items-center gap-2">
-            <span className="text-gray-400">Note</span>
+            {(() => {
+              const kindIcon = getEventKindIcon(event.kind);
+              return kindIcon ? (
+                <FontAwesomeIcon icon={kindIcon} className="text-xs text-gray-400" />
+              ) : (
+                <span className="text-gray-400">Note</span>
+              );
+            })()}
           </div>
         )}
         <RelayIndicator event={event} className="ml-2" />
