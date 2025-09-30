@@ -3,7 +3,7 @@ import { ConnectionStatus, ndk } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
-import { getRelayInfo, RELAYS } from '@/lib/relays';
+import { getRelayInfo, RELAYS, relayInfoCache } from '@/lib/relays';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -26,27 +26,25 @@ export default function RelayStatusDisplay({
   // Combine all relays into a single list
   const allRelays = useMemo(() => [...eventsReceivedRelays, ...otherRelays], [eventsReceivedRelays, otherRelays]);
   
-  // Get relay info directly from cache - no complex loading
+  // Get relay info directly from the real cache
   const getRelayInfoFromCache = (relayUrl: string) => {
-    // Check if relay is in our known search relays
-    const knownSearchRelays = new Set([
-      ...RELAYS.SEARCH,
-      ...RELAYS.PROFILE_SEARCH
-    ]);
+    // Get the cached relay info
+    const cached = relayInfoCache.get(relayUrl);
     
-    if (knownSearchRelays.has(relayUrl as any)) {
-      // For known search relays, assume they support NIP-50 and common NIPs
+    if (cached) {
+      console.log(`[RELAY DISPLAY] Using cached info for ${relayUrl}:`, cached);
       return {
-        supportedNips: [1, 2, 4, 9, 11, 16, 20, 22, 28, 40, 42, 50, 70, 77, 98],
-        name: relayUrl.replace('wss://', '').replace('ws://', ''),
-        description: 'Known search relay',
-        contact: '',
-        software: '',
-        version: ''
+        supportedNips: cached.supportedNips || [],
+        name: cached.name || relayUrl.replace('wss://', '').replace('ws://', ''),
+        description: cached.description || '',
+        contact: cached.contact || '',
+        software: cached.software || '',
+        version: cached.version || ''
       };
     }
     
-    // For other relays, return empty info for now
+    // If no cached info, return basic info
+    console.log(`[RELAY DISPLAY] No cached info for ${relayUrl}`);
     return {
       supportedNips: [],
       name: relayUrl.replace('wss://', '').replace('ws://', ''),

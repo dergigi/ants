@@ -11,7 +11,7 @@ import {
 } from './constants';
 
 // Cache for relay information (complete NIP-11 data)
-const relayInfoCache = new Map<string, {
+export const relayInfoCache = new Map<string, {
   supportedNips?: number[];
   name?: string;
   description?: string;
