@@ -316,11 +316,9 @@ export async function createRelaySet(urls: string[]): Promise<NDKRelaySet> {
 async function checkNip50SupportViaNDK(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
   try {
     // Method 1: Check if relay is in our known NIP-50 supporting relays list
-    const knownNip50Relays = new Set([
+    const knownNip50Relays = new Set<string>([
       ...RELAYS.SEARCH,
-      ...RELAYS.PROFILE_SEARCH,
-      'wss://relay.dergigi.com',
-      'wss://wot.dergigi.com'
+      ...RELAYS.PROFILE_SEARCH
     ]);
 
     if (knownNip50Relays.has(relayUrl)) {
