@@ -117,26 +117,47 @@ export default function RelayStatusDisplay({
             return (
               <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-start gap-1">
                 <div className="flex items-start gap-1">
-                  <button
-                    type="button"
-                    onClick={() => onToggleRelay?.(normalizedUrl)}
-                    className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none transition-colors hover:opacity-80 ${iconClasses}`}
-                    title={isToggled ? "Click to hide results from this relay" : "Click to show only results from this relay"}
-                  >
-                    {supportsNip50 ? (
-                      <FontAwesomeIcon 
-                        icon={faMagnifyingGlass} 
-                        className="text-xs"
-                        title="Supports NIP-50 search"
-                      />
-                    ) : (
-                      <FontAwesomeIcon 
-                        icon={faServer} 
-                        className="text-xs"
-                        title="Database relay (no search support)"
-                      />
-                    )}
-                  </button>
+                  {providedResults ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleRelay?.(normalizedUrl)}
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none transition-colors hover:opacity-80 ${iconClasses}`}
+                      title={isToggled ? "Click to hide results from this relay" : "Click to show only results from this relay"}
+                    >
+                      {supportsNip50 ? (
+                        <FontAwesomeIcon 
+                          icon={faMagnifyingGlass} 
+                          className="text-xs"
+                          title="Supports NIP-50 search"
+                        />
+                      ) : (
+                        <FontAwesomeIcon 
+                          icon={faServer} 
+                          className="text-xs"
+                          title="Database relay (no search support)"
+                        />
+                      )}
+                    </button>
+                  ) : (
+                    <div
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}
+                      title="This relay did not provide results for the current search"
+                    >
+                      {supportsNip50 ? (
+                        <FontAwesomeIcon 
+                          icon={faMagnifyingGlass} 
+                          className="text-xs"
+                          title="Supports NIP-50 search"
+                        />
+                      ) : (
+                        <FontAwesomeIcon 
+                          icon={faServer} 
+                          className="text-xs"
+                          title="Database relay (no search support)"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center">
