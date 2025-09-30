@@ -275,8 +275,10 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
-  // Always use a single, stable search relay to reduce flakiness
-  return createRelaySet(await extendWithUserAndPremium([...RELAYS.SEARCH]));
+  // Get all relays (including user relays) but filter for NIP-50 support
+  const allRelays = await extendWithUserAndPremium([...RELAYS.SEARCH]);
+  const nip50Relays = await filterNip50Relays(allRelays);
+  return createRelaySet(nip50Relays);
 }
 
 // Clear NIP-50 cache (useful for debugging or forcing re-detection)
