@@ -135,7 +135,7 @@ export default function NoteHeader({
           <button 
             type="button" 
             onClick={handleToggle} 
-            className="flex-1 text-left flex items-center gap-2"
+            className="flex-1 text-left flex items-center gap-2 h-6"
           >
             {isLoading ? (
               <FontAwesomeIcon icon={faSpinner} className="text-xs text-gray-400 animate-spin" />
@@ -151,13 +151,14 @@ export default function NoteHeader({
             {(() => {
               const kindIcon = getEventKindIcon(displayEvent.kind);
               return kindIcon ? (
-                <IconButton
-                  title={getKindSearchQuery(displayEvent.kind) || 'Note'}
+                <button
+                  type="button"
                   onClick={handleKindClick}
-                  className="text-gray-400 hover:text-gray-300"
+                  className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+                  title={getKindSearchQuery(displayEvent.kind) || 'Note'}
                 >
                   <FontAwesomeIcon icon={kindIcon} className="text-xs" />
-                </IconButton>
+                </button>
               ) : (
                 <span className="text-gray-400">Note</span>
               );
