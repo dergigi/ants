@@ -1607,6 +1607,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           )}
           mediaRenderer={renderNoteMedia}
           className="p-0 border-0 bg-transparent w-full"
+          showFooter={true}
         />
       </div>
     ));
