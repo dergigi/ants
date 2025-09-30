@@ -6,6 +6,7 @@ import { nip19 } from 'nostr-tools';
 import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet } from './relays';
 import { getUserRelayAdditions } from './storage';
 import { normalizeRelayUrl } from './urlUtils';
+import { trackEventRelay, getEventRelaySources, getRelayContributions } from './eventRelayTracking';
 // legacy import removed
 
 // Type definitions for relay objects
@@ -23,10 +24,8 @@ import {
 } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
 
-interface NDKEventWithRelaySource extends NDKEvent {
-  relaySource?: string;
-  relaySources?: string[]; // Track all relays where this event was found
-}
+// Note: We no longer inject properties into NDKEvent objects
+// Instead, we use the eventRelayTracking system to track relay sources
 
 
 // Extend filter type to include tag queries for "t" (hashtags) and "a" (replaceable events)
@@ -245,10 +244,9 @@ export async function subscribeAndStream(
       }
       
       if (!collected.has(event.id)) {
-        const eventWithSource = event as NDKEventWithRelaySource;
-        eventWithSource.relaySource = relayUrl;
-        eventWithSource.relaySources = [relayUrl];
-        collected.set(event.id, eventWithSource);
+        // Track this event's relay source
+        trackEventRelay(event, relayUrl);
+        collected.set(event.id, event);
         
         // Check if we've hit max results
         if (maxResults && collected.size >= maxResults) {
@@ -266,11 +264,8 @@ export async function subscribeAndStream(
         // Emit results periodically
         emitResults();
       } else {
-        // Event already exists, add this relay to the sources
-        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
-        if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
-          existingEvent.relaySources.push(relayUrl);
-        }
+        // Event already exists, track this additional relay source
+        trackEventRelay(event, relayUrl);
       }
     });
 
@@ -334,15 +329,10 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       console.log(`[SEARCH DEBUG] Search completed. Total results: ${finalResults.length}`);
       
       // Log which relays contributed results
-      const relayContributions = new Map<string, number>();
+      const relayContributions = getRelayContributions(finalResults);
       finalResults.forEach(event => {
-        const eventWithSource = event as NDKEventWithRelaySource;
-        console.log(`[SEARCH DEBUG] Event ${event.id} sources:`, eventWithSource.relaySources);
-        if (eventWithSource.relaySources) {
-          eventWithSource.relaySources.forEach(relayUrl => {
-            relayContributions.set(relayUrl, (relayContributions.get(relayUrl) || 0) + 1);
-          });
-        }
+        const eventSources = getEventRelaySources(event);
+        console.log(`[SEARCH DEBUG] Event ${event.id} sources:`, eventSources);
       });
       console.log(`[SEARCH DEBUG] Relay contributions:`, Object.fromEntries(relayContributions));
       
@@ -375,26 +365,19 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       
       if (!collected.has(event.id)) {
         // First time seeing this event
-        const eventWithSource = event as NDKEventWithRelaySource;
         const normalizedUrl = normalizeRelayUrl(relayUrl);
-        eventWithSource.relaySource = normalizedUrl; // Primary source
-        eventWithSource.relaySources = [normalizedUrl]; // Complete list
-        collected.set(event.id, eventWithSource);
+        trackEventRelay(event, normalizedUrl);
+        collected.set(event.id, event);
         console.log(`[SEARCH DEBUG] New event from ${normalizedUrl}, total collected: ${collected.size}`);
         console.log(`[SEARCH DEBUG] Event ${event.id} assigned to relay: ${normalizedUrl}`);
       } else {
-        // Event already exists, add this relay to the sources
-        const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
+        // Event already exists, track this additional relay source
         const normalizedUrl = normalizeRelayUrl(relayUrl);
+        trackEventRelay(event, normalizedUrl);
         console.log(`[SEARCH DEBUG] Duplicate event ${event.id} from ${normalizedUrl}`);
-        console.log(`[SEARCH DEBUG] Existing sources:`, existingEvent.relaySources);
-        if (existingEvent.relaySources && !existingEvent.relaySources.includes(normalizedUrl)) {
-          existingEvent.relaySources.push(normalizedUrl);
-          console.log(`[SEARCH DEBUG] Added ${normalizedUrl} to sources. New sources:`, existingEvent.relaySources);
-        } else {
-          console.log(`[SEARCH DEBUG] Relay ${normalizedUrl} already in sources or no relaySources array`);
-        }
-        // Don't update relaySource - keep the first one as primary
+        const existingSources = getEventRelaySources(event);
+        console.log(`[SEARCH DEBUG] Existing sources:`, existingSources);
+        console.log(`[SEARCH DEBUG] Added ${normalizedUrl} to sources. New sources:`, getEventRelaySources(event));
       }
     });
 

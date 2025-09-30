@@ -4,6 +4,7 @@
  */
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { getEventRelaySources } from './eventRelayTracking';
 
 /**
  * Normalizes a relay URL to a consistent format for comparison and storage
@@ -68,31 +69,11 @@ export function areRelayUrlsEqual(url1: string | undefined | null, url2: string 
 }
 
 /**
- * Extracts relay sources from an NDKEvent
+ * Extracts relay sources from an NDKEvent using the tracking system
  * Returns normalized URLs for consistent comparison
  */
 export function extractRelaySourcesFromEvent(event: NDKEvent): string[] {
-  const eventWithSources = event as NDKEvent & {
-    relaySource?: string;
-    relaySources?: string[];
-  };
-  
-  // Prioritize relaySources array if it exists, otherwise use relaySource
-  if (Array.isArray(eventWithSources.relaySources) && eventWithSources.relaySources.length > 0) {
-    // Use relaySources array (complete list)
-    const normalizedSources = eventWithSources.relaySources
-      .map(url => normalizeRelayUrl(url))
-      .filter(url => url.length > 0);
-    
-    // Remove duplicates using Set
-    return Array.from(new Set(normalizedSources));
-  } else if (typeof eventWithSources.relaySource === 'string') {
-    // Fallback to single relaySource
-    const normalizedUrl = normalizeRelayUrl(eventWithSources.relaySource);
-    return normalizedUrl ? [normalizedUrl] : [];
-  }
-  
-  return [];
+  return getEventRelaySources(event);
 }
 
 /**

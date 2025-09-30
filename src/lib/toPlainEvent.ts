@@ -15,12 +15,9 @@ export function toPlainEvent(evt: NDKEvent): Record<string, unknown> {
           tags: evt.tags,
           sig: evt.sig
         };
-    const extra: Record<string, unknown> = {};
-    const maybeRelaySource = (evt as unknown as { relaySource?: string }).relaySource;
-    const maybeRelaySources = (evt as unknown as { relaySources?: string[] }).relaySources;
-    if (typeof maybeRelaySource === 'string') extra.relaySource = maybeRelaySource;
-    if (Array.isArray(maybeRelaySources)) extra.relaySources = maybeRelaySources;
-    return { ...base, ...extra };
+    // Note: We no longer inject relaySource/relaySources into events
+    // Relay tracking is handled separately by the eventRelayTracking system
+    return base;
   } catch {
     return {
       id: evt.id,
