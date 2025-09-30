@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faHighlighter } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -238,14 +238,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 
                 return (
                   <div className="text-xs text-gray-400 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => navigateToSearch('is:highlight')}
-                      className="text-gray-400 hover:text-gray-300 transition-colors"
-                      title="Search for highlights"
-                    >
-                      <FontAwesomeIcon icon={faHighlighter} className="text-xs" />
-                    </button>
                     {sourceUrl ? (
                       // r tag - external URL
                       (() => {
