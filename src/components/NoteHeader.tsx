@@ -14,6 +14,7 @@ interface NoteHeaderProps {
   event: NDKEvent;
   expandedParents?: Record<string, NDKEvent | 'loading'>;
   onParentToggle?: (parentId: string, parent: NDKEvent | 'loading' | null) => void;
+  onSearch?: (query: string) => void;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export default function NoteHeader({
   event,
   expandedParents = {},
   onParentToggle,
+  onSearch,
   className = ''
 }: NoteHeaderProps) {
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
@@ -77,6 +79,37 @@ export default function NoteHeader({
     onParentToggle(parentId, fetched || 'loading');
   };
 
+  const getKindSearchQuery = (kind: number): string | null => {
+    const kindToSearchMap: Record<number, string> = {
+      1: 'is:tweet',
+      6: 'is:repost', 
+      7: 'is:reaction',
+      20: 'is:image',
+      21: 'is:video',
+      22: 'is:video',
+      1063: 'is:file',
+      1617: 'is:patch',
+      1621: 'is:issue',
+      1984: 'is:report',
+      9735: 'is:zap',
+      9321: 'is:nutzap',
+      9802: 'is:highlight',
+      30023: 'is:blogpost',
+      10000: 'is:muted',
+      10001: 'is:pin',
+      10003: 'is:bookmark',
+    };
+    return kindToSearchMap[kind] || null;
+  };
+
+  const handleKindClick = () => {
+    if (!onSearch) return;
+    const searchQuery = getKindSearchQuery(event.kind);
+    if (searchQuery) {
+      onSearch(searchQuery);
+    }
+  };
+
   const isReply = Boolean(parentId);
   const barClasses = `text-xs text-gray-300 border border-[#3d3d3d] px-4 py-2 rounded-t-lg rounded-b-none border-b-0 ${
     isReply 
@@ -117,10 +150,7 @@ export default function NoteHeader({
           <button 
             type="button" 
             className="flex-1 text-left flex items-center gap-2"
-            onClick={() => {
-              // TODO: Add click handler for event kind actions
-              console.log('Event kind clicked:', event.kind);
-            }}
+            onClick={handleKindClick}
           >
             {(() => {
               const kindIcon = getEventKindIcon(event.kind);

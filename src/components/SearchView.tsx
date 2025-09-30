@@ -1568,9 +1568,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         event={event}
         expandedParents={expandedParents}
         onParentToggle={handleParentToggle}
+        onSearch={handleSearch}
       />
     );
-  }, [expandedParents, handleParentToggle]);
+  }, [expandedParents, handleParentToggle, handleSearch]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
