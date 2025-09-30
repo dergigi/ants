@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, onAuthorClick?: (npub: string) => void }) {
   const [loaded, setLoaded] = useState(false);
@@ -36,7 +38,9 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
           {name || 'Unknown'}
         </button>
       ) : (
-        <span className="font-medium text-gray-100 truncate max-w-[10rem]">Loading...</span>
+        <span className="font-medium text-gray-100 truncate max-w-[10rem] flex items-center gap-1">
+          <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
+        </span>
       )}
     </div>
   );

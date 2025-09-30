@@ -1,0 +1,17 @@
+kind:1 = fa-feather
+kind:6 = fa-retweet
+kind:7 = fa-heart
+kind:20 = fa-image
+kind:21 = fa-video
+kind:22 = fa-video
+kind:1063 = fa-file
+kind:1617 = fa-code-pull-request
+kind:1621 = fa-bug
+kind:1984 = fa-exclamation-triangle
+kind:9735 = fa-bolt
+kind:9321 = fa-cloud-bolt
+kind:9802 = fa-highlighter
+kind:30023 = fa-newspaper  
+kind:10000 = fa-eye-slash
+kind:10001 = fa-thumbtack
+kind:10003 = fa-bookmark

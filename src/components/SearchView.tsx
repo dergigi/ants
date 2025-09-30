@@ -40,7 +40,7 @@ import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
 import InlineNostrToken from '@/components/InlineNostrToken';
-import ParentChain from '@/components/ParentChain';
+import NoteHeader from '@/components/NoteHeader';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
@@ -1562,19 +1562,56 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [expandedParents, setExpandedParents]);
 
-  const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+  const renderNoteHeader = useCallback((event: NDKEvent): React.ReactNode => {
     return (
-      <ParentChain
-        childEvent={childEvent}
-        isTop={isTop}
+      <NoteHeader
+        event={event}
         expandedParents={expandedParents}
         onParentToggle={handleParentToggle}
-        onAuthorClick={goToProfile}
-        renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-        renderNoteMedia={renderNoteMedia}
+        onSearch={handleSearch}
       />
     );
-  }, [expandedParents, handleParentToggle, goToProfile, renderContentWithClickableHashtags, renderNoteMedia]);
+  }, [expandedParents, handleParentToggle, handleSearch]);
+
+  const renderParentChain = useCallback((event: NDKEvent): React.ReactNode => {
+    const parentChain: NDKEvent[] = [];
+    let currentEvent = event;
+    
+    // Build the parent chain by following expanded parents
+    while (currentEvent) {
+      const parentId = getReplyToEventId(currentEvent);
+      if (!parentId) break;
+      
+      const parentState = expandedParents[parentId];
+      if (parentState && parentState !== 'loading' && parentState !== null) {
+        parentChain.push(parentState as NDKEvent);
+        currentEvent = parentState as NDKEvent;
+      } else {
+        break;
+      }
+    }
+    
+    // Render all parents as stacked blocks (reverse order so most recent is on top)
+    return parentChain.reverse().map((parentEvent, index) => (
+      <EventCard
+        key={`parent-${parentEvent.id}-${index}`}
+        event={parentEvent}
+        onAuthorClick={goToProfile}
+        renderContent={(text) => (
+          <TruncatedText 
+            content={text} 
+            maxLength={TEXT_MAX_LENGTH}
+            className="text-gray-100 whitespace-pre-wrap break-words"
+            renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+          />
+        )}
+        mediaRenderer={renderNoteMedia}
+        className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
+        showFooter={true}
+        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} />}
+      />
+    ));
+  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
@@ -1760,17 +1797,27 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               />
             )}
             {finalResults.map((event, idx) => {
-              const parentId = getReplyToEventId(event);
-              const parent = parentId ? expandedParents[parentId] : undefined;
-              const isLoadingParent = parent === 'loading';
-              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
-              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
-              const hasExpandedParent = Boolean(parentEvent);
-              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
+              // Check if this note has any parent chain blocks rendered above it
+              const hasExpandedParents = (() => {
+                let currentEvent = event;
+                while (currentEvent) {
+                  const parentId = getReplyToEventId(currentEvent);
+                  if (!parentId) break;
+                  const parentState = expandedParents[parentId];
+                  if (parentState && parentState !== 'loading' && parentState !== null) {
+                    return true;
+                  }
+                  currentEvent = parentState as unknown as NDKEvent;
+                }
+                return false;
+              })();
+              
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`;
               const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
-                  {parentId && renderParentChain(event)}
+                  {renderNoteHeader(event)}
+                  {renderParentChain(event)}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
@@ -1884,7 +1931,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }

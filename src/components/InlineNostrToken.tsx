@@ -8,6 +8,8 @@ import { ndk, safeSubscribe } from '@/lib/ndk';
 import { shortenNpub } from '@/lib/utils';
 import { TEXT_MAX_LENGTH } from '@/lib/constants';
 import { NOSTR_TOKEN_PARSE_REGEX } from '@/lib/utils/nostrIdentifiers';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import EventCard from '@/components/EventCard';
 import TruncatedText from '@/components/TruncatedText';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
@@ -202,8 +204,8 @@ export default function InlineNostrToken({
 
   if (loading) {
     return (
-      <span className="inline-block align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1">
-        Loading...
+      <span className="inline-flex align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1 items-center gap-1">
+        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
       </span>
     );
   }

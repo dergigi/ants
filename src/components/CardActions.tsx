@@ -19,7 +19,6 @@ type Props = {
   externalHref?: string;
   externalTitle?: string;
   externalTarget?: '_blank' | '_self' | '_parent' | '_top';
-  externalRel?: string;
   onExternalClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
@@ -36,7 +35,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
     externalHref,
     externalTitle,
     externalTarget,
-    externalRel,
     onExternalClick,
   }: Props,
   ref
@@ -47,7 +45,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   const href = externalHref || neventHref;
   const title = externalTitle || fallbackTitle;
   const target = externalTarget || (href && href.startsWith('http') ? '_blank' : undefined);
-  const rel = externalRel || (target === '_blank' ? 'noopener noreferrer' : undefined);
 
   const isMenuVisible = typeof onToggleMenu === 'function';
 
@@ -64,29 +61,33 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         <CopyButton
           text={`nostr:${nprofile}`}
           title="Copy nprofile"
-          className="w-5 h-5 rounded-md border-0 text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+          className="border-0 text-gray-300 hover:bg-[#3a3a3a]"
         />
       ) : eventId ? (
         <CopyButton
           text={String(neventHref)}
           title="Copy nevent"
-          className="w-5 h-5 rounded-md border-0 text-gray-300 hover:bg-[#3a3a3a] flex items-center justify-center text-[12px] leading-none"
+          className="border-0 text-gray-300 hover:bg-[#3a3a3a]"
         />
       ) : null}
       {href ? (
-        <a
-          href={href}
+        <IconButton
           title={title}
-          className="text-gray-400 hover:text-gray-200"
-          target={target}
-          rel={rel}
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
-            if (onExternalClick) onExternalClick(e);
+            if (onExternalClick) onExternalClick(e as unknown as React.MouseEvent<HTMLAnchorElement>);
+            if (href) {
+              if (target === '_blank') {
+                window.open(href, '_blank', 'noopener,noreferrer');
+              } else {
+                window.location.href = href;
+              }
+            }
           }}
         >
           <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-        </a>
+        </IconButton>
       ) : null}
       {isMenuVisible ? (
         <IconButton
