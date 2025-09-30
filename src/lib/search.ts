@@ -328,7 +328,22 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       }
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
-      resolve(Array.from(collected.values()));
+      const finalResults = Array.from(collected.values());
+      console.log(`[SEARCH DEBUG] Search completed. Total results: ${finalResults.length}`);
+      
+      // Log which relays contributed results
+      const relayContributions = new Map<string, number>();
+      finalResults.forEach(event => {
+        const eventWithSource = event as NDKEventWithRelaySource;
+        if (eventWithSource.relaySources) {
+          eventWithSource.relaySources.forEach(relayUrl => {
+            relayContributions.set(relayUrl, (relayContributions.get(relayUrl) || 0) + 1);
+          });
+        }
+      });
+      console.log(`[SEARCH DEBUG] Relay contributions:`, Object.fromEntries(relayContributions));
+      
+      resolve(finalResults);
     }, timeoutMs);
 
     // Handle abort signal
@@ -348,6 +363,8 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
       sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
+      console.log(`[SEARCH DEBUG] Received event from relay: ${relayUrl}`);
+      
       // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
         try { markRelayActivity(relayUrl); } catch {}
@@ -359,11 +376,13 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         eventWithSource.relaySource = relayUrl;
         eventWithSource.relaySources = [relayUrl];
         collected.set(event.id, eventWithSource);
+        console.log(`[SEARCH DEBUG] New event from ${relayUrl}, total collected: ${collected.size}`);
       } else {
         // Event already exists, add this relay to the sources
         const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
         if (existingEvent.relaySources && !existingEvent.relaySources.includes(relayUrl)) {
           existingEvent.relaySources.push(relayUrl);
+          console.log(`[SEARCH DEBUG] Duplicate event from ${relayUrl}, added to sources`);
         }
       }
     });

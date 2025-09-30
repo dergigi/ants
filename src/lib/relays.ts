@@ -540,6 +540,7 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
 
   // Start with hardcoded search relays
   const allSearchRelays: string[] = [...RELAYS.SEARCH];
+  console.log(`[SEARCH DEBUG] Starting with ${allSearchRelays.length} hardcoded search relays:`, allSearchRelays);
 
   // Add user's search relays if logged in
   if (pubkey) {
@@ -554,7 +555,11 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
 
   // Get all relays (including user relays) but filter for NIP-50 support
   const allRelays = await extendWithUserAndPremium(allSearchRelays);
+  console.log(`[SEARCH DEBUG] After extending with user/premium: ${allRelays.length} total relays`);
+  
   const nip50Relays = await filterNip50Relays(allRelays);
+  console.log(`[SEARCH DEBUG] After NIP-50 filtering: ${nip50Relays.length} NIP-50 relays:`, nip50Relays);
+  
   return createRelaySet(nip50Relays);
 }
 
