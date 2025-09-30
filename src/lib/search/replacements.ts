@@ -40,7 +40,7 @@ function parseDirectLine(line: string): { pattern: string; replacement: string }
   return { pattern: left, replacement: right };
 }
 
-async function loadRules(): Promise<Array<{ kind: string; key: string; expansion: string }>> {
+export async function loadRules(): Promise<Array<{ kind: string; key: string; expansion: string }>> {
   if (cachedRules) return cachedRules;
   try {
     const res = await fetch('/replacements.txt', { cache: 'no-store' });

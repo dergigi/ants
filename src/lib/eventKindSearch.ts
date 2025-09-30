@@ -1,3 +1,5 @@
+import { loadRules } from './search/replacements';
+
 let cachedKindToSearchMap: Record<number, string> | null = null;
 
 /**
@@ -7,43 +9,20 @@ let cachedKindToSearchMap: Record<number, string> | null = null;
 async function loadKindToSearchMap(): Promise<Record<number, string>> {
   if (cachedKindToSearchMap) return cachedKindToSearchMap;
   
-  try {
-    const res = await fetch('/replacements.txt', { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to load replacements.txt');
-    const txt = await res.text();
-    
-    const map: Record<number, string> = {};
-    const lines = txt.split(/\r?\n/);
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      
-      const arrowIdx = trimmed.indexOf('=>');
-      if (arrowIdx === -1) continue;
-      
-      const left = trimmed.slice(0, arrowIdx).trim();
-      const right = trimmed.slice(arrowIdx + 2).trim();
-      
-      // Look for is:key => kind:number patterns
-      if (left.startsWith('is:') && right.startsWith('kind:')) {
-        const isKey = left.slice(3); // Remove 'is:' prefix
-        const kindStr = right.slice(5); // Remove 'kind:' prefix
-        const kindNum = parseInt(kindStr, 10);
-        
-        if (!isNaN(kindNum)) {
-          map[kindNum] = `is:${isKey}`;
-        }
+  const rules = await loadRules();
+  const map: Record<number, string> = {};
+  
+  for (const rule of rules) {
+    if (rule.kind === 'is' && rule.expansion.startsWith('kind:')) {
+      const kindNum = parseInt(rule.expansion.slice(5), 10);
+      if (!isNaN(kindNum)) {
+        map[kindNum] = `is:${rule.key}`;
       }
     }
-    
-    cachedKindToSearchMap = map;
-    return map;
-  } catch {
-    // Fallback to empty map if loading fails
-    cachedKindToSearchMap = {};
-    return cachedKindToSearchMap;
   }
+  
+  cachedKindToSearchMap = map;
+  return map;
 }
 
 /**
