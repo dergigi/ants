@@ -133,7 +133,7 @@ export default function NoteHeader({
                 <IconButton
                   title={`Search for ${getKindSearchQuery(event.kind) || 'this event type'}`}
                   onClick={handleKindClick}
-                  className="w-auto h-auto p-1 text-gray-400 hover:text-gray-300"
+                  className="text-gray-400 hover:text-gray-300"
                 >
                   <FontAwesomeIcon icon={kindIcon} className="text-xs" />
                 </IconButton>
