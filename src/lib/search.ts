@@ -164,8 +164,12 @@ export async function subscribeAndStream(
       return;
     }
 
-    console.log('subscribeAndStream called with filter:', filter);
-    console.log('[FINAL QUERY DEBUG] Final query being sent to relays:', filter.search || 'no search query');
+    // Debug: log the complete filter being sent to NDK
+    console.log('[NDK FILTER DEBUG] subscribeAndStream filter:', JSON.stringify(filter, null, 2));
+    console.log('[NDK FILTER DEBUG] Search query:', filter.search || 'no search query');
+    console.log('[NDK FILTER DEBUG] Kinds:', filter.kinds || 'no kinds filter');
+    console.log('[NDK FILTER DEBUG] Authors:', filter.authors || 'no authors filter');
+    console.log('[NDK FILTER DEBUG] Limit:', filter.limit || 'no limit');
 
     const collected: Map<string, NDKEvent> = new Map();
     let isComplete = false;
@@ -307,9 +311,12 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       return;
     }
 
-    // Debug: log the filter being used
-    console.log('subscribeAndCollect called with filter:', filter);
-    console.log('[FINAL QUERY DEBUG] Final query being sent to relays:', filter.search || 'no search query');
+    // Debug: log the complete filter being sent to NDK
+    console.log('[NDK FILTER DEBUG] subscribeAndCollect filter:', JSON.stringify(filter, null, 2));
+    console.log('[NDK FILTER DEBUG] Search query:', filter.search || 'no search query');
+    console.log('[NDK FILTER DEBUG] Kinds:', filter.kinds || 'no kinds filter');
+    console.log('[NDK FILTER DEBUG] Authors:', filter.authors || 'no authors filter');
+    console.log('[NDK FILTER DEBUG] Limit:', filter.limit || 'no limit');
 
     const collected: Map<string, NDKEvent> = new Map();
 
@@ -795,6 +802,7 @@ export async function searchEvents(
     }
 
     console.log('Searching with filters (early author):', filters);
+    console.log('[NDK FILTER DEBUG] Early author filter:', JSON.stringify(filters, null, 2));
     console.log('[FINAL QUERY DEBUG] Early author search query:', filters.search || 'no search query');
     let res: NDKEvent[] = [];
     if (terms && seedExpansions.length > 1) {
@@ -926,6 +934,7 @@ export async function searchEvents(
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
+    console.log('[NDK FILTER DEBUG] Hashtag filter:', JSON.stringify(tagFilter, null, 2));
 
     // Broader relay set than NIP-50 search: default + search relays
     const tagRelaySet = await getBroadRelaySet();
@@ -953,6 +962,7 @@ export async function searchEvents(
     const aTagValue = (aTagMatch[1] || '').trim();
     if (aTagValue) {
       const aTagFilter: TagTFilter = { kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) };
+      console.log('[NDK FILTER DEBUG] A-tag filter:', JSON.stringify(aTagFilter, null, 2));
       
       // Use broader relay set for a tag searches
       const aTagRelaySet = await getBroadRelaySet();
@@ -1077,6 +1087,7 @@ export async function searchEvents(
     // No additional post-filtering; use default limits
 
     console.log('Searching with filters:', filters);
+    console.log('[NDK FILTER DEBUG] Author filter:', JSON.stringify(filters, null, 2));
     console.log('[FINAL QUERY DEBUG] Author search query:', filters.search || 'no search query');
     {
       // Fetch by base terms if any, restricted to author
@@ -1154,18 +1165,23 @@ export async function searchEvents(
     const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
     console.log('[FINAL QUERY DEBUG] Base search:', baseSearch);
     console.log('[FINAL QUERY DEBUG] Final search query with extensions:', searchQuery);
+    
+    // Create the filter object that will be sent to NDK
+    const searchFilter = {
+      kinds: effectiveKinds,
+      search: searchQuery
+    };
+    console.log('[NDK FILTER DEBUG] Regular search filter:', JSON.stringify(searchFilter, null, 2));
+    
     results = isStreaming 
-      ? await subscribeAndStream({
-          kinds: effectiveKinds,
-          search: searchQuery
-        }, {
+      ? await subscribeAndStream(searchFilter, {
           timeoutMs: streamingOptions?.timeoutMs || 30000,
           maxResults: streamingOptions?.maxResults || 1000,
           onResults: streamingOptions?.onResults,
           relaySet: chosenRelaySet,
           abortSignal
         })
-      : await subscribeAndCollect({ kinds: effectiveKinds, search: searchQuery, limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+      : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
     console.log('Search results:', {
       query: cleanedQuery,
       resultCount: results.length
