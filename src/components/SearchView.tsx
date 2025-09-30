@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
+import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -19,6 +21,12 @@ import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensu
 import { profileEventFromPubkey } from '@/lib/vertex';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
+import { 
+  UI_RECENTLY_ACTIVE_INTERVAL, 
+  UI_CONNECTION_DETAILS_INTERVAL, 
+  UI_AUTHOR_RESOLUTION_DEBOUNCE, 
+  UI_TRANSLATION_DEBOUNCE 
+} from '@/lib/constants';
 import EventCard from '@/components/EventCard';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
@@ -40,7 +48,8 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { NDKUser } from '@nostr-dev-kit/ndk';
+import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -73,12 +82,6 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
-  const SLASH_COMMANDS = useMemo(() => ([
-    { key: 'help', label: '/help', description: 'Show this help' },
-    { key: 'examples', label: '/examples', description: 'List example queries' },
-    { key: 'login', label: '/login', description: 'Connect with NIP-07' },
-    { key: 'logout', label: '/logout', description: 'Clear session' }
-  ] as const), []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -88,7 +91,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -218,9 +220,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       // Format compact preview
       const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      // For hashtag queries, always show the translation even if it's the same as the original
-      const finalPreview = (preview === query && isHashtagOnlyQuery(query)) ? `Searching for: ${query}` : preview;
-      return finalPreview;
+      return preview;
     } catch {
       return '';
     }
@@ -268,40 +268,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const lines = Array.isArray(body) ? body : [body];
     return [`$ ants ${label}`, '', ...lines].join('\n');
   }, []);
-  const runSlashCommand = useCallback((rawInput: string) => {
-    const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
-    if (cmd === 'help') {
-      const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
+  const runSlashCommand = useMemo(() => createSlashCommandRunner({
+    onHelp: (commands) => {
+      const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(SLASH_COMMANDS.map(c => c.label));
-      return;
-    }
-    if (cmd === 'examples') {
+      setTopExamples(commands.map(c => c.label));
+    },
+    onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('examples'));
-      return;
-    }
-    if (cmd === 'login') {
+    },
+    onLogin: async () => {
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
-      (async () => {
-        try {
-          const user = await login();
-          if (user) {
-            try { await user.fetchProfile(); } catch {}
-            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
-            setPlaceholder(nextExample());
-          } else {
-            setTopCommandText(buildCli('login', 'Login cancelled'));
-          }
-        } catch {
-          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+      try {
+        const user = await login();
+        if (user) {
+          try { await user.fetchProfile(); } catch {}
+          setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+          setPlaceholder(nextExample());
+        } else {
+          setTopCommandText(buildCli('login', 'Login cancelled'));
         }
-      })();
-      return;
-    }
-    if (cmd === 'logout') {
+      } catch {
+        setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+      }
+    },
+    onLogout: () => {
       try {
         logout();
         setTopCommandText(buildCli('logout', 'Logged out'));
@@ -310,14 +304,49 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       setTopExamples(null);
-      return;
+    },
+    onClear: async () => {
+      setTopCommandText(buildCli('clear', 'Clearing all caches...'));
+      setTopExamples(null);
+      try {
+        await executeClearCommand();
+        setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
+      } catch (error) {
+        setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
+      }
     }
-    setTopCommandText(buildCli(cmd, 'Unknown command'));
-    setTopExamples(null);
-  }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
+  const [toggledRelays, setToggledRelays] = useState<Set<string>>(new Set());
+
+  // Toggle relay on/off for client-side filtering
+  const toggleRelay = useCallback((relayUrl: string) => {
+    setToggledRelays(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(relayUrl)) {
+        newSet.delete(relayUrl);
+      } else {
+        newSet.add(relayUrl);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Filter results based on toggled relay state
+  const filterByRelays = useCallback((events: NDKEvent[]) => {
+    if (toggledRelays.size === 0) {
+      // No relays toggled off, return all events
+      return events;
+    }
+
+    return events.filter(event => {
+      const eventSources = extractRelaySourcesFromEvent(event);
+      // Keep event if it has sources from toggled relays
+      return eventSources.some(source => toggledRelays.has(source));
+    });
+  }, [toggledRelays]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,20 +426,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
 
   const filteredResults = useMemo(
-    () => shouldEnableFilters ? applyContentFilters(
-      results,
-      // Disable emoji filter when searching for multiple emojis in Smart mode
-      emojiAutoDisabled ? null : filterSettings.maxEmojis,
-      filterSettings.maxHashtags,
-      filterSettings.maxMentions,
-      filterSettings.hideLinks,
-      filterSettings.hideBridged,
-      filterSettings.verifiedOnly,
-      (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
-      filterSettings.hideBots,
-      filterSettings.hideNsfw
-    ) : results,
-    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    () => {
+      let filtered = results;
+      
+      // Apply content filters first
+      if (shouldEnableFilters) {
+        filtered = applyContentFilters(
+          filtered,
+          // Disable emoji filter when searching for multiple emojis in Smart mode
+          emojiAutoDisabled ? null : filterSettings.maxEmojis,
+          filterSettings.maxHashtags,
+          filterSettings.maxMentions,
+          filterSettings.hideLinks,
+          filterSettings.hideBridged,
+          filterSettings.verifiedOnly,
+          (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
+          filterSettings.hideBots,
+          filterSettings.hideNsfw
+        );
+      }
+      
+      // Apply relay filtering
+      return filterByRelays(filtered);
+    },
+    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw, filterByRelays]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
@@ -659,6 +698,39 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!profileScopeIdentifiers) return false;
     return hasProfileScope(query, profileScopeIdentifiers);
   }, [query, profileScopeIdentifiers]);
+
+  // Helper to determine if current query is a direct identifier query
+  const isDirectQuery = useMemo(() => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return false;
+    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
+    if (nip19Identifiers.length === 0) return false;
+
+    const identifierToken = nip19Identifiers[0].trim();
+    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
+
+    if (!firstIdentifier) return false;
+
+    // Check if the query is just the identifier (direct query)
+    const normalizedInput = trimmedQuery
+      .replace(/^web\+nostr:/i, '')
+      .replace(/^nostr:/i, '')
+      .replace(/[\s),.;]*$/, '')
+      .trim()
+      .toLowerCase();
+
+    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
+    if (identifierOnly) return true;
+
+    if (pathname?.startsWith('/e/')) {
+      const segment = pathname.split('/')[2]?.trim().toLowerCase();
+      if (segment && segment === identifierToken.toLowerCase()) {
+        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
+      }
+    }
+    return false;
+  }, [query, pathname]);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (suppressSearchRef.current) {
       // Clear the flag and ignore this invocation
@@ -804,7 +876,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
+
+      // Choose relay set based on query type
+      let relaySet: NDKRelaySet | undefined;
+      if (isDirectQuery) {
+        // Direct queries (NIP-19): use all relays
+        console.log('[Search] Direct query detected, using all relays');
+        relaySet = await relaySets.default();
+      } else {
+        // Search queries (NIP-50): use NIP-50 capable relays only
+        console.log('[Search] Search query detected, using NIP-50 relays');
+        relaySet = await getNip50SearchRelaySet();
+      }
+
+      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -821,28 +906,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       // Track relays that returned events for this search
-      const relays = new Set<string>();
-      const extractRelaysFromEvent = (event: NDKEvent): string[] => {
-        const eventWithSources = event as NDKEvent & {
-          relaySource?: string;
-          relaySources?: string[];
-        };
-        if (Array.isArray(eventWithSources.relaySources)) {
-          return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
-        }
-        if (typeof eventWithSources.relaySource === 'string') {
-          return [eventWithSources.relaySource];
-        }
-        return [];
-      };
-
+      const relayUrls: string[] = [];
+      
       searchResults.forEach(evt => {
-        const relaySources = extractRelaysFromEvent(evt);
-        relaySources.forEach(url => {
-          if (url) relays.add(url.replace(/\/$/, ''));
-        });
+        const relaySources = extractRelaySourcesFromEvent(evt);
+        relayUrls.push(...relaySources);
+        console.log(`[RELAY TRACKING] Event sources:`, relaySources);
       });
+      
+      const relays = createRelaySet(relayUrls);
+      console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
       setSuccessfullyActiveRelays(relays);
+      
+      // Initialize toggled relays to include all relays that provided results
+      setToggledRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
@@ -871,24 +948,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation, isDirectQuery]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
   useEffect(() => {
     const initializeNDK = async () => {
       setIsConnecting(true);
-      setConnectionStatus('connecting');
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
       setIsConnecting(false);
       setConnectionDetails(connectionResult);
       
       if (connectionResult.success) {
         console.log('NDK connected successfully');
-        setConnectionStatus('connected');
       } else {
         console.warn('NDK connection timed out, but search will still work with available relays');
-        setConnectionStatus('timeout');
       }
       
       if (initialQueryRef.current && !manageUrl) {
@@ -900,7 +974,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           setTranslation(normalizedInitial);
           setQuery(initialQueryRef.current);
           if (isSlashCommand(initialQueryRef.current)) {
-            runSlashCommand(initialQueryRef.current);
+            const unknownCmd = runSlashCommand(initialQueryRef.current);
+            if (unknownCmd) {
+              setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+              setTopExamples(null);
+            }
             handleSearch(initialQueryRef.current);
           } else {
             handleSearch(normalizedInitial);
@@ -909,17 +987,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     };
     initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand]);
+  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand, buildCli]);
 
   // Listen for connection status changes
   useEffect(() => {
     const handleConnectionStatusChange = (status: ConnectionStatus) => {
       setConnectionDetails(status);
-      if (status.success) {
-        setConnectionStatus('connected');
-      } else {
-        setConnectionStatus('timeout');
-      }
       // Auto-hide connection details when status changes
       setShowConnectionDetails(false);
       // Refresh recently active relays on changes
@@ -933,11 +1006,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     };
   }, []);
 
-  // Periodically refresh recently active relays while panel open
+  // Periodically refresh recently active relays while panel open (reduced frequency)
   useEffect(() => {
     if (!showConnectionDetails) return;
     setRecentlyActive(getRecentlyActiveRelays());
-    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 5000);
+    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), UI_CONNECTION_DETAILS_INTERVAL);
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
@@ -946,11 +1019,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setRecentlyActive(getRecentlyActiveRelays());
   }, [connectionDetails]);
 
-  // Periodically update recently active relays to catch relay activity changes
+  // Periodically update recently active relays to catch relay activity changes (reduced frequency)
   useEffect(() => {
     const id = setInterval(() => {
       setRecentlyActive(getRecentlyActiveRelays());
-    }, 1000); // Update every 1 second to catch relay activity more quickly
+    }, UI_RECENTLY_ACTIVE_INTERVAL);
     return () => clearInterval(id);
   }, []);
 
@@ -1027,10 +1100,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         updateUrlForSearch('/login');
       }
       // Always execute the /login command regardless of search field state
-      runSlashCommand('/login');
+      const unknownCmd = runSlashCommand('/login');
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, buildCli]);
 
 
   useEffect(() => {
@@ -1071,7 +1148,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       if (isSlashCommand(normalizedQuery)) {
         executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-        runSlashCommand(normalizedQuery);
+        const unknownCmd = runSlashCommand(normalizedQuery);
+        if (unknownCmd) {
+          setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+          setTopExamples(null);
+        }
       } else {
         const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
         const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
@@ -1104,12 +1185,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     if (isSlashCommand(normalizedQuery)) {
       executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-      runSlashCommand(normalizedQuery);
+      const unknownCmd = runSlashCommand(normalizedQuery);
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
       return;
     }
 
     executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1118,7 +1203,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
-      runSlashCommand(raw);
+      const unknownCmd = runSlashCommand(raw);
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
       setQuery(raw);
       updateUrlForSearch(raw);
       // Clear prior results immediately before async search
@@ -1184,12 +1273,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           const fullTranslation = await generateTranslation(query, false);
           if (!cancelled) setTranslation(fullTranslation);
         }
-      }, 500); // 500ms delay for author resolution
+      }, UI_AUTHOR_RESOLUTION_DEBOUNCE);
     } else {
-      // For queries without author tokens, update immediately
-      generateTranslation(query, false).then((translation) => {
-        if (!cancelled) setTranslation(translation);
-      });
+      // For queries without author tokens, debounce the translation to avoid hanging while typing
+      const translationTimeout = setTimeout(async () => {
+        if (!cancelled) {
+          const translation = await generateTranslation(query, false);
+          if (!cancelled) setTranslation(translation);
+        }
+      }, UI_TRANSLATION_DEBOUNCE);
+      
+      return () => {
+        clearTimeout(translationTimeout);
+      };
     }
     
     return () => { 
@@ -1507,37 +1603,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setRotationSeed((s) => s + 1);
   }, []);
 
-  // Helper to determine if current query is a direct identifier query
-  const isDirectQuery = useMemo(() => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return false;
-    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
-    if (nip19Identifiers.length === 0) return false;
-    
-    const identifierToken = nip19Identifiers[0].trim();
-    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
-    
-    if (!firstIdentifier) return false;
-    
-    // Check if the query is just the identifier (direct query)
-    const normalizedInput = trimmedQuery
-      .replace(/^web\+nostr:/i, '')
-      .replace(/^nostr:/i, '')
-      .replace(/[\s),.;]*$/, '')
-      .trim()
-      .toLowerCase();
-    
-    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
-    if (identifierOnly) return true;
-
-    if (pathname?.startsWith('/e/')) {
-      const segment = pathname.split('/')[2]?.trim().toLowerCase();
-      if (segment && segment === identifierToken.toLowerCase()) {
-        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
-      }
-    }
-    return false;
-  }, [query, pathname]);
 
   useEffect(() => {
     if (initialQueryRef.current !== initialQuery) {
@@ -1595,8 +1660,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           {/* Button row - always collapsed states */}
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
-              connectionStatus={connectionStatus}
-              connectedCount={relayInfo.eventsReceivedCount}
+              connectedCount={successfullyActiveRelays.size}
               totalCount={relayInfo.totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               isExpanded={showConnectionDetails}
@@ -1619,6 +1683,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               relayInfo={relayInfo}
               onSearch={handleSearch}
               activeRelays={successfullyActiveRelays}
+              toggledRelays={toggledRelays}
+              onToggleRelay={toggleRelay}
             />
           )}
 

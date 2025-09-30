@@ -1,21 +1,8 @@
 import { ConnectionStatus } from './ndk';
 import { RELAYS } from './relays';
+import { canonicalRelayId } from './urlUtils';
 
-// Create a canonical identifier for a relay URL to ensure consistent
-// de-duplication across sources (connected, recentlyActive, connecting, failed)
-function canonicalRelayId(url: string): string {
-  try {
-    const withScheme = /^wss?:\/\//i.test(url) ? url : `wss://${url}`;
-    const u = new URL(withScheme);
-    const hostname = (u.hostname || '').toLowerCase();
-    // Normalize path by removing trailing slash(es)
-    const path = (u.pathname || '').replace(/\/+$/g, '');
-    return `${hostname}${path}`;
-  } catch {
-    // Fallback: strip scheme, trailing slash, lowercase
-    return url.replace(/^wss?:\/\//i, '').replace(/\/+$/g, '').toLowerCase();
-  }
-}
+// Note: canonicalRelayId is now imported from urlUtils.ts for consistency
 
 /**
  * Calculate relay counts consistently across all components

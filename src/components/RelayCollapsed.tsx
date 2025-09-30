@@ -4,15 +4,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faServer, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 
 interface RelayCollapsedProps {
-  connectionStatus: 'connecting' | 'connected' | 'timeout';
-  connectedCount: number;
-  totalCount: number;
+  connectedCount: number; // Number of relays that provided results
+  totalCount: number; // Total number of relays queried
   onExpand: () => void;
   isExpanded?: boolean;
 }
 
 export default function RelayCollapsed({
-  connectionStatus,
   connectedCount,
   totalCount,
   onExpand,
@@ -27,7 +25,7 @@ export default function RelayCollapsed({
       <FontAwesomeIcon 
         icon={faServer} 
         className={`w-3 h-3 ${
-          connectionStatus === 'connected' ? 'text-blue-400' : 'text-gray-500'
+          connectedCount > 0 ? 'text-blue-400' : 'text-gray-500'
         }`} 
       />
       <span className="text-xs">

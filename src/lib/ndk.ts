@@ -4,6 +4,7 @@ import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
+import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';
 
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
@@ -239,7 +240,7 @@ async function measureRelayPing(relayUrl: string): Promise<number> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(-1); // Timeout
-      }, 5000); // 5 second timeout
+      }, RELAY_PING_TIMEOUT);
 
       const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
         closeOnEose: true,
@@ -362,27 +363,31 @@ export const startRelayMonitoring = () => {
   if (relayMonitorInterval) return; // Already monitoring
   
   relayMonitorInterval = setInterval(async () => {
-    const currentStatus = await checkRelayStatus();
-    if (globalConnectionStatus) {
-      // Only update if status changed
-      const statusChanged = 
-        currentStatus.connectedRelays.length !== globalConnectionStatus.connectedRelays.length ||
-        currentStatus.connectingRelays.length !== globalConnectionStatus.connectingRelays.length ||
-        currentStatus.failedRelays.length !== globalConnectionStatus.failedRelays.length ||
-        currentStatus.connectedRelays.some(url => !globalConnectionStatus!.connectedRelays.includes(url)) ||
-        currentStatus.connectingRelays.some(url => !globalConnectionStatus!.connectingRelays.includes(url)) ||
-        currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
-      
-      if (statusChanged) {
-        console.log('Relay status changed:', { 
-          connected: currentStatus.connectedRelays, 
-          connecting: currentStatus.connectingRelays,
-          failed: currentStatus.failedRelays 
-        });
-        updateConnectionStatus(currentStatus);
+    try {
+      const currentStatus = await checkRelayStatus();
+      if (globalConnectionStatus) {
+        // Only update if status changed
+        const statusChanged = 
+          currentStatus.connectedRelays.length !== globalConnectionStatus.connectedRelays.length ||
+          currentStatus.connectingRelays.length !== globalConnectionStatus.connectingRelays.length ||
+          currentStatus.failedRelays.length !== globalConnectionStatus.failedRelays.length ||
+          currentStatus.connectedRelays.some(url => !globalConnectionStatus!.connectedRelays.includes(url)) ||
+          currentStatus.connectingRelays.some(url => !globalConnectionStatus!.connectingRelays.includes(url)) ||
+          currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
+        
+        if (statusChanged) {
+          console.log('Relay status changed:', { 
+            connected: currentStatus.connectedRelays, 
+            connecting: currentStatus.connectingRelays,
+            failed: currentStatus.failedRelays 
+          });
+          updateConnectionStatus(currentStatus);
+        }
       }
+    } catch (error) {
+      console.warn('Relay monitoring error:', error);
     }
-  }, 10000); // Check every 10 seconds
+  }, RELAY_MONITORING_INTERVAL);
 };
 
 export const stopRelayMonitoring = () => {
