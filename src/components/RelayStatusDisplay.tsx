@@ -73,6 +73,8 @@ export default function RelayStatusDisplay({
                 ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
                 : 'text-gray-500 bg-transparent';
             const supportsNip50 = nip50Support.get(relay.url) || false;
+            // Match magnifying glass color to relay icon color
+            const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
             
             return (
               <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
@@ -80,7 +82,7 @@ export default function RelayStatusDisplay({
                   {supportsNip50 && (
                     <FontAwesomeIcon 
                       icon={faMagnifyingGlass} 
-                      className="text-xs text-green-400" 
+                      className={`text-xs ${magnifyingGlassColor}`}
                       title="Supports NIP-50 search"
                     />
                   )}
