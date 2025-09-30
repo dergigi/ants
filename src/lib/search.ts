@@ -327,6 +327,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         return;
       }
     const timer = setTimeout(() => {
+      console.log(`[SEARCH DEBUG] Search timeout reached (${timeoutMs}ms), stopping subscription`);
       try { sub.stop(); } catch {}
       const finalResults = Array.from(collected.values());
       console.log(`[SEARCH DEBUG] Search completed. Total results: ${finalResults.length}`);
@@ -387,7 +388,9 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       }
     });
 
-      sub.on('eose', () => {
+      sub.on('eose', (relay: NDKRelay | undefined) => {
+        const relayUrl = relay?.url || 'unknown';
+        console.log(`[SEARCH DEBUG] EOSE received from relay: ${relayUrl}`);
         clearTimeout(timer);
         if (abortSignal) {
           abortSignal.removeEventListener('abort', abortHandler);
@@ -395,6 +398,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         resolve(Array.from(collected.values()));
       });
 
+      console.log(`[SEARCH DEBUG] Starting subscription on ${relayUrls.length} relays:`, relayUrls);
       sub.start();
     })();
   });
