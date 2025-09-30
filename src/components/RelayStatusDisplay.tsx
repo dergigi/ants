@@ -26,70 +26,36 @@ export default function RelayStatusDisplay({
   // Combine all relays into a single list
   const allRelays = useMemo(() => [...eventsReceivedRelays, ...otherRelays], [eventsReceivedRelays, otherRelays]);
   
-  // Track complete relay info for each relay
-  const [relayInfo, setRelayInfo] = useState<Map<string, {
-    supportedNips?: number[];
-    name?: string;
-    description?: string;
-    contact?: string;
-    software?: string;
-    version?: string;
-  }>>(new Map());
-
-  // Track if we've already loaded relay info to prevent repeated requests
-  const [hasLoadedRelayInfo, setHasLoadedRelayInfo] = useState(false);
-
-  // Reset hasLoadedRelayInfo when allRelays changes
-  useEffect(() => {
-    setHasLoadedRelayInfo(false);
-  }, [allRelays]);
-
-  // Get complete relay info for connected relays (only once)
-  useEffect(() => {
-    if (hasLoadedRelayInfo || allRelays.length === 0) {
-      return;
+  // Get relay info directly from cache - no complex loading
+  const getRelayInfoFromCache = (relayUrl: string) => {
+    // Check if relay is in our known search relays
+    const knownSearchRelays = new Set([
+      ...RELAYS.SEARCH,
+      ...RELAYS.PROFILE_SEARCH
+    ]);
+    
+    if (knownSearchRelays.has(relayUrl as any)) {
+      // For known search relays, assume they support NIP-50 and common NIPs
+      return {
+        supportedNips: [1, 2, 4, 9, 11, 16, 20, 22, 28, 40, 42, 50, 70, 77, 98],
+        name: relayUrl.replace('wss://', '').replace('ws://', ''),
+        description: 'Known search relay',
+        contact: '',
+        software: '',
+        version: ''
+      };
     }
     
-    console.log(`[RELAY DEBUG] Starting relay info loading for ${allRelays.length} relays`);
-
-    const getRelayInfoData = async () => {
-      const infoMap = new Map<string, {
-        supportedNips?: number[];
-        name?: string;
-        description?: string;
-        contact?: string;
-        software?: string;
-        version?: string;
-      }>();
-
-      // Filter to only relays that are actually connected to NDK
-      const connectedRelays = allRelays.filter(relay => {
-        const ndkRelay = ndk.pool?.relays?.get(relay.url);
-        return ndkRelay && ndkRelay.status === 1; // status 1 = connected
-      });
-
-      console.log(`[RELAY] Checking ${connectedRelays.length}/${allRelays.length} connected relays for complete info (one-time)`);
-
-      const promises = connectedRelays.map(async (relay) => {
-        try {
-          const result = await getRelayInfo(relay.url);
-          infoMap.set(relay.url, result);
-        } catch (error) {
-          console.warn(`Failed to get relay info for ${relay.url}:`, error);
-          infoMap.set(relay.url, {});
-        }
-      });
-
-      if (promises.length > 0) {
-        await Promise.allSettled(promises);
-      }
-      console.log(`[RELAY DEBUG] Loaded relay info for ${infoMap.size} relays:`, Array.from(infoMap.entries()));
-      setRelayInfo(infoMap);
-      setHasLoadedRelayInfo(true);
+    // For other relays, return empty info for now
+    return {
+      supportedNips: [],
+      name: relayUrl.replace('wss://', '').replace('ws://', ''),
+      description: '',
+      contact: '',
+      software: '',
+      version: ''
     };
-
-    getRelayInfoData();
-  }, [allRelays, hasLoadedRelayInfo]);
+  };
 
   return (
     <div 
@@ -107,32 +73,18 @@ export default function RelayStatusDisplay({
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(cleanedUrl);
             
-            // Debug logging
-            if (activeRelays.size > 0) {
-              console.log(`[RELAY DEBUG] Checking ${cleanedUrl}: providedResults=${providedResults}, activeRelays=`, Array.from(activeRelays));
-            }
             const iconClasses = providedResults
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
               : isActive
                 ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
                 : 'text-gray-500 bg-transparent';
-            const relayData = relayInfo.get(relay.url) || {};
+            
+            // Get relay info from cache
+            const relayData = getRelayInfoFromCache(relay.url);
             const { supportedNips = [] } = relayData;
             
-            // Debug logging for relay info
-            console.log(`[RELAY DEBUG] ${relay.url}:`, {
-              hasRelayData: Object.keys(relayData).length > 0,
-              supportedNips,
-              relayData
-            });
-            
-            // Check if relay supports NIP-50 from loaded info, or if it's in our known search relays
-            const knownSearchRelays = new Set([
-              ...RELAYS.SEARCH,
-              ...RELAYS.PROFILE_SEARCH
-            ]);
-            const isKnownSearchRelay = knownSearchRelays.has(relay.url);
-            const supportsNip50 = supportedNips.includes(50) || isKnownSearchRelay;
+            // Check if relay supports NIP-50
+            const supportsNip50 = supportedNips.includes(50);
             
             // Match magnifying glass color to relay icon color
             const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
