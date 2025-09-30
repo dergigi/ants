@@ -274,6 +274,9 @@ export async function subscribeAndStream(
       // Don't close on EOSE - keep streaming!
     });
 
+    // Debug: Show which relays are connected for streaming
+    console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set:`, relaySet?.relays?.map(r => r.url) || 'unknown');
+    
     sub.start();
   });
 }
@@ -390,6 +393,9 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         resolve(Array.from(collected.values()));
       });
 
+      // Debug: Show which relays are connected
+      console.log(`[SEARCH DEBUG] Starting subscription with relay set:`, relaySet?.relays?.map(r => r.url) || 'unknown');
+      
       sub.start();
     })();
   });
