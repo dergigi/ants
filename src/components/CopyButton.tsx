@@ -33,7 +33,7 @@ export default function CopyButton({ text, title = 'Copy', className }: Props) {
       type="button"
       title={copied ? 'Copied' : title}
       aria-label={copied ? 'Copied' : title}
-      className={`w-5 h-5 rounded-md border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a] flex items-center justify-center ${className || ''}`.trim()}
+      className={`w-6 h-6 rounded-md border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a] flex items-center justify-center ${className || ''}`.trim()}
       onClick={handleCopy}
     >
       <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="text-xs" />
