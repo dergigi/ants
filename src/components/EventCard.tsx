@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faHighlighter, faHardDrive } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faHighlighter } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -142,7 +142,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       </div>
     );
   };
-
 
   return (
     <div className={containerClasses}>
