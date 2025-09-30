@@ -1,5 +1,5 @@
-import { NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { ndk, ensureCacheInitialized } from './ndk';
+import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
+import { ndk, ensureCacheInitialized, safeSubscribe } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
 import { getUserRelayUrls } from './search';
@@ -155,31 +155,76 @@ export async function createRelaySet(urls: string[]): Promise<NDKRelaySet> {
   return NDKRelaySet.fromRelayUrls(urls, ndk);
 }
 
-// Check if a relay supports NIP-50 using NIP-11 (Relay Information Document)
-async function checkNip50SupportViaNip11(relayUrl: string): Promise<boolean> {
+// Check NIP-50 support via INFO request (NOTICE response)
+async function checkNip50SupportViaInfo(relayUrl: string): Promise<boolean> {
   try {
-    // Convert wss:// to https:// for NIP-11
-    const httpUrl = relayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
-    const nip11Url = `${httpUrl}/.well-known/nostr.json`;
+    // Create a relay set with just this relay
+    const relaySet = await createRelaySet([relayUrl]);
     
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
-    
-    const response = await fetch(nip11Url, { 
-      signal: controller.signal,
-      headers: { 'Accept': 'application/nostr+json' }
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(false);
+      }, 5000); // 5 second timeout
+
+      // Create a subscription to trigger the INFO request
+      const sub = safeSubscribe([{ kinds: [0] }], { 
+        closeOnEose: true, 
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+        relaySet: relaySet
+      });
+
+      if (!sub) {
+        resolve(false);
+        return;
+      }
+
+      // Listen for NOTICE messages by monitoring the relay directly
+      const relay = ndk.pool?.relays?.get(relayUrl);
+      if (!relay) {
+        resolve(false);
+        return;
+      }
+
+      const handleNotice = (message: unknown) => {
+        try {
+          // NOTICE messages are in format: ["NOTICE", "message"]
+          if (Array.isArray(message) && message[0] === 'NOTICE' && message[1]) {
+            const noticeContent = message[1];
+            
+            // Try to parse the JSON content
+            try {
+              const info = JSON.parse(noticeContent);
+              if (info.supported_nips && Array.isArray(info.supported_nips)) {
+                const supportsNip50 = info.supported_nips.includes(50);
+                clearTimeout(timeout);
+                try { sub.stop(); } catch {}
+                relay.off('notice', handleNotice);
+                resolve(supportsNip50);
+                return;
+              }
+            } catch {
+              // Not JSON, ignore
+            }
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+      };
+
+      // Listen for NOTICE messages
+      relay.on('notice', handleNotice);
+
+      // Start the subscription to trigger INFO request
+      sub.start();
+
+      // Clean up on timeout
+      setTimeout(() => {
+        try { sub.stop(); } catch {}
+        relay.off('notice', handleNotice);
+      }, 5000);
     });
-    
-    clearTimeout(timeout);
-    
-    if (!response.ok) return false;
-    
-    const data = await response.json();
-    const supportedNips = data?.supported_nips || [];
-    
-    return supportedNips.includes(50);
   } catch (error) {
-    console.warn(`Failed to check NIP-11 for ${relayUrl}:`, error);
+    console.warn(`Failed to check INFO for ${relayUrl}:`, error);
     return false;
   }
 }
@@ -193,8 +238,8 @@ export async function checkNip50Support(relayUrl: string): Promise<boolean> {
     return cached.supported;
   }
   
-  // Use only NIP-11 method for reliable detection
-  const supported = await checkNip50SupportViaNip11(relayUrl);
+  // Use INFO request method for reliable detection
+  const supported = await checkNip50SupportViaInfo(relayUrl);
   
   // Cache the result
   nip50SupportCache.set(relayUrl, { 
