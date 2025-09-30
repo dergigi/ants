@@ -142,7 +142,7 @@ export default function NoteHeader({
         )}
         <RelayIndicator event={event} className="ml-2" />
       </div>
-      <div className="border-t border-[#3d3d3d] mt-2 -mx-4"></div>
+      <div className="border-t border-[#3d3d3d] -mx-4"></div>
     </div>
   );
 }
