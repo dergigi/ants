@@ -137,23 +137,41 @@ export default function RelayStatusDisplay({
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  {onSearch ? (
-                    <button
-                      type="button"
-                      onClick={() => onSearch(cleanedUrl)}
-                      className="hover:text-gray-200 hover:underline cursor-pointer text-left"
-                    >
-                      {relayData.name || cleanedUrl}{pingDisplay}
-                    </button>
-                  ) : (
-                    <span>{relayData.name || cleanedUrl}{pingDisplay}</span>
-                  )}
-
-                  {supportedNips.length > 0 && (
-                    <span className="text-[10px] text-gray-500 mt-0.5">
-                      NIPs: {supportedNips.join(', ')}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {onSearch ? (
+                      <button
+                        type="button"
+                        onClick={() => onSearch(cleanedUrl)}
+                        className="hover:text-gray-200 hover:underline cursor-pointer text-left"
+                      >
+                        {relayData.name || cleanedUrl}{pingDisplay}
+                      </button>
+                    ) : (
+                      <span>{relayData.name || cleanedUrl}{pingDisplay}</span>
+                    )}
+                    
+                    {supportedNips.length > 0 && (
+                      <span className="text-[10px] text-gray-500">
+                        [{supportedNips.map((nip, nipIdx) => (
+                          <span key={nipIdx}>
+                            {onSearch ? (
+                              <button
+                                type="button"
+                                onClick={() => onSearch(`nip:${nip}`)}
+                                className="hover:text-blue-300 hover:underline cursor-pointer"
+                                title={`Search for NIP-${nip}`}
+                              >
+                                {nip}
+                              </button>
+                            ) : (
+                              <span>{nip}</span>
+                            )}
+                            {nipIdx < supportedNips.length - 1 && ', '}
+                          </span>
+                        ))}]
+                      </span>
+                    )}
+                  </div>
 
                   {relayData.description && (
                     <span className="text-[9px] text-gray-600 mt-0.5 max-w-xs truncate" title={relayData.description}>
