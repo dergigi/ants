@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback } from 'react';
-import { NDKEvent, NDKRelay } from '@nostr-dev-kit/ndk';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import EventCard from '@/components/EventCard';
 import TruncatedText from '@/components/TruncatedText';
+import RelayIndicator from '@/components/RelayIndicator';
 import { TEXT_MAX_LENGTH } from '@/lib/constants';
 
 interface ParentChainProps {
@@ -59,20 +60,7 @@ export default function ParentChain({
         return;
       }
       const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve(found); }, 8000);
-      sub.on('event', (evt: NDKEvent, relay?: NDKRelay) => {
-        try {
-          const src = relay?.url || '';
-          if (src) {
-            const withSources = evt as unknown as { relaySource?: string; relaySources?: string[] };
-            const existing = Array.isArray(withSources.relaySources) ? withSources.relaySources.slice() : [];
-            const cleaned = src.replace(/\/$/, '');
-            if (!existing.includes(cleaned)) existing.push(cleaned);
-            withSources.relaySources = existing;
-            if (!withSources.relaySource) withSources.relaySource = cleaned;
-          }
-        } catch {}
-        found = evt;
-      });
+      sub.on('event', (evt: NDKEvent) => { found = evt; });
       sub.on('eose', () => { clearTimeout(timer); try { sub.stop(); } catch {}; resolve(found); });
       sub.start();
     });
@@ -111,9 +99,12 @@ export default function ParentChain({
     })();
     return (
       <div className={barClasses}>
-        <button type="button" onClick={handleToggle} className="w-full text-left">
-          {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
-        </button>
+        <div className="flex items-center justify-between w-full">
+          <button type="button" onClick={handleToggle} className="flex-1 text-left">
+            {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
+          </button>
+          <RelayIndicator event={childEvent} className="ml-2" />
+        </div>
       </div>
     );
   }

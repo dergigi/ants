@@ -1,43 +1,50 @@
-import { ConnectionStatus } from '@/lib/ndk';
+'use client';
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faServer, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faHardDrive } from '@fortawesome/free-solid-svg-icons';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 interface RelayIndicatorProps {
-  connectionStatus: 'connecting' | 'connected' | 'timeout';
-  connectionDetails: ConnectionStatus | null;
-  showConnectionDetails: boolean;
-  onToggle: () => void;
+  event: NDKEvent;
+  className?: string;
 }
 
-export default function RelayIndicator({
-  connectionStatus,
-  connectionDetails,
-  showConnectionDetails,
-  onToggle
-}: RelayIndicatorProps) {
-  // Calculate connected and total relay counts
-  const connectedCount = connectionDetails?.connectedRelays?.length || 0;
-  const totalCount = connectedCount + (connectionDetails?.failedRelays?.length || 0) + (connectionDetails?.connectingRelays?.length || 0);
+export default function RelayIndicator({ event, className = '' }: RelayIndicatorProps) {
+  // Extract relay sources from the event
+  const getRelaySources = (event: NDKEvent): string[] => {
+    const eventWithSources = event as NDKEvent & {
+      relaySource?: string;
+      relaySources?: string[];
+    };
+    
+    if (Array.isArray(eventWithSources.relaySources)) {
+      return eventWithSources.relaySources.filter((url): url is string => typeof url === 'string');
+    }
+    if (typeof eventWithSources.relaySource === 'string') {
+      return [eventWithSources.relaySource];
+    }
+    return [];
+  };
+
+  const relaySources = getRelaySources(event);
+  
+  if (relaySources.length === 0) {
+    return null;
+  }
+
+  const tooltipText = relaySources.length === 1 
+    ? `From: ${relaySources[0]}`
+    : `From ${relaySources.length} relays:\n${relaySources.join('\n')}`;
 
   return (
-    <button
-      type="button"
-      className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
-      onClick={onToggle}
+    <div 
+      className={`inline-flex items-center ${className}`}
+      title={tooltipText}
     >
       <FontAwesomeIcon 
-        icon={faServer} 
-        className={`w-3 h-3 ${
-          connectionStatus === 'connected' ? 'text-blue-400' : 'text-gray-500'
-        }`} 
+        icon={faHardDrive} 
+        className="text-xs text-gray-400 hover:text-gray-300 transition-colors" 
       />
-      <span className="text-xs">
-        {connectedCount}/{totalCount}
-      </span>
-      <FontAwesomeIcon 
-        icon={showConnectionDetails ? faChevronUp : faChevronDown} 
-        className="w-3 h-3" 
-      />
-    </button>
+    </div>
   );
 }
