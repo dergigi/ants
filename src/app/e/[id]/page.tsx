@@ -4,7 +4,7 @@ import { useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingLayout } from '@/components/LoadingLayout';
 import SearchView from '@/components/SearchView';
-import { parseEventIdentifier, isValidEventIdentifier } from '@/lib/utils/nostrIdentifiers';
+import { parseEventIdentifier, isValidEventIdentifier, extractNip19Identifiers } from '@/lib/utils/nostrIdentifiers';
 import { isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 
 export default function EidRedirectPage() {
@@ -23,6 +23,23 @@ export default function EidRedirectPage() {
   const handleUrlUpdate = useCallback((q: string) => {
     const query = (q || '').trim();
     if (!query) return;
+
+    // Avoid redirect loop on direct identifier queries while on /e/
+    try {
+      const ids = extractNip19Identifiers(query);
+      const token = ids.length > 0 ? ids[0].trim() : null;
+      if (token) {
+        const stripped = query
+          .replace(/^web\+nostr:/i, '')
+          .replace(/^nostr:/i, '')
+          .replace(/[\s),.;]*$/, '')
+          .trim()
+          .toLowerCase();
+        if (stripped === token.toLowerCase()) {
+          return;
+        }
+      }
+    } catch {}
     if (isHashtagOnlyQuery(query)) {
       const tagUrl = hashtagQueryToUrl(query);
       if (tagUrl) {
