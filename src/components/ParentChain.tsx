@@ -3,6 +3,8 @@
 import { useCallback } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faReply } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import EventCard from '@/components/EventCard';
@@ -100,8 +102,15 @@ export default function ParentChain({
     return (
       <div className={barClasses}>
         <div className="flex items-center justify-between w-full">
-          <button type="button" onClick={handleToggle} className="flex-1 text-left">
-            {isLoading ? 'Loading parent…' : `Replying to: ${parentLabel}`}
+          <button type="button" onClick={handleToggle} className="flex-1 text-left flex items-center gap-2">
+            {isLoading ? (
+              'Loading parent…'
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faReply} className="text-xs text-gray-400" />
+                <span>{parentLabel}</span>
+              </>
+            )}
           </button>
           <RelayIndicator event={childEvent} className="ml-2" />
         </div>
