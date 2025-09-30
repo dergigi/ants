@@ -66,7 +66,6 @@ export default function NoteHeader({
 
   const parentId = getReplyToEventId(event);
   const parentState = parentId ? expandedParents[parentId] : null;
-  const isLoading = parentState === 'loading';
   const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
   
   // Find the topmost parent in the chain to show in header
@@ -89,15 +88,15 @@ export default function NoteHeader({
   const displayEvent = getTopmostParent(event);
 
   const handleToggle = async () => {
-    if (!parentId || !onParentToggle) return;
+    if (!topmostParentId || !onParentToggle) return;
     
-    if (expandedParents[parentId]) {
-      onParentToggle(parentId, null);
+    if (expandedParents[topmostParentId]) {
+      onParentToggle(topmostParentId, null);
       return;
     }
-    onParentToggle(parentId, 'loading');
-    const fetched = await fetchEventById(parentId);
-    onParentToggle(parentId, fetched);
+    onParentToggle(topmostParentId, 'loading');
+    const fetched = await fetchEventById(topmostParentId);
+    onParentToggle(topmostParentId, fetched);
   };
 
   const handleKindClick = () => {
@@ -115,9 +114,14 @@ export default function NoteHeader({
       : 'bg-[#353535]'
   } ${className}`;
   
+  // Get the parent ID for the topmost parent (for next expansion)
+  const topmostParentId = getReplyToEventId(displayEvent);
+  const topmostParentState = topmostParentId ? expandedParents[topmostParentId] : null;
+  const isLoading = topmostParentState === 'loading';
+  
   const parentLabel = (() => {
-    if (!parentId) return null;
-    const normalized = parentId.trim();
+    if (!topmostParentId) return null;
+    const normalized = topmostParentId.trim();
     if (/^[0-9a-f]{64}$/i.test(normalized)) {
       try {
         return shortenNevent(nip19.neventEncode({ id: normalized }));
@@ -129,7 +133,7 @@ export default function NoteHeader({
   return (
     <div className={`${barClasses} border-t border-[#3d3d3d]`}>
       <div className="flex items-center justify-between w-full">
-        {parentId ? (
+        {topmostParentId ? (
           <button 
             type="button" 
             onClick={handleToggle} 
