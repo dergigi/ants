@@ -1608,9 +1608,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         mediaRenderer={renderNoteMedia}
         className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
         showFooter={true}
+        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} />}
       />
     ));
-  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId]);
+  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton, formatEventTimestamp]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
