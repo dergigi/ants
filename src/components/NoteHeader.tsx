@@ -68,6 +68,9 @@ export default function NoteHeader({
   const parentState = parentId ? expandedParents[parentId] : null;
   const isLoading = parentState === 'loading';
   const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
+  
+  // When parent is expanded, show parent's header instead of child's header
+  const displayEvent = parentEvent || event;
 
   const handleToggle = async () => {
     if (!parentId || !onParentToggle) return;
@@ -83,7 +86,7 @@ export default function NoteHeader({
 
   const handleKindClick = () => {
     if (!onSearch) return;
-    const searchQuery = getKindSearchQuery(event.kind);
+    const searchQuery = getKindSearchQuery(displayEvent.kind);
     if (searchQuery) {
       onSearch(searchQuery);
     }
@@ -128,10 +131,10 @@ export default function NoteHeader({
         ) : (
           <div className="flex-1 text-left flex items-center gap-2">
             {(() => {
-              const kindIcon = getEventKindIcon(event.kind);
+              const kindIcon = getEventKindIcon(displayEvent.kind);
               return kindIcon ? (
                 <IconButton
-                  title={getKindSearchQuery(event.kind) || 'Note'}
+                  title={getKindSearchQuery(displayEvent.kind) || 'Note'}
                   onClick={handleKindClick}
                   className="text-gray-400 hover:text-gray-300"
                 >
@@ -143,7 +146,7 @@ export default function NoteHeader({
             })()}
           </div>
         )}
-        <RelayIndicator event={event} className="ml-2" />
+        <RelayIndicator event={displayEvent} className="ml-2" />
       </div>
     </div>
   );
