@@ -1762,7 +1762,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
               const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
               const hasExpandedParent = Boolean(parentEvent);
-              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] ${hasCollapsedBar || hasExpandedParent ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'}`;
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-b-lg rounded-t-none border-t-0`;
               const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
