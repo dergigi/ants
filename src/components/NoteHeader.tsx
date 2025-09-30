@@ -8,7 +8,7 @@ import { faReply, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
-import { getEventKindIcon } from '@/lib/eventKindIcons';
+import { getEventKindIcon, getEventKindDisplayName } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
 
 interface NoteHeaderProps {
@@ -149,17 +149,18 @@ export default function NoteHeader({
           <div className="flex-1 text-left flex items-center gap-2">
             {(() => {
               const kindIcon = getEventKindIcon(displayEvent.kind);
+              const displayName = getEventKindDisplayName(displayEvent.kind);
               return kindIcon ? (
                 <button
                   type="button"
                   onClick={handleKindClick}
                   className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  title={getKindSearchQuery(displayEvent.kind) || 'Note'}
+                  title={getKindSearchQuery(displayEvent.kind) || displayName}
                 >
                   <FontAwesomeIcon icon={kindIcon} className="text-xs" />
                 </button>
               ) : (
-                <span className="text-gray-400">Note</span>
+                <span className="text-gray-400">{displayName}</span>
               );
             })()}
           </div>

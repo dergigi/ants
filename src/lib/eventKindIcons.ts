@@ -81,3 +81,33 @@ export function getEventKindIconName(kind: number): string | null {
   
   return iconMap[kind] || null;
 }
+
+/**
+ * Get the display name for a given event kind
+ * @param kind - The Nostr event kind number
+ * @returns The display name string or "Note" as fallback
+ */
+export function getEventKindDisplayName(kind: number): string {
+  const displayNames: Record<number, string> = {
+    0: 'Profile',
+    1: 'Note',
+    6: 'Repost',
+    7: 'Reaction',
+    20: 'Image',
+    21: 'Video',
+    22: 'Video',
+    1063: 'File',
+    1617: 'Code',
+    1621: 'Issue',
+    1984: 'Report',
+    9735: 'Zap',
+    9321: 'Nutzap',
+    9802: 'Highlight',
+    30023: 'Article',
+    10000: 'Mute List',
+    10001: 'Pin List',
+    10003: 'Bookmark List',
+  };
+  
+  return displayNames[kind] || 'Note';
+}
