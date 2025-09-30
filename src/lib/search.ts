@@ -377,8 +377,8 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         // First time seeing this event
         const eventWithSource = event as NDKEventWithRelaySource;
         const normalizedUrl = normalizeRelayUrl(relayUrl);
-        eventWithSource.relaySource = normalizedUrl;
-        eventWithSource.relaySources = [normalizedUrl];
+        eventWithSource.relaySource = normalizedUrl; // Primary source
+        eventWithSource.relaySources = [normalizedUrl]; // Complete list
         collected.set(event.id, eventWithSource);
         console.log(`[SEARCH DEBUG] New event from ${normalizedUrl}, total collected: ${collected.size}`);
         console.log(`[SEARCH DEBUG] Event ${event.id} assigned to relay: ${normalizedUrl}`);
@@ -394,6 +394,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         } else {
           console.log(`[SEARCH DEBUG] Relay ${normalizedUrl} already in sources or no relaySources array`);
         }
+        // Don't update relaySource - keep the first one as primary
       }
     });
 
