@@ -90,10 +90,10 @@ export default function RelayStatusDisplay({
             const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
             const cleanedUrl = relay.url.replace(/\/$/, '');
             const isActive = activeRelays.has(cleanedUrl);
-            // Blue icon only if this relay provided results (is in eventsReceivedRelays)
-            const providedResults = eventsReceivedRelays.some(r => r.url === relay.url);
+            // Blue icon only if this relay provided results for current search
+            const providedResults = activeRelays.has(cleanedUrl);
             const iconClasses = providedResults
-              ? `border border-blue-400/20 ${isActive ? 'text-blue-300 bg-blue-900/60' : 'text-blue-300 bg-blue-900/30'}`
+              ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
               : isActive
                 ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
                 : 'text-gray-500 bg-transparent';
