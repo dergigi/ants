@@ -1573,6 +1573,45 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     );
   }, [expandedParents, handleParentToggle, handleSearch]);
 
+  const renderParentChain = useCallback((event: NDKEvent): React.ReactNode => {
+    const parentChain: NDKEvent[] = [];
+    let currentEvent = event;
+    
+    // Build the parent chain by following expanded parents
+    while (currentEvent) {
+      const parentId = getReplyToEventId(currentEvent);
+      if (!parentId) break;
+      
+      const parentState = expandedParents[parentId];
+      if (parentState && parentState !== 'loading' && parentState !== null) {
+        parentChain.push(parentState as NDKEvent);
+        currentEvent = parentState as NDKEvent;
+      } else {
+        break;
+      }
+    }
+    
+    // Render all parents as stacked blocks
+    return parentChain.map((parentEvent, index) => (
+      <div key={`parent-${parentEvent.id}-${index}`} className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0">
+        <EventCard
+          event={parentEvent}
+          onAuthorClick={goToProfile}
+          renderContent={(text) => (
+            <TruncatedText 
+              content={text} 
+              maxLength={TEXT_MAX_LENGTH}
+              className="text-gray-100 whitespace-pre-wrap break-words"
+              renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+            />
+          )}
+          mediaRenderer={renderNoteMedia}
+          className="p-0 border-0 bg-transparent"
+        />
+      </div>
+    ));
+  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId]);
+
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
     if (abortControllerRef.current) {
@@ -1757,36 +1796,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               />
             )}
             {finalResults.map((event, idx) => {
-              const parentId = getReplyToEventId(event);
-              const parent = parentId ? expandedParents[parentId] : undefined;
-              const isLoadingParent = parent === 'loading';
-              const parentEvent = parent && parent !== 'loading' ? (parent as NDKEvent) : null;
-              const hasCollapsedBar = Boolean(parentId && !parentEvent && !isLoadingParent);
-              const hasExpandedParent = Boolean(parentEvent);
               const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-b-lg rounded-t-none border-t-0`;
               const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
                   {renderNoteHeader(event)}
-                  {parentEvent && (
-                    <div className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0">
-                      {renderNoteHeader(parentEvent)}
-                      <EventCard
-                        event={parentEvent}
-                        onAuthorClick={goToProfile}
-                        renderContent={(text) => (
-                          <TruncatedText 
-                            content={text} 
-                            maxLength={TEXT_MAX_LENGTH}
-                            className="text-gray-100 whitespace-pre-wrap break-words"
-                            renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-                          />
-                        )}
-                        mediaRenderer={renderNoteMedia}
-                        className="p-0 border-0 bg-transparent"
-                      />
-                    </div>
-                  )}
+                  {renderParentChain(event)}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (

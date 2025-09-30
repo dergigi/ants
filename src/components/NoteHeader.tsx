@@ -69,25 +69,35 @@ export default function NoteHeader({
   const isLoading = parentState === 'loading';
   const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
   
-  // When parent is expanded, show parent's header instead of child's header
-  const displayEvent = parentEvent || event;
+  // Find the topmost parent in the chain to show in header
+  const getTopmostParent = (startEvent: NDKEvent): NDKEvent => {
+    let currentEvent = startEvent;
+    while (currentEvent) {
+      const currentParentId = getReplyToEventId(currentEvent);
+      if (!currentParentId) break;
+      
+      const currentParentState = expandedParents[currentParentId];
+      if (currentParentState && currentParentState !== 'loading' && currentParentState !== null) {
+        currentEvent = currentParentState as NDKEvent;
+      } else {
+        break;
+      }
+    }
+    return currentEvent;
+  };
   
-  // Get the parent ID for the display event (parent or child)
-  const displayParentId = getReplyToEventId(displayEvent);
-  const displayParentState = displayParentId ? expandedParents[displayParentId] : null;
-  const displayIsLoading = displayParentState === 'loading';
-  const displayParentEvent = displayParentState && displayParentState !== 'loading' ? (displayParentState as NDKEvent) : null;
+  const displayEvent = getTopmostParent(event);
 
   const handleToggle = async () => {
-    if (!displayParentId || !onParentToggle) return;
+    if (!parentId || !onParentToggle) return;
     
-    if (expandedParents[displayParentId]) {
-      onParentToggle(displayParentId, null);
+    if (expandedParents[parentId]) {
+      onParentToggle(parentId, null);
       return;
     }
-    onParentToggle(displayParentId, 'loading');
-    const fetched = await fetchEventById(displayParentId);
-    onParentToggle(displayParentId, fetched);
+    onParentToggle(parentId, 'loading');
+    const fetched = await fetchEventById(parentId);
+    onParentToggle(parentId, fetched);
   };
 
   const handleKindClick = () => {
@@ -106,8 +116,8 @@ export default function NoteHeader({
   } ${className}`;
   
   const parentLabel = (() => {
-    if (!displayParentId) return null;
-    const normalized = displayParentId.trim();
+    if (!parentId) return null;
+    const normalized = parentId.trim();
     if (/^[0-9a-f]{64}$/i.test(normalized)) {
       try {
         return shortenNevent(nip19.neventEncode({ id: normalized }));
@@ -119,13 +129,13 @@ export default function NoteHeader({
   return (
     <div className={`${barClasses} border-t border-[#3d3d3d]`}>
       <div className="flex items-center justify-between w-full">
-        {displayParentId ? (
+        {parentId ? (
           <button 
             type="button" 
             onClick={handleToggle} 
             className="flex-1 text-left flex items-center gap-2"
           >
-            {displayIsLoading ? (
+            {isLoading ? (
               <FontAwesomeIcon icon={faSpinner} className="text-xs text-gray-400 animate-spin" />
             ) : (
               <>
