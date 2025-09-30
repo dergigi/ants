@@ -39,11 +39,18 @@ export default function RelayStatusDisplay({
   // Track if we've already loaded relay info to prevent repeated requests
   const [hasLoadedRelayInfo, setHasLoadedRelayInfo] = useState(false);
 
+  // Reset hasLoadedRelayInfo when allRelays changes
+  useEffect(() => {
+    setHasLoadedRelayInfo(false);
+  }, [allRelays]);
+
   // Get complete relay info for connected relays (only once)
   useEffect(() => {
     if (hasLoadedRelayInfo || allRelays.length === 0) {
       return;
     }
+    
+    console.log(`[RELAY DEBUG] Starting relay info loading for ${allRelays.length} relays`);
 
     const getRelayInfoData = async () => {
       const infoMap = new Map<string, {
@@ -76,6 +83,7 @@ export default function RelayStatusDisplay({
       if (promises.length > 0) {
         await Promise.allSettled(promises);
       }
+      console.log(`[RELAY DEBUG] Loaded relay info for ${infoMap.size} relays:`, Array.from(infoMap.entries()));
       setRelayInfo(infoMap);
       setHasLoadedRelayInfo(true);
     };
@@ -110,6 +118,13 @@ export default function RelayStatusDisplay({
                 : 'text-gray-500 bg-transparent';
             const relayData = relayInfo.get(relay.url) || {};
             const { supportedNips = [] } = relayData;
+            
+            // Debug logging for relay info
+            console.log(`[RELAY DEBUG] ${relay.url}:`, {
+              hasRelayData: Object.keys(relayData).length > 0,
+              supportedNips,
+              relayData
+            });
             
             // Check if relay supports NIP-50 from loaded info, or if it's in our known search relays
             const knownSearchRelays = new Set([
