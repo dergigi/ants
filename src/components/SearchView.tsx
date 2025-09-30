@@ -1770,6 +1770,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   {renderNoteHeader(event)}
                   {parentEvent && (
                     <div className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0">
+                      {renderNoteHeader(parentEvent)}
                       <EventCard
                         event={parentEvent}
                         onAuthorClick={goToProfile}
