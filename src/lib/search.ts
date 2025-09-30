@@ -165,6 +165,7 @@ export async function subscribeAndStream(
     }
 
     console.log('subscribeAndStream called with filter:', filter);
+    console.log('[FINAL QUERY DEBUG] Final query being sent to relays:', filter.search || 'no search query');
 
     const collected: Map<string, NDKEvent> = new Map();
     let isComplete = false;
@@ -308,6 +309,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
     // Debug: log the filter being used
     console.log('subscribeAndCollect called with filter:', filter);
+    console.log('[FINAL QUERY DEBUG] Final query being sent to relays:', filter.search || 'no search query');
 
     const collected: Map<string, NDKEvent> = new Map();
 
@@ -793,6 +795,7 @@ export async function searchEvents(
     }
 
     console.log('Searching with filters (early author):', filters);
+    console.log('[FINAL QUERY DEBUG] Early author search query:', filters.search || 'no search query');
     let res: NDKEvent[] = [];
     if (terms && seedExpansions.length > 1) {
       // Run each expansion and merge
@@ -1074,6 +1077,7 @@ export async function searchEvents(
     // No additional post-filtering; use default limits
 
     console.log('Searching with filters:', filters);
+    console.log('[FINAL QUERY DEBUG] Author search query:', filters.search || 'no search query');
     {
       // Fetch by base terms if any, restricted to author
       let res: NDKEvent[] = [];
@@ -1148,6 +1152,8 @@ export async function searchEvents(
     let results: NDKEvent[] = [];
     const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
     const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
+    console.log('[FINAL QUERY DEBUG] Base search:', baseSearch);
+    console.log('[FINAL QUERY DEBUG] Final search query with extensions:', searchQuery);
     results = isStreaming 
       ? await subscribeAndStream({
           kinds: effectiveKinds,
