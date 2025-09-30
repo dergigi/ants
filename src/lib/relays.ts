@@ -352,40 +352,54 @@ async function checkNip50SupportViaNDK(relayUrl: string): Promise<{ supportsNip5
   }
 }
 
-// Check NIP-50 support via HTTP NIP-11
+// Check NIP-50 support via HTTP (NIP-11 compatible)
 async function checkNip50SupportViaHttp(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
   try {
-    console.log(`[NIP-50 HTTP] Checking NIP-11 for ${relayUrl}`);
+    console.log(`[NIP-50 HTTP] Checking relay info for ${relayUrl}`);
 
-    // Convert wss:// to https:// for NIP-11
+    // Convert wss:// to https:// for HTTP requests (NIP-11 compatible)
     const httpUrl = relayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
-    const nip11Url = `${httpUrl}/.well-known/nostr.json`;
-    console.log(`[NIP-50 HTTP] NIP-11 URL: ${nip11Url}`);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    // Try multiple possible endpoints (root path is spec-compliant, .well-known is common convention)
+    const possibleUrls = [
+      `${httpUrl}`, // Root path (NIP-11 spec)
+      `${httpUrl}/.well-known/nostr.json`, // Common convention
+      `${httpUrl}/nostr.json` // Alternative convention
+    ];
 
-    const response = await fetch(nip11Url, {
-      signal: controller.signal,
-      headers: { 'Accept': 'application/nostr+json' }
-    });
+    for (const testUrl of possibleUrls) {
+      try {
+        console.log(`[NIP-50 HTTP] Trying ${testUrl}`);
 
-    clearTimeout(timeout);
-    console.log(`[NIP-50 HTTP] ${relayUrl} - response status:`, response.status);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000); // 2s per attempt
 
-    if (!response.ok) {
-      console.log(`[NIP-50 HTTP] ${relayUrl} - NIP-11 not available (${response.status})`);
-      return { supportsNip50: false, supportedNips: [] };
+        const response = await fetch(testUrl, {
+          signal: controller.signal,
+          headers: { 'Accept': 'application/nostr+json' }
+        });
+
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[NIP-50 HTTP] ${relayUrl} - found data at ${testUrl}:`, data);
+
+          const supportedNips = data?.supported_nips || [];
+          const supportsNip50 = supportedNips.includes(50);
+          console.log(`[NIP-50 HTTP] ${relayUrl} - supported_nips:`, supportedNips, `NIP-50 support: ${supportsNip50}`);
+
+          return { supportsNip50, supportedNips };
+        } else {
+          console.log(`[NIP-50 HTTP] ${testUrl} - not available (${response.status})`);
+        }
+      } catch (error) {
+        console.log(`[NIP-50 HTTP] ${testUrl} - failed:`, error);
+      }
     }
 
-    const data = await response.json();
-    console.log(`[NIP-50 HTTP] ${relayUrl} - NIP-11 data:`, data);
-
-    const supportedNips = data?.supported_nips || [];
-    const supportsNip50 = supportedNips.includes(50);
-    console.log(`[NIP-50 HTTP] ${relayUrl} - supported_nips:`, supportedNips, `NIP-50 support: ${supportsNip50}`);
-
-    return { supportsNip50, supportedNips };
+    console.log(`[NIP-50 HTTP] ${relayUrl} - no NIP-11 info found at any endpoint`);
+    return { supportsNip50: false, supportedNips: [] };
   } catch (error) {
     console.log(`[NIP-50 HTTP] ${relayUrl} - HTTP detection failed:`, error);
     return { supportsNip50: false, supportedNips: [] };
