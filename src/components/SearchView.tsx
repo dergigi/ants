@@ -1593,23 +1593,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Render all parents as stacked blocks (reverse order so most recent is on top)
     return parentChain.reverse().map((parentEvent, index) => (
-      <div key={`parent-${parentEvent.id}-${index}`} className="p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full">
-        <EventCard
-          event={parentEvent}
-          onAuthorClick={goToProfile}
-          renderContent={(text) => (
-            <TruncatedText 
-              content={text} 
-              maxLength={TEXT_MAX_LENGTH}
-              className="text-gray-100 whitespace-pre-wrap break-words"
-              renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-            />
-          )}
-          mediaRenderer={renderNoteMedia}
-          className="p-0 border-0 bg-transparent w-full"
-          showFooter={true}
-        />
-      </div>
+      <EventCard
+        key={`parent-${parentEvent.id}-${index}`}
+        event={parentEvent}
+        onAuthorClick={goToProfile}
+        renderContent={(text) => (
+          <TruncatedText 
+            content={text} 
+            maxLength={TEXT_MAX_LENGTH}
+            className="text-gray-100 whitespace-pre-wrap break-words"
+            renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+          />
+        )}
+        mediaRenderer={renderNoteMedia}
+        className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full"
+        showFooter={true}
+      />
     ));
   }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId]);
 
