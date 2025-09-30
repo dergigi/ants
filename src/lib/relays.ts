@@ -85,9 +85,8 @@ export const RELAYS = {
     'wss://relay.ditto.pub',
     'wss://relay.davidebtc.me',
     'wss://relay.gathr.gives',
-    'wss://us.azzamo.net',
     'wss://nostr.polyserv.xyz',
-    'wss://relay.azzamo.net'
+    'wss://nostr.azzamo.net'
   ],
 
   // Profile search relays (NIP-50 capable)
