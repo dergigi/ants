@@ -110,7 +110,121 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
+  
+  // Cache for author resolution to avoid repeated requests
+  const authorResolutionCache = useRef<Map<string, string>>(new Map());
+  const authorResolutionTimeout = useRef<NodeJS.Timeout | null>(null);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
+  
+  // DRY helper function for translation logic
+  const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
+    try {
+      // 1) Apply simple replacements first
+      const afterReplacements = await applySimpleReplacements(query);
+
+      // 2) Recursive OR substitution (distribute parentheses)
+      const distributed = expandParenthesizedOr(afterReplacements);
+
+      // Helper: resolve all by:<author> tokens within a single query string
+      const resolveByTokensInQuery = async (q: string): Promise<string> => {
+        const rx = /(^|\s)by:(\S+)/gi;
+        let result = '';
+        let lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(q)) !== null) {
+          const full = m[0];
+          const pre = m[1] || '';
+          const raw = m[2] || '';
+          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+          const core = (match && match[1]) || raw;
+          const suffix = (match && match[2]) || '';
+          let replacement = core;
+          
+          if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
+            // Check cache first
+            if (authorResolutionCache.current.has(core)) {
+              replacement = authorResolutionCache.current.get(core) || core;
+            } else {
+              try {
+                const npub = await resolveAuthorToNpub(core);
+                if (npub) {
+                  replacement = npub;
+                  authorResolutionCache.current.set(core, npub);
+                }
+              } catch {}
+            }
+          }
+          result += q.slice(lastIndex, m.index);
+          result += `${pre}by:${replacement}${suffix}`;
+          lastIndex = m.index + full.length;
+        }
+        result += q.slice(lastIndex);
+        return result;
+      };
+
+      // Helper: normalize p:<token> where token may be hex, npub or nprofile
+      const resolvePTokensInQuery = (q: string): string => {
+        const rx = /(^|\s)p:(\S+)/gi;
+        let result = '';
+        let lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(q)) !== null) {
+          const full = m[0];
+          const pre = m[1] || '';
+          const raw = m[2] || '';
+          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
+          const core = (match && match[1]) || raw;
+          const suffix = (match && match[2]) || '';
+          let replacement = core;
+          if (/^[0-9a-fA-F]{64}$/.test(core)) {
+            try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
+          } else if (/^npub1[0-9a-z]+$/i.test(core)) {
+            replacement = core;
+          } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
+            try {
+              const decoded = nip19.decode(core);
+              if (decoded?.type === 'nprofile') {
+                const pk = (decoded.data as { pubkey: string }).pubkey;
+                replacement = nip19.npubEncode(pk);
+              }
+            } catch {}
+          }
+          result += q.slice(lastIndex, m.index);
+          result += `${pre}p:${replacement}${suffix}`;
+          lastIndex = m.index + full.length;
+        }
+        result += q.slice(lastIndex);
+        return result;
+      };
+
+      // 3) Resolve authors inside each distributed branch (if not skipping)
+      const resolvedDistributed = skipAuthorResolution 
+        ? distributed 
+        : await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
+
+      const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
+
+      // 4) Split into multiple queries if top-level OR exists
+      const finalQueriesSet = new Set<string>();
+      for (const q of withPResolved) {
+        const parts = parseOrQuery(q);
+        if (parts.length > 1) {
+          parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+        } else {
+          const s = q.trim(); if (s) finalQueriesSet.add(s);
+        }
+      }
+      const finalQueries = Array.from(finalQueriesSet);
+
+      // Format compact preview
+      const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+      // For hashtag queries, always show the translation even if it's the same as the original
+      const finalPreview = (preview === query && isHashtagOnlyQuery(query)) ? `Searching for: ${query}` : preview;
+      return finalPreview;
+    } catch {
+      return '';
+    }
+  }, [authorResolutionCache]);
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
@@ -361,9 +475,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
     
-    // Check if this is a hashtag-only query and we're not already on a profile page
+    // Detect current path type
     const currentProfileNpub = getCurrentProfileNpub(pathname);
-    if (!currentProfileNpub && isHashtagOnlyQuery(searchQuery)) {
+    const isOnTagPath = pathname?.startsWith('/t/');
+    const isOnEventPath = pathname?.startsWith('/e/');
+    const isOnProfilePath = currentProfileNpub !== null;
+    
+    console.log('updateUrlForSearch debug:', {
+      searchQuery,
+      pathname,
+      isOnTagPath,
+      isOnEventPath,
+      isOnProfilePath,
+      isHashtagOnly: isHashtagOnlyQuery(searchQuery)
+    });
+    
+    // Handle hashtag-only queries
+    if (!isOnProfilePath && isHashtagOnlyQuery(searchQuery)) {
       const hashtagUrl = hashtagQueryToUrl(searchQuery);
       if (hashtagUrl) {
         router.replace(`/t/${hashtagUrl}`);
@@ -371,7 +499,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     }
     
-    if (currentProfileNpub) {
+    // Handle transitions from special paths to root with query
+    if ((isOnTagPath || isOnEventPath) && !isHashtagOnlyQuery(searchQuery)) {
+      console.log('Transitioning from special path to root with query:', searchQuery);
+      const params = new URLSearchParams();
+      params.set('q', searchQuery);
+      router.replace(`/?${params.toString()}`);
+      return;
+    }
+    
+    // Handle profile pages
+    if (isOnProfilePath) {
       // URL should be implicit on profile pages: strip matching by:npub
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
@@ -390,6 +528,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         router.replace(newUrl);
       }
     } else {
+      // Handle root path
       const params = new URLSearchParams(searchParams.toString());
       params.set('q', searchQuery);
       router.replace(`?${params.toString()}`);
@@ -532,8 +671,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    // Update URL immediately when search is triggered (but not if we're on /t/ path with hashtag-only query)
-    const isOnTagPath = pathname?.startsWith('/t/');
+    // Update URL immediately when search is triggered
     const normalizedInput = searchQuery.trim();
     const nip19Identifiers = extractNip19Identifiers(normalizedInput);
     const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
@@ -578,11 +716,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     }
 
-    const isHashtagQuery = isHashtagOnlyQuery(searchQuery);
-    
-    if (!(isOnTagPath && isHashtagQuery)) {
-      updateUrlForSearch(searchQuery);
-    }
+    // Always update URL to reflect the current search
+    console.log('Updating URL for search:', searchQuery, 'on path:', pathname);
+    updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
     if (abortControllerRef.current) {
@@ -604,8 +740,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResults([]);
     setLoading(true);
     
-    // Update translation immediately for new searches
-    setTranslation('');
+    // Don't clear translation immediately - let the new translation be set asynchronously
+    // This prevents the search explanation from disappearing during OR searches
     
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
@@ -659,88 +795,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
         
         // Update translation after author resolution
-        try {
-          const afterReplacements = await applySimpleReplacements(effectiveQuery);
-          const distributed = expandParenthesizedOr(afterReplacements);
-          
-          // Helper: resolve all by:<author> tokens within a single query string
-          const resolveByTokensInQuery = async (q: string): Promise<string> => {
-            const rx = /(^|\s)by:(\S+)/gi;
-            let result = '';
-            let lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = rx.exec(q)) !== null) {
-              const full = m[0];
-              const pre = m[1] || '';
-              const raw = m[2] || '';
-              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-              const core = (match && match[1]) || raw;
-              const suffix = (match && match[2]) || '';
-              let replacement = core;
-              try {
-                const npub = await resolveAuthorToNpub(core);
-                if (npub) replacement = npub;
-              } catch {}
-              result += q.slice(lastIndex, m.index);
-              result += `${pre}by:${replacement}${suffix}`;
-              lastIndex = m.index + full.length;
-            }
-            result += q.slice(lastIndex);
-            return result;
-          };
-          
-          // Helper: normalize p:<token> where token may be hex, npub or nprofile
-          const resolvePTokensInQuery = (q: string): string => {
-            const rx = /(^|\s)p:(\S+)/gi;
-            let result = '';
-            let lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = rx.exec(q)) !== null) {
-              const full = m[0];
-              const pre = m[1] || '';
-              const raw = m[2] || '';
-              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-              const core = (match && match[1]) || raw;
-              const suffix = (match && match[2]) || '';
-              let replacement = core;
-              if (/^[0-9a-fA-F]{64}$/.test(core)) {
-                try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
-              } else if (/^npub1[0-9a-z]+$/i.test(core)) {
-                replacement = core;
-              } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
-                try {
-                  const decoded = nip19.decode(core);
-                  if (decoded?.type === 'nprofile') {
-                    const pk = (decoded.data as { pubkey: string }).pubkey;
-                    replacement = nip19.npubEncode(pk);
-                  }
-                } catch {}
-              }
-              result += q.slice(lastIndex, m.index);
-              result += `${pre}p:${replacement}${suffix}`;
-              lastIndex = m.index + full.length;
-            }
-            result += q.slice(lastIndex);
-            return result;
-          };
-          
-          const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
-          const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
-          const finalQueriesSet = new Set<string>();
-          for (const q of withPResolved) {
-            const parts = parseOrQuery(q);
-            if (parts.length > 1) {
-              parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
-            } else {
-              const s = q.trim(); if (s) finalQueriesSet.add(s);
-            }
-          }
-          const finalQueries = Array.from(finalQueriesSet);
-          const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-          setTranslation(preview);
-        } catch {
-          setTranslation('');
-        }
+        const translation = await generateTranslation(effectiveQuery, false);
+        setTranslation(translation);
       }
 
       const expanded = await applySimpleReplacements(effectiveQuery);
@@ -757,6 +813,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
+      
+      // Set translation for searches without author resolution
+      if (!needsAuthorResolution) {
+        const translation = await generateTranslation(effectiveQuery, false);
+        setTranslation(translation);
+      }
 
       // Track relays that returned events for this search
       const relays = new Set<string>();
@@ -809,7 +871,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1097,108 +1159,46 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   };
 
-  // Live translation preview (debounced)
+  // Live translation preview with smart author resolution
   useEffect(() => {
     let cancelled = false;
-    const id = setTimeout(() => {
-      (async () => {
-        try {
-          // 1) Apply simple replacements first
-          const afterReplacements = await applySimpleReplacements(query);
-
-          // 2) Recursive OR substitution (distribute parentheses)
-          const distributed = expandParenthesizedOr(afterReplacements);
-
-          // Helper: resolve all by:<author> tokens within a single query string
-          const resolveByTokensInQuery = async (q: string): Promise<string> => {
-            const rx = /(^|\s)by:(\S+)/gi;
-            let result = '';
-            let lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = rx.exec(q)) !== null) {
-              const full = m[0];
-              const pre = m[1] || '';
-              const raw = m[2] || '';
-              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-              const core = (match && match[1]) || raw;
-              const suffix = (match && match[2]) || '';
-              let replacement = core;
-              try {
-                const npub = await resolveAuthorToNpub(core);
-                if (npub) replacement = npub;
-              } catch {}
-              result += q.slice(lastIndex, m.index);
-              result += `${pre}by:${replacement}${suffix}`;
-              lastIndex = m.index + full.length;
-            }
-            result += q.slice(lastIndex);
-            return result;
-          };
-
-          // 3) Resolve authors inside each distributed branch
-          const resolvedDistributed = await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
-
-          // Helper: normalize p:<token> where token may be hex, npub or nprofile
-          const resolvePTokensInQuery = (q: string): string => {
-            const rx = /(^|\s)p:(\S+)/gi;
-            let result = '';
-            let lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = rx.exec(q)) !== null) {
-              const full = m[0];
-              const pre = m[1] || '';
-              const raw = m[2] || '';
-              const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-              const core = (match && match[1]) || raw;
-              const suffix = (match && match[2]) || '';
-              let replacement = core;
-              if (/^[0-9a-fA-F]{64}$/.test(core)) {
-                try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
-              } else if (/^npub1[0-9a-z]+$/i.test(core)) {
-                replacement = core;
-              } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
-                try {
-                  const decoded = nip19.decode(core);
-                  if (decoded?.type === 'nprofile') {
-                    const pk = (decoded.data as { pubkey: string }).pubkey;
-                    replacement = nip19.npubEncode(pk);
-                  }
-                } catch {}
-              }
-              result += q.slice(lastIndex, m.index);
-              result += `${pre}p:${replacement}${suffix}`;
-              lastIndex = m.index + full.length;
-            }
-            result += q.slice(lastIndex);
-            return result;
-          };
-
-          const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
-
-          // 4) Split into multiple queries if top-level OR exists
-          const finalQueriesSet = new Set<string>();
-          for (const q of withPResolved) {
-            const parts = parseOrQuery(q);
-            if (parts.length > 1) {
-              parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
-            } else {
-              const s = q.trim(); if (s) finalQueriesSet.add(s);
-            }
-          }
-          const finalQueries = Array.from(finalQueriesSet);
-
-          // Format compact preview
-          const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-          // For hashtag queries, always show the translation even if it's the same as the original
-          const finalPreview = (preview === query && isHashtagOnlyQuery(query)) ? `Searching for: ${query}` : preview;
-          if (!cancelled) setTranslation(finalPreview);
-        } catch {
-          if (!cancelled) setTranslation('');
+    
+    // Clear any existing timeout
+    if (authorResolutionTimeout.current) {
+      clearTimeout(authorResolutionTimeout.current);
+    }
+    
+    // Check if query contains author resolution tokens
+    const hasAuthorTokens = /(^|\s)by:(\S+)/gi.test(query);
+    
+    if (hasAuthorTokens) {
+      // For queries with author tokens, show immediate translation without resolution
+      // then update with resolution after a delay
+      generateTranslation(query, true).then((immediateTranslation) => {
+        if (!cancelled) setTranslation(immediateTranslation);
+      });
+      
+      // Debounce author resolution to avoid excessive requests
+      authorResolutionTimeout.current = setTimeout(async () => {
+        if (!cancelled) {
+          const fullTranslation = await generateTranslation(query, false);
+          if (!cancelled) setTranslation(fullTranslation);
         }
-      })();
-    }, 120);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [query]);
+      }, 500); // 500ms delay for author resolution
+    } else {
+      // For queries without author tokens, update immediately
+      generateTranslation(query, false).then((translation) => {
+        if (!cancelled) setTranslation(translation);
+      });
+    }
+    
+    return () => { 
+      cancelled = true; 
+      if (authorResolutionTimeout.current) {
+        clearTimeout(authorResolutionTimeout.current);
+      }
+    };
+  }, [query, generateTranslation]);
 
   const goToProfile = useCallback((npub: string, prefetchEvent?: NDKEvent) => {
     try {
