@@ -18,8 +18,8 @@ export default function RelayIndicator({ event, className = '' }: RelayIndicator
   }
 
   const tooltipText = relaySources.length === 1 
-    ? `From: ${relaySources[0]}`
-    : `From ${relaySources.length} relays:\n${relaySources.join('\n')}`;
+    ? relaySources[0]
+    : `${relaySources.length} relays:\n${relaySources.join('\n')}`;
 
   return (
     <div 
