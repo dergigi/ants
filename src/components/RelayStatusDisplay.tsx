@@ -123,10 +123,10 @@ export default function RelayStatusDisplay({
                       onClick={() => onSearch(cleanedUrl)}
                       className="hover:text-gray-200 hover:underline cursor-pointer text-left"
                     >
-                      {relayData.name || cleanedUrl}{pingDisplay}
+                      {cleanedUrl}{pingDisplay}
                     </button>
                   ) : (
-                    <span>{relayData.name || cleanedUrl}{pingDisplay}</span>
+                    <span>{cleanedUrl}{pingDisplay}</span>
                   )}
                   
                   {supportedNips.length > 0 && (
