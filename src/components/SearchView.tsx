@@ -41,7 +41,8 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { NDKUser } from '@nostr-dev-kit/ndk';
+import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
@@ -654,6 +655,39 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!profileScopeIdentifiers) return false;
     return hasProfileScope(query, profileScopeIdentifiers);
   }, [query, profileScopeIdentifiers]);
+
+  // Helper to determine if current query is a direct identifier query
+  const isDirectQuery = useMemo(() => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return false;
+    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
+    if (nip19Identifiers.length === 0) return false;
+
+    const identifierToken = nip19Identifiers[0].trim();
+    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
+
+    if (!firstIdentifier) return false;
+
+    // Check if the query is just the identifier (direct query)
+    const normalizedInput = trimmedQuery
+      .replace(/^web\+nostr:/i, '')
+      .replace(/^nostr:/i, '')
+      .replace(/[\s),.;]*$/, '')
+      .trim()
+      .toLowerCase();
+
+    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
+    if (identifierOnly) return true;
+
+    if (pathname?.startsWith('/e/')) {
+      const segment = pathname.split('/')[2]?.trim().toLowerCase();
+      if (segment && segment === identifierToken.toLowerCase()) {
+        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
+      }
+    }
+    return false;
+  }, [query, pathname]);
+
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (suppressSearchRef.current) {
       // Clear the flag and ignore this invocation
@@ -799,7 +833,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, undefined, abortController.signal);
+
+      // Choose relay set based on query type
+      let relaySet: NDKRelaySet | undefined;
+      if (isDirectQuery) {
+        // Direct queries (NIP-19): use all relays
+        console.log('[Search] Direct query detected, using all relays');
+        relaySet = await relaySets.default();
+      } else {
+        // Search queries (NIP-50): use NIP-50 capable relays only
+        console.log('[Search] Search query detected, using NIP-50 relays');
+        relaySet = await getNip50SearchRelaySet();
+      }
+
+      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -866,7 +913,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation, isDirectQuery]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
@@ -1521,37 +1568,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setRotationSeed((s) => s + 1);
   }, []);
 
-  // Helper to determine if current query is a direct identifier query
-  const isDirectQuery = useMemo(() => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return false;
-    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
-    if (nip19Identifiers.length === 0) return false;
-    
-    const identifierToken = nip19Identifiers[0].trim();
-    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
-    
-    if (!firstIdentifier) return false;
-    
-    // Check if the query is just the identifier (direct query)
-    const normalizedInput = trimmedQuery
-      .replace(/^web\+nostr:/i, '')
-      .replace(/^nostr:/i, '')
-      .replace(/[\s),.;]*$/, '')
-      .trim()
-      .toLowerCase();
-    
-    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
-    if (identifierOnly) return true;
-
-    if (pathname?.startsWith('/e/')) {
-      const segment = pathname.split('/')[2]?.trim().toLowerCase();
-      if (segment && segment === identifierToken.toLowerCase()) {
-        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
-      }
-    }
-    return false;
-  }, [query, pathname]);
 
   useEffect(() => {
     if (initialQueryRef.current !== initialQuery) {

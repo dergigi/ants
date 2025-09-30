@@ -1,8 +1,7 @@
-import { NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { ndk, ensureCacheInitialized } from './ndk';
+import { NDKRelaySet, NDKSubscriptionCacheUsage, NDKEvent } from '@nostr-dev-kit/ndk';
+import { ndk, ensureCacheInitialized, safeSubscribe } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
-import { getUserRelayUrls } from './search';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
@@ -80,54 +79,206 @@ export const RELAYS = {
 } as const;
 
 // Cache for discovered user relays to avoid repeated lookups
-const userRelayCache = new Map<string, { relays: string[]; timestamp: number }>();
+const userRelayCache = new Map<string, {
+  userRelays: string[];
+  blockedRelays: string[];
+  searchRelays: string[];
+  timestamp: number
+}>();
 const USER_RELAY_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+// Discover user relays as per NIP-51
+async function discoverUserRelays(pubkey: string): Promise<{
+  userRelays: string[];
+  blockedRelays: string[];
+  searchRelays: string[];
+}> {
+  // Check cache first
+  const cached = userRelayCache.get(pubkey);
+  if (cached && (Date.now() - cached.timestamp) < USER_RELAY_CACHE_DURATION_MS) {
+    return cached;
+  }
+
+  console.log(`[NIP-51] Discovering relays for user ${pubkey}`);
+
+  try {
+    // Get user's relay list (kind:10002) - used for general relay connections
+    const userRelayList = await new Promise<string[]>((resolve) => {
+      const sub = safeSubscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }], {
+        closeOnEose: true,
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
+      });
+
+      if (!sub) {
+        resolve([]);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        try { sub.stop(); } catch {}
+        resolve([]);
+      }, 5000);
+
+      sub.on('event', (event: NDKEvent) => {
+        const relays = new Set<string>();
+        for (const tag of event.tags) {
+          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+            const raw = tag[1];
+            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
+            relays.add(normalized);
+          }
+        }
+        const arr = Array.from(relays);
+        console.log(`[NIP-51] Found ${arr.length} user relays:`, arr);
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve(arr);
+      });
+
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve([]);
+      });
+
+      sub.start();
+    });
+
+    // Get blocked relays (kind:10006)
+    const blockedRelays = await new Promise<string[]>((resolve) => {
+      const sub = safeSubscribe([{ kinds: [10006], authors: [pubkey], limit: 1 }], {
+        closeOnEose: true,
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
+      });
+
+      if (!sub) {
+        resolve([]);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        try { sub.stop(); } catch {}
+        resolve([]);
+      }, 5000);
+
+      sub.on('event', (event: NDKEvent) => {
+        const blocked = new Set<string>();
+        for (const tag of event.tags) {
+          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+            const raw = tag[1];
+            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
+            blocked.add(normalized);
+          }
+        }
+        const arr = Array.from(blocked);
+        console.log(`[NIP-51] Found ${arr.length} blocked relays:`, arr);
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve(arr);
+      });
+
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve([]);
+      });
+
+      sub.start();
+    });
+
+    // Get search relays (kind:10007)
+    const searchRelays = await new Promise<string[]>((resolve) => {
+      const sub = safeSubscribe([{ kinds: [10007], authors: [pubkey], limit: 1 }], {
+        closeOnEose: true,
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY
+      });
+
+      if (!sub) {
+        resolve([]);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        try { sub.stop(); } catch {}
+        resolve([]);
+      }, 5000);
+
+      sub.on('event', (event: NDKEvent) => {
+        const search = new Set<string>();
+        for (const tag of event.tags) {
+          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+            const raw = tag[1];
+            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
+            search.add(normalized);
+          }
+        }
+        const arr = Array.from(search);
+        console.log(`[NIP-51] Found ${arr.length} search relays:`, arr);
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve(arr);
+      });
+
+      sub.on('eose', () => {
+        clearTimeout(timer);
+        try { sub.stop(); } catch {}
+        resolve([]);
+      });
+
+      sub.start();
+    });
+
+    const result = {
+      userRelays: userRelayList,
+      blockedRelays,
+      searchRelays
+    };
+
+    // Cache the result
+    userRelayCache.set(pubkey, { ...result, timestamp: Date.now() });
+
+    return result;
+  } catch (error) {
+    console.warn(`[NIP-51] Failed to discover relays for user ${pubkey}:`, error);
+    return { userRelays: [], blockedRelays: [], searchRelays: [] };
+  }
+}
 
 async function extendWithUserAndPremium(relayUrls: readonly string[]): Promise<string[]> {
   const enriched = [...relayUrls];
-  if (getStoredPubkey()) {
-    // Add manually configured user relays
-    const userRelays = getUserRelayAdditions();
-    for (const relay of userRelays) {
-      if (!enriched.includes(relay)) {
-        enriched.push(relay);
+  const pubkey = getStoredPubkey();
+
+  if (pubkey) {
+    // Discover user relays as per NIP-51
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { userRelays, blockedRelays, searchRelays } = await discoverUserRelays(pubkey);
+
+    // Remove blocked relays from all relay lists
+    const blockedSet = new Set(blockedRelays);
+    const filteredEnriched = enriched.filter(url => !blockedSet.has(url));
+
+    // Add user's search relays to search relay lists (handled in search relay functions)
+    // Note: userRelays and searchRelays are used in getNip50SearchRelaySet()
+    // Add manually configured user relays (for backward compatibility)
+    const manualUserRelays = getUserRelayAdditions();
+    for (const relay of manualUserRelays) {
+      if (!filteredEnriched.includes(relay)) {
+        filteredEnriched.push(relay);
       }
     }
     
-    // Add automatically discovered user relays
-    try {
-      const pubkey = getStoredPubkey();
-      if (pubkey) {
-        const now = Date.now();
-        const cached = userRelayCache.get(pubkey);
-        
-        let discoveredRelays: string[] = [];
-        if (cached && (now - cached.timestamp) < USER_RELAY_CACHE_DURATION_MS) {
-          // Use cached relays
-          discoveredRelays = cached.relays;
-        } else {
-          // Discover user relays with timeout
-          discoveredRelays = await getUserRelayUrls(3000); // 3 second timeout
-          userRelayCache.set(pubkey, { relays: discoveredRelays, timestamp: now });
-        }
-        
-        // Add discovered relays
-        for (const relay of discoveredRelays) {
-          if (!enriched.includes(relay)) {
-            enriched.push(relay);
-          }
+    // Add premium relays for logged-in users
+    if (getStoredPubkey()) {
+      for (const relay of RELAYS.PREMIUM) {
+        if (!filteredEnriched.includes(relay)) {
+          filteredEnriched.push(relay);
         }
       }
-    } catch (error) {
-      console.warn('Failed to discover user relays:', error);
-      // Continue without discovered relays
     }
-    
-    // Add premium relays
-    for (const premium of RELAYS.PREMIUM) {
-      if (!enriched.includes(premium)) enriched.push(premium);
-    }
+
+    return filteredEnriched;
   }
+
   return enriched;
 }
 
@@ -273,8 +424,24 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
+  const pubkey = getStoredPubkey();
+
+  // Start with hardcoded search relays
+  const allSearchRelays: string[] = [...RELAYS.SEARCH];
+
+  // Add user's search relays if logged in
+  if (pubkey) {
+    try {
+      const { searchRelays } = await discoverUserRelays(pubkey);
+      allSearchRelays.push(...searchRelays);
+      console.log(`[NIP-51] Added ${searchRelays.length} user search relays`);
+    } catch (error) {
+      console.warn('[NIP-51] Failed to discover user search relays:', error);
+    }
+  }
+
   // Get all relays (including user relays) but filter for NIP-50 support
-  const allRelays = await extendWithUserAndPremium([...RELAYS.SEARCH]);
+  const allRelays = await extendWithUserAndPremium(allSearchRelays);
   const nip50Relays = await filterNip50Relays(allRelays);
   return createRelaySet(nip50Relays);
 }
