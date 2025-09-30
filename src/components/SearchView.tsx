@@ -220,9 +220,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       // Format compact preview
       const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      // For hashtag queries, always show the translation even if it's the same as the original
-      const finalPreview = (preview === query && isHashtagOnlyQuery(query)) ? `Searching for: ${query}` : preview;
-      return finalPreview;
+      return preview;
     } catch {
       return '';
     }
