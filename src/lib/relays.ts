@@ -163,6 +163,7 @@ async function checkNip50SupportViaInfo(relayUrl: string): Promise<boolean> {
     
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
+        console.log(`[NIP-50 DEBUG] Timeout waiting for NOTICE from ${relayUrl}`);
         resolve(false);
       }, 5000); // 5 second timeout
 
@@ -187,27 +188,37 @@ async function checkNip50SupportViaInfo(relayUrl: string): Promise<boolean> {
 
       const handleNotice = (message: unknown) => {
         try {
+          console.log(`[NIP-50 DEBUG] NOTICE from ${relayUrl}:`, message);
+          
           // NOTICE messages are in format: ["NOTICE", "message"]
           if (Array.isArray(message) && message[0] === 'NOTICE' && message[1]) {
             const noticeContent = message[1];
+            console.log(`[NIP-50 DEBUG] NOTICE content from ${relayUrl}:`, noticeContent);
             
             // Try to parse the JSON content
             try {
               const info = JSON.parse(noticeContent);
+              console.log(`[NIP-50 DEBUG] Parsed NOTICE JSON from ${relayUrl}:`, info);
+              
               if (info.supported_nips && Array.isArray(info.supported_nips)) {
                 const supportsNip50 = info.supported_nips.includes(50);
+                console.log(`[NIP-50 DEBUG] ${relayUrl} supported_nips:`, info.supported_nips, `NIP-50 support: ${supportsNip50}`);
                 clearTimeout(timeout);
                 try { sub.stop(); } catch {}
                 relay.off('notice', handleNotice);
                 resolve(supportsNip50);
                 return;
+              } else {
+                console.log(`[NIP-50 DEBUG] ${relayUrl} - no supported_nips field or not an array`);
               }
-            } catch {
-              // Not JSON, ignore
+            } catch (parseError) {
+              console.log(`[NIP-50 DEBUG] ${relayUrl} - failed to parse NOTICE as JSON:`, parseError);
             }
+          } else {
+            console.log(`[NIP-50 DEBUG] ${relayUrl} - NOTICE message not in expected format:`, message);
           }
-        } catch {
-          // Ignore parsing errors
+        } catch (error) {
+          console.log(`[NIP-50 DEBUG] ${relayUrl} - error handling NOTICE:`, error);
         }
       };
 
@@ -215,6 +226,7 @@ async function checkNip50SupportViaInfo(relayUrl: string): Promise<boolean> {
       relay.on('notice', handleNotice);
 
       // Start the subscription to trigger INFO request
+      console.log(`[NIP-50 DEBUG] Starting INFO request for ${relayUrl}`);
       sub.start();
 
       // Clean up on timeout
