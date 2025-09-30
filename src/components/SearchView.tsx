@@ -1631,7 +1631,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           {/* Button row - always collapsed states */}
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
-              connectedCount={relayInfo.eventsReceivedCount}
+              connectedCount={successfullyActiveRelays.size}
               totalCount={relayInfo.totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
               isExpanded={showConnectionDetails}
