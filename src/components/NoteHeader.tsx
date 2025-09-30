@@ -131,7 +131,7 @@ export default function NoteHeader({
               const kindIcon = getEventKindIcon(event.kind);
               return kindIcon ? (
                 <IconButton
-                  title={`Search for ${getKindSearchQuery(event.kind) || 'this event type'}`}
+                  title={getKindSearchQuery(event.kind) || 'Note'}
                   onClick={handleKindClick}
                   className="text-gray-400 hover:text-gray-300"
                 >
