@@ -1606,7 +1606,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           />
         )}
         mediaRenderer={renderNoteMedia}
-        className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full"
+        className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
         showFooter={true}
       />
     ));
@@ -1796,7 +1796,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               />
             )}
             {finalResults.map((event, idx) => {
-              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-b-lg rounded-t-none border-t-0`;
+              // Check if this note has any expanded parents
+              const hasExpandedParents = (() => {
+                let currentEvent = event;
+                while (currentEvent) {
+                  const parentId = getReplyToEventId(currentEvent);
+                  if (!parentId) break;
+                  const parentState = expandedParents[parentId];
+                  if (parentState && parentState !== 'loading' && parentState !== null) {
+                    return true;
+                  }
+                  break;
+                }
+                return false;
+              })();
+              
+              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`;
               const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
