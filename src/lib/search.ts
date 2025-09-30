@@ -348,6 +348,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
       sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
+      console.log(`[SEARCH] Event from relay: ${relayUrl}`);
       
       // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
