@@ -3,6 +3,8 @@
  * Handles all relay URL normalization consistently across the codebase
  */
 
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+
 /**
  * Normalizes a relay URL to a consistent format for comparison and storage
  * - Removes trailing slashes
@@ -69,8 +71,8 @@ export function areRelayUrlsEqual(url1: string | undefined | null, url2: string 
  * Extracts relay sources from an NDKEvent
  * Returns normalized URLs for consistent comparison
  */
-export function extractRelaySourcesFromEvent(event: any): string[] {
-  const eventWithSources = event as {
+export function extractRelaySourcesFromEvent(event: NDKEvent): string[] {
+  const eventWithSources = event as NDKEvent & {
     relaySource?: string;
     relaySources?: string[];
   };
