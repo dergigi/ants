@@ -1202,10 +1202,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }, 500); // 500ms delay for author resolution
     } else {
-      // For queries without author tokens, update immediately
-      generateTranslation(query, false).then((translation) => {
-        if (!cancelled) setTranslation(translation);
-      });
+      // For queries without author tokens, debounce the translation to avoid hanging while typing
+      const translationTimeout = setTimeout(async () => {
+        if (!cancelled) {
+          const translation = await generateTranslation(query, false);
+          if (!cancelled) setTranslation(translation);
+        }
+      }, 300); // 300ms delay to avoid excessive updates while typing
+      
+      return () => {
+        clearTimeout(translationTimeout);
+      };
     }
     
     return () => { 
