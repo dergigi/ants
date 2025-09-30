@@ -12,6 +12,8 @@ interface RelayStatusDisplayProps {
   connectionDetails: ConnectionStatus;
   relayInfo: RelayInfo;
   activeRelays: Set<string>;
+  toggledRelays: Set<string>;
+  onToggleRelay?: (relayUrl: string) => void;
   onSearch?: (query: string) => void;
 }
 
@@ -19,6 +21,8 @@ export default function RelayStatusDisplay({
   connectionDetails,
   relayInfo: relayData,
   activeRelays,
+  toggledRelays,
+  onToggleRelay,
   onSearch
 }: RelayStatusDisplayProps) {
   console.log(`[RELAY DISPLAY] activeRelays prop:`, Array.from(activeRelays));
@@ -88,16 +92,20 @@ export default function RelayStatusDisplay({
             const isActive = activeRelays.has(normalizedUrl);
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(normalizedUrl);
+            const isToggled = toggledRelays.has(normalizedUrl);
             
             console.log(`[RELAY DISPLAY] Checking relay: ${normalizedUrl}`);
             console.log(`[RELAY DISPLAY] activeRelays has this relay: ${providedResults}`);
             console.log(`[RELAY DISPLAY] activeRelays contents:`, Array.from(activeRelays));
             
-            const iconClasses = providedResults
+            // Determine icon state: toggled (blue), untoggled (gray), or inactive
+            const iconClasses = isToggled
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
-              : isActive
-                ? 'text-gray-300 bg-gray-700/40 border border-gray-400/30'
-                : 'text-gray-500 bg-transparent';
+              : providedResults
+                ? `border border-gray-400/30 text-gray-300 bg-gray-700/40`
+                : isActive
+                  ? 'text-gray-500 bg-gray-800/20 border border-gray-500/20'
+                  : 'text-gray-500 bg-transparent';
             
             // Get relay info from cache
             const relayData = getRelayInfoFromCache(relay.url);
@@ -109,7 +117,12 @@ export default function RelayStatusDisplay({
             return (
               <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-start gap-1">
                 <div className="flex items-start gap-1">
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
+                  <button
+                    type="button"
+                    onClick={() => onToggleRelay?.(normalizedUrl)}
+                    className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none transition-colors hover:opacity-80 ${iconClasses}`}
+                    title={isToggled ? "Click to hide results from this relay" : "Click to show only results from this relay"}
+                  >
                     {supportsNip50 ? (
                       <FontAwesomeIcon 
                         icon={faMagnifyingGlass} 
@@ -123,7 +136,7 @@ export default function RelayStatusDisplay({
                         title="Database relay (no search support)"
                       />
                     )}
-                  </div>
+                  </button>
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center">

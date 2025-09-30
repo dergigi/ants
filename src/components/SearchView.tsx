@@ -321,6 +321,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
+  const [toggledRelays, setToggledRelays] = useState<Set<string>>(new Set());
+
+  // Toggle relay on/off for client-side filtering
+  const toggleRelay = useCallback((relayUrl: string) => {
+    setToggledRelays(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(relayUrl)) {
+        newSet.delete(relayUrl);
+      } else {
+        newSet.add(relayUrl);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Filter results based on toggled relay state
+  const filterByRelays = useCallback((events: NDKEvent[]) => {
+    if (toggledRelays.size === 0) {
+      // No relays toggled off, return all events
+      return events;
+    }
+
+    return events.filter(event => {
+      const eventSources = extractRelaySourcesFromEvent(event);
+      // Keep event if it has sources from toggled relays
+      return eventSources.some(source => toggledRelays.has(source));
+    });
+  }, [toggledRelays]);
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -400,20 +428,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
 
   const filteredResults = useMemo(
-    () => shouldEnableFilters ? applyContentFilters(
-      results,
-      // Disable emoji filter when searching for multiple emojis in Smart mode
-      emojiAutoDisabled ? null : filterSettings.maxEmojis,
-      filterSettings.maxHashtags,
-      filterSettings.maxMentions,
-      filterSettings.hideLinks,
-      filterSettings.hideBridged,
-      filterSettings.verifiedOnly,
-      (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
-      filterSettings.hideBots,
-      filterSettings.hideNsfw
-    ) : results,
-    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw]
+    () => {
+      let filtered = results;
+      
+      // Apply content filters first
+      if (shouldEnableFilters) {
+        filtered = applyContentFilters(
+          filtered,
+          // Disable emoji filter when searching for multiple emojis in Smart mode
+          emojiAutoDisabled ? null : filterSettings.maxEmojis,
+          filterSettings.maxHashtags,
+          filterSettings.maxMentions,
+          filterSettings.hideLinks,
+          filterSettings.hideBridged,
+          filterSettings.verifiedOnly,
+          (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
+          filterSettings.hideBots,
+          filterSettings.hideNsfw
+        );
+      }
+      
+      // Apply relay filtering
+      return filterByRelays(filtered);
+    },
+    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw, filterByRelays]
   );
 
   // Apply optional fuzzy filter on top of client-side filters
@@ -881,6 +919,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const relays = createRelaySet(relayUrls);
       console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
       setSuccessfullyActiveRelays(relays);
+      
+      // Initialize toggled relays to include all relays that provided results
+      setToggledRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
@@ -1644,6 +1685,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               relayInfo={relayInfo}
               onSearch={handleSearch}
               activeRelays={successfullyActiveRelays}
+              toggledRelays={toggledRelays}
+              onToggleRelay={toggleRelay}
             />
           )}
 
