@@ -40,7 +40,7 @@ import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
 import InlineNostrToken from '@/components/InlineNostrToken';
-import ParentChain from '@/components/ParentChain';
+import NoteHeader from '@/components/NoteHeader';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
@@ -1562,19 +1562,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [expandedParents, setExpandedParents]);
 
-  const renderParentChain = useCallback((childEvent: NDKEvent, isTop: boolean = true): React.ReactNode => {
+  const renderNoteHeader = useCallback((event: NDKEvent): React.ReactNode => {
     return (
-      <ParentChain
-        childEvent={childEvent}
-        isTop={isTop}
+      <NoteHeader
+        event={event}
         expandedParents={expandedParents}
         onParentToggle={handleParentToggle}
-        onAuthorClick={goToProfile}
-        renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-        renderNoteMedia={renderNoteMedia}
       />
     );
-  }, [expandedParents, handleParentToggle, goToProfile, renderContentWithClickableHashtags, renderNoteMedia]);
+  }, [expandedParents, handleParentToggle]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
@@ -1770,7 +1766,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               const key = `${event.id || 'unknown'}:${idx}`;
               return (
                 <div key={key}>
-                  {parentId && renderParentChain(event)}
+                  {renderNoteHeader(event)}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
@@ -1884,7 +1880,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }
