@@ -184,11 +184,11 @@ async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
   await ensureCacheInitialized();
   return new Promise((resolve) => {
     const testRelaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndk);
-    let hasResponse = false;
+    let hasSearchResponse = false;
     
     const sub = safeSubscribe([{ 
       kinds: [1], 
-      search: 'test', 
+      search: 'antstestuniquesearchterm', 
       limit: 1
     }], { 
       closeOnEose: true, 
@@ -203,11 +203,12 @@ async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
     
     const timer = setTimeout(() => {
       try { sub.stop(); } catch {}
-      resolve(hasResponse);
-    }, 3000); // 3s timeout
+      // Only consider it NIP-50 supported if we got a search response
+      resolve(hasSearchResponse);
+    }, 2000); // 2s timeout - shorter for faster detection
     
     sub.on('event', () => {
-      hasResponse = true;
+      hasSearchResponse = true;
       clearTimeout(timer);
       try { sub.stop(); } catch {}
       resolve(true);
@@ -216,8 +217,10 @@ async function checkNip50SupportViaTest(relayUrl: string): Promise<boolean> {
     sub.on('eose', () => {
       clearTimeout(timer);
       try { sub.stop(); } catch {}
-      resolve(hasResponse);
+      resolve(hasSearchResponse);
     });
+    
+    // Note: NDK doesn't have an 'error' event, so we'll rely on timeout and response
     
     sub.start();
   });
@@ -249,6 +252,17 @@ export async function checkNip50Support(relayUrl: string): Promise<boolean> {
   saveCacheToStorage();
   
   return supported;
+}
+
+// Clear NIP-50 support cache (useful for debugging)
+export function clearNip50SupportCache(): void {
+  nip50SupportCache.clear();
+  try {
+    clearStorageKey('ants_nip50_support_cache');
+    console.log('NIP-50 support cache cleared');
+  } catch (error) {
+    console.warn('Failed to clear NIP-50 support cache:', error);
+  }
 }
 
 // Filter relays to only those supporting NIP-50
