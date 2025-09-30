@@ -1798,7 +1798,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             {finalResults.map((event, idx) => {
               // Check if this note has any expanded parents
               const hasExpandedParents = (() => {
-                let currentEvent = event;
+                const currentEvent = event;
                 while (currentEvent) {
                   const parentId = getReplyToEventId(currentEvent);
                   if (!parentId) break;
@@ -1930,7 +1930,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }

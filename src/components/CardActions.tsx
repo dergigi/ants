@@ -19,7 +19,6 @@ type Props = {
   externalHref?: string;
   externalTitle?: string;
   externalTarget?: '_blank' | '_self' | '_parent' | '_top';
-  externalRel?: string;
   onExternalClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
@@ -36,7 +35,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
     externalHref,
     externalTitle,
     externalTarget,
-    externalRel,
     onExternalClick,
   }: Props,
   ref
@@ -47,7 +45,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   const href = externalHref || neventHref;
   const title = externalTitle || fallbackTitle;
   const target = externalTarget || (href && href.startsWith('http') ? '_blank' : undefined);
-  const rel = externalRel || (target === '_blank' ? 'noopener noreferrer' : undefined);
 
   const isMenuVisible = typeof onToggleMenu === 'function';
 
@@ -79,7 +76,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (onExternalClick) onExternalClick(e as any);
+            if (onExternalClick) onExternalClick(e as unknown as React.MouseEvent<HTMLAnchorElement>);
             if (href) {
               if (target === '_blank') {
                 window.open(href, '_blank', 'noopener,noreferrer');

@@ -179,7 +179,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             externalHref={nativeAppHref}
             externalTitle="Open in native app"
             externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
-            externalRel={nativeAppHref?.startsWith('http') ? 'noopener noreferrer' : undefined}
             onExternalClick={(e) => {
               if (!nativeAppHref) return;
               if (nativeAppHref.startsWith('/')) {

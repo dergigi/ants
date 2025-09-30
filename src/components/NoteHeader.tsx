@@ -65,8 +65,6 @@ export default function NoteHeader({
   }, []);
 
   const parentId = getReplyToEventId(event);
-  const parentState = parentId ? expandedParents[parentId] : null;
-  const parentEvent = parentState && parentState !== 'loading' ? (parentState as NDKEvent) : null;
   
   // Find the topmost parent in the chain to show in header
   const getTopmostParent = (startEvent: NDKEvent): NDKEvent => {

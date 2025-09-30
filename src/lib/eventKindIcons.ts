@@ -13,14 +13,15 @@ import {
   faNewspaper, 
   faEyeSlash, 
   faThumbtack, 
-  faBookmark 
+  faBookmark,
+  type IconDefinition
 } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Maps Nostr event kinds to FontAwesome icons
  * Based on the mapping in public/kind-icons.txt
  */
-export const EVENT_KIND_ICONS: Record<number, any> = {
+export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
   1: faFeather,        // Text notes
   6: faRetweet,        // Reposts
   7: faHeart,          // Reactions
@@ -45,7 +46,7 @@ export const EVENT_KIND_ICONS: Record<number, any> = {
  * @param kind - The Nostr event kind number
  * @returns The FontAwesome icon or null if not found
  */
-export function getEventKindIcon(kind: number): any {
+export function getEventKindIcon(kind: number): IconDefinition | null {
   return EVENT_KIND_ICONS[kind] || null;
 }
 
