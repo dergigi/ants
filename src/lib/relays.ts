@@ -155,91 +155,42 @@ export async function createRelaySet(urls: string[]): Promise<NDKRelaySet> {
   return NDKRelaySet.fromRelayUrls(urls, ndk);
 }
 
-// Check NIP-50 support via INFO request (NOTICE response)
-async function checkNip50SupportViaInfo(relayUrl: string): Promise<boolean> {
+// Check NIP-50 support via NIP-11 (HTTP) - more reliable than INFO request
+async function checkNip50SupportViaNip11(relayUrl: string): Promise<boolean> {
   try {
-    const relay = ndk.pool?.relays?.get(relayUrl);
-    if (!relay || relay.status !== 1) {
-      console.log(`[NIP-50 DEBUG] ${relayUrl} - relay not connected`);
+    console.log(`[NIP-50 DEBUG] Checking NIP-11 for ${relayUrl}`);
+    
+    // Convert wss:// to https:// for NIP-11
+    const httpUrl = relayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
+    const nip11Url = `${httpUrl}/.well-known/nostr.json`;
+    console.log(`[NIP-50 DEBUG] NIP-11 URL: ${nip11Url}`);
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
+    const response = await fetch(nip11Url, { 
+      signal: controller.signal,
+      headers: { 'Accept': 'application/nostr+json' }
+    });
+    
+    clearTimeout(timeout);
+    console.log(`[NIP-50 DEBUG] ${relayUrl} - NIP-11 response status:`, response.status);
+    
+    if (!response.ok) {
+      console.log(`[NIP-50 DEBUG] ${relayUrl} - NIP-11 not available (${response.status})`);
       return false;
     }
-
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log(`[NIP-50 DEBUG] Timeout waiting for NOTICE from ${relayUrl}`);
-        resolve(false);
-      }, 5000); // 5 second timeout
-
-      const handleNotice = (message: unknown) => {
-        try {
-          console.log(`[NIP-50 DEBUG] NOTICE from ${relayUrl}:`, message);
-          
-          // NOTICE messages are in format: ["NOTICE", "message"]
-          if (Array.isArray(message) && message[0] === 'NOTICE' && message[1]) {
-            const noticeContent = message[1];
-            console.log(`[NIP-50 DEBUG] NOTICE content from ${relayUrl}:`, noticeContent);
-            
-            // Try to parse the JSON content
-            try {
-              const info = JSON.parse(noticeContent);
-              console.log(`[NIP-50 DEBUG] Parsed NOTICE JSON from ${relayUrl}:`, info);
-              
-              if (info.supported_nips && Array.isArray(info.supported_nips)) {
-                const supportsNip50 = info.supported_nips.includes(50);
-                console.log(`[NIP-50 DEBUG] ${relayUrl} supported_nips:`, info.supported_nips, `NIP-50 support: ${supportsNip50}`);
-                clearTimeout(timeout);
-                relay.off('notice', handleNotice);
-                resolve(supportsNip50);
-                return;
-              } else {
-                console.log(`[NIP-50 DEBUG] ${relayUrl} - no supported_nips field or not an array`);
-              }
-            } catch (parseError) {
-              console.log(`[NIP-50 DEBUG] ${relayUrl} - failed to parse NOTICE as JSON:`, parseError);
-            }
-          } else {
-            console.log(`[NIP-50 DEBUG] ${relayUrl} - NOTICE message not in expected format:`, message);
-          }
-        } catch (error) {
-          console.log(`[NIP-50 DEBUG] ${relayUrl} - error handling NOTICE:`, error);
-        }
-      };
-
-      // Listen for NOTICE messages
-      relay.on('notice', handleNotice);
-
-      // Send the INFO request message directly
-      console.log(`[NIP-50 DEBUG] Sending INFO request to ${relayUrl}`);
-      const infoRequest = JSON.stringify(['REQ', 'info-1', { kinds: [0] }]);
-      
-      try {
-        // Access the underlying WebSocket to send the raw message
-        const ws = (relay as { ws?: WebSocket }).ws;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(infoRequest);
-          console.log(`[NIP-50 DEBUG] INFO request sent to ${relayUrl}`);
-        } else {
-          console.log(`[NIP-50 DEBUG] ${relayUrl} - WebSocket not open, readyState:`, ws?.readyState);
-          clearTimeout(timeout);
-          relay.off('notice', handleNotice);
-          resolve(false);
-          return;
-        }
-      } catch (error) {
-        console.log(`[NIP-50 DEBUG] ${relayUrl} - failed to send INFO request:`, error);
-        clearTimeout(timeout);
-        relay.off('notice', handleNotice);
-        resolve(false);
-        return;
-      }
-
-      // Clean up on timeout
-      setTimeout(() => {
-        relay.off('notice', handleNotice);
-      }, 5000);
-    });
+    
+    const data = await response.json();
+    console.log(`[NIP-50 DEBUG] ${relayUrl} - NIP-11 data:`, data);
+    
+    const supportedNips = data?.supported_nips || [];
+    const supportsNip50 = supportedNips.includes(50);
+    console.log(`[NIP-50 DEBUG] ${relayUrl} - supported_nips:`, supportedNips, `NIP-50 support: ${supportsNip50}`);
+    
+    return supportsNip50;
   } catch (error) {
-    console.warn(`Failed to check INFO for ${relayUrl}:`, error);
+    console.log(`[NIP-50 DEBUG] ${relayUrl} - NIP-11 failed:`, error);
     return false;
   }
 }
@@ -253,8 +204,8 @@ export async function checkNip50Support(relayUrl: string): Promise<boolean> {
     return cached.supported;
   }
   
-  // Use INFO request method for reliable detection
-  const supported = await checkNip50SupportViaInfo(relayUrl);
+  // Use NIP-11 method for reliable detection
+  const supported = await checkNip50SupportViaNip11(relayUrl);
   
   // Cache the result
   nip50SupportCache.set(relayUrl, { 
