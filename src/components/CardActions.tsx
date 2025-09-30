@@ -74,19 +74,23 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
         />
       ) : null}
       {href ? (
-        <a
-          href={href}
+        <IconButton
           title={title}
-          className="text-gray-400 hover:text-gray-200"
-          target={target}
-          rel={rel}
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
-            if (onExternalClick) onExternalClick(e);
+            if (onExternalClick) onExternalClick(e as any);
+            if (href) {
+              if (target === '_blank') {
+                window.open(href, '_blank', 'noopener,noreferrer');
+              } else {
+                window.location.href = href;
+              }
+            }
           }}
         >
           <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-xs" />
-        </a>
+        </IconButton>
       ) : null}
       {isMenuVisible ? (
         <IconButton
