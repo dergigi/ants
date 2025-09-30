@@ -107,7 +107,7 @@ export default function ParentChain({
               'Loading parent…'
             ) : (
               <>
-                <FontAwesomeIcon icon={faReply} className="text-xs text-gray-400 transform scale-y-[-1]" />
+                <FontAwesomeIcon icon={faReply} className="text-xs text-gray-400 transform rotate-90" />
                 <span>{parentLabel}</span>
               </>
             )}
