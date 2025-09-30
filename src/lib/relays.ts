@@ -3,6 +3,12 @@ import { ndk, ensureCacheInitialized, safeSubscribe } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
+import { 
+  RELAY_INFO_CACHE_DURATION, 
+  RELAY_USER_RELAY_CACHE_DURATION, 
+  RELAY_INFO_CHECK_TIMEOUT, 
+  RELAY_HTTP_REQUEST_TIMEOUT 
+} from './constants';
 
 // Cache for relay information (complete NIP-11 data)
 const relayInfoCache = new Map<string, {
@@ -14,7 +20,7 @@ const relayInfoCache = new Map<string, {
   version?: string;
   timestamp: number;
 }>();
-const CACHE_DURATION_MS = 60 * 1000; // 1 minute
+const CACHE_DURATION_MS = RELAY_INFO_CACHE_DURATION;
 const CACHE_STORAGE_KEY = 'ants_relay_info_cache';
 
 // Load cache from localStorage on initialization (browser only)
@@ -110,7 +116,7 @@ const userRelayCache = new Map<string, {
   searchRelays: string[];
   timestamp: number
 }>();
-const USER_RELAY_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+const USER_RELAY_CACHE_DURATION_MS = RELAY_USER_RELAY_CACHE_DURATION;
 
 // Discover user relays as per NIP-51
 async function discoverUserRelays(pubkey: string): Promise<{
@@ -352,7 +358,7 @@ export async function getRelayInfo(relayUrl: string): Promise<{
 
     // Add a global timeout for the entire relay info checking process
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Relay info check timeout')), 10000); // 10 second timeout
+      setTimeout(() => reject(new Error('Relay info check timeout')), RELAY_INFO_CHECK_TIMEOUT);
     });
 
     const relayInfoPromise = (async () => {
@@ -435,7 +441,7 @@ async function checkRelayInfoViaHttp(relayUrl: string): Promise<{
         console.log(`[RELAY HTTP] Trying ${testUrl}`);
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 2000); // 2s per attempt
+        const timeout = setTimeout(() => controller.abort(), RELAY_HTTP_REQUEST_TIMEOUT);
 
         const response = await fetch(testUrl, {
           signal: controller.signal,

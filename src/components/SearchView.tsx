@@ -20,6 +20,12 @@ import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensu
 import { profileEventFromPubkey } from '@/lib/vertex';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
+import { 
+  UI_RECENTLY_ACTIVE_INTERVAL, 
+  UI_CONNECTION_DETAILS_INTERVAL, 
+  UI_AUTHOR_RESOLUTION_DEBOUNCE, 
+  UI_TRANSLATION_DEBOUNCE 
+} from '@/lib/constants';
 import EventCard from '@/components/EventCard';
 import ProfileCard from '@/components/ProfileCard';
 import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
@@ -975,7 +981,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     if (!showConnectionDetails) return;
     setRecentlyActive(getRecentlyActiveRelays());
-    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), 15000); // Reduced from 5s to 15s
+    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), UI_CONNECTION_DETAILS_INTERVAL);
     return () => clearInterval(id);
   }, [showConnectionDetails]);
 
@@ -988,7 +994,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     const id = setInterval(() => {
       setRecentlyActive(getRecentlyActiveRelays());
-    }, 10000); // Reduced from 1s to 10s
+    }, UI_RECENTLY_ACTIVE_INTERVAL);
     return () => clearInterval(id);
   }, []);
 
@@ -1238,7 +1244,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           const fullTranslation = await generateTranslation(query, false);
           if (!cancelled) setTranslation(fullTranslation);
         }
-      }, 500); // 500ms delay for author resolution
+      }, UI_AUTHOR_RESOLUTION_DEBOUNCE);
     } else {
       // For queries without author tokens, debounce the translation to avoid hanging while typing
       const translationTimeout = setTimeout(async () => {
@@ -1246,7 +1252,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           const translation = await generateTranslation(query, false);
           if (!cancelled) setTranslation(translation);
         }
-      }, 300); // 300ms delay to avoid excessive updates while typing
+      }, UI_TRANSLATION_DEBOUNCE);
       
       return () => {
         clearTimeout(translationTimeout);

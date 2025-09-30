@@ -4,6 +4,7 @@ import { getFilteredExamples } from './examples';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
+import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';
 
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
@@ -239,7 +240,7 @@ async function measureRelayPing(relayUrl: string): Promise<number> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(-1); // Timeout
-      }, 5000); // 5 second timeout
+      }, RELAY_PING_TIMEOUT);
 
       const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
         closeOnEose: true,
@@ -386,7 +387,7 @@ export const startRelayMonitoring = () => {
     } catch (error) {
       console.warn('Relay monitoring error:', error);
     }
-  }, 30000); // Check every 30 seconds (reduced from 10 seconds)
+  }, RELAY_MONITORING_INTERVAL);
 };
 
 export const stopRelayMonitoring = () => {
