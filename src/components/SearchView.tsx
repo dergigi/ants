@@ -1797,9 +1797,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               />
             )}
             {finalResults.map((event, idx) => {
-              // Check if this note has any expanded parents
+              // Check if this note has any parent chain blocks rendered above it
               const hasExpandedParents = (() => {
-                const currentEvent = event;
+                let currentEvent = event;
                 while (currentEvent) {
                   const parentId = getReplyToEventId(currentEvent);
                   if (!parentId) break;
@@ -1807,7 +1807,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   if (parentState && parentState !== 'loading' && parentState !== null) {
                     return true;
                   }
-                  break;
+                  currentEvent = parentState as unknown as NDKEvent;
                 }
                 return false;
               })();
