@@ -9,6 +9,7 @@ import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon } from '@/lib/eventKindIcons';
+import { getKindSearchQuery } from '@/lib/eventKindSearch';
 
 interface NoteHeaderProps {
   event: NDKEvent;
@@ -77,29 +78,6 @@ export default function NoteHeader({
     onParentToggle(parentId, 'loading');
     const fetched = await fetchEventById(parentId);
     onParentToggle(parentId, fetched || 'loading');
-  };
-
-  const getKindSearchQuery = (kind: number): string | null => {
-    const kindToSearchMap: Record<number, string> = {
-      1: 'is:tweet',
-      6: 'is:repost', 
-      7: 'is:reaction',
-      20: 'is:image',
-      21: 'is:video',
-      22: 'is:video',
-      1063: 'is:file',
-      1617: 'is:patch',
-      1621: 'is:issue',
-      1984: 'is:report',
-      9735: 'is:zap',
-      9321: 'is:nutzap',
-      9802: 'is:highlight',
-      30023: 'is:blogpost',
-      10000: 'is:muted',
-      10001: 'is:pin',
-      10003: 'is:bookmark',
-    };
-    return kindToSearchMap[kind] || null;
   };
 
   const handleKindClick = () => {
