@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ConnectionStatus } from '@/lib/ndk';
+import { ConnectionStatus, ndk } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHardDrive, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
@@ -29,11 +29,20 @@ export default function RelayStatusDisplay({
   // Track NIP-50 support and relay info for each relay
   const [relayInfo, setRelayInfo] = useState<Map<string, { supportsNip50: boolean; supportedNips: number[] }>>(new Map());
 
-  // Check NIP-50 support and get relay info for all relays
+  // Check NIP-50 support and get relay info for connected relays only
   useEffect(() => {
     const checkSupport = async () => {
       const infoMap = new Map<string, { supportsNip50: boolean; supportedNips: number[] }>();
-      const promises = allRelays.map(async (relay) => {
+
+      // Filter to only relays that are actually connected to NDK
+      const connectedRelays = allRelays.filter(relay => {
+        const ndkRelay = ndk.pool?.relays?.get(relay.url);
+        return ndkRelay && ndkRelay.status === 1; // status 1 = connected
+      });
+
+      console.log(`[NIP-50] Checking ${connectedRelays.length}/${allRelays.length} connected relays for NIP-50 support`);
+
+      const promises = connectedRelays.map(async (relay) => {
         try {
           const result = await checkNip50Support(relay.url);
           infoMap.set(relay.url, result);
@@ -42,7 +51,10 @@ export default function RelayStatusDisplay({
           infoMap.set(relay.url, { supportsNip50: false, supportedNips: [] });
         }
       });
-      await Promise.allSettled(promises);
+
+      if (promises.length > 0) {
+        await Promise.allSettled(promises);
+      }
       setRelayInfo(infoMap);
     };
 
