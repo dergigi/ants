@@ -133,7 +133,7 @@ export default function RelayStatusDisplay({
                   
                   {supportedNips.length > 0 && (
                     <div className="text-[10px] text-gray-500 mt-0.5">
-                      [{supportedNips.map((nip, nipIdx) => (
+                      nips: [{supportedNips.map((nip, nipIdx) => (
                         <span key={nipIdx}>
                           {onSearch ? (
                             <button
