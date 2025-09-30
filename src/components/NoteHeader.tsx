@@ -10,6 +10,7 @@ import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
+import IconButton from '@/components/IconButton';
 
 interface NoteHeaderProps {
   event: NDKEvent;
@@ -125,20 +126,22 @@ export default function NoteHeader({
             )}
           </button>
         ) : (
-          <button 
-            type="button" 
-            className="flex-1 text-left flex items-center gap-2"
-            onClick={handleKindClick}
-          >
+          <div className="flex-1 text-left flex items-center gap-2">
             {(() => {
               const kindIcon = getEventKindIcon(event.kind);
               return kindIcon ? (
-                <FontAwesomeIcon icon={kindIcon} className="text-xs text-gray-400" />
+                <IconButton
+                  title={`Search for ${getKindSearchQuery(event.kind) || 'this event type'}`}
+                  onClick={handleKindClick}
+                  className="w-auto h-auto p-1 text-gray-400 hover:text-gray-300"
+                >
+                  <FontAwesomeIcon icon={kindIcon} className="text-xs" />
+                </IconButton>
               ) : (
                 <span className="text-gray-400">Note</span>
               );
             })()}
-          </button>
+          </div>
         )}
         <RelayIndicator event={event} className="ml-2" />
       </div>
