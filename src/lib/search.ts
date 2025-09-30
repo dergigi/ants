@@ -275,7 +275,17 @@ export async function subscribeAndStream(
     });
 
     // Debug: Show which relays are connected for streaming
-    console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set:`, relaySet?.relays?.map(r => r.url) || 'unknown');
+    try {
+      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
+                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
+      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
+        ? relaysContainer
+        : [];
+      const relayUrls = relayEntries.map(r => r.url || r.relay?.url || 'unknown').filter(Boolean);
+      console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set:`, relayUrls.length > 0 ? relayUrls : 'unknown');
+    } catch (error) {
+      console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set: unknown (error: ${error})`);
+    }
     
     sub.start();
   });
@@ -394,7 +404,17 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       });
 
       // Debug: Show which relays are connected
-      console.log(`[SEARCH DEBUG] Starting subscription with relay set:`, relaySet?.relays?.map(r => r.url) || 'unknown');
+      try {
+        const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
+                               (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
+        const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
+          ? relaysContainer
+          : [];
+        const relayUrls = relayEntries.map(r => r.url || r.relay?.url || 'unknown').filter(Boolean);
+        console.log(`[SEARCH DEBUG] Starting subscription with relay set:`, relayUrls.length > 0 ? relayUrls : 'unknown');
+      } catch (error) {
+        console.log(`[SEARCH DEBUG] Starting subscription with relay set: unknown (error: ${error})`);
+      }
       
       sub.start();
     })();
