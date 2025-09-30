@@ -51,7 +51,7 @@ type Props = {
 export default function EventCard({ event, onAuthorClick, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
   const baseContainerClasses = variant === 'inline'
     ? 'flex w-full max-w-full flex-col gap-1 px-3 py-2 rounded-md bg-[#1f1f1f] border border-[#3d3d3d]'
-    : 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
+    : 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
   const containerClasses = className ? `${baseContainerClasses} ${className}` : baseContainerClasses;
 
   const contentClasses = variant === 'inline'
@@ -143,32 +143,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
     );
   };
 
-  // Determine if this note is a reply and derive a compact parent label
-  const getReplyToEventId = (ev: NDKEvent): string | null => {
-    try {
-      const eTags = (ev.tags || []).filter((t) => t && t[0] === 'e');
-      if (eTags.length === 0) return null;
-      const unique = new Map<string, typeof eTags[0]>();
-      eTags.forEach((tag) => { const id = tag[1]; if (id && !unique.has(id)) unique.set(id, tag); });
-      const deduped = Array.from(unique.values());
-      const replyTag = deduped.find((t) => t[3] === 'reply') || deduped.find((t) => t[3] === 'root') || deduped[deduped.length - 1];
-      return replyTag && replyTag[1] ? replyTag[1] : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const relaySources: string[] = (() => {
-    try {
-      const withSources = event as unknown as { relaySource?: string; relaySources?: string[] };
-      const list = new Set<string>();
-      if (Array.isArray(withSources.relaySources)) withSources.relaySources.forEach((u) => { if (typeof u === 'string' && u) list.add(u.replace(/\/$/, '')); });
-      if (typeof withSources.relaySource === 'string' && withSources.relaySource) list.add(withSources.relaySource.replace(/\/$/, ''));
-      return Array.from(list);
-    } catch {
-      return [];
-    }
-  })();
 
   return (
     <div className={containerClasses}>
@@ -178,33 +152,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </div>
       ) : (
         <>
-          {/* Always render header for notes (kind 1) */}
-          {event.kind === 1 && (
-            <div className="text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] rounded-t-lg rounded-b-none border-b-0 mb-0 flex items-center justify-between">
-              <div>
-                {(() => {
-                  const pid = getReplyToEventId(event);
-                  if (pid && /^[0-9a-f]{64}$/i.test(pid.trim())) {
-                    try {
-                      return `Replying to: ${shortenNevent(nip19.neventEncode({ id: pid.trim() }))}`;
-                    } catch {
-                      return `Replying to: ${pid.slice(0, 8)}…${pid.slice(-6)}`;
-                    }
-                  }
-                  if (pid) return `Replying to: ${pid}`;
-                  return 'Note';
-                })()}
-              </div>
-              <div className="ml-3">
-                <span
-                  title={(relaySources && relaySources.length > 0) ? `Relays:\n${relaySources.join('\n')}` : 'No relay info'}
-                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-200 cursor-default"
-                >
-                  <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
-                </span>
-              </div>
-            </div>
-          )}
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
               {/* Comment if present */}
@@ -390,13 +337,13 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               })()}
             </div>
           ) : (
-            <div className={`${contentClasses} ${event.kind === 1 ? 'p-4' : ''}`}>{renderContent(event.content || '')}</div>
+            <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
         </>
       )}
       {showFooter && (
-        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : event.kind === 1 ? 'text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
+        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
           <div className="flex items-center gap-2 min-h-[1rem]">
             {event.author && <Nip05Display user={event.author} compact={true} />}
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
