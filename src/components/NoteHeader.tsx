@@ -76,7 +76,12 @@ export default function NoteHeader({
     onParentToggle(parentId, fetched || 'loading');
   };
 
-  const barClasses = `text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] rounded-t-lg rounded-b-none border-b-0 ${className}`;
+  const isReply = Boolean(parentId);
+  const barClasses = `text-xs text-gray-300 border border-[#3d3d3d] px-4 py-2 rounded-t-lg rounded-b-none border-b-0 ${
+    isReply 
+      ? 'bg-[#1f1f1f] hover:bg-[#262626]' 
+      : 'bg-[#2d2d2d] hover:bg-[#353535]'
+  } ${className}`;
   
   const parentLabel = (() => {
     if (!parentId) return null;
