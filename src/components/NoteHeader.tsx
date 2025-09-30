@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -26,6 +26,26 @@ export default function NoteHeader({
   onSearch,
   className = ''
 }: NoteHeaderProps) {
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
+
+  // Load the search query for this event kind
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const query = await getKindSearchQuery(event.kind);
+        if (isMounted) {
+          setSearchQuery(query);
+        }
+      } catch {
+        if (isMounted) {
+          setSearchQuery(null);
+        }
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [event.kind]);
+
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
       const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
@@ -98,7 +118,6 @@ export default function NoteHeader({
 
   const handleKindClick = () => {
     if (!onSearch) return;
-    const searchQuery = getKindSearchQuery(displayEvent.kind);
     if (searchQuery) {
       onSearch(searchQuery);
     }
@@ -155,7 +174,7 @@ export default function NoteHeader({
                   type="button"
                   onClick={handleKindClick}
                   className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  title={getKindSearchQuery(displayEvent.kind) || displayName}
+                  title={searchQuery || displayName}
                 >
                   <FontAwesomeIcon icon={kindIcon} className="text-xs" />
                 </button>
