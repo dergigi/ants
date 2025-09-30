@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ConnectionStatus, ndk } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHardDrive, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faHardDrive, faMagnifyingGlass, faDatabase } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 import { getRelayInfo, RELAYS, relayInfoCache } from '@/lib/relays';
 
@@ -105,11 +105,17 @@ export default function RelayStatusDisplay({
             return (
               <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
                 <div className="flex items-center gap-1">
-                  {supportsNip50 && (
+                  {supportsNip50 ? (
                     <FontAwesomeIcon 
                       icon={faMagnifyingGlass} 
                       className={`text-xs ${magnifyingGlassColor}`}
                       title="Supports NIP-50 search"
+                    />
+                  ) : (
+                    <FontAwesomeIcon 
+                      icon={faDatabase} 
+                      className={`text-xs ${magnifyingGlassColor}`}
+                      title="Database relay (no search support)"
                     />
                   )}
                   <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
