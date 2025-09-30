@@ -41,6 +41,7 @@ import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
 import InlineNostrToken from '@/components/InlineNostrToken';
 import NoteHeader from '@/components/NoteHeader';
+import ParentChainRenderer from '@/components/ParentChainRenderer';
 import NoteMedia from '@/components/NoteMedia';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
@@ -1768,6 +1769,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               return (
                 <div key={key}>
                   {renderNoteHeader(event)}
+                  {parentEvent && (
+                    <ParentChainRenderer
+                      parentEvent={parentEvent}
+                      onAuthorClick={goToProfile}
+                      renderContentWithClickableHashtags={renderContentWithClickableHashtags}
+                      renderNoteMedia={renderNoteMedia}
+                    />
+                  )}
                   {event.kind === 0 ? (
                     <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
                   ) : event.kind === 1 ? (
