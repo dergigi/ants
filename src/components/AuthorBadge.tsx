@@ -40,7 +40,6 @@ export default function AuthorBadge({ user, onAuthorClick }: { user: NDKUser, on
       ) : (
         <span className="font-medium text-gray-100 truncate max-w-[10rem] flex items-center gap-1">
           <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
-          Loading...
         </span>
       )}
     </div>

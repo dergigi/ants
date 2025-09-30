@@ -206,7 +206,6 @@ export default function InlineNostrToken({
     return (
       <span className="inline-flex align-middle text-gray-400 bg-[#262626] border border-[#3d3d3d] rounded px-2 py-1 items-center gap-1">
         <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
-        Loading...
       </span>
     );
   }
