@@ -86,6 +86,10 @@ export default function RelayStatusDisplay({
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(cleanedUrl);
             
+            console.log(`[RELAY DISPLAY] Checking relay: ${cleanedUrl}`);
+            console.log(`[RELAY DISPLAY] activeRelays has this relay: ${providedResults}`);
+            console.log(`[RELAY DISPLAY] activeRelays contents:`, Array.from(activeRelays));
+            
             const iconClasses = providedResults
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`
               : isActive

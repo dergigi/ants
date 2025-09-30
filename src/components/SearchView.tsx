@@ -887,9 +887,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       searchResults.forEach(evt => {
         const relaySources = extractRelaysFromEvent(evt);
         relaySources.forEach(url => {
-          if (url) relays.add(url.replace(/\/$/, ''));
+          if (url) {
+            const normalizedUrl = url.replace(/\/$/, '');
+            relays.add(normalizedUrl);
+            console.log(`[RELAY TRACKING] Added relay: ${normalizedUrl}`);
+          }
         });
       });
+      console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
       setSuccessfullyActiveRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
