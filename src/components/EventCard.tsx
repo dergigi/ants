@@ -51,7 +51,7 @@ type Props = {
 export default function EventCard({ event, onAuthorClick, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
   const baseContainerClasses = variant === 'inline'
     ? 'flex w-full max-w-full flex-col gap-1 px-3 py-2 rounded-md bg-[#1f1f1f] border border-[#3d3d3d]'
-    : 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
+    : 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
   const containerClasses = className ? `${baseContainerClasses} ${className}` : baseContainerClasses;
 
   const contentClasses = variant === 'inline'
@@ -178,9 +178,9 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </div>
       ) : (
         <>
-          {/* Always render a small header for notes (kind 1) */}
+          {/* Always render header for notes (kind 1) */}
           {event.kind === 1 && (
-            <div className="mb-3 text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-3 py-2 rounded-md flex items-center justify-between">
+            <div className="text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-4 py-2 hover:bg-[#262626] rounded-t-lg rounded-b-none border-b-0 mb-0 flex items-center justify-between">
               <div>
                 {(() => {
                   const pid = getReplyToEventId(event);
@@ -390,13 +390,13 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               })()}
             </div>
           ) : (
-            <div className={contentClasses}>{renderContent(event.content || '')}</div>
+            <div className={`${contentClasses} ${event.kind === 1 ? 'p-4' : ''}`}>{renderContent(event.content || '')}</div>
           )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
         </>
       )}
       {showFooter && (
-        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
+        <div className={variant === 'inline' ? 'text-xs text-gray-300 pt-1 border-t border-[#3d3d3d] flex items-center justify-between gap-2' : event.kind === 1 ? 'text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg' : 'mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg'}>
           <div className="flex items-center gap-2 min-h-[1rem]">
             {event.author && <Nip05Display user={event.author} compact={true} />}
             <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
