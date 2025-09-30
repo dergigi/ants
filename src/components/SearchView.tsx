@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { clearNip50Cache, clearNip50SupportCache } from '@/lib/relays';
+import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -74,13 +74,6 @@ type Props = {
 // (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
 
 export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
-  const SLASH_COMMANDS = useMemo(() => ([
-    { key: 'help', label: '/help', description: 'Show this help' },
-    { key: 'examples', label: '/examples', description: 'List example queries' },
-    { key: 'login', label: '/login', description: 'Connect with NIP-07' },
-    { key: 'logout', label: '/logout', description: 'Clear session' },
-    { key: 'clear', label: '/clear', description: 'Clear all caches' }
-  ] as const), []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -270,40 +263,34 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const lines = Array.isArray(body) ? body : [body];
     return [`$ ants ${label}`, '', ...lines].join('\n');
   }, []);
-  const runSlashCommand = useCallback((rawInput: string) => {
-    const cmd = rawInput.replace(/^\s*\//, '').trim().toLowerCase();
-    if (cmd === 'help') {
-      const lines = ['Available commands:', ...SLASH_COMMANDS.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
+  const runSlashCommand = useMemo(() => createSlashCommandRunner({
+    onHelp: (commands) => {
+      const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(SLASH_COMMANDS.map(c => c.label));
-      return;
-    }
-    if (cmd === 'examples') {
+      setTopExamples(commands.map(c => c.label));
+    },
+    onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('examples'));
-      return;
-    }
-    if (cmd === 'login') {
+    },
+    onLogin: async () => {
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
-      (async () => {
-        try {
-          const user = await login();
-          if (user) {
-            try { await user.fetchProfile(); } catch {}
-            setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
-            setPlaceholder(nextExample());
-          } else {
-            setTopCommandText(buildCli('login', 'Login cancelled'));
-          }
-        } catch {
-          setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+      try {
+        const user = await login();
+        if (user) {
+          try { await user.fetchProfile(); } catch {}
+          setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+          setPlaceholder(nextExample());
+        } else {
+          setTopCommandText(buildCli('login', 'Login cancelled'));
         }
-      })();
-      return;
-    }
-    if (cmd === 'logout') {
+      } catch {
+        setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
+      }
+    },
+    onLogout: () => {
       try {
         logout();
         setTopCommandText(buildCli('logout', 'Logged out'));
@@ -312,31 +299,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       setTopExamples(null);
-      return;
-    }
-    if (cmd === 'clear') {
+    },
+    onClear: async () => {
       setTopCommandText(buildCli('clear', 'Clearing all caches...'));
       setTopExamples(null);
-      (async () => {
-        try {
-          // Clear NIP-50 caches
-          clearNip50Cache();
-          clearNip50SupportCache();
-          
-          // Clear localStorage caches
-          localStorage.removeItem('ants_nip50_support_cache');
-          localStorage.removeItem('ants_nip50_cache');
-          
-          setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
-        } catch (error) {
-          setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
-        }
-      })();
-      return;
+      try {
+        await executeClearCommand();
+        setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
+      } catch (error) {
+        setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
+      }
     }
-    setTopCommandText(buildCli(cmd, 'Unknown command'));
-    setTopExamples(null);
-  }, [buildCli, setTopCommandText, setPlaceholder, SLASH_COMMANDS]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
@@ -922,7 +896,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           setTranslation(normalizedInitial);
           setQuery(initialQueryRef.current);
           if (isSlashCommand(initialQueryRef.current)) {
-            runSlashCommand(initialQueryRef.current);
+            const unknownCmd = runSlashCommand(initialQueryRef.current);
+            if (unknownCmd) {
+              setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+              setTopExamples(null);
+            }
             handleSearch(initialQueryRef.current);
           } else {
             handleSearch(normalizedInitial);
@@ -931,7 +909,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     };
     initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand]);
+  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand, buildCli]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -1049,10 +1027,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         updateUrlForSearch('/login');
       }
       // Always execute the /login command regardless of search field state
-      runSlashCommand('/login');
+      const unknownCmd = runSlashCommand('/login');
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, buildCli]);
 
 
   useEffect(() => {
@@ -1093,7 +1075,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       if (isSlashCommand(normalizedQuery)) {
         executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-        runSlashCommand(normalizedQuery);
+        const unknownCmd = runSlashCommand(normalizedQuery);
+        if (unknownCmd) {
+          setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+          setTopExamples(null);
+        }
       } else {
         const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
         const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
@@ -1126,12 +1112,16 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     if (isSlashCommand(normalizedQuery)) {
       executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-      runSlashCommand(normalizedQuery);
+      const unknownCmd = runSlashCommand(normalizedQuery);
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
       return;
     }
 
     executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1140,7 +1130,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
-      runSlashCommand(raw);
+      const unknownCmd = runSlashCommand(raw);
+      if (unknownCmd) {
+        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
+        setTopExamples(null);
+      }
       setQuery(raw);
       updateUrlForSearch(raw);
       // Clear prior results immediately before async search
