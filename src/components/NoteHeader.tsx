@@ -78,7 +78,7 @@ export default function NoteHeader({
     }
     onParentToggle(parentId, 'loading');
     const fetched = await fetchEventById(parentId);
-    onParentToggle(parentId, fetched || 'loading');
+    onParentToggle(parentId, fetched);
   };
 
   const handleKindClick = () => {
