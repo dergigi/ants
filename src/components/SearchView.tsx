@@ -83,7 +83,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
   const [isConnecting, setIsConnecting] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'timeout'>('connecting');
   const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -874,17 +873,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     const initializeNDK = async () => {
       setIsConnecting(true);
-      setConnectionStatus('connecting');
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
       setIsConnecting(false);
       setConnectionDetails(connectionResult);
       
       if (connectionResult.success) {
         console.log('NDK connected successfully');
-        setConnectionStatus('connected');
       } else {
         console.warn('NDK connection timed out, but search will still work with available relays');
-        setConnectionStatus('timeout');
       }
       
       if (initialQueryRef.current && !manageUrl) {
@@ -915,11 +911,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     const handleConnectionStatusChange = (status: ConnectionStatus) => {
       setConnectionDetails(status);
-      if (status.success) {
-        setConnectionStatus('connected');
-      } else {
-        setConnectionStatus('timeout');
-      }
       // Auto-hide connection details when status changes
       setShowConnectionDetails(false);
       // Refresh recently active relays on changes
@@ -1618,7 +1609,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           {/* Button row - always collapsed states */}
           <div className="flex items-center justify-end gap-3">
             <RelayCollapsed
-              connectionStatus={connectionStatus}
               connectedCount={relayInfo.eventsReceivedCount}
               totalCount={relayInfo.totalCount}
               onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
