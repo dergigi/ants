@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faReply } from '@fortawesome/free-solid-svg-icons';
+import { faReply, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
@@ -117,7 +117,7 @@ export default function NoteHeader({
             className="flex-1 text-left flex items-center gap-2"
           >
             {isLoading ? (
-              'Loading parent…'
+              <FontAwesomeIcon icon={faSpinner} className="text-xs text-gray-400 animate-spin" />
             ) : (
               <>
                 <FontAwesomeIcon icon={faReply} className="text-xs text-gray-400 transform -rotate-270 scale-y-[-1]" />
