@@ -28,8 +28,23 @@ export default function RelayStatusDisplay({
   
   // Get relay info directly from the real cache
   const getRelayInfoFromCache = (relayUrl: string) => {
-    // Get the cached relay info
-    const cached = relayInfoCache.get(relayUrl);
+    // Debug: show what's in the cache
+    console.log(`[RELAY DISPLAY] Cache contents:`, Array.from(relayInfoCache.keys()));
+    console.log(`[RELAY DISPLAY] Looking for: ${relayUrl}`);
+    
+    // Try exact match first
+    let cached = relayInfoCache.get(relayUrl);
+    
+    // If no exact match, try with/without trailing slash
+    if (!cached) {
+      const withSlash = relayUrl.endsWith('/') ? relayUrl : relayUrl + '/';
+      const withoutSlash = relayUrl.endsWith('/') ? relayUrl.slice(0, -1) : relayUrl;
+      
+      console.log(`[RELAY DISPLAY] Trying with slash: ${withSlash}`);
+      console.log(`[RELAY DISPLAY] Trying without slash: ${withoutSlash}`);
+      
+      cached = relayInfoCache.get(withSlash) || relayInfoCache.get(withoutSlash);
+    }
     
     if (cached) {
       console.log(`[RELAY DISPLAY] Using cached info for ${relayUrl}:`, cached);
