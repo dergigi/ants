@@ -559,6 +559,17 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   const nip50Relays = await filterNip50Relays(allRelays);
   console.log(`[SEARCH DEBUG] After NIP-50 filtering: ${nip50Relays.length} NIP-50 relays:`, nip50Relays);
   
+  // Debug: Test each relay individually
+  for (const relayUrl of nip50Relays) {
+    console.log(`[RELAY DEBUG] Testing relay: ${relayUrl}`);
+    try {
+      const info = await getRelayInfo(relayUrl);
+      console.log(`[RELAY DEBUG] ${relayUrl} - NIP-50: ${info.supportedNips?.includes(50) || false}, NIPs: [${info.supportedNips?.join(', ') || 'none'}]`);
+    } catch (error) {
+      console.log(`[RELAY DEBUG] ${relayUrl} - Error:`, error);
+    }
+  }
+  
   return createRelaySet(nip50Relays);
 }
 
