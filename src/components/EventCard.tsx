@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faHighlighter } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faHighlighter, faHardDrive } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -143,6 +143,33 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
     );
   };
 
+  // Determine if this note is a reply and derive a compact parent label
+  const getReplyToEventId = (ev: NDKEvent): string | null => {
+    try {
+      const eTags = (ev.tags || []).filter((t) => t && t[0] === 'e');
+      if (eTags.length === 0) return null;
+      const unique = new Map<string, typeof eTags[0]>();
+      eTags.forEach((tag) => { const id = tag[1]; if (id && !unique.has(id)) unique.set(id, tag); });
+      const deduped = Array.from(unique.values());
+      const replyTag = deduped.find((t) => t[3] === 'reply') || deduped.find((t) => t[3] === 'root') || deduped[deduped.length - 1];
+      return replyTag && replyTag[1] ? replyTag[1] : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const relaySources: string[] = (() => {
+    try {
+      const withSources = event as unknown as { relaySource?: string; relaySources?: string[] };
+      const list = new Set<string>();
+      if (Array.isArray(withSources.relaySources)) withSources.relaySources.forEach((u) => { if (typeof u === 'string' && u) list.add(u.replace(/\/$/, '')); });
+      if (typeof withSources.relaySource === 'string' && withSources.relaySource) list.add(withSources.relaySource.replace(/\/$/, ''));
+      return Array.from(list);
+    } catch {
+      return [];
+    }
+  })();
+
   return (
     <div className={containerClasses}>
       {showRaw ? (
@@ -151,6 +178,33 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </div>
       ) : (
         <>
+          {/* Always render a small header for notes (kind 1) */}
+          {event.kind === 1 && (
+            <div className="mb-3 text-xs text-gray-300 bg-[#1f1f1f] border border-[#3d3d3d] px-3 py-2 rounded-md flex items-center justify-between">
+              <div>
+                {(() => {
+                  const pid = getReplyToEventId(event);
+                  if (pid && /^[0-9a-f]{64}$/i.test(pid.trim())) {
+                    try {
+                      return `Replying to: ${shortenNevent(nip19.neventEncode({ id: pid.trim() }))}`;
+                    } catch {
+                      return `Replying to: ${pid.slice(0, 8)}…${pid.slice(-6)}`;
+                    }
+                  }
+                  if (pid) return `Replying to: ${pid}`;
+                  return 'Note';
+                })()}
+              </div>
+              <div className="ml-3">
+                <span
+                  title={(relaySources && relaySources.length > 0) ? `Relays:\n${relaySources.join('\n')}` : 'No relay info'}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-200 cursor-default"
+                >
+                  <FontAwesomeIcon icon={faHardDrive} className="text-xs" />
+                </span>
+              </div>
+            </div>
+          )}
           {isHighlight && highlight ? (
             <div className="mb-3 space-y-3">
               {/* Comment if present */}
