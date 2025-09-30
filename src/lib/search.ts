@@ -328,8 +328,24 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         return;
       }
     const timer = setTimeout(() => {
+      console.log(`[SEARCH DEBUG] Search timeout reached (${timeoutMs}ms), stopping subscription`);
       try { sub.stop(); } catch {}
-      resolve(Array.from(collected.values()));
+      const finalResults = Array.from(collected.values());
+      console.log(`[SEARCH DEBUG] Search completed. Total results: ${finalResults.length}`);
+      
+      // Log which relays contributed results
+      const relayContributions = new Map<string, number>();
+      finalResults.forEach(event => {
+        const eventWithSource = event as NDKEventWithRelaySource;
+        if (eventWithSource.relaySources) {
+          eventWithSource.relaySources.forEach(relayUrl => {
+            relayContributions.set(relayUrl, (relayContributions.get(relayUrl) || 0) + 1);
+          });
+        }
+      });
+      console.log(`[SEARCH DEBUG] Relay contributions:`, Object.fromEntries(relayContributions));
+      
+      resolve(finalResults);
     }, timeoutMs);
 
     // Handle abort signal
@@ -349,6 +365,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
       sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
+      console.log(`[SEARCH DEBUG] Received event from relay: ${relayUrl}`);
       
       // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
@@ -362,17 +379,21 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         eventWithSource.relaySource = normalizedUrl;
         eventWithSource.relaySources = [normalizedUrl];
         collected.set(event.id, eventWithSource);
+        console.log(`[SEARCH DEBUG] New event from ${normalizedUrl}, total collected: ${collected.size}`);
       } else {
         // Event already exists, add this relay to the sources
         const existingEvent = collected.get(event.id) as NDKEventWithRelaySource;
         const normalizedUrl = normalizeRelayUrl(relayUrl);
         if (existingEvent.relaySources && !existingEvent.relaySources.includes(normalizedUrl)) {
           existingEvent.relaySources.push(normalizedUrl);
+          console.log(`[SEARCH DEBUG] Duplicate event from ${normalizedUrl}, added to sources`);
         }
       }
     });
 
       sub.on('eose', (relay: NDKRelay | undefined) => {
+        const relayUrl = relay?.url || 'unknown';
+        console.log(`[SEARCH DEBUG] EOSE received from relay: ${relayUrl}`);
         clearTimeout(timer);
         if (abortSignal) {
           abortSignal.removeEventListener('abort', abortHandler);

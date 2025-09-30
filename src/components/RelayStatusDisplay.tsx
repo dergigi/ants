@@ -21,6 +21,7 @@ export default function RelayStatusDisplay({
   activeRelays,
   onSearch
 }: RelayStatusDisplayProps) {
+  console.log(`[RELAY DISPLAY] activeRelays prop:`, Array.from(activeRelays));
   
   const eventsReceivedRelays = useMemo(() => relayData.eventsReceivedRelays || [], [relayData.eventsReceivedRelays]);
   const otherRelays = useMemo(() => relayData.otherRelays || [], [relayData.otherRelays]);
@@ -87,6 +88,10 @@ export default function RelayStatusDisplay({
             const isActive = activeRelays.has(normalizedUrl);
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(normalizedUrl);
+            
+            console.log(`[RELAY DISPLAY] Checking relay: ${normalizedUrl}`);
+            console.log(`[RELAY DISPLAY] activeRelays has this relay: ${providedResults}`);
+            console.log(`[RELAY DISPLAY] activeRelays contents:`, Array.from(activeRelays));
             
             const iconClasses = providedResults
               ? `border border-blue-400/20 text-blue-300 bg-blue-900/60`

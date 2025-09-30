@@ -875,9 +875,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       searchResults.forEach(evt => {
         const relaySources = extractRelaySourcesFromEvent(evt);
         relayUrls.push(...relaySources);
+        console.log(`[RELAY TRACKING] Event sources:`, relaySources);
       });
       
       const relays = createRelaySet(relayUrls);
+      console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
       setSuccessfullyActiveRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
