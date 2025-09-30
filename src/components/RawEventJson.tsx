@@ -4,6 +4,8 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { toPlainEvent } from '@/lib/toPlainEvent';
 import CopyButton from '@/components/CopyButton';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   event: NDKEvent | null | undefined;
@@ -14,7 +16,10 @@ type Props = {
 };
 
 export default function RawEventJson({ event, loading = false, className, title, parseContent = true }: Props) {
-  if (loading) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>Loading…</div>;
+  if (loading) return <div className={`text-xs text-gray-400 flex items-center gap-1 ${className || ''}`.trim()}>
+    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+    Loading…
+  </div>;
   if (!event) return <div className={`text-xs text-gray-400 ${className || ''}`.trim()}>No event available</div>;
 
   const base = toPlainEvent(event) as Record<string, unknown>;

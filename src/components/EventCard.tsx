@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -100,7 +100,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         className="text-blue-400 hover:text-blue-300 hover:underline"
         title={npub}
       >
-        {label || 'Loading...'}
+        {label || <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
       </button>
     );
   }
