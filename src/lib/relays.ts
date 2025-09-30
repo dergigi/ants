@@ -357,12 +357,8 @@ export async function getRelayInfo(relayUrl: string): Promise<{
     ]);
 
     if (knownSearchRelays.has(relayUrl)) {
-      console.log(`[RELAY] ${relayUrl} is in known search relays list`);
-      const result = { supportedNips: [1, 50] };
-      // Cache this result
-      relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
-      saveCacheToStorage();
-      return result;
+      console.log(`[RELAY] ${relayUrl} is in known search relays list - will try HTTP detection`);
+      // Don't hard-code supported NIPs - let HTTP detection determine actual capabilities
     }
 
     // Method 2: Check NDK's cached relay info
