@@ -90,7 +90,7 @@ export default function NoteHeader({
   };
 
   const isReply = Boolean(parentId);
-  const barClasses = `text-xs text-gray-300 border border-[#3d3d3d] px-4 py-2 rounded-t-lg rounded-b-none border-b-0 ${
+  const barClasses = `text-xs text-gray-300 border border-[#3d3d3d] border-b-0 px-4 py-2 rounded-t-lg rounded-b-none ${
     isReply 
       ? 'bg-[#1f1f1f] hover:bg-[#262626]' 
       : 'bg-[#2d2d2d] hover:bg-[#353535]'
@@ -108,7 +108,7 @@ export default function NoteHeader({
   })();
 
   return (
-    <div className={barClasses}>
+    <div className={`${barClasses} border-t border-[#3d3d3d]`}>
       <div className="flex items-center justify-between w-full">
         {parentId ? (
           <button 
@@ -145,7 +145,6 @@ export default function NoteHeader({
         )}
         <RelayIndicator event={event} className="ml-2" />
       </div>
-      <div className="border-t border-[#3d3d3d] -mx-4"></div>
     </div>
   );
 }
