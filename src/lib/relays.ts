@@ -499,20 +499,27 @@ export const clearNip50Cache = clearRelayInfoCache;
 
 // Backward compatibility function for NIP-50 support checking
 export async function checkNip50Support(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
+  console.log(`[NIP-50 CHECK] Checking NIP-50 support for ${relayUrl}`);
   const relayInfo = await getRelayInfo(relayUrl);
+  console.log(`[NIP-50 CHECK] ${relayUrl} - relay info:`, relayInfo);
 
   if (relayInfo.supportedNips) {
+    const supportsNip50 = relayInfo.supportedNips.includes(50);
+    console.log(`[NIP-50 CHECK] ${relayUrl} - supports NIP-50: ${supportsNip50}, NIPs: [${relayInfo.supportedNips.join(', ')}]`);
     return {
-      supportsNip50: relayInfo.supportedNips.includes(50),
+      supportsNip50,
       supportedNips: relayInfo.supportedNips
     };
   }
 
+  console.log(`[NIP-50 CHECK] ${relayUrl} - no supported NIPs found, assuming no NIP-50 support`);
   return { supportsNip50: false, supportedNips: [] };
 }
 
 // Filter relays to only those supporting NIP-50
 export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> {
+  console.log(`[NIP-50 FILTER] Starting NIP-50 filtering for ${relayUrls.length} relays:`, relayUrls);
+  
   const results = await Promise.allSettled(
     relayUrls.map(async (url) => {
       const nip50Info = await checkNip50Support(url);
@@ -520,11 +527,29 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
     })
   );
 
-  return results
-    .filter((result): result is PromiseFulfilledResult<{ url: string; nip50Info: { supportsNip50: boolean; supportedNips: number[] } }> =>
-      result.status === 'fulfilled' && result.value.nip50Info.supportsNip50
-    )
-    .map(result => result.value.url);
+  const supportedRelays: string[] = [];
+  const rejectedRelays: string[] = [];
+
+  results.forEach((result, index) => {
+    const url = relayUrls[index];
+    if (result.status === 'fulfilled' && result.value.nip50Info.supportsNip50) {
+      supportedRelays.push(url);
+      console.log(`[NIP-50 FILTER] ✅ ${url} - SUPPORTED`);
+    } else {
+      rejectedRelays.push(url);
+      if (result.status === 'fulfilled') {
+        console.log(`[NIP-50 FILTER] ❌ ${url} - REJECTED (no NIP-50 support)`);
+      } else {
+        console.log(`[NIP-50 FILTER] ❌ ${url} - REJECTED (error: ${result.reason})`);
+      }
+    }
+  });
+
+  console.log(`[NIP-50 FILTER] Final result: ${supportedRelays.length} supported, ${rejectedRelays.length} rejected`);
+  console.log(`[NIP-50 FILTER] Supported relays:`, supportedRelays);
+  console.log(`[NIP-50 FILTER] Rejected relays:`, rejectedRelays);
+
+  return supportedRelays;
 }
 
 // Get NIP-50 capable relay set from a list of URLs
