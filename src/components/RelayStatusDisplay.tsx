@@ -20,6 +20,8 @@ export default function RelayStatusDisplay({
   activeRelays,
   onSearch
 }: RelayStatusDisplayProps) {
+  console.log(`[RELAY DISPLAY] activeRelays prop:`, Array.from(activeRelays));
+  
   const eventsReceivedRelays = useMemo(() => relayData.eventsReceivedRelays || [], [relayData.eventsReceivedRelays]);
   const otherRelays = useMemo(() => relayData.otherRelays || [], [relayData.otherRelays]);
 
