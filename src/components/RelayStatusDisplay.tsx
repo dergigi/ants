@@ -107,8 +107,8 @@ export default function RelayStatusDisplay({
             const supportsNip50 = supportedNips.includes(50);
             
             return (
-              <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                <div className="flex items-center gap-1">
+              <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-start gap-1">
+                <div className="flex items-start gap-1">
                   <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[12px] leading-none ${iconClasses}`}>
                     {supportsNip50 ? (
                       <FontAwesomeIcon 
