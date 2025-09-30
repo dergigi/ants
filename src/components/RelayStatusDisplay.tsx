@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { ConnectionStatus, ndk } from '@/lib/ndk';
+import { useMemo } from 'react';
+import { ConnectionStatus } from '@/lib/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass, faServer } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
-import { getRelayInfo, RELAYS, relayInfoCache } from '@/lib/relays';
+import { relayInfoCache } from '@/lib/relays';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -98,9 +98,6 @@ export default function RelayStatusDisplay({
             
             // Check if relay supports NIP-50
             const supportsNip50 = supportedNips.includes(50);
-            
-            // Match magnifying glass color to relay icon color
-            const magnifyingGlassColor = providedResults ? 'text-blue-300' : 'text-gray-500';
             
             return (
               <div key={idx} className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
