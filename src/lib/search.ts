@@ -448,8 +448,7 @@ async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Pr
   return [];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
+export async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
   try {
     const pubkey = getStoredPubkey();
     if (!pubkey) return [];

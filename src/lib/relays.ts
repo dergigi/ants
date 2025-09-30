@@ -2,6 +2,7 @@ import { NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
+import { getUserRelayUrls } from './search';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from './storageCache';
 
 // Cache for NIP-50 support status
@@ -73,15 +74,51 @@ export const RELAYS = {
   ]
 } as const;
 
-function extendWithUserAndPremium(relayUrls: readonly string[]): string[] {
+// Cache for discovered user relays to avoid repeated lookups
+const userRelayCache = new Map<string, { relays: string[]; timestamp: number }>();
+const USER_RELAY_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+async function extendWithUserAndPremium(relayUrls: readonly string[]): Promise<string[]> {
   const enriched = [...relayUrls];
   if (getStoredPubkey()) {
+    // Add manually configured user relays
     const userRelays = getUserRelayAdditions();
     for (const relay of userRelays) {
       if (!enriched.includes(relay)) {
         enriched.push(relay);
       }
     }
+    
+    // Add automatically discovered user relays
+    try {
+      const pubkey = getStoredPubkey();
+      if (pubkey) {
+        const now = Date.now();
+        const cached = userRelayCache.get(pubkey);
+        
+        let discoveredRelays: string[] = [];
+        if (cached && (now - cached.timestamp) < USER_RELAY_CACHE_DURATION_MS) {
+          // Use cached relays
+          discoveredRelays = cached.relays;
+        } else {
+          // Discover user relays with timeout
+          discoveredRelays = await getUserRelayUrls(3000); // 3 second timeout
+          userRelayCache.set(pubkey, { relays: discoveredRelays, timestamp: now });
+        }
+        
+        // Add discovered relays
+        for (const relay of discoveredRelays) {
+          if (!enriched.includes(relay)) {
+            enriched.push(relay);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to discover user relays:', error);
+      // Continue without discovered relays
+    }
+    
+    // Add premium relays
     for (const premium of RELAYS.PREMIUM) {
       if (!enriched.includes(premium)) enriched.push(premium);
     }
@@ -95,10 +132,10 @@ export const relaySets = {
   default: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.DEFAULT, ndk); },
   
   // Search relay set (NIP-50 capable)
-  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(extendWithUserAndPremium(RELAYS.SEARCH), ndk); },
+  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.SEARCH), ndk); },
   
   // Profile search relay set
-  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(extendWithUserAndPremium(RELAYS.PROFILE_SEARCH), ndk); },
+  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.PROFILE_SEARCH), ndk); },
 
   // Premium relay set, used only when logged in
   premium: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.PREMIUM, ndk); },
@@ -239,7 +276,7 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 // Enhanced search relay set that filters for NIP-50 support
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   // Always use a single, stable search relay to reduce flakiness
-  return createRelaySet(extendWithUserAndPremium([...RELAYS.SEARCH]));
+  return createRelaySet(await extendWithUserAndPremium([...RELAYS.SEARCH]));
 }
 
 // Clear NIP-50 cache (useful for debugging or forcing re-detection)
