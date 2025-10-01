@@ -130,39 +130,66 @@ The application supports several direct URL paths for quick access:
 - Boolean OR operator support
 - URL and bech32 identifier resolution
 
-## Relay logic
+# Relay Logic
 
-- Hardcoded relay sets for default use and NIP-50 search are augmented on login via NIP-51:
-  - kind:10002 user relays (general connections)
-  - kind:10006 blocked relays (excluded)
-  - kind:10007 search relays (added to search set)
-- Relay capabilities are read via NIP-11 (`supported_nips`) and shown in the relay status indicator.
-- The relay status indicator highlights relays that returned current results (shown in blue), marks NIP-50 relays with a magnifying glass, and lets you filter results by relay.
+There is hardcoded relays for search (NIP-50) as well as for general use.
 
-## Search logic
+Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition it to the hardcoded list of search relays.
 
-Two query types:
+When connecting to a relay we retrieve the `supported_nips` as per NIP-11. The relay list as well as the supported NIPs are shown in the relay status indicator. Relays that returned one or more of the results that are currently shown on the page are shown in blue. Relays that support NIP-50 show a magnifying glass. The relay icon in the relay status display allows for relay-based client-side filtering of results.
 
-- Search queries (NIP-50):
-  - Connect only to NIP-50-capable relays
-  - Run one search per OR-clause/expanded query
-- Direct queries (NIP-19 bech32: `npub`, `note`, `nprofile`, `nevent`, `naddr`):
-  - Connect to the broader relay set
-  - Fetch the entity directly (no NIP-50 required)
+# Search Logic
 
-Examples:
+We have two kinds of queries:
+- Search queries (NIP-50)
+- Direct queries (bech32-encoded entities as per NIP-19, i.e. `npub`, `note`, `nprofile`, `nevent`, `naddr`)
 
-- `is:highlight by:fiatjaf OR #YESTR by:dergigi.com` → resolves to two direct filters: `kind:9802 by:<npub(hex)>` and `t:yestr by:<npub(hex)>` (no full-text search).
-- `has:video by:HODL` → `has:video` expands to file extensions, requiring NIP-50 full-text search.
+Search queries:
+- Connect to NIP-50 relays exclusively
+- Do a NIP-50 search for each resulting query we have
+- (we might need to do multiple queries if the user does an `OR` search)
 
-## Profile lookups and Vertex
+Direct queries:
+- Connect to all relays
+- Retrieve the bech32-encoded entity directly
+- (No need for a NIP-50 search)
 
-- `by:` and `p:` try best-effort profile resolution.
-- Logged in: use Vertex DVM with `personalizedPagerank`. Logged out/unavailable: NIP-50 fallback with heuristic ranking.
-- Results are cached by search string and login state.
-- NIP-05 identifiers are resolved directly to hex without hitting search relays when valid. Plaintext usernames (e.g., `fiatjaf`) are queried via NIP-50 (`kind:0 <term>`).
+A lot of complex queries are still direct queries, e.g. `is:highlight by:fiatjaf OR #YESTR by:dergigi.com` will resolve to two queries, namely:
 
-References: [NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md), [NIP-11](https://github.com/nostr-protocol/nips/blob/master/11.md), [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md), [NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md), [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md), [Vertex algos](https://vertexlab.io/docs/algos/).
+1. `kind:9802 by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`
+2. `#YESTR by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`
+
+None of these need search. (1) is simply `kind:9802` with `authors: [6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93]` and (2) is simply `t:yestr` with Gigi's npub converted to hex.
+
+However, if we have something like `has:video by:HODL` we will have to hit NIP-50 relays, because `has:video` expands to `.mp4 OR .webm OR .mov ...` and thus we'll have to do a full-text search.
+
+# Profile Lookups and Vertex Logic
+
+When resolving a `by:` or `p:` search, we try to do a best-effort profile lookup. If the user is logged in we use the Vertex DVM to do the profile lookup, using `personalizedPagerank`.
+
+In short:
+
+```
+if logged_in:
+	profile = get_profile_from_vertex("search string")
+else:
+	profile = get_profile_from_fallback("search string")
+
+cache_result("search string", logged_in_status, profile)
+```
+
+The fallback is a NIP-50 search that attempts to do a "smart" ranking of profile results to figure out the most real (most relevant) profile. But it might be wrong. For reliable results users should login and use Vertex.
+
+Profile searches might be a plaintext search like `gigi` or `dergigi`, npubs like `npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` or NIP-05 identifiers like `me@dergigi.com`, or top-level NIP-05 identifiers like `dergigi.com` (which is equivalent to `@dergigi.com` or `_@dergigi.com`).
+
+If it's a valid NIP-05 we should be able to get the hex of the npub straight up, without having to hit a search relay. If it's a plaintext search like `fiatjaf` we basically do a `kind:0 fiatjaf`, i.e. a NIP-50 search for profile events (hitting NIP-50 relays exclusively).
+
+NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
+NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
+NIP-19: https://github.com/nostr-protocol/nips/blob/master/19.md
+NIP-50: https://github.com/nostr-protocol/nips/blob/master/50.md
+NIP-51: https://github.com/nostr-protocol/nips/blob/master/51.md
+Vertex: https://vertexlab.io/docs/algos/
 
 ## Live Instances
 
