@@ -70,7 +70,7 @@ export function useNostrUser(npub: string | undefined) {
           });
           filled.author = u;
           setProfileEvent(filled);
-          setCachedProfileEvent(pk, filled);
+          setCachedProfileEvent(pk, filled, { username: profile?.nip05 || profile?.name || undefined });
         })();
       } catch {
         if (cancelled) return;

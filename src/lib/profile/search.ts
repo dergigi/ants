@@ -16,35 +16,68 @@ import {
 } from './lightning';
 import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
 
+type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
+
+const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
+
+function makeProfileSearchCacheKey(query: string, loggedIn: boolean): string {
+  return `${loggedIn ? '1' : '0'}|${query.toLowerCase()}`;
+}
+
+function getCachedProfileSearch(key: string): NDKEvent[] | null {
+  const entry = profileSearchCache.get(key);
+  if (!entry) return null;
+  if ((Date.now() - entry.timestamp) > PROFILE_SEARCH_CACHE_TTL_MS) {
+    profileSearchCache.delete(key);
+    return null;
+  }
+  return entry.events.slice();
+}
+
+function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
+  profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
+}
+
 // Full-text profile search with ranking
 export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS): Promise<NDKEvent[]> {
   const query = term.trim();
   if (!query) return [];
 
+  const storedPubkey = getStoredPubkey();
+  const loggedIn = Boolean(storedPubkey);
+  const cacheKey = makeProfileSearchCacheKey(query, loggedIn);
+  const cached = getCachedProfileSearch(cacheKey);
+  if (cached) {
+    return cached.slice(0, limit);
+  }
+
   // Step 0: try Vertex DVM for top ranked results (only when logged in)
-  let vertexEvents: NDKEvent[] = [];
-  if (getStoredPubkey()) {
+  if (loggedIn) {
     try {
-      vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
+      const vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
       for (const v of vertexEvents) {
         (v as unknown as { debugScore?: string }).debugScore = 'DVM-ranked result';
       }
+      if (vertexEvents.length > 0) {
+        setCachedProfileSearch(cacheKey, vertexEvents);
+        return vertexEvents.slice(0, limit);
+      }
     } catch (e) {
       if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
-        console.warn('Vertex aggregation failed, proceeding with fallback ranking:', e);
+        console.warn('Vertex aggregation failed, falling back to relay search:', e);
       }
     }
   }
 
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
   const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
-  // If the NIP-50 relay returns nothing but DVM returned results, use DVM results directly
   if (candidates.length === 0) {
-    return vertexEvents.slice(0, limit);
+    setCachedProfileSearch(cacheKey, []);
+    return [];
   }
 
   const termLower = query.toLowerCase();
-  const storedPubkey = getStoredPubkey();
   const follows: Set<string> = storedPubkey ? await getDirectFollows(storedPubkey) : new Set<string>();
 
   // Step 2: build enriched rows with preliminary score and schedule NIP-05 verifications (limited)
@@ -178,7 +211,6 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     const pk = evt.pubkey || evt.author?.pubkey || '';
     if (!pk || seen.has(pk)) return;
     seen.add(pk);
-    // Ensure kind is 0 and author is set
     if (!evt.kind) evt.kind = 0;
     if (!evt.author && pk) {
       const user = new NDKUser({ pubkey: pk });
@@ -188,8 +220,10 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     ordered.push(evt);
   };
 
-  for (const v of vertexEvents) pushIfNew(v);
-  for (const r of enriched.map((e) => e.event)) pushIfNew(r);
+  for (const row of enriched) {
+    pushIfNew(row.event);
+  }
 
+  setCachedProfileSearch(cacheKey, ordered);
   return ordered.slice(0, limit);
 }

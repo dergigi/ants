@@ -48,26 +48,24 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
 
     // 3) Otherwise treat as username and check cache first, then try lookup with proper sorting
     const usernameLower = input.toLowerCase();
-    
-    // Check unified username cache first
     const cachedProfile = getCachedUsername(usernameLower);
     if (cachedProfile !== undefined) {
       const pubkeyHex = cachedProfile?.author?.pubkey || cachedProfile?.pubkey || null;
+      if (pubkeyHex && cachedProfile) {
+        setCachedProfileEvent(pubkeyHex, cachedProfile, { username: usernameLower });
+      }
       return { pubkeyHex, profileEvent: cachedProfile };
     }
-    
-    // If not in cache, perform lookup using the same logic as p: search
+
     let profileEvt: NDKEvent | null = null;
     try {
-      // Use the same searchProfilesFullText function that p: search uses
       const profiles = await searchProfilesFullText(input, 1);
       profileEvt = profiles[0] || null;
     } catch {}
-    
-    // Cache the result (positive or negative)
+
     setCachedUsername(usernameLower, profileEvt);
-    if (profileEvt?.pubkey) setCachedProfileEvent(profileEvt.pubkey, profileEvt);
-    
+    if (profileEvt?.pubkey) setCachedProfileEvent(profileEvt.pubkey, profileEvt, { username: usernameLower });
+
     if (!profileEvt) {
       return { pubkeyHex: null, profileEvent: null };
     }
