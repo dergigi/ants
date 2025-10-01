@@ -1,6 +1,6 @@
 # ants - advanced nostr text search
 
-A simple search interface for Nostr events.
+An advanced search interface for Nostr.
 
 ## Search Examples
 
