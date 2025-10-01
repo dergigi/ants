@@ -13,20 +13,20 @@ export const searchExamples = [
   'habla.news',
   
   // by:Author
-  'by:dergigi',
+  'by:fiatjaf',
+  'by:@dergigi.com',
   'by:gigi',
   'by:pablof7z',
   'by:corndalorian',
-  'by:fiatjaf',
   'by:snowden',
   'by:socrates',
-  'engineering by:lyn',
-  '≠ by:dergigi.com',
 
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
   'good by:socrates',
+  'engineering by:lyn',
+  '≠ by:dergigi.com',
   'stay humble by:odell',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
@@ -34,7 +34,7 @@ export const searchExamples = [
   '.jpg by:corndalorian',
   'site:github by:fiatjaf',
   'by:dergigi site:yt',
-  '#news site:rumble.com',
+  'ai site:hn',
   'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
   '"car crash" by:dergigi',
   '(PoW OR WoT) by:dergigi',

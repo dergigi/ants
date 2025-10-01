@@ -29,7 +29,7 @@ Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search fiel
 - [`GM fiat by:fiatjaf`](https://search.dergigi.com/?q=GM%20fiat%20by%3Afiatjaf) - Find posts containing "GM fiat" from fiatjaf
 - [`site:github by:fiatjaf`](https://search.dergigi.com/?q=site%3Agithub%20by%3Afiatjaf) - GitHub links from fiatjaf
 - [`by:dergigi site:yt`](https://search.dergigi.com/?q=by%3Adergigi%20site%3Ayt) - YouTube links from dergigi
-- [`#news site:rumble.com`](https://search.dergigi.com/?q=%23news%20site%3Arumble.com) - #news posts linking to rumble.com
+- [`AI site:hn`](https://search.dergigi.com/?q=%23news%20site%3Arumble.com) - #news posts linking to rumble.com
 
 ### Operators & Media
 
