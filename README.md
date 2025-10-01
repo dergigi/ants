@@ -51,20 +51,6 @@ ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https:
 - `/t/pugstr+dogstr+goatstr` - alternative syntax for multiple hashtags
 - `/t/pugstr dogstr goatstr` - space-separated hashtags
 
-## Features
-
-- Search for nostr posts (kind 1)
-- Profile lookups via vertex.im (e.g. `p:fiatjaf`)
-- Full-text profile search across names and bios
-- Profile pages with latest notes (`/p/npub1...`)
-- Random search examples for inspiration
-- Clean, minimal interface
-- NIP-50 search extensions support
-- Site-specific search with aliases
-- Media type filtering (images, videos, gifs)
-- Boolean OR operator support
-- URL and bech32 identifier resolution
-
 # Relay Logic
 
 There is hardcoded relays for search (NIP-50) as well as for general use.
