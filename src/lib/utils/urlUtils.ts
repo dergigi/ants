@@ -100,7 +100,7 @@ export function shortenUrl(url: string, options: {
     }
     
     // Use base cleaning for domain
-    shortened += cleanUrlBase(urlObj.toString());
+    shortened += cleanUrlBase(urlObj.origin);
     
     // Add path if requested and it exists
     if (showPath && urlObj.pathname && urlObj.pathname !== '/') {
