@@ -64,18 +64,31 @@ export const searchExamples = [
   'p:twentyone.world',
   'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
+
+  // NIP search
+  'nip:01',
+  'nip:03',
+  'nip:05',
+
+  // OR operator
+  'bitcoin OR lightning',
+  '#runstr OR #plebwalk OR by:bitcoinwalk',
   '(p:dad OR p:husband OR p:father)',
 
-  // Operators & media
-  'bitcoin OR lightning',
-  'https://dergigi.com/vew',
+  // Media
+  'has:gif',
   'has:image',
+  'has:video',
   'is:image',
   'has:image OR is:image',
   'has:video',
   'is:video',
-  'has:gif',
-  '"habla.news"',
+  'giphy.gif',
+
+  // URLs
+  'site:yt', // Site-specific search
+  'https://dergigi.com/vew', // URL
+  'dergigi.com', // NIP-05
 
   // Mixed media + text
   'GM has:video',
@@ -84,13 +97,10 @@ export const searchExamples = [
   'by:dergigi has:image',
   'by:HODL has:video',
   'Gregzaj1-ln_strike.gif',
-  'giphy.gif',
-  'giphy.GIF',
   'by:gregzaj has:gif',
   '(GM OR GN) by:dergigi has:image',
   'is:image #Olas365',
   'PressReader by:Bouma',
-  '#runstr OR #plebwalk OR by:bitcoinwalk',
   'PV or 🤙',
   '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
   '😂 or 🤣 or lol or lmao',
