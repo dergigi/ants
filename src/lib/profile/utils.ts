@@ -1,6 +1,6 @@
 import { NDKEvent, NDKUser, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe, markRelayActivity } from '../ndk';
-import { relaySets, getNip50SearchRelaySet } from '../relays';
+import { getNip50SearchRelaySet } from '../relays';
 import { NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 import { trackEventRelay } from '../eventRelayTracking';

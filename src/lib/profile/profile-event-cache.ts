@@ -11,9 +11,11 @@ const PROFILE_EVENT_CACHE_STORAGE_KEY = 'ants_profile_event_cache_v1';
 let profileEventCacheTtlMs = 6 * 60 * 60 * 1000; // 6 hours
 let enableProfileEventPersistence = true;
 
-function makeCacheKey(pubkeyHex: string, context?: { username?: string | null }): string {
+function makeCacheKey(pubkeyHex: string, context?: { username?: string | null }): string | null {
+  const normalized = normalizePubkey(pubkeyHex);
+  if (!normalized) return null;
   const usernamePart = context?.username ? `|u:${context.username.toLowerCase()}` : '';
-  return `${pubkeyHex}${usernamePart}`;
+  return `${normalized}${usernamePart}`;
 }
 
 export function configureProfileEventCache(options: { ttlMs?: number; persist?: boolean }): void {
@@ -94,12 +96,13 @@ export function primeProfileEventCache(pubkeyHex: string, event: NDKEvent, times
 
 export function clearProfileEventCache(pubkeyHex?: string, context?: { username?: string | null }): void {
   if (typeof pubkeyHex === 'string') {
-    const base = normalizePubkey(pubkeyHex);
-    if (!base) return;
+    const baseKey = makeCacheKey(pubkeyHex, undefined);
+    if (!baseKey) return;
     if (context?.username) {
-      PROFILE_EVENT_CACHE.delete(makeCacheKey(base, context));
+      const contextualKey = makeCacheKey(pubkeyHex, context);
+      if (contextualKey) PROFILE_EVENT_CACHE.delete(contextualKey);
     }
-    PROFILE_EVENT_CACHE.delete(base);
+    PROFILE_EVENT_CACHE.delete(baseKey);
   } else {
     PROFILE_EVENT_CACHE.clear();
   }
