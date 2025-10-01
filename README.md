@@ -174,8 +174,6 @@ if logged_in:
 	profile = get_profile_from_vertex("search string")
 else:
 	profile = get_profile_from_fallback("search string")
-
-cache_result("search string", logged_in_status, profile)
 ```
 
 The fallback is a NIP-50 search that attempts to do a "smart" ranking of profile results to figure out the most real (most relevant) profile. But it might be wrong. For reliable results users should login and use Vertex.
