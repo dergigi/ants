@@ -1,8 +1,9 @@
-import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, safeSubscribe } from '../ndk';
+import { NDKEvent, NDKUser, NDKRelay } from '@nostr-dev-kit/ndk';
+import { ndk, safeSubscribe, markRelayActivity } from '../ndk';
 import { relaySets } from '../relays';
 import { NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
+import { trackEventRelay } from '../eventRelayTracking';
 
 // Helper function to extract profile fields from an event
 export function extractProfileFields(event: NDKEvent): { 
@@ -76,7 +77,12 @@ export async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: 
         resolve(Array.from(collected.values()));
       }, timeoutMs);
 
-      sub.on('event', (event: NDKEvent) => {
+      sub.on('event', (event: NDKEvent, relay?: NDKRelay) => {
+        const relayUrl = relay?.url;
+        if (relayUrl) {
+          try { markRelayActivity(relayUrl); } catch {}
+          try { trackEventRelay(event, relayUrl); } catch {}
+        }
         if (!collected.has(event.id)) {
           collected.set(event.id, event);
         }
