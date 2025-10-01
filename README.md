@@ -104,13 +104,6 @@ Profile searches might be a plaintext search like `gigi` or `dergigi`, npubs lik
 
 If it's a valid NIP-05 we should be able to get the hex of the npub straight up, without having to hit a search relay. If it's a plaintext search like `fiatjaf` we basically do a `kind:0 fiatjaf`, i.e. a NIP-50 search for profile events (hitting NIP-50 relays exclusively).
 
-NIP-05: <https://github.com/nostr-protocol/nips/blob/master/05.md>
-NIP-11: <https://github.com/nostr-protocol/nips/blob/master/11.md>
-NIP-19: <https://github.com/nostr-protocol/nips/blob/master/19.md>
-NIP-50: <https://github.com/nostr-protocol/nips/blob/master/50.md>
-NIP-51: <https://github.com/nostr-protocol/nips/blob/master/51.md>
-Vertex: <https://vertexlab.io/docs/algos/>
-
 ## Live Instances
 
 - [search.dergigi.com](https://search.dergigi.com/)
@@ -154,6 +147,15 @@ You can place this in a local `.env` file.
 ### Search substitutions
 
 All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](public/replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
+
+## References
+
+- NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
+- NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
+- NIP-19: https://github.com/nostr-protocol/nips/blob/master/19.md
+- NIP-50: https://github.com/nostr-protocol/nips/blob/master/50.md
+- NIP-51: https://github.com/nostr-protocol/nips/blob/master/51.md
+- Vertex: https://vertexlab.io/docs/algos/
 
 ## License
 
