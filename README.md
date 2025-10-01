@@ -45,11 +45,7 @@ ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https:
 - `/e/nevent1...` - event by nevent identifier
 - `/e/note1...` - event by note identifier
 - `/e/[hex-id]` - event by 64-character hex ID
-- `/t/[hashtags]` - search multiple hashtags
-- `/t/pugstr` - search for #pugstr
-- `/t/pugstr,dogstr,goatstr` - search for #pugstr OR #dogstr OR #goatstr
-- `/t/pugstr+dogstr+goatstr` - alternative syntax for multiple hashtags
-- `/t/pugstr dogstr goatstr` - space-separated hashtags
+- `/t/[hashtags]` - search multiple hashtags (supports comma, plus, and space separators)
 
 # Relay Logic
 
