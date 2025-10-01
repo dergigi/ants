@@ -55,7 +55,10 @@ export const UI_CONFIG = {
     NIP05_TIMEOUT: 4000,
     
     // Minimum number of results to show filter controls
-    FILTER_THRESHOLD: 69
+    FILTER_THRESHOLD: 69,
+    
+    // Default event kind when no specific kind is requested (regular notes)
+    DEFAULT_KIND: 1
   },
   
   // Profile search settings
@@ -127,6 +130,7 @@ export const SEARCH_HINTED_TIMEOUT = UI_CONFIG.SEARCH.HINTED_TIMEOUT;
 export const SEARCH_FALLBACK_TIMEOUT = UI_CONFIG.SEARCH.FALLBACK_TIMEOUT;
 export const SEARCH_NIP05_TIMEOUT = UI_CONFIG.SEARCH.NIP05_TIMEOUT;
 export const SEARCH_FILTER_THRESHOLD = UI_CONFIG.SEARCH.FILTER_THRESHOLD;
+export const SEARCH_DEFAULT_KIND = UI_CONFIG.SEARCH.DEFAULT_KIND;
 
 // Profile constants
 export const PROFILE_SEARCH_MAX_RESULTS = UI_CONFIG.PROFILE.SEARCH_MAX_RESULTS;
