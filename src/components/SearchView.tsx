@@ -1520,15 +1520,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         />
       </div>
       
-      <QueryTranslation 
-        query={query} 
-        onAuthorResolved={() => {
-          // Re-execute search after author resolution completes
-          if (lastExecutedQueryRef.current) {
-            handleSearch(lastExecutedQueryRef.current);
-          }
-        }} 
-      />
+      <QueryTranslation query={query} />
 
       {/* Command output will be injected as first result card below */}
 

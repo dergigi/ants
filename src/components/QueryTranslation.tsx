@@ -10,14 +10,12 @@ import { nip19 } from 'nostr-tools';
 
 interface QueryTranslationProps {
   query: string;
-  onAuthorResolved?: () => void;
 }
 
-export default function QueryTranslation({ query, onAuthorResolved }: QueryTranslationProps) {
+export default function QueryTranslation({ query }: QueryTranslationProps) {
   const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [translation, setTranslation] = useState<string>('');
   const authorResolutionCache = useRef<Map<string, string>>(new Map());
-  const lastResolvedQueryRef = useRef<string | null>(null);
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
@@ -155,11 +153,9 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);
-          // Trigger search execution after author resolution (only once per query)
-          if (lastResolvedQueryRef.current !== query) {
-            lastResolvedQueryRef.current = query;
-            onAuthorResolved?.();
-          }
+          // Note: We don't automatically trigger search here because author resolution
+          // happens in multiple phases (initial lookup + background verification + re-ranking).
+          // The user should manually trigger search when they see the correct resolution.
         }
       }
     };
