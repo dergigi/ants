@@ -78,7 +78,7 @@ Direct queries:
 
 A lot of complex queries are still direct queries, e.g. `is:highlight by:fiatjaf OR #YESTR by:dergigi.com` will resolve to two queries, namely:
 
-1. `kind:9802 by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`
+1. `kind:9802 by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6`
 2. `#YESTR by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`
 
 None of these need search. (1) is simply `kind:9802` with `authors: [6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93]` and (2) is simply `t:yestr` with Gigi's npub converted to hex.
