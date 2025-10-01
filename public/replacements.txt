@@ -24,6 +24,8 @@ site:flickr => (flickr.com OR www.flickr.com OR m.flickr.com)
 site:github => (github.com OR www.github.com OR gist.github.com)
 site:gh => (github.com OR www.github.com OR gist.github.com)
 site:quora => (quora.com OR www.quora.com OR m.quora.com)
+site:hackernews => (news.ycombinator.com OR www.news.ycombinator.com)
+site:hn => (news.ycombinator.com OR www.news.ycombinator.com)
 
 # --- HAS ---
 has:image => (.png OR .jpg OR .jpeg OR .gif OR .gifs OR .apng OR .webp OR .avif OR .svg)

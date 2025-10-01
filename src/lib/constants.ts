@@ -9,7 +9,7 @@ export const UI_CONFIG = {
     MAX_LENGTH_INLINE: 300,
     
     // Maximum length for profile descriptions
-    MAX_LENGTH_PROFILE: 200,
+    MAX_LENGTH_PROFILE: 210,
     
     // Character count for links in truncation calculation
     LINK_CHAR_COUNT: 10
@@ -40,7 +40,7 @@ export const UI_CONFIG = {
     MAX_RESULTS: 1000,
     
     // Maximum results for streaming queries
-    MAX_RESULTS_STREAMING: 200,
+    MAX_RESULTS_STREAMING: 210,
     
     // Default search timeout in milliseconds
     DEFAULT_TIMEOUT: 30000,

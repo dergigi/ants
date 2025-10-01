@@ -10,23 +10,22 @@ export const searchExamples = [
   '#photography',
   '#artstr',
   'nevent',
-  'habla.news',
   
   // by:Author
-  'by:dergigi',
+  'by:fiatjaf',
+  'by:@dergigi.com',
   'by:gigi',
   'by:pablof7z',
   'by:corndalorian',
-  'by:fiatjaf',
   'by:snowden',
   'by:socrates',
-  'engineering by:lyn',
-  '≠ by:dergigi.com',
 
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
   'good by:socrates',
+  'engineering by:lyn',
+  '≠ by:dergigi.com',
   'stay humble by:odell',
   '#YESTR by:dergigi',
   '👀 by:dergigi',
@@ -34,7 +33,7 @@ export const searchExamples = [
   '.jpg by:corndalorian',
   'site:github by:fiatjaf',
   'by:dergigi site:yt',
-  '#news site:rumble.com',
+  'ai site:hn',
   'by:rektbot 💀💀💀💀💀💀💀💀💀💀',
   '"car crash" by:dergigi',
   '(PoW OR WoT) by:dergigi',
@@ -44,6 +43,7 @@ export const searchExamples = [
   'free by:ross',
   'freedom by:ulbricht',
   'knowledge by:platobot@dergigi.com',
+  'is:muted by:fiatjaf',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -60,45 +60,58 @@ export const searchExamples = [
   'p:dave',
   'p:edward',
   'p:platobot@dergigi.com',
-  'p:NewsBot or p:RSS',
+  'p:RSS',
   'p:twentyone.world',
-  'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
+
+  // NIP search
+  'nip:01',
+  'nip:03',
+  'nip:05',
+
+  // OR operator
+  'PV or 🤙',
+  'kind:0 or kind:1',
+  'is:image or is:highlight',
+  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
+  '😂 or 🤣 or lol or lmao',
+  'bitcoin OR lightning',
+  '#plebchain or #introductions',
+  'einundzwanzig or by:twentyone.world',
+  '#runstr OR #plebwalk OR by:bitcoinwalk',
   '(p:dad OR p:husband OR p:father)',
 
-  // Operators & media
-  'bitcoin OR lightning',
-  'https://dergigi.com/vew',
+  // Nested OR
+  '(GM OR GN) by:dergigi has:image',
+  'p:(NewsBot or RSS)',
+
+  // Media Modifiers
+  'has:gif',
   'has:image',
+  'has:video',
   'is:image',
   'has:image OR is:image',
   'has:video',
   'is:video',
-  'has:gif',
-  '"habla.news"',
+  'giphy.gif',
+  'meme has:gif',
+  'Gregzaj1-ln_strike.gif',
 
-  // Mixed media + text
+  // Media Search
+  'Liotta .gif',
   'GM has:video',
   'Bitcoin has:image',
-  'meme has:gif',
   'by:dergigi has:image',
   'by:HODL has:video',
-  'Gregzaj1-ln_strike.gif',
-  'giphy.gif',
-  'giphy.GIF',
   'by:gregzaj has:gif',
-  '(GM OR GN) by:dergigi has:image',
   'is:image #Olas365',
-  'PressReader by:Bouma',
-  '#runstr OR #plebwalk OR by:bitcoinwalk',
-  'PV or 🤙',
-  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
-  '😂 or 🤣 or lol or lmao',
-  'Liotta .gif',
-  '#plebchain or #introductions',
+
+  // URLs
+  'site:yt', // Site-specific search
+  'https://dergigi.com/vew', // URL
+  'dergigi.com', // NIP-05
 
   // Kinds filter examples
-  'is:muted by:fiatjaf',
   'is:zap by:marty',
   'is:bookmark by:hzrd',
   'is:file',
@@ -110,19 +123,14 @@ export const searchExamples = [
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
 
   // Multiple hashtags
-  '#dogstr or #pugstr or #horsestr or #goatstr',
-
-  // NIP-50 extensions
-  'bitcoin include:spam',
-  'nip:03',
+  '#penisbutter or #⭕️',
+  '#pugstr or #horsestr or #goatstr',
 
   // Highlight examples
-  'is:highlight (bitcoin OR nostr)',
   'is:highlight by:dergigi',
-  'is:highlight by:fiatjaf',
-  'is:highlight by:f7z.io',
   'is:highlight "proof of work"',
-  'is:image or is:highlight',
+  'is:highlight (bitcoin OR nostr)',
+  'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
 
   // Slash Commands
   '/help',
