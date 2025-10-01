@@ -905,7 +905,7 @@ export async function searchEvents(
             return;
           }
           if (/#\w+/i.test(trimmedSeed)) {
-            acc.push(`${trimmedSeed} kind:1`.trim());
+            acc.push(trimmedSeed);
             return;
           }
           acc.push(trimmedSeed);
