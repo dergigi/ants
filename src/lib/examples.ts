@@ -44,6 +44,7 @@ export const searchExamples = [
   'free by:ross',
   'freedom by:ulbricht',
   'knowledge by:platobot@dergigi.com',
+  'is:muted by:fiatjaf',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -60,9 +61,8 @@ export const searchExamples = [
   'p:dave',
   'p:edward',
   'p:platobot@dergigi.com',
-  'p:NewsBot or p:RSS',
+  'p:RSS',
   'p:twentyone.world',
-  'einundzwanzig or twentyone.world',
   'kind:0 #bitcoin',
 
   // NIP search
@@ -71,14 +71,20 @@ export const searchExamples = [
   'nip:05',
 
   // OR operator
-  'bitcoin OR lightning',
-  '#runstr OR #plebwalk OR by:bitcoinwalk',
-  '(p:dad OR p:husband OR p:father)',
   'PV or 🤙',
+  'kind:0 or kind:1',
+  'is:image or is:highlight',
   '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
   '😂 or 🤣 or lol or lmao',
+  'bitcoin OR lightning',
   '#plebchain or #introductions',
+  'einundzwanzig or by:twentyone.world',
+  '#runstr OR #plebwalk OR by:bitcoinwalk',
+  '(p:dad OR p:husband OR p:father)',
+
+  // Nested OR
   '(GM OR GN) by:dergigi has:image',
+  'p:(NewsBot or RSS)',
 
   // Media Modifiers
   'has:gif',
@@ -107,7 +113,6 @@ export const searchExamples = [
   'dergigi.com', // NIP-05
 
   // Kinds filter examples
-  'is:muted by:fiatjaf',
   'is:zap by:marty',
   'is:bookmark by:hzrd',
   'is:file',
@@ -119,15 +124,14 @@ export const searchExamples = [
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
 
   // Multiple hashtags
-  '#dogstr or #pugstr or #horsestr or #goatstr',
+  '#penisbutter or #⭕️',
+  '#pugstr or #horsestr or #goatstr',
 
   // Highlight examples
+  'is:highlight by:dergigi',
   'is:highlight "proof of work"',
   'is:highlight (bitcoin OR nostr)',
-  'is:highlight by:dergigi',
-  'is:highlight by:fiatjaf',
-  'is:highlight by:f7z.io',
-  'is:image or is:highlight',
+  'is:highlight (by:fiatjaf OR by:@f7z.io)',
 
   // Slash Commands
   '/help',
