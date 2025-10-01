@@ -57,8 +57,8 @@ export const UI_CONFIG = {
     // Minimum number of results to show filter controls
     FILTER_THRESHOLD: 69,
     
-    // Default event kinds when no specific kind is requested (regular notes)
-    DEFAULT_KINDS: [1] as number[]
+    // Default event kinds when no specific kind is requested (richly rendered kinds)
+    DEFAULT_KINDS: [1, 20, 21, 22, 9802] as number[]
   },
   
   // Profile search settings
