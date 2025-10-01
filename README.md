@@ -1,6 +1,6 @@
-# ants - advanced nostr text search
+# ants - opinionated nostr text search
 
-An advanced search interface for Nostr.
+An opinionated search interface for Nostr.
 
 ## Search Examples
 
