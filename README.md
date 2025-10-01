@@ -1,10 +1,18 @@
-# ants - opinionated nostr text search
+# ants - advanced nostr text search
 
-An opinionated search interface for Nostr.
+An opinionated search interface for nostr.
+
+ants is the search and discovery interface I always wanted to have. It can do reverse image lookups, has all kinds of search modifiers, and will not shy away from throwing events back at you that it can't even render yet.
+
+The basic philosophy is to *always stay in search* and to embrace false positives, i.e. rather show too much than too little. But we still want to be able to filter out nonsense and spam. It's very much a work-in-progress. It doesn't have many [WoT](https://search.dergigi.com/?q=%28WoT+OR+%22web+of+trust%22%29+by%3Adergigi.com) features yet, for example.
+
+The current version is not very performant and will probably crash often.
+
+But it's useful to at least one person already, which is [me](https://search.dergigi.com/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
 
 ## Search Examples
 
-ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by utilizing NIP-05, NIP-50, and having human-readable shorthands for (pun intended) the most common `kind`s:
+ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by making good use of [NIP-05](https://search.dergigi.com/?q=nip%3A05), [NIP-50](https://search.dergigi.com/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
 - [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
@@ -27,7 +35,7 @@ Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search fiel
 
 ## URL Paths
 
-The application supports several direct URL paths for quick access:
+ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https://njump.me/) and other portals do
 
 ### Profile Pages
 
