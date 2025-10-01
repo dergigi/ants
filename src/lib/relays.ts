@@ -274,54 +274,66 @@ async function discoverUserRelays(pubkey: string): Promise<{
   }
 }
 
-async function extendWithUserAndPremium(relayUrls: readonly string[]): Promise<string[]> {
-  const enriched = [...relayUrls];
-  const pubkey = getStoredPubkey();
+function normalizeRelayUrlInternal(url: string): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  const withScheme = /^wss?:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`;
+  return withScheme.replace(/\/+$/, '');
+}
 
-  if (pubkey) {
-    // Discover user relays as per NIP-51
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { userRelays, blockedRelays, searchRelays } = await discoverUserRelays(pubkey);
+export async function extendWithUserAndPremium(
+  relayUrls: readonly string[],
+  options: { includeSearchRelays?: boolean } = {}
+): Promise<string[]> {
+  const { includeSearchRelays = false } = options;
+  const relaySet = new Set<string>();
+  const addRelay = (url: string, blocked: Set<string>) => {
+    const normalized = normalizeRelayUrlInternal(url);
+    if (!normalized || blocked.has(normalized)) return;
+    relaySet.add(normalized);
+  };
 
-    // Remove blocked relays from all relay lists
-    const blockedSet = new Set(blockedRelays);
-    const filteredEnriched = enriched.filter(url => !blockedSet.has(url));
-
-    // Add user's search relays to search relay lists (handled in search relay functions)
-    // Note: userRelays and searchRelays are used in getNip50SearchRelaySet()
-    // Add manually configured user relays (for backward compatibility)
-    const manualUserRelays = getUserRelayAdditions();
-    for (const relay of manualUserRelays) {
-      if (!filteredEnriched.includes(relay)) {
-        filteredEnriched.push(relay);
-      }
-    }
-    
-    // Add premium relays for logged-in users
-    if (getStoredPubkey()) {
-      for (const relay of RELAYS.PREMIUM) {
-        if (!filteredEnriched.includes(relay)) {
-          filteredEnriched.push(relay);
-        }
-      }
-    }
-
-    return filteredEnriched;
+  const initialBlocked = new Set<string>();
+  for (const url of relayUrls) {
+    addRelay(url, initialBlocked);
   }
 
-  return enriched;
+  const pubkey = getStoredPubkey();
+  const manualRelays = getUserRelayAdditions();
+
+  if (!pubkey) {
+    manualRelays.forEach((relay) => addRelay(relay, initialBlocked));
+    return Array.from(relaySet);
+  }
+
+  const { userRelays, blockedRelays, searchRelays } = await discoverUserRelays(pubkey);
+  const blockedSet = new Set(blockedRelays.map(normalizeRelayUrlInternal));
+
+  for (const blocked of blockedSet) {
+    relaySet.delete(blocked);
+  }
+
+  userRelays.forEach((relay) => addRelay(relay, blockedSet));
+  manualRelays.forEach((relay) => addRelay(relay, blockedSet));
+  RELAYS.PREMIUM.forEach((relay) => addRelay(relay, blockedSet));
+  if (includeSearchRelays) {
+    searchRelays.forEach((relay) => addRelay(relay, blockedSet));
+  }
+
+  return Array.from(relaySet);
 }
 
 // Pre-configured relay sets
 export const relaySets = {
   // Default relay set for general use
-  default: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.DEFAULT, ndk); },
+  default: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.DEFAULT), ndk); },
   
   // Search relay set (NIP-50 capable)
-  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.SEARCH), ndk); },
+  search: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.SEARCH, { includeSearchRelays: true }), ndk); },
   
   // Profile search relay set
-  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.PROFILE_SEARCH), ndk); },
+  profileSearch: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(await extendWithUserAndPremium(RELAYS.PROFILE_SEARCH, { includeSearchRelays: true }), ndk); },
 
   // Premium relay set, used only when logged in
   premium: async () => { await ensureCacheInitialized(); return NDKRelaySet.fromRelayUrls(RELAYS.PREMIUM, ndk); },

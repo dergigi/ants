@@ -3,7 +3,7 @@ import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilte
 import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
-import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet } from './relays';
+import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet, extendWithUserAndPremium } from './relays';
 import { getUserRelayAdditions } from './storage';
 import { normalizeRelayUrl } from './urlUtils';
 import { trackEventRelay, getEventRelaySources, getRelayContributions } from './eventRelayTracking';
@@ -47,12 +47,10 @@ async function getSearchRelaySet(): Promise<NDKRelaySet> {
 }
 
 async function getBroadRelaySet(): Promise<NDKRelaySet> {
-  const union = new Set<string>([
-    ...RELAYS.DEFAULT,
-    ...RELAYS.SEARCH,
-    ...getUserRelayAdditions()
-  ]);
-  return NDKRelaySet.fromRelayUrls(Array.from(union), ndk);
+  const base = await extendWithUserAndPremium([...RELAYS.DEFAULT, ...RELAYS.SEARCH]);
+  const manual = getUserRelayAdditions();
+  const combined = new Set<string>([...base, ...manual]);
+  return NDKRelaySet.fromRelayUrls(Array.from(combined), ndk);
 }
 
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
