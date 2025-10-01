@@ -62,3 +62,8 @@ function loadUsernameCacheFromStorage(): void {
 
 // Initialize persistent username cache on module load (browser only)
 loadUsernameCacheFromStorage();
+
+export function clearUsernameCache(): void {
+  USERNAME_CACHE.clear();
+  saveUsernameCacheToStorage();
+}

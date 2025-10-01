@@ -87,10 +87,14 @@ export function primeProfileEventCache(pubkeyHex: string, event: NDKEvent, times
   PROFILE_EVENT_CACHE.set(key, { event, timestamp });
 }
 
-export function clearProfileEventCache(pubkeyHex: string): void {
-  const key = normalizePubkey(pubkeyHex);
-  if (!key) return;
-  PROFILE_EVENT_CACHE.delete(key);
+export function clearProfileEventCache(pubkeyHex?: string): void {
+  if (typeof pubkeyHex === 'string') {
+    const key = normalizePubkey(pubkeyHex);
+    if (!key) return;
+    PROFILE_EVENT_CACHE.delete(key);
+  } else {
+    PROFILE_EVENT_CACHE.clear();
+  }
   saveProfileEventCacheToStorage();
 }
 

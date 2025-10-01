@@ -1,8 +1,10 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storageCache';
+import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from '../storageCache';
 import { normalizeNip05String } from '../nip05';
 import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
 import { normalizePubkey } from './key-utils';
+import { clearProfileEventCache } from './profile-event-cache';
+import { clearUsernameCache } from './username-cache';
 export { getCachedProfileEvent, setCachedProfileEvent, clearProfileEventCache, configureProfileEventCache } from './profile-event-cache';
 
 // DVM Cache types and constants
@@ -164,6 +166,19 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
     nip05PersistentCache.delete(key);
     if (hasLocalStorage()) saveMapToStorage(NIP05_CACHE_STORAGE_KEY, nip05PersistentCache);
   } catch {}
+}
+
+export function clearAllProfileCaches(): void {
+  clearProfileEventCache();
+  clearUsernameCache();
+  nip05VerificationCache.clear();
+  nip05PersistentCache.clear();
+  nip05StringCache.clear();
+  nip05StringPersistentCache.clear();
+  clearStorageKey('ants_profile_event_cache_v1');
+  clearStorageKey(DVM_CACHE_STORAGE_KEY);
+  clearStorageKey(NIP05_CACHE_STORAGE_KEY);
+  clearStorageKey(NIP05_STRING_CACHE_STORAGE_KEY);
 }
 
 export function getNip05InFlightPromise(cacheKey: string): Promise<boolean> | undefined {

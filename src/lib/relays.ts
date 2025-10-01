@@ -499,10 +499,14 @@ export function clearRelayInfoCache(): void {
   relayInfoCache.clear();
   try {
     clearStorageKey(CACHE_STORAGE_KEY);
-    console.log('Relay info cache cleared');
   } catch (error) {
     console.warn('Failed to clear relay info cache:', error);
   }
+}
+
+export function clearRelayCaches(): void {
+  clearRelayInfoCache();
+  userRelayCache.clear();
 }
 
 // Backward compatibility - keep old function names
