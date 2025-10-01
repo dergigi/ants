@@ -188,7 +188,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         resolutionTimeoutRef.current = null;
       }
     };
-  }, [query, generateTranslation]);
+  }, [query, generateTranslation, onAuthorResolved]);
 
   if (!translation) return null;
 
