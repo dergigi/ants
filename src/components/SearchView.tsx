@@ -882,7 +882,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (isDirectQuery) {
         // Direct queries (NIP-19): use all relays
         console.log('[Search] Direct query detected, using all relays');
-        relaySet = await relaySets.search();
+        relaySet = await relaySets.default();
       } else {
         // Search queries (NIP-50): use NIP-50 capable relays only
         console.log('[Search] Search query detected, using NIP-50 relays');
