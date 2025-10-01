@@ -2,6 +2,7 @@
 
 import { extractMediaFromContent, getSearchQueryFromMedia, isValidMediaUrl, getTrimmedMediaUrl } from '@/lib/utils/mediaUtils';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
+import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import UrlPreview from '@/components/UrlPreview';
 
 interface NoteMediaProps {
@@ -40,10 +41,10 @@ export default function NoteMedia({ content, onSearch, onUrlLoaded }: NoteMediaP
         if (item.type === 'video') {
           return (
             <div key={key} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
-              <video controls playsInline className="w-full h-auto">
-                <source src={item.src} />
-                Your browser does not support the video tag.
-              </video>
+              <VideoWithBlurhash
+                src={item.src}
+                onClickSearch={() => onSearch(getSearchQueryFromMedia(item.src))}
+              />
             </div>
           );
         }
