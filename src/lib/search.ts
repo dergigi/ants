@@ -344,30 +344,58 @@ async function searchByAnyTerms(
   nip50Extensions?: Nip50Extensions,
   baseFilter?: Partial<NDKFilter>
 ): Promise<NDKEvent[]> {
-  // Run independent NIP-50 searches for each term and merge results (acts like boolean OR)
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
       const normalizedTerm = term.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag);
-      const requiresSearch = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
-      const searchQuery = requiresSearch
+      const requiresFullText = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
+      const tagMatches = Array.from(normalizedTerm.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
+      const byMatches = Array.from(normalizedTerm.match(/\bby:(\S+)/gi) || []).map((t) => t.slice(3));
+      const searchQuery = requiresFullText
         ? (nip50Extensions ? buildSearchQueryWithExtensions(normalizedTerm, nip50Extensions) : normalizedTerm)
         : undefined;
 
-      // Extract kind filters from the expanded term
       const kindExtraction = extractKindFilter(normalizedTerm);
       const baseKinds = baseFilter?.kinds;
       const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
         ? kindExtraction.kinds
-        : (baseKinds && baseKinds.length > 0 ? baseKinds : [1]); // Default to notes only
-      
+        : tagMatches.length > 0
+          ? [1]
+          : (baseKinds && baseKinds.length > 0 ? baseKinds : [1]);
+
       const filterBase = baseFilter ? { ...baseFilter } : {};
       const filter: NDKFilter = {
         ...filterBase,
         kinds: effectiveKinds,
         limit: Math.max(limit, 200)
       };
+
+      if (tagMatches.length > 0) {
+        filter['#t'] = Array.from(new Set(tagMatches.map((tag) => tag.toLowerCase())));
+      }
+
+      if (byMatches.length > 0) {
+        const authors: string[] = [];
+        for (const author of byMatches) {
+          if (/^npub1[0-9a-z]+$/i.test(author)) {
+            authors.push(author);
+          } else {
+            try {
+              const resolved = await resolveAuthor(author);
+              if (resolved.pubkeyHex) {
+                const npub = nip19.npubEncode(resolved.pubkeyHex);
+                authors.push(npub);
+              }
+            } catch {}
+          }
+        }
+        if (authors.length === 0) {
+          continue; // unable to resolve author clause; skip
+        }
+        filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
+      }
+
       if (searchQuery) {
         filter.search = searchQuery;
       }
