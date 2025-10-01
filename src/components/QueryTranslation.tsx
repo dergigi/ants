@@ -17,6 +17,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [translation, setTranslation] = useState<string>('');
   const authorResolutionCache = useRef<Map<string, string>>(new Map());
+  const lastResolvedQueryRef = useRef<string | null>(null);
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
@@ -154,8 +155,11 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);
-          // Trigger search execution after author resolution
-          onAuthorResolved?.();
+          // Trigger search execution after author resolution (only once per query)
+          if (lastResolvedQueryRef.current !== query) {
+            lastResolvedQueryRef.current = query;
+            onAuthorResolved?.();
+          }
         }
       }
     };
@@ -165,7 +169,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     return () => { 
       cancelled = true; 
     };
-  }, [query, generateTranslation, onAuthorResolved]);
+  }, [query, generateTranslation]);
 
   if (!translation) return null;
 
