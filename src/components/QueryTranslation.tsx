@@ -142,9 +142,18 @@ export default function QueryTranslation({ query }: QueryTranslationProps) {
     }
 
     const generateAndSetTranslation = async () => {
-      const result = await generateTranslation(query, false);
+      // Phase 1: Show expanded queries immediately (without author resolution)
+      const immediateResult = await generateTranslation(query, true);
       if (!cancelled) {
-        setTranslation(result);
+        setTranslation(immediateResult);
+      }
+
+      // Phase 2: Update with resolved authors (if any by: tokens exist)
+      if (query.includes('by:')) {
+        const resolvedResult = await generateTranslation(query, false);
+        if (!cancelled) {
+          setTranslation(resolvedResult);
+        }
       }
     };
 
