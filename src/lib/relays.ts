@@ -560,6 +560,19 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
   console.log(`[NIP-50 FILTER] Supported relays:`, supportedRelays);
   console.log(`[NIP-50 FILTER] Rejected relays:`, rejectedRelays);
 
+  // If we have very few NIP-50 relays, include some known good relays as fallback
+  if (supportedRelays.length < 3) {
+    console.log(`[NIP-50 FILTER] Only ${supportedRelays.length} NIP-50 relays found, adding fallback relays`);
+    const fallbackRelays = [
+      'wss://relay.primal.net',
+      'wss://relay.snort.social', 
+      'wss://relay.ditto.pub'
+    ].filter(url => !supportedRelays.includes(url) && !rejectedRelays.includes(url));
+    
+    supportedRelays.push(...fallbackRelays);
+    console.log(`[NIP-50 FILTER] Added ${fallbackRelays.length} fallback relays:`, fallbackRelays);
+  }
+
   return supportedRelays;
 }
 

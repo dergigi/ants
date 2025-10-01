@@ -401,9 +401,14 @@ async function searchByAnyTerms(
       }
 
       console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
-      const res = await subscribeAndCollect(filter, 8000, relaySet, abortSignal);
-      for (const evt of res) {
-        if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+      try {
+        const res = await subscribeAndCollect(filter, 10000, relaySet, abortSignal); // Increased timeout
+        for (const evt of res) {
+          if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+        }
+      } catch (error) {
+        console.warn(`Search failed for term "${normalizedTerm}":`, error);
+        // Continue with other terms even if one fails
       }
     } catch (error) {
       // Don't log aborted searches as errors
@@ -663,7 +668,7 @@ export async function searchEvents(
 
   // Ensure we're connected before issuing any queries (with timeout)
   try {
-    await connectWithTimeout(3000);
+    await connectWithTimeout(5000); // Increased timeout
   } catch (e) {
     console.warn('NDK connect failed or timed out:', e);
     // Continue anyway - search might still work with cached connections
@@ -683,9 +688,18 @@ export async function searchEvents(
   const nip50Extensions = nip50Extraction.extensions;
   
   // Remove legacy relay filters and choose the default search relay set
-  const chosenRelaySet: NDKRelaySet = relaySetOverride
-    ? relaySetOverride
-    : await getNip50SearchRelaySet();
+  let chosenRelaySet: NDKRelaySet;
+  if (relaySetOverride) {
+    chosenRelaySet = relaySetOverride;
+  } else {
+    try {
+      chosenRelaySet = await getNip50SearchRelaySet();
+    } catch (error) {
+      console.warn('Failed to get NIP-50 search relay set, falling back to broader relay set:', error);
+      // Fallback to broader relay set if NIP-50 search fails
+      chosenRelaySet = await getBroadRelaySet();
+    }
+  }
 
   // Strip legacy relay filters but keep the rest of the query intact; any replacements
   // are applied earlier at the UI layer via the simple preprocessor.
@@ -819,7 +833,15 @@ export async function searchEvents(
       }, []);
 
     console.debug('[OR CLAUSES]', normalizedParts);
-    const orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    let orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    
+    // If we got no results and we're using NIP-50 relays, try with broader relay set
+    if (orResults.length === 0 && !relaySetOverride) {
+      console.log('[OR CLAUSES] No results from NIP-50 relays, trying broader relay set');
+      const broadRelaySet = await getBroadRelaySet();
+      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    }
+    
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
     return sortEventsNewestFirst(filteredResults).slice(0, limit);
   }
@@ -878,7 +900,7 @@ export async function searchEvents(
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
 
-    // Broader relay set than NIP-50 search: default + search relays
+    // Use broader relay set for hashtag searches - include all available relays
     const tagRelaySet = await getBroadRelaySet();
 
     const results = isStreaming
