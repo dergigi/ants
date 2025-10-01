@@ -119,13 +119,22 @@ export default function ImageWithBlurhash({
           } catch {}
         }}
         onError={() => {
-          setImageError(true);
           try {
             // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
             fetch(src, { method: 'HEAD' }).then((res) => {
               setStatusCode(res.status || null);
-            }).catch(() => setStatusCode(null));
-          } catch { setStatusCode(null); }
+              // Only treat actual HTTP error codes as errors (4xx, 5xx)
+              if (res.status >= 400) {
+                setImageError(true);
+              }
+            }).catch(() => {
+              setStatusCode(null);
+              setImageError(true);
+            });
+          } catch { 
+            setStatusCode(null);
+            setImageError(true);
+          }
         }}
       />
       
