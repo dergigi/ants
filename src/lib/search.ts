@@ -342,10 +342,26 @@ async function searchByAnyTerms(
   relaySet: NDKRelaySet,
   abortSignal?: AbortSignal,
   nip50Extensions?: Nip50Extensions,
-  baseFilter?: Partial<NDKFilter>
+  baseFilter?: Partial<NDKFilter>,
+  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>
 ): Promise<NDKEvent[]> {
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
+  let fallbackRelaySet: NDKRelaySet | null = null;
+
+  const ensureFallbackRelaySet = async (): Promise<NDKRelaySet | null> => {
+    if (!fallbackRelaySetFactory) return null;
+    if (!fallbackRelaySet) {
+      try {
+        fallbackRelaySet = await fallbackRelaySetFactory();
+      } catch (error) {
+        console.warn('Failed to create fallback relay set:', error);
+        return null;
+      }
+    }
+    return fallbackRelaySet;
+  };
+
   for (const term of terms) {
     try {
       const normalizedTerm = term.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag);
@@ -400,9 +416,20 @@ async function searchByAnyTerms(
         filter.search = searchQuery;
       }
 
+      const residual = normalizedTerm
+        .replace(/\bkind:[^\s]+/gi, ' ')
+        .replace(/\bkinds:[^\s]+/gi, ' ')
+        .replace(/\bby:[^\s]+/gi, ' ')
+        .replace(/\ba:[^\s]+/gi, ' ')
+        .replace(/#[A-Za-z0-9_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const needsNip50 = Boolean(filter.search) || (residual.length > 0);
+
       console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
       try {
-        const res = await subscribeAndCollect(filter, 10000, relaySet, abortSignal); // Increased timeout
+        const targetRelaySet = needsNip50 ? relaySet : (await ensureFallbackRelaySet()) || relaySet;
+        const res = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
         for (const evt of res) {
           if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
         }
@@ -711,6 +738,8 @@ export async function searchEvents(
     ? kindExtraction.kinds
     : [1]; // Default to notes only when no kind filter is specified
   const extensionFilters: Array<(content: string) => boolean> = [];
+  const topLevelOrParts = parseOrQuery(cleanedQuery);
+  const hasTopLevelOr = topLevelOrParts.length > 1;
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
   // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
@@ -727,84 +756,87 @@ export async function searchEvents(
           return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
         });
 
-      const seedResults = await searchByAnyTerms(translatedSeeds, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+      const seedResults = await searchByAnyTerms(
+        translatedSeeds,
+        Math.max(limit, 500),
+        chosenRelaySet,
+        abortSignal,
+        nip50Extensions,
+        { kinds: effectiveKinds },
+        () => getBroadRelaySet()
+      );
       return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
   }
 
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
-  const earlyAuthorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-  if (earlyAuthorMatch) {
-    const [, author] = earlyAuthorMatch;
-    const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+  if (!hasTopLevelOr) {
+    const earlyAuthorMatch = (!hasTopLevelOr && !cleanedQuery.includes('('))
+      ? cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i)
+      : null;
+    if (earlyAuthorMatch) {
+      const [, author] = earlyAuthorMatch;
+      const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
 
-    let pubkey: string | null = null;
-    try {
-      const resolved = await resolveAuthor(author);
-      pubkey = resolved.pubkeyHex;
-    } catch {}
+      let pubkey: string | null = null;
+      try {
+        const resolved = await resolveAuthor(author);
+        pubkey = resolved.pubkeyHex;
+      } catch {}
 
-    if (!pubkey) {
-      return [];
-      return [];
-    }
-
-    // Expand parenthesized OR seeds inside remaining terms
-    const seedExpansions = terms ? expandParenthesizedOr(terms) : [terms];
-    const filters: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) };
-    if (terms && seedExpansions.length === 1) {
-      filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
-    }
-
-    let res: NDKEvent[] = [];
-    if (terms && seedExpansions.length > 1) {
-      // Run each expansion and merge
-      const seen = new Set<string>();
-      for (const seed of seedExpansions) {
-        try {
-          const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
-          const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
-          for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-        } catch {}
+      if (!pubkey) {
+        return [];
+        return [];
       }
-    } else {
-      res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+
+      if (!terms) {
+        let res = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+        if (res.length === 0) {
+          const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+          const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+          res = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, 10000, broadRelaySet, abortSignal);
+        }
+        const dedupe = new Map<string, NDKEvent>();
+        for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+        return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+      }
+
+      const seeds = expandParenthesizedOr(terms);
+      const filters: Partial<NDKFilter> = { kinds: effectiveKinds, authors: [pubkey] };
+      let res = await searchByAnyTerms(
+        seeds,
+        Math.max(limit, 500),
+        chosenRelaySet,
+        abortSignal,
+        nip50Extensions,
+        filters,
+        () => getBroadRelaySet()
+      );
+
+      if (res.length === 0) {
+        const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+        const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
+        const authorOnlyFilter: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) };
+        let authorOnly = await subscribeAndCollect(authorOnlyFilter, 10000, broadRelaySet, abortSignal);
+        const trimmed = terms.trim();
+        if (trimmed) {
+          const needle = trimmed.toLowerCase();
+          authorOnly = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+        }
+        res = authorOnly;
+      }
+
+      const dedupe = new Map<string, NDKEvent>();
+      for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+      return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
     }
-    const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
-    const seedTerms: string[] = [];
-    for (const m of seedMatches) {
-      const inner = (m[1] || '').trim();
-      if (!inner) continue;
-      inner.split(/\s+OR\s+/i).forEach((t) => { const token = t.trim(); if (token) seedTerms.push(token); });
-    }
-    if (seedTerms.length > 0) {
-      try { const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey], kinds: effectiveKinds }); res = [...res, ...seeded]; } catch {}
-    }
-    const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-    const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-    if (res.length === 0) { res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal); }
-    const termStr = terms.trim();
-    const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
-    if (res.length === 0 && termStr) {
-      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
-      const needle = termStr.toLowerCase();
-      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-    } else if (res.length === 0 && hasShortToken) {
-      const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
-      const needle = termStr.toLowerCase();
-      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-    }
-    const dedupe = new Map<string, NDKEvent>();
-    for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-    return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
   }
 
   // (Already expanded above)
 
   // Check for top-level OR operator (outside parentheses)
-  const orParts = parseOrQuery(cleanedQuery);
-  if (orParts.length > 1) {
-    const normalizedParts = orParts
+  if (hasTopLevelOr) {
+    const normalizedParts = topLevelOrParts
       .map((part) => part.trim())
       .filter(Boolean)
       .reduce<string[]>((acc, part) => {
@@ -833,7 +865,15 @@ export async function searchEvents(
       }, []);
 
     console.debug('[OR CLAUSES]', normalizedParts);
-    let orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    let orResults = await searchByAnyTerms(
+      normalizedParts,
+      Math.max(limit, 500),
+      chosenRelaySet,
+      abortSignal,
+      nip50Extensions,
+      { kinds: effectiveKinds },
+      () => getBroadRelaySet()
+    );
     
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
@@ -1082,7 +1122,15 @@ export async function searchEvents(
       }
       if (seedTerms.length > 0) {
         try {
-          const seeded = await searchByAnyTerms(seedTerms, limit, chosenRelaySet, abortSignal, nip50Extensions, { authors: [pubkey], kinds: effectiveKinds });
+          const seeded = await searchByAnyTerms(
+            seedTerms,
+            limit,
+            chosenRelaySet,
+            abortSignal,
+            nip50Extensions,
+            { authors: [pubkey], kinds: effectiveKinds },
+            () => getBroadRelaySet()
+          );
           res = [...res, ...seeded];
         } catch {}
       }

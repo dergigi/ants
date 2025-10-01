@@ -96,11 +96,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
   const initialSearchDoneRef = useRef(false);
-  const initialQueryNormalizedRef = useRef<string | null>(initialQuery.trim() || null);
+  const normalizedInitialQuery = initialQuery.trim() || null;
+  const bootstrapInitial = !manageUrl ? normalizedInitialQuery : null;
+  const initialQueryNormalizedRef = useRef<string | null>(normalizedInitialQuery);
   const initialQueryRef = useRef(initialQuery);
-  const lastHashQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
-  const lastExecutedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
-  const lastTranslatedQueryRef = useRef<string | null>(initialQueryNormalizedRef.current);
+  const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
+  const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
+  const lastTranslatedQueryRef = useRef<string | null>(bootstrapInitial);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -1649,10 +1651,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   useEffect(() => {
     if (initialQueryRef.current !== initialQuery) {
       initialQueryRef.current = initialQuery;
-      initialQueryNormalizedRef.current = initialQuery.trim() || null;
+      const normalized = initialQuery.trim() || null;
+      initialQueryNormalizedRef.current = normalized;
       initialSearchDoneRef.current = false;
+      if (manageUrl) {
+        lastHashQueryRef.current = null;
+        lastExecutedQueryRef.current = null;
+        lastTranslatedQueryRef.current = null;
+      } else {
+        lastHashQueryRef.current = normalized;
+        lastExecutedQueryRef.current = normalized;
+        lastTranslatedQueryRef.current = normalized;
+      }
     }
-  }, [initialQuery]);
+  }, [initialQuery, manageUrl]);
 
   return (
     <div className="w-full pt-4">
