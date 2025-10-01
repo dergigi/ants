@@ -56,6 +56,8 @@ A simple search interface for Nostr events.
 - [`domain:example.com`](https://search.dergigi.com/?q=domain%3Aexample.com) - Only events from users with NIP-05 domain
 - [`language:en`](https://search.dergigi.com/?q=language%3Aen) - Filter by ISO 639-1 language code
 - [`sentiment:positive`](https://search.dergigi.com/?q=sentiment%3Apositive) - Filter by sentiment (negative/neutral/positive)
+- [`nsfw:false`](https://search.dergigi.com/?q=nsfw%3Afalse) - Hide NSFW content
+- [`nsfw:true`](https://search.dergigi.com/?q=nsfw%3Atrue) - Include NSFW content
 
 ### Kinds Filter
 
@@ -65,6 +67,8 @@ A simple search interface for Nostr events.
 - [`is:file`](https://search.dergigi.com/?q=is%3Afile) - File notes
 - [`is:repost by:dor`](https://search.dergigi.com/?q=is%3Arepost%20by%3Ador) - Reposts by dor
 - [`is:muted by:carvalho`](https://search.dergigi.com/?q=is%3Amuted%20by%3Acarvalho) - Muted lists by carvalho
+- [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - Highlights
+- [`is:blogpost`](https://search.dergigi.com/?q=is%3Ablogpost) - Articles
 
 ### Multiple Authors
 
@@ -133,16 +137,16 @@ The application supports several direct URL paths for quick access:
 
 ## Ranking behavior
 
-- When you are logged in, profile lookups and author resolution use **personalizedPagerank** from your point of view (your pubkey is sent as `source`).
-- When you are not logged in, the app falls back to **globalPagerank**.
+- When logged in and Vertex credits are available, profile lookups and author resolution use **personalizedPagerank** (your pubkey is sent as `source`).
+- When logged out or Vertex is unavailable, relay-based ranking is used (see fallback below).
 
 This applies when resolving usernames like `by:john` or direct profile lookups like `p:john`. See the Vertex docs for details on parameters and response format: [`https://vertexlab.io/docs/services/search-profiles/`](https://vertexlab.io/docs/services/search-profiles/).
 
 Note that proper username resolution requires Vertex credits. See [Vertex pricing](https://vertexlab.io/pricing/) for details on credit costs and tiers.
 
-### Vertex credit fallback
+### Fallback ranking
 
-If the Vertex DVM responds with an "insufficient credits" status, we fall back to a relay search for `kind:0` profiles matching the username and rank candidates as follows:
+If Vertex is unavailable or credits are insufficient (or when logged out), we fall back to a relay search for `kind:0` profiles matching the username and rank candidates as follows:
 
 - Logged in: prioritize profiles that you directly follow; tiebreak by prefix match and name.
 - Not logged in: sort by the number of follower references (count of `kind:3` contacts that include the candidate pubkey), then prefix match and name.
