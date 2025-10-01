@@ -779,7 +779,8 @@ export async function searchEvents(
         return acc;
       }, []);
 
-    const orResults = await searchByAnyTerms(translatedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    const normalizedParts = translatedParts.map((part) => part.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag));
+    const orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
     return sortEventsNewestFirst(filteredResults).slice(0, limit);
   }
