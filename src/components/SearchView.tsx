@@ -5,9 +5,8 @@ import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListene
 import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { searchEvents, expandParenthesizedOr, parseOrQuery } from '@/lib/search';
+import { searchEvents } from '@/lib/search';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
-import { applySimpleReplacements } from '@/lib/search/replacements';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
 import { stripAllUrls } from '@/lib/utils/textUtils';
@@ -23,9 +22,7 @@ import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/prof
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
 import { 
   UI_RECENTLY_ACTIVE_INTERVAL, 
-  UI_CONNECTION_DETAILS_INTERVAL, 
-  UI_AUTHOR_RESOLUTION_DEBOUNCE, 
-  UI_TRANSLATION_DEBOUNCE 
+  UI_CONNECTION_DETAILS_INTERVAL
 } from '@/lib/constants';
 import EventCard from '@/components/EventCard';
 import ProfileCard from '@/components/ProfileCard';
@@ -102,7 +99,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const initialQueryRef = useRef(initialQuery);
   const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
   const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
-  const lastTranslatedQueryRef = useRef<string | null>(bootstrapInitial);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   // Removed expanded-term chip UI and related state to simplify UX
@@ -112,129 +108,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
-  const [translation, setTranslation] = useState<string>('');
   const [showExternalButton, setShowExternalButton] = useState(false);
-  
-  // Cache for author resolution to avoid repeated requests
-  const authorResolutionCache = useRef<Map<string, string>>(new Map());
-  const authorResolutionTimeout = useRef<NodeJS.Timeout | null>(null);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   
-  // DRY helper function for translation logic
-  const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
-    try {
-      // 1) Apply simple replacements first
-      const afterReplacements = await applySimpleReplacements(query);
-
-      // 2) Recursive OR substitution (distribute parentheses)
-      const distributed = expandParenthesizedOr(afterReplacements);
-
-      // Helper: resolve all by:<author> tokens within a single query string
-      const resolveByTokensInQuery = async (q: string): Promise<string> => {
-        const rx = /(^|\s)by:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          
-          if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
-            // Check cache first
-            if (authorResolutionCache.current.has(core)) {
-              replacement = authorResolutionCache.current.get(core) || core;
-            } else {
-              try {
-                const npub = await resolveAuthorToNpub(core);
-                if (npub) {
-                  replacement = npub;
-                  authorResolutionCache.current.set(core, npub);
-                }
-              } catch {}
-            }
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}by:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
-
-      // Helper: normalize p:<token> where token may be hex, npub or nprofile
-      const resolvePTokensInQuery = (q: string): string => {
-        const rx = /(^|\s)p:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          if (/^[0-9a-fA-F]{64}$/.test(core)) {
-            try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
-          } else if (/^npub1[0-9a-z]+$/i.test(core)) {
-            replacement = core;
-          } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
-            try {
-              const decoded = nip19.decode(core);
-              if (decoded?.type === 'nprofile') {
-                const pk = (decoded.data as { pubkey: string }).pubkey;
-                replacement = nip19.npubEncode(pk);
-              }
-            } catch {}
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}p:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
-
-      // 3) Resolve authors inside each distributed branch (if not skipping)
-      const resolvedDistributed = skipAuthorResolution 
-        ? distributed 
-        : await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
-
-      const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
-
-      // 4) For parenthesized OR expansion, show all expanded queries
-      // Don't split further if we already have multiple distributed queries
-      if (distributed.length > 1) {
-        // We have parenthesized OR expansion - show all expanded queries
-        const preview = withPResolved.join('\n');
-        return preview;
-      }
-
-      // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
-      const finalQueriesSet = new Set<string>();
-      for (const q of withPResolved) {
-        const parts = parseOrQuery(q);
-        if (parts.length > 1) {
-          parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
-        } else {
-          const s = q.trim(); if (s) finalQueriesSet.add(s);
-        }
-      }
-      const finalQueries = Array.from(finalQueriesSet);
-
-      // Format compact preview
-      const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      return preview;
-    } catch {
-      return '';
-    }
-  }, [authorResolutionCache]);
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
@@ -818,8 +694,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResults([]);
     setLoading(true);
     
-    // Don't clear translation immediately - let the new translation be set asynchronously
-    // This prevents the search explanation from disappearing during OR searches
     
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
@@ -871,13 +745,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
         // Resolution phase complete (either way)
         setResolvingAuthor(false);
-        
-        // Update translation after author resolution
-        const translation = await generateTranslation(effectiveQuery, false);
-        setTranslation(translation);
       }
 
-      const expanded = await applySimpleReplacements(effectiveQuery);
+      const expanded = effectiveQuery;
       const currentProfileNpub = getCurrentProfileNpub(pathname);
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
@@ -904,12 +774,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
       setResults(filtered);
-      
-      // Set translation for searches without author resolution
-      if (!needsAuthorResolution) {
-        const translation = await generateTranslation(effectiveQuery, false);
-        setTranslation(translation);
-      }
 
       // Track relays that returned events for this search
       const relayUrls: string[] = [];
@@ -954,7 +818,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation, isDirectQuery]);
+  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery]);
 
   // DRY helper for content-based search triggers (always root searches)
   const handleContentSearch = useCallback((query: string) => {
@@ -986,7 +850,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           initialSearchDoneRef.current = true;
           initialQueryNormalizedRef.current = normalizedInitial;
           lastHashQueryRef.current = normalizedInitial;
-          setTranslation(normalizedInitial);
           setQuery(initialQueryRef.current);
           if (isSlashCommand(initialQueryRef.current)) {
             const unknownCmd = runSlashCommand(initialQueryRef.current);
@@ -1132,15 +995,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const normalizedQuery = decodedQuery.trim();
     const currentProfileNpub = getCurrentProfileNpub(pathname);
 
-    const executeSearch = (displayValue: string, backendValue: string, translationValue: string) => {
-      if (lastHashQueryRef.current === translationValue) return;
-      lastHashQueryRef.current = translationValue;
+    const executeSearch = (displayValue: string, backendValue: string) => {
+      if (lastHashQueryRef.current === displayValue) return;
+      lastHashQueryRef.current = displayValue;
       setQuery(displayValue);
-      if (lastTranslatedQueryRef.current !== translationValue) {
-        setTranslation(translationValue);
-        lastTranslatedQueryRef.current = translationValue;
-      }
-      lastExecutedQueryRef.current = translationValue;
+      lastExecutedQueryRef.current = displayValue;
       handleSearch(backendValue);
     };
 
@@ -1151,11 +1010,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (!normalizedQuery) {
         const normalizedInitial = initialQueryNormalizedRef.current;
         if (normalizedInitial) {
-          executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub), normalizedInitial);
+          executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub));
         } else {
           const defaultDisplay = toExplicitInputFromUrl('', currentProfileNpub, displayIdentifier);
           const backendQuery = ensureAuthorForBackend('', currentProfileNpub);
-          executeSearch(defaultDisplay, backendQuery, backendQuery);
+          executeSearch(defaultDisplay, backendQuery);
           updateSearchQuery(searchParams, router, backendQuery);
         }
         return;
@@ -1164,7 +1023,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (lastHashQueryRef.current === normalizedQuery) return;
 
       if (isSlashCommand(normalizedQuery)) {
-        executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+        executeSearch(normalizedQuery, normalizedQuery);
         const unknownCmd = runSlashCommand(normalizedQuery);
         if (unknownCmd) {
           setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
@@ -1172,7 +1031,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       } else {
         const displayValue = toExplicitInputFromUrl(normalizedQuery, currentProfileNpub, displayIdentifier);
-        executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub), normalizedQuery);
+        executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub));
 
         const implicit = toImplicitUrlQuery(normalizedQuery, currentProfileNpub);
         if (implicit !== normalizedQuery) {
@@ -1185,13 +1044,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!normalizedQuery) {
       const normalizedInitial = initialQueryNormalizedRef.current;
       if (normalizedInitial) {
-        executeSearch(normalizedInitial, normalizedInitial, normalizedInitial);
+        executeSearch(normalizedInitial, normalizedInitial);
       } else if (lastHashQueryRef.current) {
         setQuery('');
-        setTranslation('');
         lastHashQueryRef.current = null;
         lastExecutedQueryRef.current = null;
-        lastTranslatedQueryRef.current = null;
       }
       return;
     }
@@ -1199,7 +1056,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (lastHashQueryRef.current === normalizedQuery) return;
 
     if (isSlashCommand(normalizedQuery)) {
-      executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+      executeSearch(normalizedQuery, normalizedQuery);
       const unknownCmd = runSlashCommand(normalizedQuery);
       if (unknownCmd) {
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
@@ -1208,7 +1065,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
 
-    executeSearch(normalizedQuery, normalizedQuery, normalizedQuery);
+    executeSearch(normalizedQuery, normalizedQuery);
   }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1263,53 +1120,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   };
 
-  // Live translation preview with smart author resolution
-  useEffect(() => {
-    let cancelled = false;
-    
-    // Clear any existing timeout
-    if (authorResolutionTimeout.current) {
-      clearTimeout(authorResolutionTimeout.current);
-    }
-    
-    // Check if query contains author resolution tokens
-    const hasAuthorTokens = /(^|\s)by:(\S+)/gi.test(query);
-    
-    if (hasAuthorTokens) {
-      // For queries with author tokens, show immediate translation without resolution
-      // then update with resolution after a delay
-      generateTranslation(query, true).then((immediateTranslation) => {
-        if (!cancelled) setTranslation(immediateTranslation);
-      });
-      
-      // Debounce author resolution to avoid excessive requests
-      authorResolutionTimeout.current = setTimeout(async () => {
-        if (!cancelled) {
-          const fullTranslation = await generateTranslation(query, false);
-          if (!cancelled) setTranslation(fullTranslation);
-        }
-      }, UI_AUTHOR_RESOLUTION_DEBOUNCE);
-    } else {
-      // For queries without author tokens, debounce the translation to avoid hanging while typing
-      const translationTimeout = setTimeout(async () => {
-        if (!cancelled) {
-          const translation = await generateTranslation(query, false);
-          if (!cancelled) setTranslation(translation);
-        }
-      }, UI_TRANSLATION_DEBOUNCE);
-      
-      return () => {
-        clearTimeout(translationTimeout);
-      };
-    }
-    
-    return () => { 
-      cancelled = true; 
-      if (authorResolutionTimeout.current) {
-        clearTimeout(authorResolutionTimeout.current);
-      }
-    };
-  }, [query, generateTranslation]);
 
   const goToProfile = useCallback((npub: string, prefetchEvent?: NDKEvent) => {
     try {
@@ -1665,11 +1475,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (manageUrl) {
         lastHashQueryRef.current = null;
         lastExecutedQueryRef.current = null;
-        lastTranslatedQueryRef.current = null;
       } else {
         lastHashQueryRef.current = normalized;
         lastExecutedQueryRef.current = normalized;
-        lastTranslatedQueryRef.current = normalized;
       }
     }
   }, [initialQuery, manageUrl]);
@@ -1712,7 +1520,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         />
       </div>
       
-      <QueryTranslation translation={translation} />
+      <QueryTranslation query={query} />
 
       {/* Command output will be injected as first result card below */}
 
