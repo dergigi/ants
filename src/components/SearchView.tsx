@@ -208,7 +208,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
 
-      // 4) Split into multiple queries if top-level OR exists
+      // 4) For parenthesized OR expansion, show all expanded queries
+      // Don't split further if we already have multiple distributed queries
+      if (distributed.length > 1) {
+        // We have parenthesized OR expansion - show all expanded queries
+        const preview = withPResolved.join('\n');
+        return preview;
+      }
+
+      // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
       const finalQueriesSet = new Set<string>();
       for (const q of withPResolved) {
         const parts = parseOrQuery(q);
