@@ -7,7 +7,7 @@ import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet, exten
 import { getUserRelayAdditions } from './storage';
 import { normalizeRelayUrl } from './urlUtils';
 import { trackEventRelay } from './eventRelayTracking';
-import { SEARCH_DEFAULT_KINDS } from './constants';
+import { SEARCH_DEFAULT_KIND } from './constants';
 
 // Import shared utilities
 import { 
@@ -378,8 +378,8 @@ async function searchByAnyTerms(
       const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
         ? kindExtraction.kinds
         : tagMatches.length > 0
-          ? SEARCH_DEFAULT_KINDS
-          : (baseKinds && baseKinds.length > 0 ? baseKinds : SEARCH_DEFAULT_KINDS);
+          ? [SEARCH_DEFAULT_KIND]
+          : (baseKinds && baseKinds.length > 0 ? baseKinds : [SEARCH_DEFAULT_KIND]);
 
       const filterBase = baseFilter ? { ...baseFilter } : {};
       const filter: NDKFilter = {
@@ -772,7 +772,7 @@ export async function searchEvents(
   const cleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
-    : SEARCH_DEFAULT_KINDS; // Default to notes only when no kind filter is specified
+    : [SEARCH_DEFAULT_KIND]; // Default to notes only when no kind filter is specified
   const extensionFilters: Array<(content: string) => boolean> = [];
   const topLevelOrParts = parseOrQuery(cleanedQuery);
   const hasTopLevelOr = topLevelOrParts.length > 1;
