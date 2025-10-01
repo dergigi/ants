@@ -8,18 +8,17 @@ Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search fiel
 
 ### Basic Search
 
-- [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - Find events containing "vibe coding"
-- [`nicolas-cage.gif`](https://search.dergigi.com/?q=nicolas-cage.gif) - Find events containing "nicolas-cage.gif"
-- [`#PenisButter`](https://search.dergigi.com/?q=%23PenisButter) - Find events with specific hashtag
-- [`#YESTR`](https://search.dergigi.com/?q=%23YESTR) - Find events with specific hashtag
-- [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - Find events with specific hashtag
+- [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
+- [`nicolas-cage.gif`](https://search.dergigi.com/?q=nicolas-cage.gif) - find gifs of Nicolas Cage
+- [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - find events with the `#SovEng` hashtag
+- [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - find `kind:9802` events
+- [`nip:05`](https://search.dergigi.com/?q=nip%3A05) - find notes that link to the NIP-05 spec
 
 ### Author Search
 
-- [`by:dergigi`](https://search.dergigi.com/?q=by%3Adergigi) - Find events from dergigi
-- [`by:gigi`](https://search.dergigi.com/?q=by%3Agigi) - Find events from gigi
-- [`by:pablo`](https://search.dergigi.com/?q=by%3Apablo) - Find events from pablo
-- [`by:corndalorian`](https://search.dergigi.com/?q=by%3Acorndalorian) - Find events from corndalorian
+- [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - Find events from fiatjaf
+- [`by:@dergigi.com`](https://search.dergigi.com/?q=by%3Adergigi) - Find events from the guy who owns [dergigi.com](https://dergigi.com/) aka NIP-05 `_@dergigi.com`
+- [`by:pablo`](https://search.dergigi.com/?q=by%3Apablo) - Find events from "pablo" - results may vary, depending on who is 'pablo' to you
 
 ### Combined Search
 
