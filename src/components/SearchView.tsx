@@ -585,10 +585,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [router]);
 
-  // DRY helper for content-based search triggers (always root searches)
-  const handleContentSearch = useCallback((query: string) => {
-    setQueryAndNavigateToRoot(query);
-  }, [setQueryAndNavigateToRoot]);
 
 
   useEffect(() => {
@@ -949,6 +945,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     }
   }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, generateTranslation, isDirectQuery]);
+
+  // DRY helper for content-based search triggers (always root searches)
+  const handleContentSearch = useCallback((query: string) => {
+    setQueryAndNavigateToRoot(query);
+    // Trigger search immediately for clicked examples
+    if (query.trim()) {
+      handleSearch(query);
+    }
+  }, [setQueryAndNavigateToRoot, handleSearch]);
 
   // While connecting, show a static placeholder; remove animated loading dots
 
