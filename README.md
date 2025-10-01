@@ -131,6 +131,40 @@ The application supports several direct URL paths for quick access:
 - Boolean OR operator support
 - URL and bech32 identifier resolution
 
+## Relay logic
+
+- Hardcoded relay sets for default use and NIP-50 search are augmented on login via NIP-51:
+  - kind:10002 user relays (general connections)
+  - kind:10006 blocked relays (excluded)
+  - kind:10007 search relays (added to search set)
+- Relay capabilities are read via NIP-11 (`supported_nips`) and shown in the relay status indicator.
+- The relay status indicator highlights relays that returned current results (shown in blue), marks NIP-50 relays with a magnifying glass, and lets you filter results by relay.
+
+## Search logic
+
+Two query types:
+
+- Search queries (NIP-50):
+  - Connect only to NIP-50-capable relays
+  - Run one search per OR-clause/expanded query
+- Direct queries (NIP-19 bech32: `npub`, `note`, `nprofile`, `nevent`, `naddr`):
+  - Connect to the broader relay set
+  - Fetch the entity directly (no NIP-50 required)
+
+Examples:
+
+- `is:highlight by:fiatjaf OR #YESTR by:dergigi.com` → resolves to two direct filters: `kind:9802 by:<npub(hex)>` and `t:yestr by:<npub(hex)>` (no full-text search).
+- `has:video by:HODL` → `has:video` expands to file extensions, requiring NIP-50 full-text search.
+
+## Profile lookups and Vertex
+
+- `by:` and `p:` try best-effort profile resolution.
+- Logged in: use Vertex DVM with `personalizedPagerank`. Logged out/unavailable: NIP-50 fallback with heuristic ranking.
+- Results are cached by search string and login state.
+- NIP-05 identifiers are resolved directly to hex without hitting search relays when valid. Plaintext usernames (e.g., `fiatjaf`) are queried via NIP-50 (`kind:0 <term>`).
+
+References: [NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md), [NIP-11](https://github.com/nostr-protocol/nips/blob/master/11.md), [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md), [NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md), [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md), [Vertex algos](https://vertexlab.io/docs/algos/).
+
 ## Live Instances
 
 - [search.dergigi.com](https://search.dergigi.com/)
