@@ -17,7 +17,7 @@ ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexampl
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
 - [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
 - [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
-- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - find "GN" messages by direct npub
+- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - "GN" by npub
 - [`p:fiatjaf`](https://search.dergigi.com/?q=p%3Afiatjaf) - look up a profile (full-text search across name, display name, about)
 - [`nip:05`](https://search.dergigi.com/?q=nip%3A05) - find notes that link to the NIP-05 spec
 - [`bitcoin OR lightning`](https://search.dergigi.com/?q=bitcoin%20OR%20lightning) - match either
@@ -124,17 +124,7 @@ If Vertex is unavailable or credits are insufficient (or when logged out), we fa
 - Logged in: prioritize profiles that you directly follow; tiebreak by prefix match and name.
 - Not logged in: sort by the number of follower references (count of `kind:3` contacts that include the candidate pubkey), then prefix match and name.
 
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-```
-
-### Configuration
+### Deployment Configuration
 
 Set the public site URL (used for Open Graph/Twitter metadata) via environment variable:
 
@@ -147,6 +137,35 @@ You can place this in a local `.env` file.
 ### Search substitutions
 
 All search substitutions (site aliases, media type expansions, etc.) are loaded from [`replacements.txt`](public/replacements.txt). This file contains the mappings for `site:`, `is:`, and `has:` modifiers, making it easy to see what substitutions are currently available and add new ones.
+
+Here are some excerpts:
+
+```
+...
+site:gh => (github.com OR www.github.com OR gist.github.com)
+site:quora => (quora.com OR www.quora.com OR m.quora.com)
+site:hackernews => (news.ycombinator.com OR www.news.ycombinator.com)
+site:hn => (news.ycombinator.com OR www.news.ycombinator.com)
+...
+has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
+...
+is:profile => kind:0
+is:tweet => kind:1
+is:repost => kind:6
+...
+is:highlight => kind:9802
+is:blogpost => kind:30023
+is:muted => kind:10000
+...
+nip:99 => nips/blob/master/99.md
+nip:B0 => nips/blob/master/B0.md
+nip:C0 => nips/blob/master/C0.md
+nip:EE => nips/blob/master/EE.md
+...
+
+```
+
+It's probably very stupid to do it this way, but I [went with the flow](https://www.thewayofcode.com/) and stuck with it. In the future each line might be a nostr event.
 
 ## References
 
