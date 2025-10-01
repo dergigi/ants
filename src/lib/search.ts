@@ -365,12 +365,9 @@ async function searchByAnyTerms(
   for (const term of terms) {
     try {
       const normalizedTerm = term.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag);
-      const requiresFullText = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
+      const hasLogicalOperators = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
       const tagMatches = Array.from(normalizedTerm.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
       const byMatches = Array.from(normalizedTerm.match(/\bby:(\S+)/gi) || []).map((t) => t.slice(3));
-      const searchQuery = requiresFullText
-        ? (nip50Extensions ? buildSearchQueryWithExtensions(normalizedTerm, nip50Extensions) : normalizedTerm)
-        : undefined;
 
       const kindExtraction = extractKindFilter(normalizedTerm);
       const baseKinds = baseFilter?.kinds;
@@ -412,10 +409,6 @@ async function searchByAnyTerms(
         filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
       }
 
-      if (searchQuery) {
-        filter.search = searchQuery;
-      }
-
       const residual = normalizedTerm
         .replace(/\bkind:[^\s]+/gi, ' ')
         .replace(/\bkinds:[^\s]+/gi, ' ')
@@ -424,7 +417,16 @@ async function searchByAnyTerms(
         .replace(/#[A-Za-z0-9_]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-      const needsNip50 = Boolean(filter.search) || (residual.length > 0);
+      const needsFullTextSearch = hasLogicalOperators || residual.length > 0;
+      const searchQuery = needsFullTextSearch
+        ? (nip50Extensions ? buildSearchQueryWithExtensions(normalizedTerm, nip50Extensions) : normalizedTerm)
+        : undefined;
+
+      if (searchQuery) {
+        filter.search = searchQuery;
+      }
+
+      const needsNip50 = Boolean(filter.search);
 
       console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
       try {
