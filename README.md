@@ -124,7 +124,6 @@ The application supports several direct URL paths for quick access:
 - Profile pages with latest notes (`/p/npub1...`)
 - Random search examples for inspiration
 - Clean, minimal interface
-- Fast search results
 - NIP-50 search extensions support
 - Site-specific search with aliases
 - Media type filtering (images, videos, gifs)
