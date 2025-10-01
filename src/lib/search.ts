@@ -442,8 +442,15 @@ async function searchByAnyTerms(
   for (const term of terms) {
     try {
       const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
+      
+      // Extract kind filters from the expanded term
+      const kindExtraction = extractKindFilter(term);
+      const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
+        ? kindExtraction.kinds
+        : [1]; // Default to notes only
+      
       const filter: NDKFilter = {
-        kinds: [1], // Default to notes only
+        kinds: effectiveKinds,
         ...(baseFilter || {}),
         search: searchQuery,
         limit: Math.max(limit, 200)
