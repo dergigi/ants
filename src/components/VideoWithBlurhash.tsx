@@ -24,6 +24,12 @@ export default function VideoWithBlurhash({
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(() => {
+    if (dim && dim.width > 0 && dim.height > 0) {
+      return dim;
+    }
+    return null;
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -31,7 +37,10 @@ export default function VideoWithBlurhash({
     setVideoError(false);
     setIsPlaying(false);
     setShowControls(false);
-  }, [src]);
+    if (dim && dim.width > 0 && dim.height > 0) {
+      setDimensions(dim);
+    }
+  }, [src, dim]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -61,8 +70,8 @@ export default function VideoWithBlurhash({
     return null;
   }
 
-  const aspectStyle = dim && dim.width > 0 && dim.height > 0
-    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+  const aspectStyle = dimensions && dimensions.width > 0 && dimensions.height > 0
+    ? { aspectRatio: `${dimensions.width} / ${dimensions.height}` }
     : { minHeight: '200px' as const };
 
   return (
@@ -119,9 +128,15 @@ export default function VideoWithBlurhash({
       <video 
         ref={videoRef}
         playsInline 
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 bg-black ${
           videoLoaded ? 'opacity-100' : 'opacity-0'
         }`}
+        onLoadedMetadata={(event) => {
+          const element = event.currentTarget;
+          if (element?.videoWidth && element?.videoHeight) {
+            setDimensions({ width: element.videoWidth, height: element.videoHeight });
+          }
+        }}
         onLoadedData={() => { setVideoLoaded(true); setStatusCode(200); }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}

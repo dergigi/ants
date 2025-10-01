@@ -418,8 +418,9 @@ async function searchByAnyTerms(
         .replace(/\s+/g, ' ')
         .trim();
       const needsFullTextSearch = hasLogicalOperators || residual.length > 0;
-      const searchQuery = needsFullTextSearch
-        ? (nip50Extensions ? buildSearchQueryWithExtensions(normalizedTerm, nip50Extensions) : normalizedTerm)
+      const searchBasis = residual || '';
+      const searchQuery = needsFullTextSearch && searchBasis.length > 0
+        ? (nip50Extensions ? buildSearchQueryWithExtensions(searchBasis, nip50Extensions) : searchBasis)
         : undefined;
 
       if (searchQuery) {
@@ -428,9 +429,15 @@ async function searchByAnyTerms(
 
       const needsNip50 = Boolean(filter.search);
 
+      const selectRelaySet = async (): Promise<NDKRelaySet> => {
+        if (needsNip50) return relaySet;
+        const fallback = await ensureFallbackRelaySet();
+        return fallback || relaySet;
+      };
+
       console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
       try {
-        const targetRelaySet = needsNip50 ? relaySet : (await ensureFallbackRelaySet()) || relaySet;
+        const targetRelaySet = await selectRelaySet();
         const res = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
         for (const evt of res) {
           if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }

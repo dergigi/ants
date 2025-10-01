@@ -40,7 +40,10 @@ export default function NoteMedia({ content, onSearch, onUrlLoaded }: NoteMediaP
         
         if (item.type === 'video') {
           return (
-            <div key={key} className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f]">
+            <div
+              key={key}
+              className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-black"
+            >
               <VideoWithBlurhash
                 src={item.src}
                 onClickSearch={() => onSearch(getSearchQueryFromMedia(item.src))}
