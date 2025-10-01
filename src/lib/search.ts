@@ -445,13 +445,15 @@ async function searchByAnyTerms(
       
       // Extract kind filters from the expanded term
       const kindExtraction = extractKindFilter(term);
+      const baseKinds = baseFilter?.kinds;
       const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
         ? kindExtraction.kinds
-        : [1]; // Default to notes only
+        : (baseKinds && baseKinds.length > 0 ? baseKinds : [1]); // Default to notes only
       
+      const filterBase = baseFilter ? { ...baseFilter } : {};
       const filter: NDKFilter = {
+        ...filterBase,
         kinds: effectiveKinds,
-        ...(baseFilter || {}),
         search: searchQuery,
         limit: Math.max(limit, 200)
       };
@@ -759,25 +761,20 @@ export async function searchEvents(
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
   // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
   {
-    const expandedSeeds = expandParenthesizedOr(cleanedQuery);
+    const expandedSeeds = expandParenthesizedOr(cleanedQuery).map((seed) => seed.trim()).filter(Boolean);
     if (expandedSeeds.length > 1) {
-      const merged: NDKEvent[] = [];
-      const seen = new Set<string>();
-      for (const seed of expandedSeeds) {
-        try {
-          const partResults = await searchEvents(seed, limit, options, chosenRelaySet, abortSignal);
-          for (const evt of partResults) {
-            if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
+      const translatedSeeds = expandedSeeds
+        .map((seed) => {
+          const existingKind = extractKindFilter(seed);
+          if (existingKind.kinds && existingKind.kinds.length > 0) {
+            return seed;
           }
-        } catch (error) {
-          if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-            // no-op
-          } else {
-            console.warn('Expanded seed failed:', seed, error);
-          }
-        }
-      }
-      return sortEventsNewestFirst(merged).slice(0, limit);
+          const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
+          return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
+        });
+
+      const seedResults = await searchByAnyTerms(translatedSeeds, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+      return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
   }
 
@@ -858,32 +855,29 @@ export async function searchEvents(
   const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
     console.log('Processing OR query with parts:', orParts);
-    const allResults: NDKEvent[] = [];
-    const seenIds = new Set<string>();
-    
-    // Process each part of the OR query
-    for (const part of orParts) {
-      try {
-        const partResults = await searchEvents(part, limit, options, chosenRelaySet, abortSignal);
-        for (const event of partResults) {
-          if (!seenIds.has(event.id)) {
-            seenIds.add(event.id);
-            allResults.push(event);
+    const translatedParts = orParts
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .reduce<string[]>((acc, part) => {
+        const expanded = expandParenthesizedOr(part);
+        const treatAsGroup = expanded.length > 1;
+        const seeds = treatAsGroup ? expanded : [part];
+        seeds.forEach((seed) => {
+          const trimmedSeed = seed.trim();
+          const seedKind = extractKindFilter(trimmedSeed);
+          if (seedKind.kinds && seedKind.kinds.length > 0) {
+            acc.push(trimmedSeed);
+          } else {
+            const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
+            acc.push(kindTokens ? `${kindTokens} ${trimmedSeed}`.trim() : trimmedSeed);
           }
-        }
-      } catch (error) {
-        // Suppress abort errors so they don't bubble to UI as console errors
-        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-          // No-op: benign abort during OR processing
-        } else {
-          console.error(`Error processing OR query part "${part}":`, error);
-        }
-      }
-    }
-    
-    // Sort by creation time (newest first) and limit results
-    const merged = allResults;
-    return sortEventsNewestFirst(merged).slice(0, limit);
+        });
+        return acc;
+      }, []);
+
+    const orResults = await searchByAnyTerms(translatedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+    const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
+    return sortEventsNewestFirst(filteredResults).slice(0, limit);
   }
 
   // URL search: strip protocol and search for domain/path content
