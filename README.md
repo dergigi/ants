@@ -4,6 +4,8 @@ An advanced search interface for Nostr.
 
 ## Search Examples
 
+Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
+
 ### Basic Search
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - Find events containing "vibe coding"
