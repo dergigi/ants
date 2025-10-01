@@ -369,7 +369,10 @@ async function searchByAnyTerms(
       const tagMatches = Array.from(normalizedTerm.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
       const byMatches = Array.from(normalizedTerm.match(/\bby:(\S+)/gi) || []).map((t) => t.slice(3));
 
-      const kindExtraction = extractKindFilter(normalizedTerm);
+      // Apply simple replacements to expand is: patterns to kind: patterns
+      const { applySimpleReplacements } = await import('./search/replacements');
+      const preprocessedTerm = await applySimpleReplacements(normalizedTerm);
+      const kindExtraction = extractKindFilter(preprocessedTerm);
       const baseKinds = baseFilter?.kinds;
       const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
         ? kindExtraction.kinds
@@ -427,7 +430,7 @@ async function searchByAnyTerms(
         filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
       }
 
-      const residual = normalizedTerm
+      const residual = preprocessedTerm
         .replace(/\bkind:[^\s]+/gi, ' ')
         .replace(/\bkinds:[^\s]+/gi, ' ')
         .replace(/\bby:[^\s]+/gi, ' ')
@@ -756,11 +759,15 @@ export async function searchEvents(
     }
   }
 
-  // Strip legacy relay filters but keep the rest of the query intact; any replacements
-  // are applied earlier at the UI layer via the simple preprocessor.
+  // Strip legacy relay filters but keep the rest of the query intact
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
+  
+  // Apply simple replacements to expand is: patterns to kind: patterns
+  const { applySimpleReplacements } = await import('./search/replacements');
+  const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
+  
   // Extract kind filters and default to [1] when not provided
-  const kindExtraction = extractKindFilter(extCleanedQuery);
+  const kindExtraction = extractKindFilter(preprocessedQuery);
   const cleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
