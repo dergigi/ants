@@ -122,6 +122,7 @@ export const searchExamples = [
   'is:highlight by:fiatjaf',
   'is:highlight by:f7z.io',
   'is:highlight "proof of work"',
+  'is:image or is:highlight',
 
   // Slash Commands
   '/help',
