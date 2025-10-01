@@ -4,6 +4,7 @@ An opinionated search interface for Nostr.
 
 ## Search Examples
 
+ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by utilizing NIP-05, NIP-50, and having human-readable shorthands for (pun intended) the most common `kind`s:
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
 - [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
