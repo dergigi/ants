@@ -165,7 +165,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     return () => { 
       cancelled = true; 
     };
-  }, [query, generateTranslation]);
+  }, [query, generateTranslation, onAuthorResolved]);
 
   if (!translation) return null;
 
