@@ -767,7 +767,7 @@ export async function searchEvents(
   const { applySimpleReplacements } = await import('./search/replacements');
   const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
   
-  // Extract kind filters and default to SEARCH_DEFAULT_KINDS when not provided
+  // Extract kind filters and default to SEARCH_DEFAULT_KIND when not provided
   const kindExtraction = extractKindFilter(preprocessedQuery);
   const cleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
