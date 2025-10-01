@@ -130,7 +130,7 @@ export const searchExamples = [
   'is:highlight by:dergigi',
   'is:highlight "proof of work"',
   'is:highlight (bitcoin OR nostr)',
-  'is:highlight (by:fiatjaf OR by:@f7z.io)',
+  'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
 
   // Slash Commands
   '/help',
