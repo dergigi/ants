@@ -349,10 +349,14 @@ async function searchByAnyTerms(
   const merged: NDKEvent[] = [];
   for (const term of terms) {
     try {
-      const searchQuery = nip50Extensions ? buildSearchQueryWithExtensions(term, nip50Extensions) : term;
-      
+      const normalizedTerm = term.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag);
+      const requiresSearch = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
+      const searchQuery = requiresSearch
+        ? (nip50Extensions ? buildSearchQueryWithExtensions(normalizedTerm, nip50Extensions) : normalizedTerm)
+        : undefined;
+
       // Extract kind filters from the expanded term
-      const kindExtraction = extractKindFilter(term);
+      const kindExtraction = extractKindFilter(normalizedTerm);
       const baseKinds = baseFilter?.kinds;
       const effectiveKinds = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
         ? kindExtraction.kinds
@@ -362,9 +366,13 @@ async function searchByAnyTerms(
       const filter: NDKFilter = {
         ...filterBase,
         kinds: effectiveKinds,
-        search: searchQuery,
         limit: Math.max(limit, 200)
       };
+      if (searchQuery) {
+        filter.search = searchQuery;
+      }
+
+      console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
       const res = await subscribeAndCollect(filter, 8000, relaySet, abortSignal);
       for (const evt of res) {
         if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
@@ -754,7 +762,7 @@ export async function searchEvents(
   // Check for top-level OR operator (outside parentheses)
   const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
-    const translatedParts = orParts
+    const normalizedParts = orParts
       .map((part) => part.trim())
       .filter(Boolean)
       .reduce<string[]>((acc, part) => {
@@ -764,22 +772,25 @@ export async function searchEvents(
         seeds.forEach((seed) => {
           const trimmedSeed = seed.trim();
           if (!trimmedSeed) return;
-          let predicate = trimmedSeed;
           const seedKind = extractKindFilter(trimmedSeed);
-          if (!seedKind.kinds || seedKind.kinds.length === 0) {
-            // Determine classification of this clause
-            if (/\bby:\S+/i.test(trimmedSeed)) {
-              predicate = `${trimmedSeed}`;
-            } else if (/#\w+/i.test(trimmedSeed)) {
-              predicate = `${trimmedSeed} kind:1`;
-            }
+          if (seedKind.kinds && seedKind.kinds.length > 0) {
+            acc.push(trimmedSeed);
+            return;
           }
-          acc.push(predicate.trim());
+          if (/\bby:\S+/i.test(trimmedSeed)) {
+            acc.push(trimmedSeed);
+            return;
+          }
+          if (/#\w+/i.test(trimmedSeed)) {
+            acc.push(`${trimmedSeed} kind:1`.trim());
+            return;
+          }
+          acc.push(trimmedSeed);
         });
         return acc;
       }, []);
 
-    const normalizedParts = translatedParts.map((part) => part.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag));
+    console.debug('[OR CLAUSES]', normalizedParts);
     const orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
     return sortEventsNewestFirst(filteredResults).slice(0, limit);

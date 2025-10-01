@@ -129,8 +129,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
     return cached;
   }
 
-  console.log(`[NIP-51] Discovering relays for user ${pubkey}`);
-
   try {
     // Get user's relay list (kind:10002) - used for general relay connections
     const userRelayList = await new Promise<string[]>((resolve) => {
@@ -159,7 +157,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(relays);
-        console.log(`[NIP-51] Found ${arr.length} user relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
@@ -201,7 +198,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(blocked);
-        console.log(`[NIP-51] Found ${arr.length} blocked relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
@@ -243,7 +239,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(search);
-        console.log(`[NIP-51] Found ${arr.length} search relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
