@@ -35,29 +35,21 @@ Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search fiel
 
 ## URL Paths
 
-ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https://njump.me/) and other portals do
+ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https://njump.me/) and other portals do:
 
-### Profile Pages
-
-- `/p/[id]` - View a specific profile and their latest notes
-  - `/p/npub1...` - Direct profile by npub
-  - `/p/@username.com` - Profile by NIP-05 identifier
-  - `/p/username` - Profile search by username
-
-### Event Pages
-
-- `/e/[id]` - View a specific event
-  - `/e/nevent1...` - Event by nevent identifier
-  - `/e/note1...` - Event by note identifier
-  - `/e/[hex-id]` - Event by 64-character hex ID
-
-### Hashtag Pages
-
-- `/t/[hashtags]` - Search multiple hashtags
-  - `/t/pugstr` - Search for #pugstr
-  - `/t/pugstr,dogstr,goatstr` - Search for #pugstr OR #dogstr OR #goatstr
-  - `/t/pugstr+dogstr+goatstr` - Alternative syntax for multiple hashtags
-  - `/t/pugstr dogstr goatstr` - Space-separated hashtags
+- `/p/[id]` - view a specific profile and their latest notes
+- `/p/npub1...` - direct profile by npub
+- `/p/@username.com` - profile by NIP-05 identifier
+- `/p/username` - profile search by username
+- `/e/[id]` - view a specific event
+- `/e/nevent1...` - event by nevent identifier
+- `/e/note1...` - event by note identifier
+- `/e/[hex-id]` - event by 64-character hex ID
+- `/t/[hashtags]` - search multiple hashtags
+- `/t/pugstr` - search for #pugstr
+- `/t/pugstr,dogstr,goatstr` - search for #pugstr OR #dogstr OR #goatstr
+- `/t/pugstr+dogstr+goatstr` - alternative syntax for multiple hashtags
+- `/t/pugstr dogstr goatstr` - space-separated hashtags
 
 ## Features
 
