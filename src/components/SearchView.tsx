@@ -1135,16 +1135,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     };
 
     if (currentProfileNpub) {
+      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
+      const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
+
       if (!normalizedQuery) {
         const normalizedInitial = initialQueryNormalizedRef.current;
         if (normalizedInitial) {
           executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub), normalizedInitial);
-        } else if (lastHashQueryRef.current) {
-          setQuery('');
-          setTranslation('');
-          lastHashQueryRef.current = null;
-          lastExecutedQueryRef.current = null;
-          lastTranslatedQueryRef.current = null;
+        } else {
+          const defaultDisplay = toExplicitInputFromUrl('', currentProfileNpub, displayIdentifier);
+          const backendQuery = ensureAuthorForBackend('', currentProfileNpub);
+          executeSearch(defaultDisplay, backendQuery, backendQuery);
+          updateSearchQuery(searchParams, router, backendQuery);
         }
         return;
       }
@@ -1159,8 +1161,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           setTopExamples(null);
         }
       } else {
-        const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-        const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
         const displayValue = toExplicitInputFromUrl(normalizedQuery, currentProfileNpub, displayIdentifier);
         executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub), normalizedQuery);
 
