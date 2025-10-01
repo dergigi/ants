@@ -6,16 +6,7 @@ import { nip19 } from 'nostr-tools';
 import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet, extendWithUserAndPremium } from './relays';
 import { getUserRelayAdditions } from './storage';
 import { normalizeRelayUrl } from './urlUtils';
-import { trackEventRelay, getEventRelaySources, getRelayContributions } from './eventRelayTracking';
-// legacy import removed
-
-// Type definitions for relay objects
-interface RelayObject {
-  url?: string;
-  relay?: {
-    url?: string;
-  };
-}
+import { trackEventRelay } from './eventRelayTracking';
 
 // Import shared utilities
 import { 
@@ -162,13 +153,6 @@ export async function subscribeAndStream(
       return;
     }
 
-    // Debug: log the complete filter being sent to NDK
-    console.log('[NDK FILTER DEBUG] subscribeAndStream filter:', JSON.stringify(filter, null, 2));
-    console.log('[NDK FILTER DEBUG] Search query:', filter.search || 'no search query');
-    console.log('[NDK FILTER DEBUG] Kinds:', filter.kinds || 'no kinds filter');
-    console.log('[NDK FILTER DEBUG] Authors:', filter.authors || 'no authors filter');
-    console.log('[NDK FILTER DEBUG] Limit:', filter.limit || 'no limit');
-
     const collected: Map<string, NDKEvent> = new Map();
     let isComplete = false;
     let lastEmitTime = 0;
@@ -273,22 +257,8 @@ export async function subscribeAndStream(
     });
 
     sub.on('eose', () => {
-      console.log('EOSE received, but keeping connection open for more results...');
-      // Don't close on EOSE - keep streaming!
+      // Keep streaming after EOSE
     });
-
-    // Debug: Show which relays are connected for streaming
-    try {
-      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
-                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
-      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
-        ? relaysContainer
-        : [];
-      const relayUrls = relayEntries.map(r => r.url || r.relay?.url || 'unknown').filter(Boolean);
-      console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set:`, relayUrls.length > 0 ? relayUrls : 'unknown');
-    } catch (error) {
-      console.log(`[SEARCH DEBUG] Starting streaming subscription with relay set: unknown (error: ${error})`);
-    }
     
     sub.start();
   });
@@ -309,29 +279,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       return;
     }
 
-    // Debug: log the complete filter being sent to NDK
-    console.log('[NDK FILTER DEBUG] subscribeAndCollect filter:', JSON.stringify(filter, null, 2));
-    console.log('[NDK FILTER DEBUG] Search query:', filter.search || 'no search query');
-    console.log('[NDK FILTER DEBUG] Kinds:', filter.kinds || 'no kinds filter');
-    console.log('[NDK FILTER DEBUG] Authors:', filter.authors || 'no authors filter');
-    console.log('[NDK FILTER DEBUG] Limit:', filter.limit || 'no limit');
-
     const collected: Map<string, NDKEvent> = new Map();
-
-    // Debug: which relays are we querying?
-    try {
-      const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
-                             (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
-      const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
-        ? relaysContainer
-        : relaysContainer && (relaysContainer instanceof Set || relaysContainer instanceof Map)
-          ? Array.from((relaysContainer as Set<RelayObject> | Map<string, RelayObject>).values?.() ?? relaysContainer)
-          : [];
-      const relayUrls = relayEntries
-        .map((r: RelayObject) => r?.url || r?.relay?.url || r)
-        .filter((u: unknown): u is string => typeof u === 'string');
-      console.log('Subscribing with filter on relays:', { relayUrls, filter });
-    } catch {}
 
     (async () => {
       const rs = relaySet || await getSearchRelaySet();
@@ -343,19 +291,8 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
         return;
       }
     const timer = setTimeout(() => {
-      console.log(`[SEARCH DEBUG] Search timeout reached (${timeoutMs}ms), stopping subscription`);
       try { sub.stop(); } catch {}
       const finalResults = Array.from(collected.values());
-      console.log(`[SEARCH DEBUG] Search completed. Total results: ${finalResults.length}`);
-      
-      // Log which relays contributed results
-      const relayContributions = getRelayContributions(finalResults);
-      finalResults.forEach(event => {
-        const eventSources = getEventRelaySources(event);
-        console.log(`[SEARCH DEBUG] Event ${event.id} sources:`, eventSources);
-      });
-      console.log(`[SEARCH DEBUG] Relay contributions:`, Object.fromEntries(relayContributions));
-      
       resolve(finalResults);
     }, timeoutMs);
 
@@ -374,54 +311,25 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
       abortSignal.addEventListener('abort', abortHandler);
     }
 
-      sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
       const relayUrl = relay?.url || 'unknown';
-      console.log(`[SEARCH DEBUG] Received event from relay: ${relayUrl}`);
-      
-      // Mark this relay as active for robust connection status
       if (relayUrl !== 'unknown') {
         try { markRelayActivity(relayUrl); } catch {}
       }
-      
+      const normalizedUrl = normalizeRelayUrl(relayUrl);
+      trackEventRelay(event, normalizedUrl);
       if (!collected.has(event.id)) {
-        // First time seeing this event
-        const normalizedUrl = normalizeRelayUrl(relayUrl);
-        trackEventRelay(event, normalizedUrl);
         collected.set(event.id, event);
-        console.log(`[SEARCH DEBUG] New event from ${normalizedUrl}, total collected: ${collected.size}`);
-        console.log(`[SEARCH DEBUG] Event ${event.id} assigned to relay: ${normalizedUrl}`);
-      } else {
-        // Event already exists, track this additional relay source
-        const normalizedUrl = normalizeRelayUrl(relayUrl);
-        trackEventRelay(event, normalizedUrl);
-        console.log(`[SEARCH DEBUG] Duplicate event ${event.id} from ${normalizedUrl}`);
-        const existingSources = getEventRelaySources(event);
-        console.log(`[SEARCH DEBUG] Existing sources:`, existingSources);
-        console.log(`[SEARCH DEBUG] Added ${normalizedUrl} to sources. New sources:`, getEventRelaySources(event));
       }
     });
 
       sub.on('eose', () => {
-        console.log(`[SEARCH DEBUG] EOSE received from subscription`);
         clearTimeout(timer);
         if (abortSignal) {
           abortSignal.removeEventListener('abort', abortHandler);
         }
         resolve(Array.from(collected.values()));
       });
-
-      // Debug: Show which relays are connected
-      try {
-        const relaysContainer = (relaySet as unknown as { relays?: unknown; relayUrls?: unknown }).relays ?? 
-                               (relaySet as unknown as { relayUrls?: unknown }).relayUrls;
-        const relayEntries: RelayObject[] = Array.isArray(relaysContainer)
-          ? relaysContainer
-          : [];
-        const relayUrls = relayEntries.map(r => r.url || r.relay?.url || 'unknown').filter(Boolean);
-        console.log(`[SEARCH DEBUG] Starting subscription with relay set:`, relayUrls.length > 0 ? relayUrls : 'unknown');
-      } catch (error) {
-        console.log(`[SEARCH DEBUG] Starting subscription with relay set: unknown (error: ${error})`);
-      }
       
       sub.start();
     })();
@@ -491,11 +399,9 @@ async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Pr
     // Check if this pubkey has relays listed in well-known
     const relays = data?.relays?.[pubkey.toLowerCase()];
     if (Array.isArray(relays) && relays.length > 0) {
-      const normalized = relays
+      return relays
         .filter((r: unknown): r is string => typeof r === 'string')
         .map((r: string) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`);
-      console.log('Discovered user relays from well-known:', { count: normalized.length, relays: normalized, domain });
-      return normalized;
     }
   } catch (error) {
     console.warn('Failed to fetch relays from well-known:', error);
@@ -547,9 +453,7 @@ export async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string
             urls.add(normalized);
           }
         }
-        const arr = Array.from(urls);
-        console.log('Discovered user relays from kind 10002 (fallback):', { count: arr.length, relays: arr });
-        resolve(arr);
+        resolve(Array.from(urls));
       });
       sub.start();
     });
@@ -783,7 +687,6 @@ export async function searchEvents(
   if (earlyAuthorMatch) {
     const [, author] = earlyAuthorMatch;
     const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
-    console.log('Found author filter (early):', { author, terms });
 
     let pubkey: string | null = null;
     try {
@@ -792,7 +695,7 @@ export async function searchEvents(
     } catch {}
 
     if (!pubkey) {
-      console.log('No valid pubkey found for author:', author);
+      return [];
       return [];
     }
 
@@ -803,9 +706,6 @@ export async function searchEvents(
       filters.search = buildSearchQueryWithExtensions(terms, nip50Extensions);
     }
 
-    console.log('Searching with filters (early author):', filters);
-    console.log('[NDK FILTER DEBUG] Early author filter:', JSON.stringify(filters, null, 2));
-    console.log('[FINAL QUERY DEBUG] Early author search query:', filters.search || 'no search query');
     let res: NDKEvent[] = [];
     if (terms && seedExpansions.length > 1) {
       // Run each expansion and merge
@@ -854,7 +754,6 @@ export async function searchEvents(
   // Check for top-level OR operator (outside parentheses)
   const orParts = parseOrQuery(cleanedQuery);
   if (orParts.length > 1) {
-    console.log('Processing OR query with parts:', orParts);
     const translatedParts = orParts
       .map((part) => part.trim())
       .filter(Boolean)
@@ -867,9 +766,11 @@ export async function searchEvents(
           const seedKind = extractKindFilter(trimmedSeed);
           if (seedKind.kinds && seedKind.kinds.length > 0) {
             acc.push(trimmedSeed);
-          } else {
+          } else if (effectiveKinds.length > 0) {
             const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
-            acc.push(kindTokens ? `${kindTokens} ${trimmedSeed}`.trim() : trimmedSeed);
+            acc.push(`${kindTokens} ${trimmedSeed}`.trim());
+          } else {
+            acc.push(trimmedSeed);
           }
         });
         return acc;
@@ -933,7 +834,6 @@ export async function searchEvents(
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
-    console.log('[NDK FILTER DEBUG] Hashtag filter:', JSON.stringify(tagFilter, null, 2));
 
     // Broader relay set than NIP-50 search: default + search relays
     const tagRelaySet = await getBroadRelaySet();
@@ -961,7 +861,6 @@ export async function searchEvents(
     const aTagValue = (aTagMatch[1] || '').trim();
     if (aTagValue) {
       const aTagFilter: TagTFilter = { kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) };
-      console.log('[NDK FILTER DEBUG] A-tag filter:', JSON.stringify(aTagFilter, null, 2));
       
       // Use broader relay set for a tag searches
       const aTagRelaySet = await getBroadRelaySet();
@@ -1052,7 +951,6 @@ export async function searchEvents(
     const [, author] = authorMatch;
     // Extract search terms by removing the author filter
     const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
-    console.log('Found author filter:', { author, terms });
 
     let pubkey: string | null = null;
     try {
@@ -1064,7 +962,7 @@ export async function searchEvents(
     }
 
     if (!pubkey) {
-      console.log('No valid pubkey found for author:', author);
+      return [];
       return [];
     }
 
@@ -1085,9 +983,6 @@ export async function searchEvents(
 
     // No additional post-filtering; use default limits
 
-    console.log('Searching with filters:', filters);
-    console.log('[NDK FILTER DEBUG] Author filter:', JSON.stringify(filters, null, 2));
-    console.log('[FINAL QUERY DEBUG] Author search query:', filters.search || 'no search query');
     {
       // Fetch by base terms if any, restricted to author
       let res: NDKEvent[] = [];
@@ -1162,15 +1057,11 @@ export async function searchEvents(
     let results: NDKEvent[] = [];
     const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
     const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
-    console.log('[FINAL QUERY DEBUG] Base search:', baseSearch);
-    console.log('[FINAL QUERY DEBUG] Final search query with extensions:', searchQuery);
-    
     // Create the filter object that will be sent to NDK
     const searchFilter = {
       kinds: effectiveKinds,
       search: searchQuery
     };
-    console.log('[NDK FILTER DEBUG] Regular search filter:', JSON.stringify(searchFilter, null, 2));
     
     results = isStreaming 
       ? await subscribeAndStream(searchFilter, {
@@ -1181,11 +1072,6 @@ export async function searchEvents(
           abortSignal
         })
       : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
-    console.log('Search results:', {
-      query: cleanedQuery,
-      resultCount: results.length
-    });
-    
     // Enforce AND: must match text and contain requested media
     const filtered = results.filter((e, idx, arr) => {
       // dedupe by id while mapping
