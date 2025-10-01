@@ -390,22 +390,40 @@ async function searchByAnyTerms(
 
       if (byMatches.length > 0) {
         const authors: string[] = [];
+        const resolvedAuthors: string[] = [];
+        
         for (const author of byMatches) {
           if (/^npub1[0-9a-z]+$/i.test(author)) {
             authors.push(author);
+            resolvedAuthors.push(author);
           } else {
             try {
               const resolved = await resolveAuthor(author);
               if (resolved.pubkeyHex) {
                 const npub = nip19.npubEncode(resolved.pubkeyHex);
                 authors.push(npub);
+                resolvedAuthors.push(npub);
+              } else {
+                console.warn(`Failed to resolve author: ${author}`);
               }
-            } catch {}
+            } catch (error) {
+              console.warn(`Error resolving author ${author}:`, error);
+            }
           }
         }
+        
+        // Only skip if we couldn't resolve ANY authors
         if (authors.length === 0) {
-          continue; // unable to resolve author clause; skip
+          console.warn(`No authors could be resolved for term: ${normalizedTerm}`);
+          continue;
         }
+        
+        // Log which authors were resolved vs which failed
+        if (resolvedAuthors.length < byMatches.length) {
+          const failedAuthors = byMatches.filter(author => !resolvedAuthors.includes(author));
+          console.warn(`Some authors failed to resolve: ${failedAuthors.join(', ')}`);
+        }
+        
         filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
       }
 
@@ -439,6 +457,7 @@ async function searchByAnyTerms(
       try {
         const targetRelaySet = await selectRelaySet();
         const res = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
+        console.debug(`[SEARCH TERM RESULT] Found ${res.length} events for term "${normalizedTerm}"`);
         for (const evt of res) {
           if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
         }
@@ -755,6 +774,11 @@ export async function searchEvents(
   {
     const expandedSeeds = expandParenthesizedOr(cleanedQuery).map((seed) => seed.trim()).filter(Boolean);
     if (expandedSeeds.length > 1) {
+      console.debug('[PARENTHESIZED OR EXPANSION]', { 
+        original: cleanedQuery, 
+        expanded: expandedSeeds 
+      });
+      
       const translatedSeeds = expandedSeeds
         .map((seed) => {
           const existingKind = extractKindFilter(seed);
@@ -765,6 +789,10 @@ export async function searchEvents(
           return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
         });
 
+      console.debug('[PARENTHESIZED OR SEEDS]', { 
+        translated: translatedSeeds 
+      });
+
       const seedResults = await searchByAnyTerms(
         translatedSeeds,
         Math.max(limit, 500),
@@ -774,6 +802,11 @@ export async function searchEvents(
         { kinds: effectiveKinds },
         () => getBroadRelaySet()
       );
+      
+      console.debug('[PARENTHESIZED OR RESULTS]', { 
+        totalResults: seedResults.length 
+      });
+      
       return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
   }
