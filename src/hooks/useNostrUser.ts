@@ -12,6 +12,17 @@ export function useNostrUser(npub: string | undefined) {
   const [profileEvent, setProfileEvent] = useState<NDKEvent | null>(null);
   const [pubkey, setPubkey] = useState<string | null>(null);
 
+  const chooseProfileIdentity = (event: NDKEvent | null | undefined): string | undefined => {
+    if (!event) return undefined;
+    try {
+      const content = JSON.parse(event.content || '{}');
+      if (typeof content.nip05 === 'string' && content.nip05.trim().length > 0) return content.nip05.trim();
+      if (typeof content.name === 'string' && content.name.trim().length > 0) return content.name.trim();
+    } catch {}
+    const authorProfile = event.author?.profile as { nip05?: string; name?: string } | undefined;
+    return authorProfile?.nip05 || authorProfile?.name || undefined;
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -70,7 +81,7 @@ export function useNostrUser(npub: string | undefined) {
           });
           filled.author = u;
           setProfileEvent(filled);
-          setCachedProfileEvent(pk, filled);
+          setCachedProfileEvent(pk, filled, { username: chooseProfileIdentity(filled) });
         })();
       } catch {
         if (cancelled) return;

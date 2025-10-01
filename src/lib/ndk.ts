@@ -175,13 +175,18 @@ const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: s
 };
 
 // Reusable connection function with timeout
-export const connectWithTimeout = async (timeoutMs: number = 3000): Promise<void> => {
+export const connectWithTimeout = async (timeoutMs: number = 5000): Promise<void> => {
   // Always initialize cache before attempting to connect or racing with timeout
   await ensureCacheInitialized();
-  await Promise.race([
-    ndk.connect(),
-    createTimeoutPromise(timeoutMs)
-  ]);
+  try {
+    await Promise.race([
+      ndk.connect(),
+      createTimeoutPromise(timeoutMs)
+    ]);
+  } catch (error) {
+    console.warn('NDK connection failed, but continuing with available relays:', error);
+    // Don't throw - let the search continue with whatever relays are available
+  }
 };
 
 export interface ConnectionStatus {

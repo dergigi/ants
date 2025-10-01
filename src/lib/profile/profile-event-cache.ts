@@ -11,6 +11,13 @@ const PROFILE_EVENT_CACHE_STORAGE_KEY = 'ants_profile_event_cache_v1';
 let profileEventCacheTtlMs = 6 * 60 * 60 * 1000; // 6 hours
 let enableProfileEventPersistence = true;
 
+function makeCacheKey(pubkeyHex: string, context?: { username?: string | null }): string | null {
+  const normalized = normalizePubkey(pubkeyHex);
+  if (!normalized) return null;
+  const usernamePart = context?.username ? `|u:${context.username.toLowerCase()}` : '';
+  return `${normalized}${usernamePart}`;
+}
+
 export function configureProfileEventCache(options: { ttlMs?: number; persist?: boolean }): void {
   if (typeof options.ttlMs === 'number' && options.ttlMs >= 0) {
     profileEventCacheTtlMs = options.ttlMs;
@@ -61,36 +68,44 @@ function loadProfileEventCacheFromStorage(): void {
 
 loadProfileEventCacheFromStorage();
 
-export function getCachedProfileEvent(pubkeyHex: string): NDKEvent | undefined {
-  const key = normalizePubkey(pubkeyHex);
-  if (!key) return undefined;
+export function getCachedProfileEvent(pubkeyHex: string, context?: { username?: string | null }): NDKEvent | null {
+  const key = makeCacheKey(pubkeyHex, context);
+  if (!key) return null;
   const entry = PROFILE_EVENT_CACHE.get(key);
-  if (!entry) return undefined;
+  if (!entry) return null;
   if (isExpired(entry.timestamp)) {
     PROFILE_EVENT_CACHE.delete(key);
     saveProfileEventCacheToStorage();
-    return undefined;
+    return null;
   }
   return entry.event;
 }
 
-export function setCachedProfileEvent(pubkeyHex: string, event: NDKEvent): void {
-  const key = normalizePubkey(pubkeyHex);
+export function setCachedProfileEvent(pubkeyHex: string, event: NDKEvent, context?: { username?: string | null }): void {
+  const key = makeCacheKey(pubkeyHex, context);
   if (!key) return;
   PROFILE_EVENT_CACHE.set(key, { event, timestamp: Date.now() });
   saveProfileEventCacheToStorage();
 }
 
-export function primeProfileEventCache(pubkeyHex: string, event: NDKEvent, timestamp: number): void {
-  const key = normalizePubkey(pubkeyHex);
+export function primeProfileEventCache(pubkeyHex: string, event: NDKEvent, timestamp: number, context?: { username?: string | null }): void {
+  const key = makeCacheKey(pubkeyHex, context);
   if (!key) return;
   PROFILE_EVENT_CACHE.set(key, { event, timestamp });
 }
 
-export function clearProfileEventCache(pubkeyHex: string): void {
-  const key = normalizePubkey(pubkeyHex);
-  if (!key) return;
-  PROFILE_EVENT_CACHE.delete(key);
+export function clearProfileEventCache(pubkeyHex?: string, context?: { username?: string | null }): void {
+  if (typeof pubkeyHex === 'string') {
+    const baseKey = makeCacheKey(pubkeyHex, undefined);
+    if (!baseKey) return;
+    if (context?.username) {
+      const contextualKey = makeCacheKey(pubkeyHex, context);
+      if (contextualKey) PROFILE_EVENT_CACHE.delete(contextualKey);
+    }
+    PROFILE_EVENT_CACHE.delete(baseKey);
+  } else {
+    PROFILE_EVENT_CACHE.clear();
+  }
   saveProfileEventCacheToStorage();
 }
 

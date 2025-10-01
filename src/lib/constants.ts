@@ -55,7 +55,10 @@ export const UI_CONFIG = {
     NIP05_TIMEOUT: 4000,
     
     // Minimum number of results to show filter controls
-    FILTER_THRESHOLD: 69
+    FILTER_THRESHOLD: 69,
+    
+    // Default event kinds when no specific kind is requested (richly rendered kinds)
+    DEFAULT_KINDS: [1, 20, 21, 22, 9802] as number[]
   },
   
   // Profile search settings
@@ -127,6 +130,7 @@ export const SEARCH_HINTED_TIMEOUT = UI_CONFIG.SEARCH.HINTED_TIMEOUT;
 export const SEARCH_FALLBACK_TIMEOUT = UI_CONFIG.SEARCH.FALLBACK_TIMEOUT;
 export const SEARCH_NIP05_TIMEOUT = UI_CONFIG.SEARCH.NIP05_TIMEOUT;
 export const SEARCH_FILTER_THRESHOLD = UI_CONFIG.SEARCH.FILTER_THRESHOLD;
+export const SEARCH_DEFAULT_KINDS = UI_CONFIG.SEARCH.DEFAULT_KINDS;
 
 // Profile constants
 export const PROFILE_SEARCH_MAX_RESULTS = UI_CONFIG.PROFILE.SEARCH_MAX_RESULTS;

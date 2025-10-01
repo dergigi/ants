@@ -1,4 +1,5 @@
-import { clearRelayInfoCache } from './relays';
+import { clearRelayCaches } from './relays';
+import { clearAllProfileCaches } from './profile/cache';
 
 export interface SlashCommand {
   key: string;
@@ -58,15 +59,13 @@ export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
 
 export async function executeClearCommand(): Promise<void> {
   try {
-    // Clear relay info cache (includes supported NIPs, names, descriptions, etc.)
-    clearRelayInfoCache();
-    
-    // Clear localStorage caches
-    localStorage.removeItem('ants_nip50_support_cache');
-    localStorage.removeItem('ants_nip50_cache');
-    localStorage.removeItem('ants_relay_info_cache');
-    
-    console.log('All caches cleared successfully');
+    clearRelayCaches();
+    clearAllProfileCaches();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ants_nip50_support_cache');
+      localStorage.removeItem('ants_nip50_cache');
+      localStorage.removeItem('ants_relay_info_cache');
+    }
   } catch (error) {
     throw new Error(`Cache clearing failed: ${error}`);
   }

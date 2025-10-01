@@ -129,8 +129,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
     return cached;
   }
 
-  console.log(`[NIP-51] Discovering relays for user ${pubkey}`);
-
   try {
     // Get user's relay list (kind:10002) - used for general relay connections
     const userRelayList = await new Promise<string[]>((resolve) => {
@@ -159,7 +157,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(relays);
-        console.log(`[NIP-51] Found ${arr.length} user relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
@@ -201,7 +198,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(blocked);
-        console.log(`[NIP-51] Found ${arr.length} blocked relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
@@ -243,7 +239,6 @@ async function discoverUserRelays(pubkey: string): Promise<{
           }
         }
         const arr = Array.from(search);
-        console.log(`[NIP-51] Found ${arr.length} search relays:`, arr);
         clearTimeout(timer);
         try { sub.stop(); } catch {}
         resolve(arr);
@@ -499,10 +494,14 @@ export function clearRelayInfoCache(): void {
   relayInfoCache.clear();
   try {
     clearStorageKey(CACHE_STORAGE_KEY);
-    console.log('Relay info cache cleared');
   } catch (error) {
     console.warn('Failed to clear relay info cache:', error);
   }
+}
+
+export function clearRelayCaches(): void {
+  clearRelayInfoCache();
+  userRelayCache.clear();
 }
 
 // Backward compatibility - keep old function names
@@ -560,6 +559,19 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
   console.log(`[NIP-50 FILTER] Final result: ${supportedRelays.length} supported, ${rejectedRelays.length} rejected`);
   console.log(`[NIP-50 FILTER] Supported relays:`, supportedRelays);
   console.log(`[NIP-50 FILTER] Rejected relays:`, rejectedRelays);
+
+  // If we have very few NIP-50 relays, include some known good relays as fallback
+  if (supportedRelays.length < 3) {
+    console.log(`[NIP-50 FILTER] Only ${supportedRelays.length} NIP-50 relays found, adding fallback relays`);
+    const fallbackRelays = [
+      'wss://relay.primal.net',
+      'wss://relay.snort.social', 
+      'wss://relay.ditto.pub'
+    ].filter(url => !supportedRelays.includes(url) && !rejectedRelays.includes(url));
+    
+    supportedRelays.push(...fallbackRelays);
+    console.log(`[NIP-50 FILTER] Added ${fallbackRelays.length} fallback relays:`, fallbackRelays);
+  }
 
   return supportedRelays;
 }
