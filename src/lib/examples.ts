@@ -74,8 +74,13 @@ export const searchExamples = [
   'bitcoin OR lightning',
   '#runstr OR #plebwalk OR by:bitcoinwalk',
   '(p:dad OR p:husband OR p:father)',
+  'PV or 🤙',
+  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
+  '😂 or 🤣 or lol or lmao',
+  '#plebchain or #introductions',
+  '(GM OR GN) by:dergigi has:image',
 
-  // Media
+  // Media Modifiers
   'has:gif',
   'has:image',
   'has:video',
@@ -84,28 +89,22 @@ export const searchExamples = [
   'has:video',
   'is:video',
   'giphy.gif',
+  'meme has:gif',
+  'Gregzaj1-ln_strike.gif',
+
+  // Media Search
+  'Liotta .gif',
+  'GM has:video',
+  'Bitcoin has:image',
+  'by:dergigi has:image',
+  'by:HODL has:video',
+  'by:gregzaj has:gif',
+  'is:image #Olas365',
 
   // URLs
   'site:yt', // Site-specific search
   'https://dergigi.com/vew', // URL
   'dergigi.com', // NIP-05
-
-  // Mixed media + text
-  'GM has:video',
-  'Bitcoin has:image',
-  'meme has:gif',
-  'by:dergigi has:image',
-  'by:HODL has:video',
-  'Gregzaj1-ln_strike.gif',
-  'by:gregzaj has:gif',
-  '(GM OR GN) by:dergigi has:image',
-  'is:image #Olas365',
-  'PressReader by:Bouma',
-  'PV or 🤙',
-  '🧘‍♀️ or 🧘‍♂️ or 🧘 or 💆 ',
-  '😂 or 🤣 or lol or lmao',
-  'Liotta .gif',
-  '#plebchain or #introductions',
 
   // Kinds filter examples
   'is:muted by:fiatjaf',
@@ -122,16 +121,12 @@ export const searchExamples = [
   // Multiple hashtags
   '#dogstr or #pugstr or #horsestr or #goatstr',
 
-  // NIP-50 extensions
-  'bitcoin include:spam',
-  'nip:03',
-
   // Highlight examples
+  'is:highlight "proof of work"',
   'is:highlight (bitcoin OR nostr)',
   'is:highlight by:dergigi',
   'is:highlight by:fiatjaf',
   'is:highlight by:f7z.io',
-  'is:highlight "proof of work"',
   'is:image or is:highlight',
 
   // Slash Commands
