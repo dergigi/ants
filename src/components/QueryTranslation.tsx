@@ -10,9 +10,10 @@ import { nip19 } from 'nostr-tools';
 
 interface QueryTranslationProps {
   query: string;
+  onAuthorResolved?: () => void;
 }
 
-export default function QueryTranslation({ query }: QueryTranslationProps) {
+export default function QueryTranslation({ query, onAuthorResolved }: QueryTranslationProps) {
   const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [translation, setTranslation] = useState<string>('');
   const authorResolutionCache = useRef<Map<string, string>>(new Map());
@@ -153,6 +154,8 @@ export default function QueryTranslation({ query }: QueryTranslationProps) {
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);
+          // Trigger search execution after author resolution
+          onAuthorResolved?.();
         }
       }
     };
