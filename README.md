@@ -4,24 +4,25 @@ An advanced search interface for Nostr.
 
 ## Search Examples
 
-Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
-- [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - Find events from fiatjaf
-- [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - Find "GM" messages from dergigi
-- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - Find "GN" messages by direct npub
-- [`p:fiatjaf`](https://search.dergigi.com/?q=p%3Afiatjaf) - Look up a profile (full-text search across name, display name, about)
+- [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
+- [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
+- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - find "GN" messages by direct npub
+- [`p:fiatjaf`](https://search.dergigi.com/?q=p%3Afiatjaf) - look up a profile (full-text search across name, display name, about)
 - [`nip:05`](https://search.dergigi.com/?q=nip%3A05) - find notes that link to the NIP-05 spec
-- [`bitcoin OR lightning`](https://search.dergigi.com/?q=bitcoin%20OR%20lightning) - Match either
-- [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - Boolean OR plus media filter scoped to author
-- [`has:image`](https://search.dergigi.com/?q=has%3Aimage) - Notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
-- [`by:dergigi has:image`](https://search.dergigi.com/?q=by%3Adergigi%20has%3Aimage) - Find images from dergigi
-- [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - Find posts with YouTube links
-- [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - Highlights
-- [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - Search across multiple authors
-- [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - Search for multiple hashtags
-- [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - Highlights from specific authors
-- [`/examples`](https://search.dergigi.com/?q=%2Fexamples) - Show interactive examples
+- [`bitcoin OR lightning`](https://search.dergigi.com/?q=bitcoin%20OR%20lightning) - match either
+- [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - boolean OR plus media filter scoped to author
+- [`has:image`](https://search.dergigi.com/?q=has%3Aimage) - notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
+- [`by:dergigi has:image`](https://search.dergigi.com/?q=by%3Adergigi%20has%3Aimage) - find images from dergigi
+- [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - find posts with YouTube links
+- [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - highlights
+- [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
+- [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
+- [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
+- [`/help`](https://search.dergigi.com/?q=%2Fhelp) ...in case you're lost.
+
+Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
 
 ## URL Paths
 
