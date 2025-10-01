@@ -19,6 +19,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const authorResolutionCache = useRef<Map<string, string>>(new Map());
   const lastResolvedQueryRef = useRef<string | null>(null);
   const resolutionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTriggeredSearchRef = useRef<boolean>(false);
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
@@ -145,6 +146,9 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     }
 
     const generateAndSetTranslation = async () => {
+      // Reset search trigger flag for new query
+      hasTriggeredSearchRef.current = false;
+      
       // Phase 1: Show expanded queries immediately (without author resolution)
       const immediateResult = await generateTranslation(query, true);
       if (!cancelled) {
@@ -165,8 +169,9 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
           // Set a timeout to trigger search after resolution stabilizes
           // This allows time for NIP-05 verification and re-ranking to complete
           resolutionTimeoutRef.current = setTimeout(() => {
-            if (lastResolvedQueryRef.current !== query) {
+            if (lastResolvedQueryRef.current !== query && !hasTriggeredSearchRef.current) {
               lastResolvedQueryRef.current = query;
+              hasTriggeredSearchRef.current = true;
               onAuthorResolved?.();
             }
           }, 2000); // Wait 2 seconds for final resolution
