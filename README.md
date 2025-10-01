@@ -37,9 +37,9 @@ Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search fiel
 
 ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https://njump.me/) and other portals do:
 
-- `/p/@nip05.com` - profile by NIP-05 identifier
-- `/p/npub1...` - direct profile by npub
-- `/p/username` - profile search by username
+- [`/p/_@dergigi.com`](https://search.dergigi.com/p/_@dergigi.com) - profile by NIP-05 identifier
+- [`/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - direct profile by npub
+- [`/p/dergigi`](https://search.dergigi.com/p/dergigi) - profile search by username
 - `/p/[id]` - view a specific profile by hex ID
 - `/e/nevent1...` - event by nevent identifier
 - `/e/note1...` - event by note identifier
