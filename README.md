@@ -49,7 +49,7 @@ ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https:
 
 The `/t/` path supports multiple separators (comma, plus, and space).
 
-# Relay Logic
+## Relay Logic
 
 There is hardcoded relays for search (NIP-50) as well as for general use.
 
@@ -57,18 +57,21 @@ Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove 
 
 When connecting to a relay we retrieve the `supported_nips` as per NIP-11. The relay list as well as the supported NIPs are shown in the relay status indicator. Relays that returned one or more of the results that are currently shown on the page are shown in blue. Relays that support NIP-50 show a magnifying glass. The relay icon in the relay status display allows for relay-based client-side filtering of results.
 
-# Search Logic
+## Search Logic
 
 We have two kinds of queries:
+
 - Search queries (NIP-50)
 - Direct queries (bech32-encoded entities as per NIP-19, i.e. `npub`, `note`, `nprofile`, `nevent`, `naddr`)
 
 Search queries:
+
 - Connect to NIP-50 relays exclusively
 - Do a NIP-50 search for each resulting query we have
 - (we might need to do multiple queries if the user does an `OR` search)
 
 Direct queries:
+
 - Connect to all relays
 - Retrieve the bech32-encoded entity directly
 - (No need for a NIP-50 search)
@@ -82,17 +85,17 @@ None of these need search. (1) is simply `kind:9802` with `authors: [6e468422dfb
 
 However, if we have something like `has:video by:HODL` we will have to hit NIP-50 relays, because `has:video` expands to `.mp4 OR .webm OR .mov ...` and thus we'll have to do a full-text search.
 
-# Profile Lookups and Vertex Logic
+## Profile Lookups and Vertex Logic
 
 When resolving a `by:` or `p:` search, we try to do a best-effort profile lookup. If the user is logged in we use the Vertex DVM to do the profile lookup, using `personalizedPagerank`.
 
 In short:
 
-```
+```python
 if logged_in:
-	profile = get_profile_from_vertex("search string")
+    profile = get_profile_from_vertex("search string")
 else:
-	profile = get_profile_from_fallback("search string")
+    profile = get_profile_from_fallback("search string")
 ```
 
 The fallback is a NIP-50 search that attempts to do a "smart" ranking of profile results to figure out the most real (most relevant) profile. But it might be wrong. For reliable results users should login and use Vertex.
@@ -101,12 +104,12 @@ Profile searches might be a plaintext search like `gigi` or `dergigi`, npubs lik
 
 If it's a valid NIP-05 we should be able to get the hex of the npub straight up, without having to hit a search relay. If it's a plaintext search like `fiatjaf` we basically do a `kind:0 fiatjaf`, i.e. a NIP-50 search for profile events (hitting NIP-50 relays exclusively).
 
-NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
-NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
-NIP-19: https://github.com/nostr-protocol/nips/blob/master/19.md
-NIP-50: https://github.com/nostr-protocol/nips/blob/master/50.md
-NIP-51: https://github.com/nostr-protocol/nips/blob/master/51.md
-Vertex: https://vertexlab.io/docs/algos/
+NIP-05: <https://github.com/nostr-protocol/nips/blob/master/05.md>
+NIP-11: <https://github.com/nostr-protocol/nips/blob/master/11.md>
+NIP-19: <https://github.com/nostr-protocol/nips/blob/master/19.md>
+NIP-50: <https://github.com/nostr-protocol/nips/blob/master/50.md>
+NIP-51: <https://github.com/nostr-protocol/nips/blob/master/51.md>
+Vertex: <https://vertexlab.io/docs/algos/>
 
 ## Live Instances
 
