@@ -763,15 +763,18 @@ export async function searchEvents(
         const seeds = treatAsGroup ? expanded : [part];
         seeds.forEach((seed) => {
           const trimmedSeed = seed.trim();
+          if (!trimmedSeed) return;
+          let predicate = trimmedSeed;
           const seedKind = extractKindFilter(trimmedSeed);
-          if (seedKind.kinds && seedKind.kinds.length > 0) {
-            acc.push(trimmedSeed);
-          } else if (effectiveKinds.length > 0) {
-            const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
-            acc.push(`${kindTokens} ${trimmedSeed}`.trim());
-          } else {
-            acc.push(trimmedSeed);
+          if (!seedKind.kinds || seedKind.kinds.length === 0) {
+            // Determine classification of this clause
+            if (/\bby:\S+/i.test(trimmedSeed)) {
+              predicate = `${trimmedSeed}`;
+            } else if (/#\w+/i.test(trimmedSeed)) {
+              predicate = `${trimmedSeed} kind:1`;
+            }
           }
+          acc.push(predicate.trim());
         });
         return acc;
       }, []);
