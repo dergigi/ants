@@ -10,7 +10,6 @@ export const searchExamples = [
   '#photography',
   '#artstr',
   'nevent',
-  'habla.news',
   
   // by:Author
   'by:fiatjaf',
