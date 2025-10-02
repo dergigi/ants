@@ -14,7 +14,7 @@ export function Header() {
   // Force re-render of avatar when profile data updates on the same NDKUser instance
   const [avatarVersion, setAvatarVersion] = useState(0);
   const router = useRouter();
-  const { triggerLogin, loginState, setLoginState, currentUser } = useLoginTrigger();
+  const { triggerLogin, loginState, setLoginState, currentUser, setCurrentUser } = useLoginTrigger();
 
   // Restore login state on mount
   useEffect(() => {
@@ -23,6 +23,7 @@ export function Header() {
         const restoredUser = await restoreLogin();
         // Set user immediately for fast UI feedback
         setUser(restoredUser);
+        setCurrentUser(restoredUser);
         if (restoredUser) {
           setLoginState('logged-in');
           // Fetch the user's profile in the background to update display details
@@ -34,6 +35,7 @@ export function Header() {
           } catch {}
         } else {
           setLoginState('logged-out');
+          setCurrentUser(null);
         }
       } catch (error) {
         console.error('Failed to restore login:', error);
@@ -50,6 +52,7 @@ export function Header() {
           const u = await restoreLogin();
           // Set user immediately so header reflects login state right away
           setUser(u);
+          setCurrentUser(u);
           if (u) {
             try { 
               await u.fetchProfile();
@@ -60,6 +63,7 @@ export function Header() {
           }
         } catch {
           setUser(null);
+          setCurrentUser(null);
         }
       })();
     };
