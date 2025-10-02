@@ -135,6 +135,20 @@ export default function NoteHeader({
   const topmostParentState = topmostParentId ? expandedParents[topmostParentId] : null;
   const isLoading = topmostParentState === 'loading';
   
+  // Extract filename for code events (supports tags: name, filename)
+  const isCodeEvent = displayEvent.kind === 1337 || displayEvent.kind === 1617;
+  const getTagValue = (keys: string[]): string | null => {
+    const tags = Array.isArray(displayEvent.tags) ? displayEvent.tags : [];
+    for (const tag of tags) {
+      if (!Array.isArray(tag) || tag.length < 2) continue;
+      const [k, v] = tag;
+      const key = typeof k === 'string' ? k.toLowerCase() : '';
+      if (keys.includes(key) && typeof v === 'string' && v) return v;
+    }
+    return null;
+  };
+  const fileName = isCodeEvent ? (getTagValue(['name', 'filename']) || null) : null;
+  
   const parentLabel = (() => {
     if (!topmostParentId) return null;
     const normalized = topmostParentId.trim();
@@ -169,17 +183,24 @@ export default function NoteHeader({
             {(() => {
               const kindIcon = getEventKindIcon(displayEvent.kind);
               const displayName = getEventKindDisplayName(displayEvent.kind);
-              return kindIcon ? (
-                <button
-                  type="button"
-                  onClick={handleKindClick}
-                  className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-                  title={searchQuery || displayName}
-                >
-                  <FontAwesomeIcon icon={kindIcon} className="text-xs" />
-                </button>
-              ) : (
-                <span className="text-gray-400">{displayName}</span>
+              return (
+                <>
+                  {kindIcon ? (
+                    <button
+                      type="button"
+                      onClick={handleKindClick}
+                      className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
+                      title={searchQuery || displayName}
+                    >
+                      <FontAwesomeIcon icon={kindIcon} className="text-xs" />
+                    </button>
+                  ) : (
+                    <span className="text-gray-400">{displayName}</span>
+                  )}
+                  {fileName ? (
+                    <span className="text-gray-200 truncate" title={fileName}>{fileName}</span>
+                  ) : null}
+                </>
               );
             })()}
           </div>
