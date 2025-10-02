@@ -1,0 +1,29 @@
+'use client';
+
+import Image from 'next/image';
+
+interface LogoProps {
+  size?: 'small' | 'large';
+  className?: string;
+  onClick?: () => void;
+}
+
+export default function Logo({ size = 'small', className = '', onClick }: LogoProps) {
+  const dimensions = size === 'large' ? { width: 40, height: 40, className: 'w-10 h-10' } : { width: 20, height: 20, className: 'w-5 h-5' };
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`hover:opacity-90 transition-opacity ${className}`}
+      aria-label="Go to home page"
+    >
+      <Image 
+        src="/ants-menu.png" 
+        alt="ants menu" 
+        width={dimensions.width}
+        height={dimensions.height}
+        className={dimensions.className}
+      />
+    </button>
+  );
+}

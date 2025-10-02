@@ -6,6 +6,7 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProfileImage from '@/components/ProfileImage';
+import Logo from '@/components/Logo';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 
@@ -76,19 +77,10 @@ export function Header() {
     return (
       <header className="flex items-center justify-between px-4 py-1 bg-[#1a1a1a] border-b border-[#2d2d2d]">
         {/* Favicon on the left */}
-        <button
+        <Logo 
+          size="small"
           onClick={handleFaviconClick}
-          className="hover:opacity-90 transition-opacity"
-          aria-label="Go to home page"
-        >
-          <Image 
-            src="/ants-menu.png" 
-            alt="ants menu" 
-            width={20}
-            height={20}
-            className="w-5 h-5"
-          />
-        </button>
+        />
         
         {/* Loading spinner on the right */}
         <div className="flex items-center justify-center">
@@ -100,20 +92,11 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between px-4 py-1 bg-[#1a1a1a] border-b border-[#2d2d2d]">
-      {/* Favicon on the left */}
-      <button
+      {/* Logo on the left */}
+      <Logo 
+        size={user ? 'large' : 'small'}
         onClick={handleFaviconClick}
-        className="hover:opacity-90 transition-opacity"
-        aria-label="Go to home page"
-      >
-        <Image 
-          src="/ants-menu.png" 
-          alt="ants menu" 
-          width={user ? 40 : 20}
-          height={user ? 40 : 20}
-          className={user ? "w-10 h-10" : "w-5 h-5"}
-        />
-      </button>
+      />
       
       {/* Login button on the right */}
       <button
