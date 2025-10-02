@@ -7,7 +7,7 @@ import IconButton from '@/components/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScaleBalanced, faCodeBranch } from '@fortawesome/free-solid-svg-icons';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
-import { ensureBashLanguage } from '@/lib/prism';
+import { ensureBashLanguage, ensureLanguage } from '@/lib/prism';
 
 type Props = {
   event: NDKEvent;
@@ -44,6 +44,9 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   // Ensure bash is available when requested
   if (language === 'bash' || language === 'sh' || language === 'shell') {
     ensureBashLanguage();
+  } else {
+    // Attempt to load the requested language dynamically (best-effort)
+    void ensureLanguage(language);
   }
 
   const getTagValue = (keys: string[]): string | null => {

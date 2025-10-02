@@ -1,20 +1,36 @@
 'use client';
 
-// Minimal bridge to expose Prism instance if needed by extensions.
-// Avoid importing non-existent subpaths; rely on prism-react-renderer's bundled Prism.
+// Make Prism instance available and lazily load language components on demand
 import { Prism as PrismLib } from 'prism-react-renderer';
 
-let initialized = false;
+const loadedLanguages = new Set<string>();
+let prismExposed = false;
 
-export function ensureBashLanguage(): void {
-  if (initialized) return;
+function exposePrism(): void {
+  if (prismExposed) return;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).Prism = PrismLib as unknown as object;
+  } catch {}
+  prismExposed = true;
+}
+
+export async function ensureLanguage(language: string): Promise<void> {
+  const lang = (language || '').toLowerCase();
+  if (!lang) return;
+  if (loadedLanguages.has(lang)) return;
+  exposePrism();
+  try {
+    await import(/* webpackIgnore: true */ `prismjs/components/prism-${lang}`);
+    loadedLanguages.add(lang);
   } catch {
-    // ignore
+    // Best-effort; ignore if not available
   }
-  initialized = true;
+}
+
+export function ensureBashLanguage(): void {
+  // Back-compat helper used by existing code
+  void ensureLanguage('bash');
 }
 
 
