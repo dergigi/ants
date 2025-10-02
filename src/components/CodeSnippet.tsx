@@ -4,7 +4,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps, type Language } from 'prism-react-renderer';
 import CopyButton from '@/components/CopyButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
+import { faScaleBalanced, faCodeBranch } from '@fortawesome/free-solid-svg-icons';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { ensureBashLanguage } from '@/lib/prism';
 
@@ -69,7 +69,18 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
           title="Search repository"
           onClick={() => onSearch && onSearch(repoUrl)}
         >
-          <FontAwesomeIcon icon={faGithub} className="text-xs" />
+          {(() => {
+            let isGithub = false;
+            try {
+              const u = new URL(repoUrl);
+              isGithub = /(^|\.)github\.com$/i.test(u.hostname);
+            } catch {
+              isGithub = /github\.com/i.test(repoUrl);
+            }
+            return (
+              <FontAwesomeIcon icon={isGithub ? faGithub : faCodeBranch} className="text-xs" />
+            );
+          })()}
         </button>
       ) : null}
       {license ? (
