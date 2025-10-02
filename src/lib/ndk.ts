@@ -381,11 +381,6 @@ export const startRelayMonitoring = () => {
           currentStatus.failedRelays.some(url => !globalConnectionStatus!.failedRelays.includes(url));
         
         if (statusChanged) {
-          console.log('Relay status changed:', { 
-            connected: currentStatus.connectedRelays, 
-            connecting: currentStatus.connectingRelays,
-            failed: currentStatus.failedRelays 
-          });
           updateConnectionStatus(currentStatus);
         }
       }
@@ -420,7 +415,6 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Check which relays actually connected
     const status = await checkRelayStatus();
     // Do not change the example on connect; keep current selection
-    console.log('Connected to relays:', { connected: status.connectedRelays, connecting: status.connectingRelays, failed: status.failedRelays, example: currentSearchExample });
     
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false, status.relayPings);
   } catch (error) {
@@ -430,7 +424,6 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Check which relays we can still access
     const status = await checkRelayStatus();
     // Do not change the example on failed connect either
-    console.log('Using fallback example:', currentSearchExample);
     
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout, status.relayPings);
   }
