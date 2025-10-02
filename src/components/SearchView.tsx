@@ -430,14 +430,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isOnEventPath = pathname?.startsWith('/e/');
     const isOnProfilePath = currentProfileNpub !== null;
     
-    console.log('updateUrlForSearch debug:', {
-      searchQuery,
-      pathname,
-      isOnTagPath,
-      isOnEventPath,
-      isOnProfilePath,
-      isHashtagOnly: isHashtagOnlyQuery(searchQuery)
-    });
+    // debug removed
     
     // Handle hashtag-only queries
     if (!isOnProfilePath && isHashtagOnlyQuery(searchQuery)) {
@@ -450,7 +443,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Handle transitions from special paths to root with query
     if ((isOnTagPath || isOnEventPath) && !isHashtagOnlyQuery(searchQuery)) {
-      console.log('Transitioning from special path to root with query:', searchQuery);
       const params = new URLSearchParams();
       params.set('q', searchQuery);
       router.replace(`/?${params.toString()}`);
@@ -695,7 +687,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
 
     // Always update URL to reflect the current search
-    console.log('Updating URL for search:', searchQuery, 'on path:', pathname);
     updateUrlForSearch(searchQuery);
 
     // Abort any ongoing search
@@ -781,11 +772,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       let relaySet: NDKRelaySet | undefined;
       if (isDirectQuery) {
         // Direct queries (NIP-19): use all relays
-        console.log('[Search] Direct query detected, using all relays');
         relaySet = await relaySets.default();
       } else {
         // Search queries (NIP-50): use NIP-50 capable relays only
-        console.log('[Search] Search query detected, using NIP-50 relays');
         relaySet = await getNip50SearchRelaySet();
       }
 
@@ -805,11 +794,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       searchResults.forEach(evt => {
         const relaySources = extractRelaySourcesFromEvent(evt);
         relayUrls.push(...relaySources);
-        console.log(`[RELAY TRACKING] Event sources:`, relaySources);
       });
       
       const relays = createRelaySet(relayUrls);
-      console.log(`[RELAY TRACKING] Final successfullyActiveRelays:`, Array.from(relays));
       setSuccessfullyActiveRelays(relays);
       
       // Initialize toggled relays to include all relays that provided results
@@ -862,9 +849,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setIsConnecting(false);
       setConnectionDetails(connectionResult);
       
-      if (connectionResult.success) {
-        console.log('NDK connected successfully');
-      } else {
+      if (!connectionResult.success) {
         console.warn('NDK connection timed out, but search will still work with available relays');
       }
       
