@@ -114,7 +114,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
-  const { onLoginTrigger } = useLoginTrigger();
+  const { onLoginTrigger, setLoginState } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
@@ -166,24 +166,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('examples'));
     },
     onLogin: async () => {
+      setLoginState('logging-in');
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
       try {
         const user = await login();
         if (user) {
           try { await user.fetchProfile(); } catch {}
+          setLoginState('logged-in');
           setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
           setPlaceholder(nextExample());
         } else {
+          setLoginState('logged-out');
           setTopCommandText(buildCli('login', 'Login cancelled'));
         }
       } catch {
+        setLoginState('logged-out');
         setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
       }
     },
     onLogout: () => {
       try {
         logout();
+        setLoginState('logged-out');
         setTopCommandText(buildCli('logout', 'Logged out'));
         setPlaceholder(nextExample());
       } catch {
