@@ -172,11 +172,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       try {
         const user = await login();
         if (user) {
-          try { await user.fetchProfile(); } catch {}
+          // Immediately set current user and logged-in state for instant header update
           setCurrentUser(user);
           setLoginState('logged-in');
           setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
           setPlaceholder(nextExample());
+
+          // Fetch profile in the background to avoid blocking header update
+          (async () => {
+            try {
+              await user.fetchProfile();
+              // Clone user to ensure state change triggers re-render with updated profile
+              const cloned = new NDKUser({ pubkey: user.pubkey });
+              cloned.ndk = user.ndk;
+              if (user.profile) {
+                cloned.profile = { ...(user.profile as Record<string, unknown>) } as typeof user.profile;
+              }
+              setCurrentUser(cloned);
+            } catch {}
+          })();
         } else {
           setCurrentUser(null);
           setLoginState('logged-out');
