@@ -2,7 +2,7 @@
 
 An opinionated search interface for nostr.
 
-![ants logo](public/ants-logo.png)
+![ants logo](public/ants-menu.png)
 
 ants is the search and discovery interface I always wanted to have. It has all kinds of search modifiers, can do reverse image lookups, and will not shy away from throwing events back at you that it can't even render yet.
 
