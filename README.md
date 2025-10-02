@@ -1,8 +1,8 @@
 # ants - advanced nostr text search
 
-![favicon](public/android-chrome-192x192.png)
-
 An opinionated search interface for nostr.
+
+![favicon](public/android-chrome-192x192.png)
 
 ants is the search and discovery interface I always wanted to have. It can do reverse image lookups, has all kinds of search modifiers, and will not shy away from throwing events back at you that it can't even render yet.
 
