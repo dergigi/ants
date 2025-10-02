@@ -127,7 +127,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
       <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
-            className={`${cls} text-sm overflow-x-auto rounded-md p-3 bg-[#282828] border border-[#3d3d3d]`.trim()}
+            className={`${cls} text-sm overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
             style={{ ...style, whiteSpace: 'pre' }}
           >
             {tokens.map((line, i) => (
@@ -141,7 +141,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
         )}
       </Highlight>
       ) : (
-        <pre className="text-sm overflow-x-auto rounded-md p-3 bg-[#282828] border border-[#3d3d3d] text-gray-100 whitespace-pre-wrap break-words">
+        <pre className="text-sm overflow-x-auto rounded-md p-3 border border-[#3d3d3d] text-gray-100 whitespace-pre-wrap break-words">
           {code}
         </pre>
       )}
