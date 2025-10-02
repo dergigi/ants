@@ -10,7 +10,7 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'small', className = '', onClick, isActive = false }: LogoProps) {
-  const dimensions = size === 'large' ? { width: 40, height: 40, className: 'w-10 h-10' } : { width: 20, height: 20, className: 'w-5 h-5' };
+  const dimensions = size === 'large' ? { width: 32, height: 32, className: 'w-8 h-8' } : { width: 20, height: 20, className: 'w-5 h-5' };
   const logoSrc = isActive ? '/ant-blue.svg' : '/ant-gray.svg';
   const colorClass = isActive ? 'text-blue-400' : 'text-gray-400';
   
