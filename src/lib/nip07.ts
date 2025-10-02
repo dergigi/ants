@@ -1,5 +1,7 @@
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connect } from './ndk';
+import { clearAllProfileCaches } from './profile/cache';
+import { clearRelayCaches } from './relays';
 
 const NIP07_PUBKEY_KEY = 'nip07_pubkey';
 
@@ -31,6 +33,17 @@ export async function login(): Promise<NDKUser | null> {
     
     // Ensure the user has the NDK instance set
     user.ndk = ndk;
+
+    // Clear all caches on successful login to avoid stale profile resolution
+    try {
+      clearRelayCaches();
+      clearAllProfileCaches();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('ants_nip50_support_cache');
+        localStorage.removeItem('ants_nip50_cache');
+        localStorage.removeItem('ants_relay_info_cache');
+      }
+    } catch {}
     emitAuthChange();
     return user;
   } catch (error) {
@@ -50,6 +63,15 @@ export function getStoredPubkey(): string | null {
 export function logout(): void {
   localStorage.removeItem(NIP07_PUBKEY_KEY);
   ndk.signer = undefined;
+  try {
+    clearRelayCaches();
+    clearAllProfileCaches();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ants_nip50_support_cache');
+      localStorage.removeItem('ants_nip50_cache');
+      localStorage.removeItem('ants_relay_info_cache');
+    }
+  } catch {}
   emitAuthChange();
 }
 
