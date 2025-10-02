@@ -1606,8 +1606,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
                       <div>$ ants examples</div>
                       <div>&nbsp;</div>
-                      {topExamples.map((ex) => (
-                        <div key={ex}>
+                      {topExamples.map((ex, idx) => (
+                        <div key={`${ex}-${idx}`}>
                           <button
                             type="button"
                             className="text-left w-full hover:underline"

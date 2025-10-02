@@ -91,7 +91,6 @@ export const searchExamples = [
   'has:video',
   'is:image',
   'has:image OR is:image',
-  'has:video',
   'is:video',
   'giphy.gif',
   'meme has:gif',
