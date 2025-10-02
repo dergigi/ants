@@ -455,14 +455,14 @@ async function checkRelayInfoViaHttp(relayUrl: string): Promise<{
           };
         } else {
         }
-      } catch (error) {
+      } catch {
         // ignore
       }
     }
 
     // no relay info found at any endpoint
     return {};
-  } catch (error) {
+  } catch {
     // HTTP detection failed
     return {};
   }
@@ -573,8 +573,8 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   // Debug: Test each relay individually
   for (const relayUrl of nip50Relays) {
     try {
-      const info = await getRelayInfo(relayUrl);
-    } catch (error) {
+      await getRelayInfo(relayUrl);
+    } catch {
       // ignore
     }
   }
