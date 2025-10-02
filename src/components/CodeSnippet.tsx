@@ -1,7 +1,7 @@
 'use client';
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import { Highlight, themes, type RenderProps, type Language } from 'prism-react-renderer';
 import CopyButton from '@/components/CopyButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
@@ -48,7 +48,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
     return null;
   };
 
-  const fileName = getTagValue(['name', 'filename']) || null;
+  // filename currently shown in header only
   const description = getTagValue(['description', 'desc']) || null;
   const license = getTagValue(['license']) || null;
 
@@ -79,7 +79,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
           {description}
         </div>
       ) : null}
-      <Highlight code={code} language={(language as any) || 'tsx'} theme={themes.nightOwl}>
+      <Highlight code={code} language={(language || 'tsx') as Language} theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-sm overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
