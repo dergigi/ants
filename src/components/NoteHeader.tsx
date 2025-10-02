@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faReply, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faReply, faSpinner, faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
 import { safeSubscribe } from '@/lib/ndk';
 import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
@@ -148,6 +148,7 @@ export default function NoteHeader({
     return null;
   };
   const fileName = isCodeEvent ? (getTagValue(['name', 'filename']) || null) : null;
+  const license = isCodeEvent ? (getTagValue(['license']) || null) : null;
   
   const parentLabel = (() => {
     if (!topmostParentId) return null;
@@ -198,7 +199,13 @@ export default function NoteHeader({
                     <span className="text-gray-400">{displayName}</span>
                   )}
                   {fileName ? (
-                    <span className="text-gray-200 truncate" title={fileName}>{fileName}</span>
+                    <span className="text-gray-200 truncate font-semibold" title={fileName}>{fileName}</span>
+                  ) : null}
+                  {license ? (
+                    <span className="px-1.5 py-0.5 rounded bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide inline-flex items-center gap-1" title={`License: ${license}`}>
+                      <FontAwesomeIcon icon={faScaleBalanced} className="text-[10px]" />
+                      {license}
+                    </span>
                   ) : null}
                 </>
               );
