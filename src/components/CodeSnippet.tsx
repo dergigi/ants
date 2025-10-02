@@ -3,6 +3,8 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import CopyButton from '@/components/CopyButton';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   event: NDKEvent;
@@ -51,7 +53,15 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   const license = getTagValue(['license']) || null;
 
   const headerRight = (
-    <CopyButton text={code} title="Copy code" />
+    <div className="flex items-center gap-2">
+      {license ? (
+        <span className="px-1.5 py-0.5 rounded bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide inline-flex items-center gap-1" title={`License: ${license}`}>
+          <FontAwesomeIcon icon={faScaleBalanced} className="text-[10px]" />
+          {license}
+        </span>
+      ) : null}
+      <CopyButton text={code} title="Copy code" />
+    </div>
   );
 
   return (
@@ -59,13 +69,8 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
       <div className="text-xs text-gray-300 mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-semibold truncate">
-            {fileName ? fileName : (language ? `code:${language}` : 'code')}
+            {language ? `code:${language}` : 'code'}
           </span>
-          {license ? (
-            <span className="px-1.5 py-0.5 rounded bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide">
-              {license}
-            </span>
-          ) : null}
         </div>
         {headerRight}
       </div>
