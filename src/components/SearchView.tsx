@@ -1529,6 +1529,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           }}
         />
         <SearchInput
+          ref={searchInputRef}
           query={query}
           placeholder={placeholder}
           loading={loading}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass, faExternalLink, faUser } from '@fortawesome/free-solid-svg-icons';
 
@@ -19,7 +19,7 @@ interface SearchInputProps {
   rotationProgress: number;
 }
 
-export default function SearchInput({
+const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(function SearchInput({
   query,
   placeholder,
   loading,
@@ -32,8 +32,10 @@ export default function SearchInput({
   onSubmit,
   onExampleNext,
   rotationProgress
-}: SearchInputProps) {
+}: SearchInputProps, ref) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useImperativeHandle(ref, () => searchInputRef.current as HTMLInputElement);
 
   const getButtonIcon = () => {
     if (loading) {
@@ -106,4 +108,6 @@ export default function SearchInput({
       </div>
     </form>
   );
-}
+});
+
+export default SearchInput;
