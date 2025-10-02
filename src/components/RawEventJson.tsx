@@ -2,7 +2,6 @@
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
-import { darculaTheme } from '@/lib/darcula-theme';
 import { toPlainEvent } from '@/lib/toPlainEvent';
 import CopyButton from '@/components/CopyButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -49,7 +48,7 @@ export default function RawEventJson({ event, loading = false, className, title,
         </div>
         ) : null;
       })()}
-      <Highlight code={json} language="json" theme={darculaTheme}>
+      <Highlight code={json} language="json" theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d] ${className || ''}`.trim()}

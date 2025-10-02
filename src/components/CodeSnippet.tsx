@@ -3,7 +3,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { useEffect, useState } from 'react';
 import { Highlight, themes, type RenderProps, type Language } from 'prism-react-renderer';
-import { darculaTheme } from '@/lib/darcula-theme';
 import CopyButton from '@/components/CopyButton';
 import IconButton from '@/components/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -125,7 +124,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
         </div>
       ) : null}
       {(normalizedLanguage ? langReady : true) ? (
-      <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={darculaTheme}>
+      <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-sm overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
