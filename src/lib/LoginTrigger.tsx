@@ -1,14 +1,15 @@
 'use client';
 
 import { createContext, useContext, useCallback, useState, ReactNode } from 'react';
+import type { NDKUser } from '@nostr-dev-kit/ndk';
 
 interface LoginTriggerContextType {
   triggerLogin: () => void;
   onLoginTrigger: (callback: () => void) => () => void;
   loginState: 'idle' | 'logging-in' | 'logged-in' | 'logged-out';
   setLoginState: (state: 'idle' | 'logging-in' | 'logged-in' | 'logged-out') => void;
-  currentUser: any;
-  setCurrentUser: (user: any) => void;
+  currentUser: NDKUser | null;
+  setCurrentUser: (user: NDKUser | null) => void;
 }
 
 const LoginTriggerContext = createContext<LoginTriggerContextType | null>(null);
@@ -16,7 +17,7 @@ const LoginTriggerContext = createContext<LoginTriggerContextType | null>(null);
 export function LoginTriggerProvider({ children }: { children: ReactNode }) {
   const [listeners, setListeners] = useState<(() => void)[]>([]);
   const [loginState, setLoginState] = useState<'idle' | 'logging-in' | 'logged-in' | 'logged-out'>('idle');
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<NDKUser | null>(null);
 
   const triggerLogin = useCallback(() => {
     listeners.forEach(listener => listener());
