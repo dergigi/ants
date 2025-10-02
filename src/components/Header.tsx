@@ -68,8 +68,8 @@ export function Header() {
   };
 
   const handleFaviconClick = () => {
-    // Trigger the same clear behavior as the "x" button in search
-    triggerClear();
+    // Navigate to search for dergigi/ants by:dergigi
+    router.push('/?q=dergigi%2Fants%20by%3Adergigi');
   };
 
   if (isLoading) {
