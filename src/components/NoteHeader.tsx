@@ -135,7 +135,7 @@ export default function NoteHeader({
   const topmostParentState = topmostParentId ? expandedParents[topmostParentId] : null;
   const isLoading = topmostParentState === 'loading';
   
-  // Extract filename for code events (supports tags: name, filename)
+  // Extract filename for code events (supports tags: name, f, title)
   const isCodeEvent = displayEvent.kind === 1337 || displayEvent.kind === 1617;
   const getTagValue = (keys: string[]): string | null => {
     const tags = Array.isArray(displayEvent.tags) ? displayEvent.tags : [];
@@ -147,7 +147,7 @@ export default function NoteHeader({
     }
     return null;
   };
-  const fileName = isCodeEvent ? (getTagValue(['name', 'filename']) || null) : null;
+  const fileName = isCodeEvent ? (getTagValue(['name', 'f', 'title']) || null) : null;
   
   const parentLabel = (() => {
     if (!topmostParentId) return null;
