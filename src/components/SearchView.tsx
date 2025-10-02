@@ -1397,6 +1397,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [expandedParents, setExpandedParents]);
 
   const renderNoteHeader = useCallback((event: NDKEvent): React.ReactNode => {
+    // Hide header for profile events (kind:0)
+    if (event.kind === 0) return null;
     return (
       <NoteHeader
         event={event}
