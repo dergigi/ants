@@ -82,8 +82,8 @@ export function Header() {
           aria-label="Go to home page"
         >
           <Image 
-            src="/favicon-32x32.png" 
-            alt="ants" 
+            src="/ants-menu.png" 
+            alt="ants menu" 
             width={20}
             height={20}
             className="w-5 h-5"
@@ -107,8 +107,8 @@ export function Header() {
         aria-label="Go to home page"
       >
         <Image 
-          src="/favicon-32x32.png" 
-          alt="ants" 
+          src="/ants-menu.png" 
+          alt="ants menu" 
           width={20}
           height={20}
           className="w-5 h-5"
