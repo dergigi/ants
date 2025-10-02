@@ -1,6 +1,7 @@
 'use client';
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { useEffect, useState } from 'react';
 import { Highlight, themes, type RenderProps, type Language } from 'prism-react-renderer';
 import CopyButton from '@/components/CopyButton';
 import IconButton from '@/components/IconButton';
@@ -40,14 +41,25 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   const rawLanguage = extractLanguageFromTags(event) || '';
   const language = rawLanguage.trim().toLowerCase();
   const tags = Array.isArray(event.tags) ? event.tags : [];
+  const normalizedLanguage = (language === 'sh' || language === 'shell') ? 'bash' : language;
+  const [langReady, setLangReady] = useState(false);
 
   // Ensure bash is available when requested
-  if (language === 'bash' || language === 'sh' || language === 'shell') {
-    ensureBashLanguage();
-  } else {
-    // Attempt to load the requested language dynamically (best-effort)
-    void ensureLanguage(language);
-  }
+  useEffect(() => {
+    let cancelled = false;
+    setLangReady(false);
+    (async () => {
+      try {
+        if (normalizedLanguage) {
+          if (normalizedLanguage === 'bash') ensureBashLanguage();
+          await ensureLanguage(normalizedLanguage);
+        }
+      } finally {
+        if (!cancelled) setLangReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [normalizedLanguage]);
 
   const getTagValue = (keys: string[]): string | null => {
     for (const tag of tags) {
@@ -111,7 +123,8 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
           {description}
         </div>
       ) : null}
-      <Highlight code={code} language={(language || 'tsx') as Language} theme={themes.nightOwl}>
+      {(normalizedLanguage ? langReady : true) ? (
+      <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={themes.nightOwl}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-sm overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
@@ -127,6 +140,11 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
           </pre>
         )}
       </Highlight>
+      ) : (
+        <pre className="text-sm overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d] text-gray-100 whitespace-pre-wrap break-words">
+          {code}
+        </pre>
+      )}
       {(() => {
         const values = new Set<string>();
         for (const tag of tags) {
