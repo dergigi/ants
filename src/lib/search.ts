@@ -786,7 +786,31 @@ export async function searchEvents(
         original: cleanedQuery, 
         expanded: expandedSeeds 
       });
-      
+
+      // Special-case: if all expanded seeds are profile searches (p:<term>), run profile full-text search per seed
+      const isPSeed = (s: string) => /^p:\S+/i.test(s.replace(/^\s+|\s+$/g, ''));
+      const allPSeeds = expandedSeeds.every(isPSeed);
+      if (allPSeeds) {
+        const pTerms = expandedSeeds
+          .map((s) => s.replace(/^p:/i, '').trim())
+          .filter((t) => t.length > 0);
+        const mergedProfiles: NDKEvent[] = [];
+        const seenPubkeys = new Set<string>();
+        for (const term of pTerms) {
+          try {
+            const profiles = await searchProfilesFullText(term);
+            for (const evt of profiles) {
+              const pk = evt.pubkey || evt.author?.pubkey || '';
+              if (pk && !seenPubkeys.has(pk)) {
+                seenPubkeys.add(pk);
+                mergedProfiles.push(evt);
+              }
+            }
+          } catch {}
+        }
+        return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
+      }
+
       const translatedSeeds = expandedSeeds
         .map((seed) => {
           const existingKind = extractKindFilter(seed);
@@ -915,6 +939,29 @@ export async function searchEvents(
       }, []);
 
     console.debug('[OR CLAUSES]', normalizedParts);
+
+    // If all OR parts are p:<term>, do profile full-text search across parts
+    const isPClause = (s: string) => /^p:\S+/i.test(s);
+    const allPClauses = normalizedParts.length > 0 && normalizedParts.every(isPClause);
+    if (allPClauses) {
+      const pTerms = normalizedParts.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
+      const mergedProfiles: NDKEvent[] = [];
+      const seenPubkeys = new Set<string>();
+      for (const term of pTerms) {
+        try {
+          const profiles = await searchProfilesFullText(term);
+          for (const evt of profiles) {
+            const pk = evt.pubkey || evt.author?.pubkey || '';
+            if (pk && !seenPubkeys.has(pk)) {
+              seenPubkeys.add(pk);
+              mergedProfiles.push(evt);
+            }
+          }
+        } catch {}
+      }
+      return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
+    }
+
     let orResults = await searchByAnyTerms(
       normalizedParts,
       Math.max(limit, 500),
