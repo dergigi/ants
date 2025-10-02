@@ -16,8 +16,7 @@ import { createPortal } from 'react-dom';
 import { nip19 } from 'nostr-tools';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { createProfileExplorerItems } from '@/lib/portals';
-import { calculateAbsoluteMenuPosition, calculateBannerMenuPosition } from '@/lib/utils';
-import { getIsKindTokens } from '@/lib/search/replacements';
+import { calculateBannerMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
@@ -38,9 +37,6 @@ function cleanLightningAddress(lightning: string, npub: string): string {
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
-  const [showPortalMenuBottom, setShowPortalMenuBottom] = useState(false);
-  const [menuPositionBottom, setMenuPositionBottom] = useState({ top: 0, left: 0 });
-  const bottomButtonRef = useRef<HTMLButtonElement>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub, pubkey), [npub, pubkey]);
   const nativeAppHref = useMemo(() => bottomItems.find((item) => item.name === 'Native App')?.href, [bottomItems]);
   const router = useRouter();
@@ -167,15 +163,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             eventKind={0}
             showRaw={showRaw}
             onToggleRaw={onToggleRaw}
-            onToggleMenu={() => {
-              if (bottomButtonRef.current) {
-                const rect = bottomButtonRef.current.getBoundingClientRect();
-                const position = calculateAbsoluteMenuPosition(rect);
-                setMenuPositionBottom(position);
-              }
-              setShowPortalMenuBottom((v) => !v);
-            }}
-            menuButtonRef={bottomButtonRef}
             externalHref={nativeAppHref}
             externalTitle="Open in native app"
             externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
@@ -189,37 +176,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
           />
         </div>
       </div>
-      {showPortalMenuBottom && typeof window !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[9998]"
-            onClick={(e) => { e.preventDefault(); setShowPortalMenuBottom(false); }}
-          />
-          <div
-            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-            style={{ top: menuPositionBottom.top, left: menuPositionBottom.left }}
-            onClick={(e) => { e.stopPropagation(); }}
-          >
-            <ul className="py-1 text-sm text-gray-200">
-              {bottomItems.map((item) => (
-                <li key={item.name}>
-                  <a
-                    href={item.href}
-                    target={item.href.startsWith('http') ? '_blank' : undefined}
-                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                    onClick={(e) => { e.stopPropagation(); setShowPortalMenuBottom(false); }}
-                  >
-                    <span>{item.name}</span>
-                    <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>,
-        document.body
-      )}
     </div>
   );
 }
@@ -240,26 +196,10 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [bannerExpanded, setBannerExpanded] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const [showPortalMenu, setShowPortalMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const [showRaw, setShowRaw] = useState(false);
   const [rawProfileEvent, setRawProfileEvent] = useState<NDKEvent | null>(null);
   const [rawLoading, setRawLoading] = useState<boolean>(false);
 
-  const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const tokens = await getIsKindTokens();
-        if (!cancelled) setQuickSearchItems(tokens);
-      } catch {
-        if (!cancelled) setQuickSearchItems([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
   // When raw view is toggled on, fetch the newest profile metadata for accurate id/sig
   useEffect(() => {
     if (!showRaw) return;
@@ -519,40 +459,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         user={event.author}
         onAuthorClick={onAuthorClick}
       />
-      {showPortalMenu && typeof window !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[9998]"
-            onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
-          />
-          <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
-            style={{ top: menuPosition.top, left: menuPosition.left }}
-            onClick={(e) => { e.stopPropagation(); }}
-          >
-            <ul className="py-1 text-sm text-gray-200">
-              {quickSearchItems.map((token) => (
-                <li key={token}>
-                  <button
-                    type="button"
-                    className="block w-full text-left px-3 py-2 hover:bg-[#3a3a3a]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const params = new URLSearchParams();
-                      params.set('q', `${token} by:${event.author.npub}`);
-                      router.push(`/?${params.toString()}`);
-                      setShowPortalMenu(false);
-                    }}
-                  >
-                    {token}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>,
-        document.body
-      )}
     </div>
   );
 }
