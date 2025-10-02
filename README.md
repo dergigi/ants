@@ -2,7 +2,9 @@
 
 An opinionated search interface for nostr.
 
-ants is the search and discovery interface I always wanted to have. It can do reverse image lookups, has all kinds of search modifiers, and will not shy away from throwing events back at you that it can't even render yet.
+![ants logo](public/ants-readme.png)
+
+ants is the search and discovery interface I always wanted to have. It has all kinds of search modifiers, can do reverse image lookups, and will not shy away from throwing events back at you that it can't even render yet.
 
 The basic philosophy is to *always stay in search* and to embrace false positives, i.e. rather show too much than too little. But we still want to be able to filter out nonsense and spam. It's very much a work-in-progress. It doesn't have many [WoT](https://search.dergigi.com/?q=%28WoT+OR+%22web+of+trust%22%29+by%3Adergigi.com) features yet, for example.
 
@@ -191,3 +193,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+original ant and loupe vectors by [joko sutrisno](https://www.vecteezy.com/vector-art/8688053-ant-symbol-icon) and [noodledoodle](https://www.vecteezy.com/vector-art/183049-lupa-vector-realistic-different-colour)

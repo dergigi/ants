@@ -114,7 +114,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
-  const { onLoginTrigger } = useLoginTrigger();
+  const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
@@ -157,7 +157,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
       const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
-      setTopCommandText(buildCli('--help', lines));
+      setTopCommandText(buildCli('help', lines));
       setTopExamples(commands.map(c => c.label));
     },
     onExamples: () => {
@@ -166,24 +166,47 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('examples'));
     },
     onLogin: async () => {
+      setLoginState('logging-in');
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
       try {
         const user = await login();
         if (user) {
-          try { await user.fetchProfile(); } catch {}
+          // Immediately set current user and logged-in state for instant header update
+          setCurrentUser(user);
+          setLoginState('logged-in');
           setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
           setPlaceholder(nextExample());
+
+          // Fetch profile in the background to avoid blocking header update
+          (async () => {
+            try {
+              await user.fetchProfile();
+              // Clone user to ensure state change triggers re-render with updated profile
+              const cloned = new NDKUser({ pubkey: user.pubkey });
+              cloned.ndk = user.ndk;
+              if (user.profile) {
+                cloned.profile = { ...(user.profile as Record<string, unknown>) } as typeof user.profile;
+              }
+              setCurrentUser(cloned);
+            } catch {}
+          })();
         } else {
+          setCurrentUser(null);
+          setLoginState('logged-out');
           setTopCommandText(buildCli('login', 'Login cancelled'));
         }
       } catch {
+        setCurrentUser(null);
+        setLoginState('logged-out');
         setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
       }
     },
     onLogout: () => {
       try {
         logout();
+        setCurrentUser(null);
+        setLoginState('logged-out');
         setTopCommandText(buildCli('logout', 'Logged out'));
         setPlaceholder(nextExample());
       } catch {
@@ -201,7 +224,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
       }
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
