@@ -5,6 +5,7 @@ import { Highlight, themes, type RenderProps, type Language } from 'prism-react-
 import CopyButton from '@/components/CopyButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
+import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { ensureBashLanguage } from '@/lib/prism';
 
 type Props = {
@@ -57,9 +58,20 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   // filename currently shown in header only
   const description = getTagValue(['description', 'desc']) || null;
   const license = getTagValue(['license']) || null;
+  const repoUrl = getTagValue(['repo']) || null;
 
   const headerRight = (
     <div className="flex items-center gap-2">
+      {repoUrl ? (
+        <button
+          type="button"
+          className="w-6 h-6 rounded-md border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a] flex items-center justify-center"
+          title="Search repository"
+          onClick={() => onSearch && onSearch(repoUrl)}
+        >
+          <FontAwesomeIcon icon={faGithub} className="text-xs" />
+        </button>
+      ) : null}
       {license ? (
         <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide gap-1" title={`License: ${license}`}>
           <FontAwesomeIcon icon={faScaleBalanced} className="text-xs" />
