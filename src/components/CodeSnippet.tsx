@@ -63,6 +63,12 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
 
   const headerRight = (
     <div className="flex items-center gap-2">
+      {license ? (
+        <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide gap-1" title={`License: ${license}`}>
+          <FontAwesomeIcon icon={faScaleBalanced} className="text-xs" />
+          {license}
+        </span>
+      ) : null}
       {repoUrl ? (
         <IconButton
           title="Search repository"
@@ -82,12 +88,6 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
             );
           })()}
         </IconButton>
-      ) : null}
-      {license ? (
-        <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide gap-1" title={`License: ${license}`}>
-          <FontAwesomeIcon icon={faScaleBalanced} className="text-xs" />
-          {license}
-        </span>
       ) : null}
       <CopyButton text={code} title="Copy code" />
     </div>
