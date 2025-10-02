@@ -139,6 +139,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   // Generate translation when query changes
   useEffect(() => {
     let cancelled = false;
+    let debounceId: ReturnType<typeof setTimeout> | null = null;
     
     if (!query.trim()) {
       setTranslation('');
@@ -179,10 +180,16 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       }
     };
 
-    generateAndSetTranslation();
+    debounceId = setTimeout(() => {
+      generateAndSetTranslation();
+    }, 700); // Debounce translation to reduce typing lag
 
     return () => { 
       cancelled = true;
+      if (debounceId) {
+        clearTimeout(debounceId);
+        debounceId = null;
+      }
       if (resolutionTimeoutRef.current) {
         clearTimeout(resolutionTimeoutRef.current);
         resolutionTimeoutRef.current = null;
