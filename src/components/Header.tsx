@@ -106,13 +106,25 @@ export function Header() {
         className="hover:opacity-90 transition-opacity"
         aria-label="Go to home page"
       >
-        <Image 
-          src="/ants-menu.png" 
-          alt="ants menu" 
-          width={20}
-          height={20}
-          className="w-5 h-5"
-        />
+        {user ? (
+          <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d] flex items-center justify-center">
+            <Image 
+              src="/ants-menu.png" 
+              alt="ants menu" 
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
+          </div>
+        ) : (
+          <Image 
+            src="/ants-menu.png" 
+            alt="ants menu" 
+            width={20}
+            height={20}
+            className="w-5 h-5"
+          />
+        )}
       </button>
       
       {/* Login button on the right */}
