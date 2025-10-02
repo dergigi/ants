@@ -232,9 +232,7 @@ type ProfileCardProps = {
 };
 
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
-  const noteCardClasses = showBanner
-    ? 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-none border-t-0 rounded-b-lg overflow-hidden'
-    : 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
+  const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string; lud06?: string; website?: string; url?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
