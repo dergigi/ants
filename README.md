@@ -1,5 +1,7 @@
 # ants - advanced nostr text search
 
+![favicon](public/android-chrome-192x192.png)
+
 An opinionated search interface for nostr.
 
 ants is the search and discovery interface I always wanted to have. It can do reverse image lookups, has all kinds of search modifiers, and will not shy away from throwing events back at you that it can't even render yet.
@@ -191,3 +193,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+original ant and loupe vectors by [joko sutrisno](https://www.vecteezy.com/vector-art/8688053-ant-symbol-icon) and [noodledoodle](https://www.vecteezy.com/vector-art/183049-lupa-vector-realistic-different-colour)
