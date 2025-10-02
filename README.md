@@ -28,6 +28,7 @@ ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexampl
 - [`by:dergigi has:image`](https://search.dergigi.com/?q=by%3Adergigi%20has%3Aimage) - find images from dergigi
 - [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - find posts with YouTube links
 - [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - highlights
+- [`is:code by:hzrd149`](https://search.dergigi.com/?q=is%3Acode%20by%3Ahzrd149) - code snippets by hzrd149
 - [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
 - [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
 - [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
@@ -142,7 +143,7 @@ All search substitutions (site aliases, media type expansions, etc.) are loaded 
 
 Here are some excerpts:
 
-```
+```text
 ...
 site:gh => (github.com OR www.github.com OR gist.github.com)
 site:quora => (quora.com OR www.quora.com OR m.quora.com)
@@ -183,12 +184,12 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 ## References
 
-- NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
-- NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
-- NIP-19: https://github.com/nostr-protocol/nips/blob/master/19.md
-- NIP-50: https://github.com/nostr-protocol/nips/blob/master/50.md
-- NIP-51: https://github.com/nostr-protocol/nips/blob/master/51.md
-- Vertex: https://vertexlab.io/docs/algos/
+- NIP-05: [https://github.com/nostr-protocol/nips/blob/master/05.md](https://github.com/nostr-protocol/nips/blob/master/05.md)
+- NIP-11: [https://github.com/nostr-protocol/nips/blob/master/11.md](https://github.com/nostr-protocol/nips/blob/master/11.md)
+- NIP-19: [https://github.com/nostr-protocol/nips/blob/master/19.md](https://github.com/nostr-protocol/nips/blob/master/19.md)
+- NIP-50: [https://github.com/nostr-protocol/nips/blob/master/50.md](https://github.com/nostr-protocol/nips/blob/master/50.md)
+- NIP-51: [https://github.com/nostr-protocol/nips/blob/master/51.md](https://github.com/nostr-protocol/nips/blob/master/51.md)
+- Vertex: [https://vertexlab.io/docs/algos/](https://vertexlab.io/docs/algos/)
 
 ## License
 
