@@ -1,27 +1,20 @@
 'use client';
 
-// Ensure Prism has specific languages available at runtime
-import Prism from 'prism-react-renderer/prism';
+// Minimal bridge to expose Prism instance if needed by extensions.
+// Avoid importing non-existent subpaths; rely on prism-react-renderer's bundled Prism.
+import { Prism as PrismLib } from 'prism-react-renderer';
 
-let bashInitialized = false;
+let initialized = false;
 
 export function ensureBashLanguage(): void {
-  if (bashInitialized) return;
+  if (initialized) return;
   try {
-    // Attach Prism to global for component registration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).Prism = Prism as unknown as object;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const prismAny = Prism as unknown as { languages: Record<string, any> };
-    if (!prismAny.languages?.bash) {
-      // Lazy load bash syntax component (non-blocking)
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      import('prismjs/components/prism-bash').catch(() => {});
-    }
+    (globalThis as any).Prism = PrismLib as unknown as object;
   } catch {
     // ignore
   }
-  bashInitialized = true;
+  initialized = true;
 }
 
 
