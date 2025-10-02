@@ -6,4 +6,5 @@ declare module 'prismjs/components/prism-javascript';
 declare module 'prismjs/components/prism-json';
 declare module 'prismjs/components/prism-css';
 declare module 'prismjs/components/prism-markdown';
+declare module 'prismjs/components/prism-java';
 
