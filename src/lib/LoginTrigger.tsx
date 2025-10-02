@@ -7,6 +7,8 @@ interface LoginTriggerContextType {
   onLoginTrigger: (callback: () => void) => () => void;
   loginState: 'idle' | 'logging-in' | 'logged-in' | 'logged-out';
   setLoginState: (state: 'idle' | 'logging-in' | 'logged-in' | 'logged-out') => void;
+  currentUser: any;
+  setCurrentUser: (user: any) => void;
 }
 
 const LoginTriggerContext = createContext<LoginTriggerContextType | null>(null);
@@ -14,6 +16,7 @@ const LoginTriggerContext = createContext<LoginTriggerContextType | null>(null);
 export function LoginTriggerProvider({ children }: { children: ReactNode }) {
   const [listeners, setListeners] = useState<(() => void)[]>([]);
   const [loginState, setLoginState] = useState<'idle' | 'logging-in' | 'logged-in' | 'logged-out'>('idle');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const triggerLogin = useCallback(() => {
     listeners.forEach(listener => listener());
@@ -28,7 +31,7 @@ export function LoginTriggerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <LoginTriggerContext.Provider value={{ triggerLogin, onLoginTrigger, loginState, setLoginState }}>
+    <LoginTriggerContext.Provider value={{ triggerLogin, onLoginTrigger, loginState, setLoginState, currentUser, setCurrentUser }}>
       {children}
     </LoginTriggerContext.Provider>
   );

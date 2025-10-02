@@ -14,7 +14,7 @@ export function Header() {
   // Force re-render of avatar when profile data updates on the same NDKUser instance
   const [avatarVersion, setAvatarVersion] = useState(0);
   const router = useRouter();
-  const { triggerLogin, loginState, setLoginState } = useLoginTrigger();
+  const { triggerLogin, loginState, setLoginState, currentUser } = useLoginTrigger();
 
   // Restore login state on mount
   useEffect(() => {
@@ -78,28 +78,16 @@ export function Header() {
     if (loginState === 'logging-in') {
       // Show loading state immediately when login starts
       setIsLoading(true);
-    } else if (loginState === 'logged-in' || loginState === 'logged-out') {
-      // Refresh user state when login completes
-      const refreshUser = async () => {
-        try {
-          const u = await restoreLogin();
-          setUser(u);
-          if (u) {
-            try { 
-              await u.fetchProfile();
-              setAvatarVersion(v => v + 1);
-              setUser(u);
-            } catch {}
-          }
-        } catch {
-          setUser(null);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      refreshUser();
+    } else if (loginState === 'logged-in' && currentUser) {
+      // When login succeeds, use the current user immediately
+      setUser(currentUser);
+      setIsLoading(false);
+    } else if (loginState === 'logged-out') {
+      // When logged out, clear user immediately
+      setUser(null);
+      setIsLoading(false);
     }
-  }, [loginState]);
+  }, [loginState, currentUser]);
 
   const handleAvatarClick = () => {
     if (user) {

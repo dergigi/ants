@@ -114,7 +114,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
-  const { onLoginTrigger, setLoginState } = useLoginTrigger();
+  const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
@@ -173,14 +173,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const user = await login();
         if (user) {
           try { await user.fetchProfile(); } catch {}
+          setCurrentUser(user);
           setLoginState('logged-in');
           setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
           setPlaceholder(nextExample());
         } else {
+          setCurrentUser(null);
           setLoginState('logged-out');
           setTopCommandText(buildCli('login', 'Login cancelled'));
         }
       } catch {
+        setCurrentUser(null);
         setLoginState('logged-out');
         setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
       }
@@ -188,6 +191,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     onLogout: () => {
       try {
         logout();
+        setCurrentUser(null);
         setLoginState('logged-out');
         setTopCommandText(buildCli('logout', 'Logged out'));
         setPlaceholder(nextExample());
