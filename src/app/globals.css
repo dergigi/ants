@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "prism-themes/themes/prism-darcula.css"; /* Current theme: darcula */
+@import "prism-themes/themes/prism-material-dark.css"; /* Current theme: materialDark */
 
 :root {
   --background: #ffffff;
