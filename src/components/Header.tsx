@@ -75,7 +75,7 @@ export function Header() {
         window.removeEventListener('nip07:auth-change', onAuthChange as EventListener);
       }
     };
-  }, [setLoginState]);
+  }, [setLoginState, setCurrentUser]);
 
   // Respond to login state changes immediately
   useEffect(() => {

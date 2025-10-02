@@ -6,6 +6,7 @@ import {
   faVideo, 
   faFile, 
   faCode, 
+  faLaptopCode,
   faBug, 
   faExclamationTriangle, 
   faBolt, 
@@ -32,6 +33,7 @@ export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
   22: faVideo,         // Video notes (alternative)
   1063: faFile,        // File attachments
   1617: faCode,        // Code snippets
+  1337: faLaptopCode,  // Code snippets (1337)
   1621: faBug,         // Bug reports
   1984: faExclamationTriangle, // Reports
   9735: faBolt,        // Lightning payments
@@ -68,6 +70,7 @@ export function getEventKindIconName(kind: number): string | null {
     22: 'fa-video',
     1063: 'fa-file',
     1617: 'fa-code',
+    1337: 'fa-laptop-code',
     1621: 'fa-bug',
     1984: 'fa-exclamation-triangle',
     9735: 'fa-bolt',
@@ -98,6 +101,7 @@ export function getEventKindDisplayName(kind: number): string {
     22: 'Video',
     1063: 'File',
     1617: 'Code',
+    1337: 'Code',
     1621: 'Issue',
     1984: 'Report',
     9735: 'Zap',

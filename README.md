@@ -17,6 +17,7 @@ But it's useful to at least one person already, which is [me](https://search.der
 ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by making good use of [NIP-05](https://search.dergigi.com/?q=nip%3A05), [NIP-50](https://search.dergigi.com/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
+- [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - posts tagged `#SovEng`
 - [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
 - [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
 - [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - "GN" by npub
@@ -28,6 +29,7 @@ ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexampl
 - [`by:dergigi has:image`](https://search.dergigi.com/?q=by%3Adergigi%20has%3Aimage) - find images from dergigi
 - [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - find posts with YouTube links
 - [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - highlights
+- [`is:code by:hzrd149`](https://search.dergigi.com/?q=is%3Acode%20by%3Ahzrd149) - code snippets by hzrd149
 - [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
 - [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
 - [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
@@ -142,7 +144,7 @@ All search substitutions (site aliases, media type expansions, etc.) are loaded 
 
 Here are some excerpts:
 
-```
+```text
 ...
 site:gh => (github.com OR www.github.com OR gist.github.com)
 site:quora => (quora.com OR www.quora.com OR m.quora.com)
@@ -183,12 +185,12 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 ## References
 
-- NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
-- NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
-- NIP-19: https://github.com/nostr-protocol/nips/blob/master/19.md
-- NIP-50: https://github.com/nostr-protocol/nips/blob/master/50.md
-- NIP-51: https://github.com/nostr-protocol/nips/blob/master/51.md
-- Vertex: https://vertexlab.io/docs/algos/
+- NIP-05: [https://github.com/nostr-protocol/nips/blob/master/05.md](https://github.com/nostr-protocol/nips/blob/master/05.md)
+- NIP-11: [https://github.com/nostr-protocol/nips/blob/master/11.md](https://github.com/nostr-protocol/nips/blob/master/11.md)
+- NIP-19: [https://github.com/nostr-protocol/nips/blob/master/19.md](https://github.com/nostr-protocol/nips/blob/master/19.md)
+- NIP-50: [https://github.com/nostr-protocol/nips/blob/master/50.md](https://github.com/nostr-protocol/nips/blob/master/50.md)
+- NIP-51: [https://github.com/nostr-protocol/nips/blob/master/51.md](https://github.com/nostr-protocol/nips/blob/master/51.md)
+- Vertex: [https://vertexlab.io/docs/algos/](https://vertexlab.io/docs/algos/)
 
 ## License
 

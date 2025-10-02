@@ -1033,6 +1033,31 @@ export async function searchEvents(
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
   const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
   const nonHashtagRemainder = cleanedQuery.replace(/#[A-Za-z0-9_]+/g, '').trim();
+  // Handle license:VALUE-only queries via direct tag subscription (#license)
+  {
+    const licenseMatches = Array.from(cleanedQuery.match(/\blicense:([^\s)]+)\b/gi) || []).map((m) => m.split(':')[1]?.trim()).filter(Boolean) as string[];
+    const nonLicenseRemainder = cleanedQuery.replace(/\blicense:[^\s)]+/gi, '').trim();
+    if (licenseMatches.length > 0 && nonLicenseRemainder.length === 0) {
+      const licenses = Array.from(new Set(licenseMatches.map((v) => v.toUpperCase())));
+      const licenseFilter: NDKFilter & { '#license'?: string[] } = { kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) } as NDKFilter & { '#license'?: string[] };
+      const tagRelaySet = await getBroadRelaySet();
+      const results = isStreaming
+        ? await subscribeAndStream(licenseFilter, {
+            timeoutMs: streamingOptions?.timeoutMs || 30000,
+            maxResults: streamingOptions?.maxResults || 1000,
+            onResults: streamingOptions?.onResults,
+            relaySet: tagRelaySet,
+            abortSignal
+          })
+        : await subscribeAndCollect(licenseFilter, 10000, tagRelaySet, abortSignal);
+      let final = results;
+      if (extensionFilters.length > 0) {
+        final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));
+      }
+      return sortEventsNewestFirst(final).slice(0, limit);
+    }
+  }
+
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
     const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };

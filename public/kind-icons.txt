@@ -6,6 +6,7 @@ kind:20 = fa-image
 kind:21 = fa-video
 kind:22 = fa-video
 kind:1063 = fa-file
+kind:1337 = fa-laptop-code
 kind:1617 = fa-code-pull-request
 kind:1621 = fa-bug
 kind:1984 = fa-exclamation-triangle
