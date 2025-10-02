@@ -124,7 +124,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
         </div>
       ) : null}
       {(normalizedLanguage ? langReady : true) ? (
-      <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={themes.nightOwl}>
+      <Highlight code={code} language={(normalizedLanguage || 'tsx') as Language} theme={themes.vsDark}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-sm overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}

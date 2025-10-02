@@ -48,7 +48,7 @@ export default function RawEventJson({ event, loading = false, className, title,
         </div>
         ) : null;
       })()}
-      <Highlight code={json} language="json" theme={themes.nightOwl}>
+      <Highlight code={json} language="json" theme={themes.vsDark}>
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d] ${className || ''}`.trim()}
