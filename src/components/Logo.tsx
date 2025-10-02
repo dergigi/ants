@@ -18,7 +18,7 @@ export default function Logo({ size = 'small', className = '', onClick }: LogoPr
       aria-label="Go to home page"
     >
       <Image 
-        src="/ants-menu.png" 
+        src="/ants-menu.svg" 
         alt="ants menu" 
         width={dimensions.width}
         height={dimensions.height}
