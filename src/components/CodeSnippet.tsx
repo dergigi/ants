@@ -3,6 +3,7 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Highlight, themes, type RenderProps, type Language } from 'prism-react-renderer';
 import CopyButton from '@/components/CopyButton';
+import IconButton from '@/components/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScaleBalanced, faCodeBranch } from '@fortawesome/free-solid-svg-icons';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
@@ -63,11 +64,10 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   const headerRight = (
     <div className="flex items-center gap-2">
       {repoUrl ? (
-        <button
-          type="button"
-          className="w-6 h-6 rounded-md border border-[#3d3d3d] text-gray-300 hover:bg-[#2a2a2a] flex items-center justify-center"
+        <IconButton
           title="Search repository"
           onClick={() => onSearch && onSearch(repoUrl)}
+          className="border border-[#3d3d3d]"
         >
           {(() => {
             let isGithub = false;
@@ -81,7 +81,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
               <FontAwesomeIcon icon={isGithub ? faGithub : faCodeBranch} className="text-xs" />
             );
           })()}
-        </button>
+        </IconButton>
       ) : null}
       {license ? (
         <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-[#262626] border border-[#3d3d3d] text-[10px] uppercase tracking-wide gap-1" title={`License: ${license}`}>
