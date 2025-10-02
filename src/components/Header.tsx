@@ -11,6 +11,8 @@ import { useLoginTrigger } from '@/lib/LoginTrigger';
 export function Header() {
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Force re-render of avatar when profile data updates on the same NDKUser instance
+  const [avatarVersion, setAvatarVersion] = useState(0);
   const router = useRouter();
   const { triggerLogin } = useLoginTrigger();
 
@@ -25,7 +27,8 @@ export function Header() {
           // Fetch the user's profile in the background to update display details
           try { 
             await restoredUser.fetchProfile();
-            // Re-set user to trigger re-render with profile data
+            // Bump avatar version to force a re-render even if the user object identity is unchanged
+            setAvatarVersion(v => v + 1);
             setUser(restoredUser);
           } catch {}
         }
@@ -47,7 +50,8 @@ export function Header() {
           if (u) {
             try { 
               await u.fetchProfile();
-              // Re-set user to apply profile updates (e.g., avatar)
+              // Bump avatar version to force a re-render even if the user object identity is unchanged
+              setAvatarVersion(v => v + 1);
               setUser(u);
             } catch {}
           }
@@ -116,6 +120,7 @@ export function Header() {
         {user ? (
           <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#3d3d3d] border border-[#3d3d3d]">
             <ProfileImage 
+              key={`${user.pubkey}-${avatarVersion}`}
               user={user} 
               size={40}
               className="w-full h-full object-cover"
