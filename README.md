@@ -167,6 +167,16 @@ nip:EE => nips/blob/master/EE.md
 
 It's probably very stupid to do it this way, but I [went with the flow](https://www.thewayofcode.com/) and stuck with it. In the future each line might be a nostr event.
 
+## TODOs, aka what I wanna do next
+
+- [ ] don't do so many requests, lots of requests can be merged into one
+- [ ] be nice to relays (respect limits etc)
+- [ ] add support for code snippets (`kind:1337`)
+- [ ] add proper support for blog posts (`kind:30023`)
+- [ ] add "blossom search" to images (via sha256 hash)
+- [ ] move some things around in the UI
+- [ ] make stuff less stupid and buggy overall
+
 ## References
 
 - NIP-05: https://github.com/nostr-protocol/nips/blob/master/05.md
