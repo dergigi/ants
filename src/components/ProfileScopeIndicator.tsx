@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import ProfileImage from '@/components/ProfileImage';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
+import { getProfileScopeIdentifiers } from '@/lib/search/profileScope';
+import { toImplicitUrlQuery } from '@/lib/search/queryTransforms';
 
 interface ProfileScopeIndicatorProps {
   user: NDKUser | null;
@@ -88,9 +90,13 @@ export default function ProfileScopeIndicator({
                     className="block w-full text-left px-3 py-2 hover:bg-[#3a3a3a]"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const params = new URLSearchParams();
-                      params.set('q', `${token} by:${user.npub}`);
-                      router.push(`/?${params.toString()}`);
+                const identifiers = getProfileScopeIdentifiers(user, user.npub);
+                if (!identifiers) return;
+                const explicit = `${token} by:${identifiers.profileIdentifier}`.trim();
+                const implicit = toImplicitUrlQuery(explicit, identifiers.npub);
+                const params = new URLSearchParams();
+                params.set('q', implicit);
+                router.push(`/p/${identifiers.npub}?${params.toString()}`);
                       setShowPortalMenu(false);
                     }}
                   >
