@@ -17,6 +17,7 @@ But it's useful to at least one person already, which is [me](https://search.der
 ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by making good use of [NIP-05](https://search.dergigi.com/?q=nip%3A05), [NIP-50](https://search.dergigi.com/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
 
 - [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
+- [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - posts tagged `#SovEng`
 - [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
 - [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
 - [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - "GN" by npub
