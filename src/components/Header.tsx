@@ -19,11 +19,16 @@ export function Header() {
     const initLogin = async () => {
       try {
         const restoredUser = await restoreLogin();
-        if (restoredUser) {
-          // Fetch the user's profile to get the display name
-          await restoredUser.fetchProfile();
-        }
+        // Set user immediately for fast UI feedback
         setUser(restoredUser);
+        if (restoredUser) {
+          // Fetch the user's profile in the background to update display details
+          try { 
+            await restoredUser.fetchProfile();
+            // Re-set user to trigger re-render with profile data
+            setUser(restoredUser);
+          } catch {}
+        }
       } catch (error) {
         console.error('Failed to restore login:', error);
       } finally {
@@ -37,10 +42,15 @@ export function Header() {
       (async () => {
         try {
           const u = await restoreLogin();
-          if (u) {
-            try { await u.fetchProfile(); } catch {}
-          }
+          // Set user immediately so header reflects login state right away
           setUser(u);
+          if (u) {
+            try { 
+              await u.fetchProfile();
+              // Re-set user to apply profile updates (e.g., avatar)
+              setUser(u);
+            } catch {}
+          }
         } catch {
           setUser(null);
         }
