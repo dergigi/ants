@@ -16,3 +16,4 @@ kind:30023 = fa-newspaper
 kind:10000 = fa-eye-slash
 kind:10001 = fa-thumbtack
 kind:10003 = fa-bookmark
+kind:1337 = fa-laptop-code
