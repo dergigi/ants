@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import SearchView from '@/components/SearchView';
 import ProfileCard from '@/components/ProfileCard';
+import NoteHeader from '@/components/NoteHeader';
 import { resolveNip05ToPubkey } from '@/lib/vertex';
 import { useNostrUser } from '@/hooks/useNostrUser';
 import { LoadingLayout } from '@/components/LoadingLayout';
@@ -69,6 +70,17 @@ export default function PidPage() {
       <main className="min-h-screen bg-[#1a1a1a] text-gray-100">
         <PlaceholderStyles />
         <div className="max-w-2xl mx-auto px-4 pt-6 space-y-4">
+          {profileEvent ? (
+            <NoteHeader
+              event={profileEvent}
+              onSearch={(query) => {
+                if (!query) return;
+                const params = new URLSearchParams(searchParams?.toString() || '');
+                params.set('q', query);
+                router.replace(`?${params.toString()}`);
+              }}
+            />
+          ) : null}
           {profileEvent ? (
             <ProfileCard event={profileEvent} onAuthorClick={() => {}} showBanner={true} />
           ) : (
