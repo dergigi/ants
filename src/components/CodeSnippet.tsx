@@ -5,6 +5,7 @@ import { Highlight, themes, type RenderProps, type Language } from 'prism-react-
 import CopyButton from '@/components/CopyButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
+import { ensureBashLanguage } from '@/lib/prism';
 
 type Props = {
   event: NDKEvent;
@@ -37,6 +38,11 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
   const rawLanguage = extractLanguageFromTags(event) || '';
   const language = rawLanguage.trim().toLowerCase();
   const tags = Array.isArray(event.tags) ? event.tags : [];
+
+  // Ensure bash is available when requested
+  if (language === 'bash' || language === 'sh' || language === 'shell') {
+    ensureBashLanguage();
+  }
 
   const getTagValue = (keys: string[]): string | null => {
     for (const tag of tags) {
