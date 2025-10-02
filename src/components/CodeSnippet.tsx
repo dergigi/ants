@@ -128,7 +128,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
         {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={`${cls} text-sm overflow-x-auto rounded-md p-3 bg-black border border-[#3d3d3d]`.trim()}
-            style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+            style={{ ...style, whiteSpace: 'pre' }}
           >
             {tokens.map((line, i) => (
               <div key={`l-${i}`} {...getLineProps({ line })}>
