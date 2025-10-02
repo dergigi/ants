@@ -59,6 +59,7 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 // Removed direct Highlight usage; RawEventJson handles JSON highlighting
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
+import CodeSnippet from '@/components/CodeSnippet';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
@@ -1731,6 +1732,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
+                    />
+                  ) : event.kind === 1337 ? (
+                    <EventCard
+                      {...getCommonEventCardProps(event, noteCardClasses)}
+                      renderContent={() => (
+                        <CodeSnippet event={event} />
+                      )}
                     />
                   ) : event.kind === 21 || event.kind === 22 ? (
                     <EventCard
