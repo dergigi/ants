@@ -974,7 +974,6 @@ export async function searchEvents(
     
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
-      console.log('[OR CLAUSES] No results from NIP-50 relays, trying broader relay set');
       const broadRelaySet = await getBroadRelaySet();
       orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
     }
