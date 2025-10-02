@@ -118,8 +118,12 @@ export const searchExamples = [
   'is:repost by:dor',
   'is:muted by:carvalho',
   'is:highlight',
-  'is:code by:hzrd149',
   'is:code by:🌶️',
+  'is:code by:hzrd149',
+  'is:highlight by:dergigi',
+  'is:highlight "proof of work"',
+  'is:highlight (bitcoin OR nostr)',
+  'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
@@ -127,12 +131,6 @@ export const searchExamples = [
   // Multiple hashtags
   '#penisbutter or #⭕️',
   '#pugstr or #horsestr or #goatstr',
-
-  // Highlight examples
-  'is:highlight by:dergigi',
-  'is:highlight "proof of work"',
-  'is:highlight (bitcoin OR nostr)',
-  'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
 
   // Slash Commands
   '/help',
