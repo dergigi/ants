@@ -28,7 +28,7 @@ export default function RelayCollapsed({
           connectedCount > 0 ? 'text-blue-400' : 'text-gray-500'
         }`} 
       />
-      <span className="text-xs">
+      <span className={`text-xs ${connectedCount > 0 ? 'text-blue-400' : ''}`}>
         {connectedCount}/{totalCount}
       </span>
       <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />

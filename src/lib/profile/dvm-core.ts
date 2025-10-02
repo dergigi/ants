@@ -17,11 +17,10 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
       return (cached || []).slice(0, Math.max(0, limit));
     }
 
-    console.log('Starting DVM query for username:', username);
+    // debug removed
     const storedPubkey = getStoredPubkey();
     
     const requestId = Math.random().toString(36).substring(7);
-    console.log('Generated requestId:', requestId);
     
     // Create a plain event first
     const plainEvent: Event = {
@@ -38,7 +37,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
       id: '',
       sig: ''
     };
-    console.log('Created DVM request event:', plainEvent);
+    // created DVM request event
 
     // If personalized, include explicit source tag
     if (storedPubkey) {
@@ -51,7 +50,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
       plainEvent.id = getEventHash(plainEvent);
       const signature = await ndk.signer.sign(plainEvent);
       plainEvent.sig = signature;
-      console.log('Signed DVM request event (user):', { id: plainEvent.id, sig: signature.slice(0, 10) + '...' });
+      // signed DVM request event (user)
     } else {
       // Either not logged in or signer is not available: sign with an ephemeral key
       const sk = generateSecretKey();
@@ -60,16 +59,15 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
       const finalized = finalizeEvent(plainEvent, sk);
       plainEvent.id = finalized.id;
       plainEvent.sig = finalized.sig;
-      console.log('Signed DVM request event (ephemeral):', { id: plainEvent.id, pubkey: plainEvent.pubkey });
+      // signed DVM request event (ephemeral)
     }
 
     // Create an NDKEvent from the signed event
     const requestEvent = new NDKEvent(ndk, plainEvent);
-    console.log('Created NDK event for DVM request');
 
     return new Promise<NDKEvent[]>((resolve, reject) => {
       try {
-        console.log('Setting up DVM subscription...');
+        // setting up DVM subscription
         const dvmFilter = { 
           kinds: [6315, 7000] as NDKKind[],
           ...requestEvent.filter()
@@ -96,18 +94,11 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
 
           // Add event handlers after creating subscription
           sub.on('event', async (event: NDKEvent) => {
-            console.log('Received DVM event:', {
-              kind: event.kind,
-              id: event.id,
-              tags: event.tags,
-              content: event.content.slice(0, 100) + '...'
-            });
 
             if (event.kind === 7000) {
               const statusTag = event.tags.find((tag: string[]) => tag[0] === 'status');
               const status = statusTag?.[2] ?? statusTag?.[1];
               if (status) {
-                console.log('DVM status update:', status);
                 if (!settled && /credit/i.test(status)) {
                   settled = true;
                   try { sub.stop(); } catch {}
@@ -119,14 +110,11 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
             }
 
             // Stop subscription immediately when we get a valid response
-            console.log('Got valid DVM response, stopping subscription');
             sub.stop();
 
             try {
-              console.log('Parsing DVM response content...');
               const records = JSON.parse(event.content);
               if (!Array.isArray(records) || records.length === 0) {
-                console.log('No valid records found in DVM response');
                 reject(new Error('No results found'));
                 return;
               }
@@ -171,22 +159,16 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
           });
 
           sub.on('eose', async () => {
-            console.log('Got EOSE, publishing DVM request...');
             // Publish the request to the DVM relay set after we get EOSE
             const rs = await relaySets.vertexDvm();
             const published = await safePublish(requestEvent, rs);
             if (published) {
-              console.log('Published DVM request:', { 
-                id: requestEvent.id,
-                kind: requestEvent.kind,
-                tags: requestEvent.tags 
-              });
+              // published DVM request
             } else {
               console.warn('DVM request publish failed, but continuing with subscription...');
             }
           });
           
-          console.log('Starting DVM subscription...');
           sub.start();
         })();
       } catch (e) {

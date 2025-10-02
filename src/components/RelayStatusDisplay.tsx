@@ -25,7 +25,6 @@ export default function RelayStatusDisplay({
   onToggleRelay,
   onSearch
 }: RelayStatusDisplayProps) {
-  console.log(`[RELAY DISPLAY] activeRelays prop:`, Array.from(activeRelays));
   
   const eventsReceivedRelays = useMemo(() => relayData.eventsReceivedRelays || [], [relayData.eventsReceivedRelays]);
   const otherRelays = useMemo(() => relayData.otherRelays || [], [relayData.otherRelays]);
@@ -35,9 +34,6 @@ export default function RelayStatusDisplay({
   
   // Get relay info directly from the real cache
   const getRelayInfoFromCache = (relayUrl: string) => {
-    // Debug: show what's in the cache
-    console.log(`[RELAY DISPLAY] Cache contents:`, Array.from(relayInfoCache.keys()));
-    console.log(`[RELAY DISPLAY] Looking for: ${relayUrl}`);
     
     // Try exact match first
     let cached = relayInfoCache.get(relayUrl);
@@ -47,14 +43,10 @@ export default function RelayStatusDisplay({
       const withSlash = relayUrl.endsWith('/') ? relayUrl : relayUrl + '/';
       const withoutSlash = relayUrl.endsWith('/') ? relayUrl.slice(0, -1) : relayUrl;
       
-      console.log(`[RELAY DISPLAY] Trying with slash: ${withSlash}`);
-      console.log(`[RELAY DISPLAY] Trying without slash: ${withoutSlash}`);
-      
       cached = relayInfoCache.get(withSlash) || relayInfoCache.get(withoutSlash);
     }
     
     if (cached) {
-      console.log(`[RELAY DISPLAY] Using cached info for ${relayUrl}:`, cached);
       return {
         supportedNips: cached.supportedNips || [],
         name: cached.name || relayUrl.replace('wss://', '').replace('ws://', ''),
@@ -66,7 +58,6 @@ export default function RelayStatusDisplay({
     }
     
     // If no cached info, return basic info
-    console.log(`[RELAY DISPLAY] No cached info for ${relayUrl}`);
     return {
       supportedNips: [],
       name: relayUrl.replace('wss://', '').replace('ws://', ''),
@@ -94,9 +85,7 @@ export default function RelayStatusDisplay({
             const providedResults = activeRelays.has(normalizedUrl);
             const isToggled = toggledRelays.has(normalizedUrl);
             
-            console.log(`[RELAY DISPLAY] Checking relay: ${normalizedUrl}`);
-            console.log(`[RELAY DISPLAY] activeRelays has this relay: ${providedResults}`);
-            console.log(`[RELAY DISPLAY] activeRelays contents:`, Array.from(activeRelays));
+            // debug removed
             
             // Determine icon state: toggled (blue), untoggled (gray), or inactive
             const iconClasses = isToggled

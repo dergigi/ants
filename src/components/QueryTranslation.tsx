@@ -21,6 +21,34 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const resolutionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredSearchRef = useRef<boolean>(false);
 
+  // Determine an adaptive debounce based on device/network characteristics
+  const getAdaptiveDebounceMs = useCallback((): number => {
+    let delay = 700;
+    try {
+      const nav: unknown = typeof navigator !== 'undefined' ? navigator : undefined;
+      // Hardware concurrency: fewer cores → longer debounce
+      const cores = (nav as { hardwareConcurrency?: number })?.hardwareConcurrency;
+      if (typeof cores === 'number') {
+        if (cores <= 2) delay += 300; // very low-end
+        else if (cores <= 4) delay += 150; // low-end
+      }
+      // Device memory: low memory → longer debounce
+      const deviceMemory = (nav as { deviceMemory?: number })?.deviceMemory as number | undefined;
+      if (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 4) {
+        delay += 100;
+      }
+      // Network quality: slower connections → slightly longer debounce
+      const anyNav = nav as { connection?: { effectiveType?: string } } | undefined;
+      const effectiveType = anyNav?.connection?.effectiveType || '';
+      if (typeof effectiveType === 'string') {
+        if (effectiveType.includes('2g') || effectiveType === 'slow-2g') delay += 200;
+        else if (effectiveType.includes('3g')) delay += 100;
+      }
+    } catch {}
+    // Clamp to 700–1000ms range
+    return Math.min(1000, Math.max(700, delay));
+  }, []);
+
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
       // 1) Apply simple replacements first
@@ -139,6 +167,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   // Generate translation when query changes
   useEffect(() => {
     let cancelled = false;
+    let debounceId: ReturnType<typeof setTimeout> | null = null;
     
     if (!query.trim()) {
       setTranslation('');
@@ -179,16 +208,22 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       }
     };
 
-    generateAndSetTranslation();
+    debounceId = setTimeout(() => {
+      generateAndSetTranslation();
+    }, getAdaptiveDebounceMs()); // Adaptive debounce to reduce typing lag on slower devices
 
     return () => { 
       cancelled = true;
+      if (debounceId) {
+        clearTimeout(debounceId);
+        debounceId = null;
+      }
       if (resolutionTimeoutRef.current) {
         clearTimeout(resolutionTimeoutRef.current);
         resolutionTimeoutRef.current = null;
       }
     };
-  }, [query, generateTranslation, onAuthorResolved]);
+  }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
 
   if (!translation) return null;
 

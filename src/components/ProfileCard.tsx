@@ -232,7 +232,7 @@ type ProfileCardProps = {
 };
 
 export default function ProfileCard({ event, onAuthorClick, onHashtagClick, showBanner = false }: ProfileCardProps) {
-  const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-none border-t-0 rounded-b-lg overflow-hidden';
+  const noteCardClasses = 'relative bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg overflow-hidden';
   type ProfileLike = { banner?: string; cover?: string; header?: string; lud16?: string; lud06?: string; website?: string; url?: string } | undefined;
   const profile = (event.author?.profile as ProfileLike);
   const bannerUrl = profile?.banner || profile?.cover || profile?.header;
@@ -384,7 +384,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         </div>
       )}
       {showBanner && !bannerUrl && (
-        <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d]" style={{ height: 32 }}>
+        <div className="relative w-full border-b border-[#3d3d3d] bg-[#2d2d2d] rounded-t-lg" style={{ height: 32 }}>
           <div className="absolute top-1 left-1 z-50 flex gap-1">
             <TitleBarButton
               icon={faArrowLeft}

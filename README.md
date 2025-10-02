@@ -175,7 +175,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 - [ ] don't do so many requests, lots of requests can be merged into one
 - [ ] be nice to relays (respect limits etc)
-- [ ] add support for code snippets (`kind:1337`)
+- [x] add support for code snippets (`kind:1337`)
 - [ ] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
 - [ ] add a `/kinds` command that shows all substitutions

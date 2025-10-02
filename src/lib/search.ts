@@ -457,11 +457,9 @@ async function searchByAnyTerms(
         return fallback || relaySet;
       };
 
-      console.debug('[SEARCH TERM]', { term: normalizedTerm, filter });
       try {
         const targetRelaySet = await selectRelaySet();
         const res = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
-        console.debug(`[SEARCH TERM RESULT] Found ${res.length} events for term "${normalizedTerm}"`);
         for (const evt of res) {
           if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
         }
@@ -665,9 +663,11 @@ export function expandParenthesizedOr(query: string): string[] {
     if (!leftLast || !rightFirst) return false;
     if (/\s/.test(leftLast)) return false; // already spaced
     if (/\s/.test(rightFirst)) return false; // already spaced
-    // If right begins with a dot or alphanumeric, and left ends with alphanumeric or ':' (e.g., by:npub)
+    // Do not insert a space after a scope token like 'p:' or 'by:'
+    if (leftLast === ':') return false;
+    // If right begins with a dot or alphanumeric, and left ends with alphanumeric,
     // insert a space to avoid unintended token merge like "GM.png".
-    const leftWordy = /[A-Za-z0-9:_]$/.test(leftLast);
+    const leftWordy = /[A-Za-z0-9_]$/.test(leftLast);
     const rightWordyOrDot = /^[A-Za-z0-9.]/.test(rightFirst);
     return leftWordy && rightWordyOrDot;
   };
@@ -782,10 +782,6 @@ export async function searchEvents(
   {
     const expandedSeeds = expandParenthesizedOr(cleanedQuery).map((seed) => seed.trim()).filter(Boolean);
     if (expandedSeeds.length > 1) {
-      console.debug('[PARENTHESIZED OR EXPANSION]', { 
-        original: cleanedQuery, 
-        expanded: expandedSeeds 
-      });
 
       // Special-case: if all expanded seeds are profile searches (p:<term>), run profile full-text search per seed
       const isPSeed = (s: string) => /^p:\S+/i.test(s.replace(/^\s+|\s+$/g, ''));
@@ -821,9 +817,6 @@ export async function searchEvents(
           return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
         });
 
-      console.debug('[PARENTHESIZED OR SEEDS]', { 
-        translated: translatedSeeds 
-      });
 
       const seedResults = await searchByAnyTerms(
         translatedSeeds,
@@ -835,9 +828,6 @@ export async function searchEvents(
         () => getBroadRelaySet()
       );
       
-      console.debug('[PARENTHESIZED OR RESULTS]', { 
-        totalResults: seedResults.length 
-      });
       
       return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
@@ -938,7 +928,6 @@ export async function searchEvents(
         return acc;
       }, []);
 
-    console.debug('[OR CLAUSES]', normalizedParts);
 
     // If all OR parts are p:<term>, do profile full-text search across parts
     const isPClause = (s: string) => /^p:\S+/i.test(s);
@@ -974,7 +963,6 @@ export async function searchEvents(
     
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
-      console.log('[OR CLAUSES] No results from NIP-50 relays, trying broader relay set');
       const broadRelaySet = await getBroadRelaySet();
       orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
     }
