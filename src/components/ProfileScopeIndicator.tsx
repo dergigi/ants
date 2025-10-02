@@ -14,9 +14,8 @@ interface ProfileScopeIndicatorProps {
 
 export default function ProfileScopeIndicator({ 
   user, 
-  isEnabled, 
-  onToggle 
-}: ProfileScopeIndicatorProps) {
+  isEnabled 
+}: Omit<ProfileScopeIndicatorProps, 'onToggle'>) {
   const router = useRouter();
   const [quickSearchItems, setQuickSearchItems] = useState<string[]>([]);
   const [showPortalMenu, setShowPortalMenu] = useState(false);

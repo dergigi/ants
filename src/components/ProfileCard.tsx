@@ -5,18 +5,16 @@ import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub, trimImageUrl } from '@/lib/utils';
-import { createPortal } from 'react-dom';
 import { nip19 } from 'nostr-tools';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { createProfileExplorerItems } from '@/lib/portals';
-import { calculateBannerMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
@@ -280,20 +278,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 title="Go back"
                 onClick={() => router.back()}
               />
-              <TitleBarButton
-                ref={buttonRef}
-                title="Open portals menu"
-                onClick={() => {
-                  if (buttonRef.current) {
-                    const rect = buttonRef.current.getBoundingClientRect();
-                    const position = calculateAbsoluteMenuPosition(rect);
-                    setMenuPosition(position);
-                  }
-                  setShowPortalMenu((v) => !v);
-                }}
-              >
-                ⋯
-              </TitleBarButton>
             </div>
             <div className="absolute top-1 right-1 flex gap-1">
               <TitleBarButton
@@ -331,20 +315,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
               title="Go back"
               onClick={() => router.back()}
             />
-            <TitleBarButton
-              ref={buttonRef}
-              title="Open portals menu"
-              onClick={() => {
-                if (buttonRef.current) {
-                  const rect = buttonRef.current.getBoundingClientRect();
-                  const position = calculateBannerMenuPosition(rect);
-                  setMenuPosition(position);
-                }
-                setShowPortalMenu((v) => !v);
-              }}
-            >
-              ⋯
-            </TitleBarButton>
           </div>
           <div className="absolute top-1 right-1 flex gap-1">
             <TitleBarButton
