@@ -15,16 +15,31 @@ function exposePrism(): void {
   prismExposed = true;
 }
 
+const importers: Record<string, () => Promise<unknown>> = {
+  bash: () => import('prismjs/components/prism-bash'),
+  shell: () => import('prismjs/components/prism-bash'),
+  sh: () => import('prismjs/components/prism-bash'),
+  typescript: () => import('prismjs/components/prism-typescript'),
+  ts: () => import('prismjs/components/prism-typescript'),
+  javascript: () => import('prismjs/components/prism-javascript'),
+  js: () => import('prismjs/components/prism-javascript'),
+  json: () => import('prismjs/components/prism-json'),
+  css: () => import('prismjs/components/prism-css'),
+  markdown: () => import('prismjs/components/prism-markdown'),
+  md: () => import('prismjs/components/prism-markdown'),
+};
+
 export async function ensureLanguage(language: string): Promise<void> {
   const lang = (language || '').toLowerCase();
-  if (!lang) return;
-  if (loadedLanguages.has(lang)) return;
+  if (!lang || loadedLanguages.has(lang)) return;
   exposePrism();
+  const importer = importers[lang];
+  if (!importer) return;
   try {
-    await import(/* webpackIgnore: true */ `prismjs/components/prism-${lang}`);
+    await importer();
     loadedLanguages.add(lang);
   } catch {
-    // Best-effort; ignore if not available
+    // ignore
   }
 }
 
