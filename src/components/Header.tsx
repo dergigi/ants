@@ -96,6 +96,7 @@ export function Header() {
       <Logo 
         size={user ? 'large' : 'small'}
         onClick={handleFaviconClick}
+        isActive={!!user}
       />
       
       {/* Login button on the right */}
