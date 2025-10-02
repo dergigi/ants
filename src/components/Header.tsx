@@ -69,8 +69,8 @@ export function Header() {
   };
 
   const handleFaviconClick = () => {
-    // Navigate to search for dergigi/ants by:dergigi
-    router.push('/?q=dergigi%2Fants%20by%3Adergigi');
+    // Navigate to search for /help
+    router.push('/?q=%2Fhelp');
   };
 
   if (isLoading) {
