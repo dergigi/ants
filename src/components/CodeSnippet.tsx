@@ -69,7 +69,7 @@ export default function CodeSnippet({ event, className }: Props) {
         {headerRight}
       </div>
       {description ? (
-        <div className="text-[11px] text-gray-400 mb-2 truncate" title={description}>
+        <div className="text-gray-100 whitespace-pre-wrap break-words mb-2" title={description}>
           {description}
         </div>
       ) : null}
