@@ -36,26 +36,11 @@ function extractLanguageFromTags(event: NDKEvent): string | null {
   return null;
 }
 
-function extractSnippetNameFromTags(event: NDKEvent): string | null {
-  // Try different tag forms for snippet name: ['name', 'filename'], ['f', 'file.ts'], ['title', 'My Script']
-  const tags = Array.isArray(event.tags) ? event.tags : [];
-  for (const tag of tags) {
-    if (!Array.isArray(tag) || tag.length < 2) continue;
-    const [k, v] = tag;
-    const key = typeof k === 'string' ? k.toLowerCase() : '';
-    const val = typeof v === 'string' ? v.trim() : '';
-    if (key === 'name' || key === 'f' || key === 'title') {
-      if (val) return val;
-    }
-  }
-  return null;
-}
 
 export default function CodeSnippet({ event, className, onSearch }: Props) {
   const code = event?.content || '';
   const rawLanguage = extractLanguageFromTags(event) || '';
   const language = rawLanguage.trim().toLowerCase();
-  const snippetName = extractSnippetNameFromTags(event);
   const tags = Array.isArray(event.tags) ? event.tags : [];
   const normalizedLanguage = (language === 'sh' || language === 'shell') ? 'bash' : language;
   const [langReady, setLangReady] = useState(false);
