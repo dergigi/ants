@@ -27,6 +27,7 @@ const importers: Record<string, () => Promise<unknown>> = {
   css: () => import('prismjs/components/prism-css'),
   markdown: () => import('prismjs/components/prism-markdown'),
   md: () => import('prismjs/components/prism-markdown'),
+  dart: () => import('prismjs/components/prism-javascript'), // Use JS highlighting as fallback for Dart
 };
 
 export async function ensureLanguage(language: string): Promise<void> {
