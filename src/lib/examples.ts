@@ -118,6 +118,7 @@ export const searchExamples = [
   'is:repost by:dor',
   'is:muted by:carvalho',
   'is:highlight',
+  'is:code by:hzrd149',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
