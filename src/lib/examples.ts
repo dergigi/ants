@@ -119,6 +119,7 @@ export const searchExamples = [
   'is:muted by:carvalho',
   'is:highlight',
   'is:code by:hzrd149',
+  'is:code by:🌶️',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
