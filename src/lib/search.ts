@@ -665,9 +665,11 @@ export function expandParenthesizedOr(query: string): string[] {
     if (!leftLast || !rightFirst) return false;
     if (/\s/.test(leftLast)) return false; // already spaced
     if (/\s/.test(rightFirst)) return false; // already spaced
-    // If right begins with a dot or alphanumeric, and left ends with alphanumeric or ':' (e.g., by:npub)
+    // Do not insert a space after a scope token like 'p:' or 'by:'
+    if (leftLast === ':') return false;
+    // If right begins with a dot or alphanumeric, and left ends with alphanumeric,
     // insert a space to avoid unintended token merge like "GM.png".
-    const leftWordy = /[A-Za-z0-9:_]$/.test(leftLast);
+    const leftWordy = /[A-Za-z0-9_]$/.test(leftLast);
     const rightWordyOrDot = /^[A-Za-z0-9.]/.test(rightFirst);
     return leftWordy && rightWordyOrDot;
   };
