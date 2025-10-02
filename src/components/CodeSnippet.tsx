@@ -129,7 +129,7 @@ export default function CodeSnippet({ event, className, onSearch }: Props) {
       <div className="text-xs text-gray-300 mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-semibold truncate">
-            {language ? `code:${language}` : 'code'}
+            {language || 'code'}
           </span>
         </div>
         {headerRight}
