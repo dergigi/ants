@@ -64,6 +64,7 @@ import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
+import { darculaTheme } from '@/lib/darcula-theme';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
@@ -1633,7 +1634,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       ))}
                     </pre>
                   ) : (
-                    <Highlight code={topCommandText} language="bash" theme={themes.vsDark}>
+                    <Highlight code={topCommandText} language="bash" theme={darculaTheme}>
                       {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
                         <pre
                           className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
