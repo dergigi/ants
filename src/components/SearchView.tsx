@@ -1737,7 +1737,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={() => (
-                        <CodeSnippet event={event} />
+                        <CodeSnippet event={event} onSearch={handleContentSearch} />
                       )}
                     />
                   ) : event.kind === 21 || event.kind === 22 ? (

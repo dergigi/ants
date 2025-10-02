@@ -7,6 +7,7 @@ import CopyButton from '@/components/CopyButton';
 type Props = {
   event: NDKEvent;
   className?: string;
+  onSearch?: (query: string) => void;
 };
 
 function extractLanguageFromTags(event: NDKEvent): string | null {
@@ -29,7 +30,7 @@ function extractLanguageFromTags(event: NDKEvent): string | null {
   return null;
 }
 
-export default function CodeSnippet({ event, className }: Props) {
+export default function CodeSnippet({ event, className, onSearch }: Props) {
   const code = event?.content || '';
   const rawLanguage = extractLanguageFromTags(event) || '';
   const language = rawLanguage.trim().toLowerCase();
@@ -89,6 +90,34 @@ export default function CodeSnippet({ event, className }: Props) {
           </pre>
         )}
       </Highlight>
+      {(() => {
+        const values = new Set<string>();
+        for (const tag of tags) {
+          if (!Array.isArray(tag) || tag.length < 2) continue;
+          const [k, v] = tag;
+          const key = typeof k === 'string' ? k.toLowerCase() : '';
+          const val = typeof v === 'string' ? v.trim() : '';
+          if ((key === 't' || key === '#') && val) {
+            values.add(val);
+          }
+        }
+        if (values.size === 0) return null;
+        return (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Array.from(values).map((t) => (
+              <button
+                key={`hash-${t}`}
+                type="button"
+                className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer text-xs"
+                onClick={() => onSearch && onSearch(`is:code #${t}`)}
+                title={`Search: is:code #${t}`}
+              >
+                #{t}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
