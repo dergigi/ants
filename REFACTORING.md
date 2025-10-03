@@ -21,6 +21,23 @@ This document outlines a comprehensive refactoring strategy for the ants codebas
   - `EventCard.tsx`: 407 lines
   - `ClientFilters.tsx`: 333 lines
 
+### Overall Progress
+
+- [ ] **Phase 1: Foundation** (Days 1-2)
+- [ ] **Phase 2: Core Logic** (Days 3-5)
+- [ ] **Phase 3: Components** (Days 6-8)
+- [ ] **Phase 4: Polish** (Days 9-10)
+
+**Priorities Status:**
+
+- [ ] Priority 1: Break Down SearchView (1,786 lines → multiple files)
+- [ ] Priority 2: Modularize search.ts (1,334 lines → multiple files)
+- [ ] Priority 3: Simplify Relay Management (relays.ts + ndk.ts)
+- [ ] Priority 4: DRY Up Component Rendering (ProfileCard + EventCard)
+- [ ] Priority 5: Consolidate Utilities
+- [ ] Priority 6: Extract Reusable Hooks
+- [ ] Priority 7: Component Composition
+
 ---
 
 ## Priority 1: Break Down SearchView (1,786 lines → multiple files)
@@ -31,6 +48,18 @@ This document outlines a comprehensive refactoring strategy for the ants codebas
 - Multiple responsibilities: search, filters, relay management, content rendering
 - Hard to test individual pieces
 - Git diffs are painful
+
+### Checklist
+
+- [ ] 1.1 Extract State Management (`useSearchState.ts`)
+- [ ] 1.2 Extract Search Logic Hook (`useSearchLogic.ts`)
+- [ ] 1.3 Extract Content Rendering (`ContentRenderer.tsx`, `EventRenderers.tsx`, `ParentChainRenderer.tsx`)
+- [ ] 1.4 Extract Slash Commands (`useSlashCommands.ts`)
+- [ ] 1.5 Extract Filter Logic (`useFilters.ts`)
+- [ ] 1.6 Refactor Main SearchView Component (use composition)
+- [ ] Test SearchView functionality
+- [ ] Update imports across codebase
+- [ ] Commit changes
 
 ### Refactoring Strategy
 
@@ -218,6 +247,21 @@ export default function SearchView(props) {
 - Complex conditional branching
 - Difficult to add new search types
 
+### Checklist
+
+- [ ] 2.1 Extract Query Processing (`queryProcessing.ts`)
+- [ ] 2.2 Extract Subscription Logic (`subscriptions.ts`)
+- [ ] 2.3 Extract Search Strategies:
+  - [ ] Author search (`authorSearch.ts`)
+  - [ ] Hashtag search (`hashtagSearch.ts`)
+  - [ ] Identifier search (`identifierSearch.ts`)
+  - [ ] Profile search (`profileSearch.ts`)
+  - [ ] Verify URL search already exists (`urlSearch.ts`)
+- [ ] 2.4 Create Main Search Orchestrator (`index.ts`)
+- [ ] Test all search types
+- [ ] Update imports across codebase
+- [ ] Commit changes
+
 ### Refactoring Strategy
 
 #### 2.1 Extract Query Processing
@@ -378,6 +422,23 @@ export async function searchEvents(
 - Relay info caching mixed with connection logic
 - User relay discovery spread across multiple functions
 - Hard to understand relay selection logic
+
+### Checklist
+
+- [ ] 3.1 Split `relays.ts` into module:
+  - [ ] Create `config.ts` (relay URLs)
+  - [ ] Create `discovery.ts` (user relay discovery)
+  - [ ] Create `info.ts` (NIP-11 detection)
+  - [ ] Create `sets.ts` (relay set creation)
+  - [ ] Create `index.ts` (barrel export)
+- [ ] 3.2 Split `ndk.ts` into module:
+  - [ ] Create `cache.ts` (cache initialization)
+  - [ ] Create `connection.ts` (connection management)
+  - [ ] Create `subscribe.ts` (safe wrappers)
+  - [ ] Create `index.ts` (NDK instance + exports)
+- [ ] Test relay connections
+- [ ] Update all imports
+- [ ] Commit changes
 
 ### Refactoring Strategy
 
@@ -562,6 +623,24 @@ export * from './subscribe';
 - Similar patterns for lightning addresses, websites, NIP-05
 - Repeated portal menu logic
 - Copy-paste UI patterns
+
+### Checklist
+
+- [ ] 4.1 Extract Shared UI Components:
+  - [ ] Create `LinkButton.tsx` (reusable link button)
+  - [ ] Create `PortalMenu.tsx` (portal menu logic)
+  - [ ] Create `MetadataRow.tsx` (lightning, website, NIP-05)
+  - [ ] Create `CardFooter.tsx` (common footer structure)
+- [ ] 4.2 Simplify ProfileCard (down to ~250 lines):
+  - [ ] Extract `ProfileHeader.tsx`
+  - [ ] Extract `ProfileBanner.tsx`
+  - [ ] Extract `ProfileContent.tsx`
+  - [ ] Refactor main component to use shared components
+- [ ] 4.3 Simplify EventCard (down to ~200 lines):
+  - [ ] Refactor to use shared components
+- [ ] Test all UI components
+- [ ] Visual regression testing
+- [ ] Commit changes
 
 ### Refactoring Strategy
 
@@ -759,6 +838,23 @@ export default function EventCard({
 - Some too large (should be split)
 - Inconsistent organization
 
+### Checklist
+
+- [ ] 5.1 Consolidate URL Utilities:
+  - [ ] Merge `urlUtils.ts` and `utils/urlUtils.ts` into `utils/urls.ts`
+  - [ ] Update all imports
+- [ ] 5.2 Split Large Utils File:
+  - [ ] Create `utils/formatting.ts` (formatting helpers)
+  - [ ] Create `utils/validators.ts` (validation helpers)
+  - [ ] Keep domain-specific logic in place
+- [ ] 5.3 Consolidate Profile Utils:
+  - [ ] Review all 15 files in `profile/*`
+  - [ ] Merge small related files
+  - [ ] Target: ~8-10 files instead of 15
+- [ ] Test all utilities
+- [ ] Update imports
+- [ ] Commit changes
+
 ### Refactoring Strategy
 
 #### 5.1 Consolidate URL Utilities
@@ -832,6 +928,16 @@ export function isValidNpub(npub: string): boolean { }
 - Logic duplicated across components
 - Hard to reuse stateful logic
 - Testing requires mounting full components
+
+### Checklist
+
+- [ ] Create `useProfileData.ts` (profile fetching/caching)
+- [ ] Create `useRelayStatus.ts` (relay connection monitoring)
+- [ ] Create `useContentFiltering.ts` (content filter logic)
+- [ ] Create `useDebounce.ts` (debounce utilities)
+- [ ] Test all hooks
+- [ ] Update components to use new hooks
+- [ ] Commit changes
 
 ### Refactoring Strategy
 
@@ -910,6 +1016,22 @@ For any component > 200 lines:
 2. Extract to separate components
 3. Use composition
 
+### Checklist
+
+- [ ] Review all components > 200 lines
+- [ ] Split `ClientFilters.tsx` (333 lines):
+  - [ ] Extract `FilterModeToggle.tsx`
+  - [ ] Extract `EmojiFilter.tsx`
+  - [ ] Extract `HashtagFilter.tsx`
+  - [ ] Extract `MentionFilter.tsx`
+  - [ ] Extract `BooleanFilters.tsx`
+  - [ ] Extract `FuzzySearch.tsx`
+  - [ ] Refactor main component (composition)
+- [ ] Review `QueryTranslation.tsx` (272 lines) - consider splitting if needed
+- [ ] Review `Nip05Display.tsx` (272 lines) - consider splitting if needed
+- [ ] Test all split components
+- [ ] Commit changes
+
 **Example:** `ClientFilters.tsx` (333 lines)
 
 **Split into:**
@@ -928,92 +1050,174 @@ For any component > 200 lines:
 ### Phase 1: Foundation (Days 1-2)
 
 **Tasks:**
-1. Create new directory structures
-2. Set up barrel exports (index.ts files)
-3. Extract and consolidate utilities
-4. Create shared component stubs
-5. Run build to ensure no breaks
+
+- [ ] Create new directory structures:
+  - [ ] `src/lib/relays/`
+  - [ ] `src/lib/ndk/`
+  - [ ] `src/lib/search/`
+  - [ ] `src/components/shared/`
+  - [ ] `src/components/SearchView/`
+  - [ ] `src/hooks/`
+- [ ] Set up barrel exports (index.ts files)
+- [ ] Extract and consolidate utilities:
+  - [ ] Consolidate URL utilities
+  - [ ] Split large utils file
+  - [ ] Review profile utilities
+- [ ] Create shared component stubs
+- [ ] Run build to ensure no breaks
+- [ ] Commit: "refactor(foundation): create directory structure and consolidate utilities"
 
 **Deliverables:**
-- `src/lib/relays/` directory structure
-- `src/lib/ndk/` directory structure
-- `src/lib/search/` directory structure
-- `src/components/shared/` directory
-- Consolidated utility files
+- ✅ `src/lib/relays/` directory structure
+- ✅ `src/lib/ndk/` directory structure
+- ✅ `src/lib/search/` directory structure
+- ✅ `src/components/shared/` directory
+- ✅ Consolidated utility files
 
 ### Phase 2: Core Logic (Days 3-5)
 
 **Tasks:**
-1. Refactor search.ts into modules
-   - Extract query processing
-   - Extract subscription logic
-   - Extract search strategies
-   - Create orchestrator
-2. Split relay management
-   - Config, discovery, info, sets
-3. Split NDK utilities
-   - Cache, connection, subscribe
-4. Update all imports
-5. Test search functionality
+
+- [ ] Refactor search.ts into modules:
+  - [ ] Extract query processing utilities
+  - [ ] Extract subscription logic
+  - [ ] Extract author search strategy
+  - [ ] Extract hashtag search strategy
+  - [ ] Extract identifier search strategy
+  - [ ] Extract profile search strategy
+  - [ ] Create main search orchestrator
+  - [ ] Commit: "refactor(search): modularize search into focused strategies"
+- [ ] Split relay management:
+  - [ ] Create relay config
+  - [ ] Create relay discovery
+  - [ ] Create relay info
+  - [ ] Create relay sets
+  - [ ] Commit: "refactor(relays): split into focused modules"
+- [ ] Split NDK utilities:
+  - [ ] Create cache module
+  - [ ] Create connection module
+  - [ ] Create subscribe module
+  - [ ] Commit: "refactor(ndk): split into focused modules"
+- [ ] Update all imports across codebase
+- [ ] Test search functionality thoroughly
+- [ ] Ensure build passes
 
 **Deliverables:**
-- Modular search system
-- Modular relay system
-- Modular NDK system
-- All tests passing
+- ✅ Modular search system
+- ✅ Modular relay system
+- ✅ Modular NDK system
+- ✅ All tests passing
 
 ### Phase 3: Components (Days 6-8)
 
 **Tasks:**
-1. Break down SearchView
-   - Extract hooks
-   - Extract renderers
-   - Create composition
-2. Extract shared component pieces
-   - LinkButton, PortalMenu, etc.
-3. Simplify ProfileCard and EventCard
-4. Update component imports
-5. Visual regression testing
+
+- [ ] Break down SearchView:
+  - [ ] Extract state management hook
+  - [ ] Extract search logic hook
+  - [ ] Extract content renderer
+  - [ ] Extract event renderers
+  - [ ] Extract parent chain renderer
+  - [ ] Extract slash commands hook
+  - [ ] Extract filter logic hook
+  - [ ] Refactor main component (composition)
+  - [ ] Commit: "refactor(SearchView): split into focused modules"
+- [ ] Extract shared component pieces:
+  - [ ] Create LinkButton component
+  - [ ] Create PortalMenu component
+  - [ ] Create MetadataRow component
+  - [ ] Create CardFooter component
+  - [ ] Commit: "refactor(shared): create reusable UI components"
+- [ ] Simplify ProfileCard and EventCard:
+  - [ ] Extract ProfileCard sub-components
+  - [ ] Refactor ProfileCard to use shared components
+  - [ ] Refactor EventCard to use shared components
+  - [ ] Commit: "refactor(cards): simplify using shared components"
+- [ ] Extract reusable hooks
+- [ ] Split remaining large components (ClientFilters, etc.)
+- [ ] Update all component imports
+- [ ] Visual regression testing
+- [ ] Ensure UI works correctly
 
 **Deliverables:**
-- Modular SearchView
-- Shared UI components
-- Simplified ProfileCard
-- Simplified EventCard
-- UI working correctly
+- ✅ Modular SearchView
+- ✅ Shared UI components
+- ✅ Simplified ProfileCard
+- ✅ Simplified EventCard
+- ✅ UI working correctly
 
 ### Phase 4: Polish (Days 9-10)
 
 **Tasks:**
-1. Review all files for 210-line compliance
-2. Fix any remaining violations
-3. Clean up unused code
-4. Update documentation
-5. Final testing pass
-6. Create migration guide
+
+- [ ] Review all files for 210-line compliance:
+  - [ ] Run line count check: `find src -name "*.ts" -o -name "*.tsx" | xargs wc -l | sort -rn | head -20`
+  - [ ] Identify remaining violations
+  - [ ] Fix any files still > 210 lines
+- [ ] Clean up unused code:
+  - [ ] Remove dead code
+  - [ ] Remove unused imports
+  - [ ] Remove commented-out code
+- [ ] Update documentation:
+  - [ ] Update README.md with new structure
+  - [ ] Add JSDoc comments to public APIs
+  - [ ] Create migration guide for contributors
+- [ ] Final testing pass:
+  - [ ] Manual testing of all features
+  - [ ] Check for console errors
+  - [ ] Verify no regressions
+- [ ] Performance check:
+  - [ ] Verify bundle size hasn't increased
+  - [ ] Check build time
+- [ ] Create migration guide
+- [ ] Commit: "docs: update documentation for refactored structure"
 
 **Deliverables:**
-- All files < 210 lines
-- Updated documentation
-- Migration guide
-- Clean codebase
+- ✅ All files < 210 lines
+- ✅ Updated documentation
+- ✅ Migration guide
+- ✅ Clean codebase
 
 ---
 
 ## Success Metrics
 
 ### Quantitative
-- ✅ **No files > 210 lines**
-- ✅ **Reduced duplication** (measure with tools)
-- ✅ **Increased test coverage** (easier to test smaller units)
-- ✅ **Faster build times** (better tree-shaking)
+- [ ] **No files > 210 lines**
+  - [ ] SearchView.tsx: 1,786 lines → multiple files < 210 lines
+  - [ ] search.ts: 1,334 lines → multiple files < 210 lines
+  - [ ] relays.ts: 584 lines → multiple files < 210 lines
+  - [ ] ndk.ts: 541 lines → multiple files < 210 lines
+  - [ ] ProfileCard.tsx: 436 lines → ~250 lines
+  - [ ] EventCard.tsx: 407 lines → ~200 lines
+  - [ ] ClientFilters.tsx: 333 lines → ~80 lines (composition)
+- [ ] **Reduced duplication** (measure with tools)
+  - [ ] Run duplication analysis before refactoring
+  - [ ] Run duplication analysis after refactoring
+  - [ ] Target: 30%+ reduction in duplicated code
+- [ ] **Increased test coverage** (easier to test smaller units)
+  - [ ] Current test coverage baseline
+  - [ ] Add tests for extracted utilities
+  - [ ] Add tests for extracted hooks
+  - [ ] Target: 20%+ increase in coverage
+- [ ] **Faster build times** (better tree-shaking)
+  - [ ] Measure build time before refactoring
+  - [ ] Measure build time after refactoring
 
 ### Qualitative
-- ✅ **Easier to navigate** (find code quickly)
-- ✅ **Easier to understand** (clear file purposes)
-- ✅ **Easier to modify** (changes localized)
-- ✅ **Better git diffs** (smaller, focused commits)
-- ✅ **Faster onboarding** (new developers understand structure)
+- [ ] **Easier to navigate** (find code quickly)
+  - [ ] Ask team members to find specific functionality
+  - [ ] Compare time vs. old structure
+- [ ] **Easier to understand** (clear file purposes)
+  - [ ] Code review feedback
+  - [ ] New developer onboarding time
+- [ ] **Easier to modify** (changes localized)
+  - [ ] Track merge conflicts before/after
+  - [ ] Track PR review time
+- [ ] **Better git diffs** (smaller, focused commits)
+  - [ ] Compare PR diff sizes
+- [ ] **Faster onboarding** (new developers understand structure)
+  - [ ] Document onboarding time improvements
 
 ---
 
