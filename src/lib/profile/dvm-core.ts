@@ -14,11 +14,13 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
     const key = (username || '').toLowerCase();
     const cached = getCachedDvm(key);
     if (cached !== undefined) {
+      console.log('[Vertex] Using cached result for:', key);
       return (cached || []).slice(0, Math.max(0, limit));
     }
 
-    // debug removed
+    console.log('[Vertex] Starting DVM query for:', key);
     const storedPubkey = getStoredPubkey();
+    console.log('[Vertex] User logged in:', !!storedPubkey);
     
     const requestId = Math.random().toString(36).substring(7);
     
@@ -42,6 +44,9 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
     // If personalized, include explicit source tag
     if (storedPubkey) {
       plainEvent.tags.push(['param', 'source', storedPubkey]);
+      console.log('[Vertex] Using personalizedPagerank with source:', storedPubkey.substring(0, 16) + '...');
+    } else {
+      console.log('[Vertex] Using globalPagerank');
     }
 
     // Sign the event
@@ -94,6 +99,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
 
           // Add event handlers after creating subscription
           sub.on('event', async (event: NDKEvent) => {
+            console.log('[Vertex] Received event kind:', event.kind);
 
             if (event.kind === 7000) {
               const statusTag = event.tags.find((tag: string[]) => tag[0] === 'status');
@@ -113,7 +119,9 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
             sub.stop();
 
             try {
+              console.log('[Vertex] Parsing DVM response...');
               const records = JSON.parse(event.content);
+              console.log('[Vertex] Got', records.length, 'results');
               if (!Array.isArray(records) || records.length === 0) {
                 reject(new Error('No results found'));
                 return;
@@ -159,13 +167,14 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
           });
 
           sub.on('eose', async () => {
+            console.log('[Vertex] Subscription EOSE received, publishing request...');
             // Publish the request to the DVM relay set after we get EOSE
             const rs = await relaySets.vertexDvm();
             const published = await safePublish(requestEvent, rs);
             if (published) {
-              // published DVM request
+              console.log('[Vertex] DVM request published successfully');
             } else {
-              console.warn('DVM request publish failed, but continuing with subscription...');
+              console.warn('[Vertex] DVM request publish failed, but continuing with subscription...');
             }
           });
           
