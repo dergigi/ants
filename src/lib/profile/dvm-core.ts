@@ -113,10 +113,14 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
               console.log('[Vertex] Status event received:', statusTag);
               if (status) {
                 console.log('[Vertex] Status message:', status);
-                if (!settled && /credit/i.test(status)) {
+                // Check for any error status, not just credit errors
+                const isError = statusTag?.[1] === 'error';
+                if (!settled && (isError || /credit/i.test(status))) {
                   settled = true;
                   try { sub.stop(); } catch {}
                   clearTimeout(timeoutId);
+                  // Cache the error so we don't keep retrying
+                  setCachedDvm(key, null);
                   reject(new Error('VERTEX_NO_CREDITS'));
                   return;
                 }
