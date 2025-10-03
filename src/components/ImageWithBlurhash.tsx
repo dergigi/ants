@@ -54,7 +54,7 @@ export default function ImageWithBlurhash({
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
-      {blurhash && (!imageLoaded || imageError) && (
+      {blurhash && blurhash.length >= 6 && (!imageLoaded || imageError) && (
         <div className="absolute inset-0">
           <Blurhash 
             hash={blurhash} 
