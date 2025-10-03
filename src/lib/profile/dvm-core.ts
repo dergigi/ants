@@ -70,7 +70,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
         // setting up DVM subscription
         const dvmFilter = { 
           kinds: [6315, 7000] as NDKKind[],
-          ...requestEvent.filter()
+          '#e': [requestEvent.id!]
         };
         
         (async () => {
