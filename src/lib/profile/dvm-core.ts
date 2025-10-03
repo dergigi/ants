@@ -104,7 +104,9 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
             if (event.kind === 7000) {
               const statusTag = event.tags.find((tag: string[]) => tag[0] === 'status');
               const status = statusTag?.[2] ?? statusTag?.[1];
+              console.log('[Vertex] Status event received:', statusTag);
               if (status) {
+                console.log('[Vertex] Status message:', status);
                 if (!settled && /credit/i.test(status)) {
                   settled = true;
                   try { sub.stop(); } catch {}
