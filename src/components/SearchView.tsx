@@ -1501,19 +1501,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           key={profileScopeUser?.npub || 'no-user'}
           user={profileScopeUser}
           isEnabled={profileScoped}
-          onToggle={() => {
-            if (!profileScopeIdentifiers) return;
-            suppressSearchRef.current = true;
-            const currentQuery = query.trim();
-            const hasScope = hasProfileScope(currentQuery, profileScopeIdentifiers);
-            const updatedQuery = hasScope
-              ? removeProfileScope(currentQuery, profileScopeIdentifiers)
-              : addProfileScope(currentQuery, profileScopeIdentifiers);
-            setQuery(updatedQuery);
-            setTimeout(() => {
-              suppressSearchRef.current = false;
-            }, 0);
-          }}
         />
         <SearchInput
           ref={searchInputRef}

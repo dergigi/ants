@@ -80,7 +80,7 @@ export default function VideoWithBlurhash({
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
-      {blurhash && (!videoLoaded || videoError) && (
+      {blurhash && blurhash.length >= 6 && (!videoLoaded || videoError) && (
         <div className="absolute inset-0">
           <Blurhash 
             hash={blurhash} 
