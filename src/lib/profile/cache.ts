@@ -171,6 +171,7 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
 export function clearAllProfileCaches(): void {
   clearProfileEventCache();
   clearUsernameCache();
+  DVM_CACHE.clear();
   nip05VerificationCache.clear();
   nip05PersistentCache.clear();
   nip05StringCache.clear();
