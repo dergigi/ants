@@ -78,7 +78,7 @@ export default function ProfileScopeIndicator({
             onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
           />
           <div
-            className="fixed z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
             style={{ top: menuPosition.top, left: menuPosition.left }}
             onClick={(e) => { e.stopPropagation(); }}
           >
