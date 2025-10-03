@@ -71,6 +71,12 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
     const requestEvent = new NDKEvent(ndk, plainEvent);
 
     return new Promise<NDKEvent[]>((resolve, reject) => {
+      const DVM_TIMEOUT = 10000; // 10 seconds
+      const timeoutId = setTimeout(() => {
+        console.warn('[Vertex] DVM query timed out after', DVM_TIMEOUT, 'ms');
+        reject(new Error('DVM query timeout'));
+      }, DVM_TIMEOUT);
+
       try {
         // setting up DVM subscription
         const dvmFilter = { 
@@ -110,6 +116,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
                 if (!settled && /credit/i.test(status)) {
                   settled = true;
                   try { sub.stop(); } catch {}
+                  clearTimeout(timeoutId);
                   reject(new Error('VERTEX_NO_CREDITS'));
                   return;
                 }
@@ -161,9 +168,11 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
 
               // Store in cache (positive)
               setCachedDvm(key, events);
+              clearTimeout(timeoutId);
               resolve(events);
             } catch (e) {
               console.error('Error processing DVM response:', e);
+              clearTimeout(timeoutId);
               reject(e);
             }
           });
@@ -184,6 +193,7 @@ export async function queryVertexDVM(username: string, limit: number = 10): Prom
         })();
       } catch (e) {
         console.error('Error in subscription:', e);
+        clearTimeout(timeoutId);
         reject(e);
       }
     });
