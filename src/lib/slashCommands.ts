@@ -13,7 +13,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { key: 'login', label: '/login', description: 'Connect with NIP-07' },
   { key: 'logout', label: '/logout', description: 'Clear session' },
   { key: 'clear', label: '/clear', description: 'Clear all caches' },
-  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial event' }
+  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial video' }
 ] as const;
 
 export interface SlashCommandHandlers {
