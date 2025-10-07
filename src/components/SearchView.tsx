@@ -1617,7 +1617,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                 <button
                                   type="button"
                                   className="text-left w-full hover:underline"
-                                  onClick={() => handleContentSearch(ex)}
+                                  onClick={() => handleContentSearch(ex.trim().split(/\s+/)[0])}
                                 >
                                   {ex}
                                 </button>
