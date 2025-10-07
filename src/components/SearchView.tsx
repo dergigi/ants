@@ -176,7 +176,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           // Immediately set current user and logged-in state for instant header update
           setCurrentUser(user);
           setLoginState('logged-in');
-          setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+          const userDisplay = user.profile?.nip05 || user.profile?.displayName || user.profile?.name || user.npub;
+          setTopCommandText(buildCli('login', `Logged in as ${userDisplay}`));
           setPlaceholder(nextExample());
 
           // Fetch profile in the background to avoid blocking header update
@@ -190,6 +191,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 cloned.profile = { ...(user.profile as Record<string, unknown>) } as typeof user.profile;
               }
               setCurrentUser(cloned);
+              // Update login message with fetched profile info
+              const updatedDisplay = cloned.profile?.nip05 || cloned.profile?.displayName || cloned.profile?.name || cloned.npub;
+              setTopCommandText(buildCli('login', `Logged in as ${updatedDisplay}`));
             } catch {}
           })();
         } else {
