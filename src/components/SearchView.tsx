@@ -164,7 +164,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
-      setTopCommandText(buildCli('examples'));
+      setTopCommandText(buildCli('--help examples'));
     },
     onLogin: async () => {
       setLoginState('logging-in');
@@ -216,18 +216,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
     },
     onClear: async () => {
-      setTopCommandText(buildCli('clear', 'Clearing all caches...'));
+      setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
       try {
         await executeClearCommand();
-        setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
+        setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
       } catch (error) {
-        setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
+        setTopCommandText(buildCli('clear --cache', `Cache clearing failed: ${error}`));
       }
     },
     onTutorial: () => {
       const tutorialNevent = 'nevent1qqstgekdlmaeu3n6gf3ss7nnlq4f0hfx3nm3nmy0pf84xs7e98wyt2ssw5p34';
-      setTopCommandText(buildCli('tutorial', 'Loading tutorial event...'));
+      setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
       setTopExamples(null);
       handleSearch(tutorialNevent);
     }
