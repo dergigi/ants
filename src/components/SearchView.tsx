@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashCommands';
+import { createSlashCommandRunner, executeClearCommand, SLASH_COMMANDS, type SlashCommand } from '@/lib/slashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -114,6 +114,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
+  const [helpCommands, setHelpCommands] = useState<readonly SlashCommand[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
@@ -159,17 +160,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     onHelp: (commands) => {
       const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(commands.map(c => `${c.label.padEnd(12)} ${c.description}`));
+      setHelpCommands(commands);
+      setTopExamples(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('--help examples'));
+      setHelpCommands(null);
     },
     onLogin: async () => {
       setLoginState('logging-in');
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
+      setHelpCommands(null);
       try {
         const user = await login();
         if (user) {
@@ -218,10 +222,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       setTopExamples(null);
+      setHelpCommands(null);
     },
     onClear: async () => {
       setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
+      setHelpCommands(null);
       try {
         await executeClearCommand();
         setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
@@ -233,6 +239,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const tutorialNevent = 'nevent1qqstgekdlmaeu3n6gf3ss7nnlq4f0hfx3nm3nmy0pf84xs7e98wyt2ssw5p34';
       setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
       setTopExamples(null);
+      setHelpCommands(null);
       setQuery(tutorialNevent);
       updateSearchQuery(searchParams, router, tutorialNevent);
     }
@@ -1608,7 +1615,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         className={`${cls} text-xs overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
                         style={{ ...style, whiteSpace: 'pre' }}
                       >
-                        {topExamples && topExamples.length > 0 ? (
+                        {helpCommands && helpCommands.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {helpCommands.map((cmd, idx) => (
+                              <div key={`${cmd.key}-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(cmd.label)}
+                                >
+                                  {`${cmd.label.padEnd(12)} ${cmd.description}`}
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : topExamples && topExamples.length > 0 ? (
                           <>
                             <div>{topCommandText.split('\n')[0]}</div>
                             <div>&nbsp;</div>
@@ -1617,7 +1640,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                 <button
                                   type="button"
                                   className="text-left w-full hover:underline"
-                                  onClick={() => handleContentSearch(ex.trim().split(/\s+/)[0])}
+                                  onClick={() => handleContentSearch(ex)}
                                 >
                                   {ex}
                                 </button>
