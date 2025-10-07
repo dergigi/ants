@@ -159,7 +159,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     onHelp: (commands) => {
       const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
       setTopCommandText(buildCli('--help', lines));
-      setTopExamples(commands.map(c => c.label));
+      setTopExamples(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
