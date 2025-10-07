@@ -158,7 +158,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
       const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
-      setTopCommandText(buildCli('help', lines));
+      setTopCommandText(buildCli('--help', lines));
       setTopExamples(commands.map(c => c.label));
     },
     onExamples: () => {
@@ -1599,7 +1599,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 renderContent={() => (
                   topExamples && topExamples.length > 0 ? (
                     <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
-                      <div>$ ants examples</div>
+                      <div>$ ants --help</div>
                       <div>&nbsp;</div>
                       {topExamples.map((ex, idx) => (
                         <div key={`${ex}-${idx}`}>
