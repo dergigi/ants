@@ -231,7 +231,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       handleSearch(tutorialNevent);
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, handleSearch]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
