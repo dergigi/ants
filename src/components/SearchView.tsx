@@ -1600,7 +1600,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 renderContent={() => (
                   topExamples && topExamples.length > 0 ? (
                     <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
-                      <div>$ ants --help</div>
+                      <div>{topCommandText.split('\n')[0]}</div>
                       <div>&nbsp;</div>
                       {topExamples.map((ex, idx) => (
                         <div key={`${ex}-${idx}`}>
