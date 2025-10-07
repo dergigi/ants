@@ -1,5 +1,9 @@
 // Search examples that we'll randomly select from and test
 export const searchExamples = [
+
+  // Slash Commands
+  '/help',
+
   // Basic
   'vibe coding',
   'nicolas-cage.gif',
@@ -44,11 +48,6 @@ export const searchExamples = [
   'freedom by:ulbricht',
   'knowledge by:platobot@dergigi.com',
   'is:muted by:fiatjaf',
-
-  // Direct npub
-  'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
-  'proof-of-work by:npub1satsv3728d65nenvkmzthrge0aduj8088dvwkxk70rydm407cl4s87sfhu',
-  'essay by:npub1sfhflz2msx45rfzjyf5tyj0x35pv4qtq3hh4v2jf8nhrtl79cavsl2ymqt',
 
   // Profile lookup / NIP-05
   'p:fiatjaf',
@@ -125,16 +124,18 @@ export const searchExamples = [
   'is:highlight (bitcoin OR nostr)',
   'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
 
-  // Multiple Authors
-  'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
-
   // Multiple hashtags
   '#penisbutter or #⭕️',
   '#pugstr or #horsestr or #goatstr',
 
-  // Slash Commands
-  '/help',
-  '/examples',
+  // Multiple Authors
+  'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
+
+  // Direct npub
+  'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
+  'proof-of-work by:npub1satsv3728d65nenvkmzthrge0aduj8088dvwkxk70rydm407cl4s87sfhu',
+  'essay by:npub1sfhflz2msx45rfzjyf5tyj0x35pv4qtq3hh4v2jf8nhrtl79cavsl2ymqt',
+
 ] as const;
 
 // Examples that require login to work properly

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
-import { createSlashCommandRunner, executeClearCommand } from '@/lib/slashCommands';
+import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -114,6 +114,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
+  const [helpCommands, setHelpCommands] = useState<readonly SlashCommand[] | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
@@ -158,25 +159,29 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
       const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
-      setTopCommandText(buildCli('help', lines));
-      setTopExamples(commands.map(c => c.label));
+      setTopCommandText(buildCli('--help', lines));
+      setHelpCommands(commands);
+      setTopExamples(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
-      setTopCommandText(buildCli('examples'));
+      setTopCommandText(buildCli('--help examples'));
+      setHelpCommands(null);
     },
     onLogin: async () => {
       setLoginState('logging-in');
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
+      setHelpCommands(null);
       try {
         const user = await login();
         if (user) {
           // Immediately set current user and logged-in state for instant header update
           setCurrentUser(user);
           setLoginState('logged-in');
-          setTopCommandText(buildCli('login', `Logged in as ${user.profile?.displayName || user.profile?.name || user.npub}`));
+          const userDisplay = user.profile?.nip05 || user.profile?.displayName || user.profile?.name || user.npub;
+          setTopCommandText(buildCli('login', `Logged in as ${userDisplay}`));
           setPlaceholder(nextExample());
 
           // Fetch profile in the background to avoid blocking header update
@@ -190,6 +195,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 cloned.profile = { ...(user.profile as Record<string, unknown>) } as typeof user.profile;
               }
               setCurrentUser(cloned);
+              // Update login message with fetched profile info
+              const updatedDisplay = cloned.profile?.nip05 || cloned.profile?.displayName || cloned.profile?.name || cloned.npub;
+              setTopCommandText(buildCli('login', `Logged in as ${updatedDisplay}`));
             } catch {}
           })();
         } else {
@@ -214,18 +222,28 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('logout', 'Logout failed'));
       }
       setTopExamples(null);
+      setHelpCommands(null);
     },
     onClear: async () => {
-      setTopCommandText(buildCli('clear', 'Clearing all caches...'));
+      setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
+      setHelpCommands(null);
       try {
         await executeClearCommand();
-        setTopCommandText(buildCli('clear', 'All caches cleared successfully'));
+        setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
       } catch (error) {
-        setTopCommandText(buildCli('clear', `Cache clearing failed: ${error}`));
+        setTopCommandText(buildCli('clear --cache', `Cache clearing failed: ${error}`));
       }
+    },
+    onTutorial: () => {
+      const tutorialNevent = 'nevent1qqstgekdlmaeu3n6gf3ss7nnlq4f0hfx3nm3nmy0pf84xs7e98wyt2ssw5p34';
+      setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
+      setTopExamples(null);
+      setHelpCommands(null);
+      setQuery(tutorialNevent);
+      updateSearchQuery(searchParams, router, tutorialNevent);
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
@@ -1591,40 +1609,58 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 event={new NDKEvent(ndk)}
                 onAuthorClick={goToProfile}
                 renderContent={() => (
-                  topExamples && topExamples.length > 0 ? (
-                    <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
-                      <div>$ ants examples</div>
-                      <div>&nbsp;</div>
-                      {topExamples.map((ex, idx) => (
-                        <div key={`${ex}-${idx}`}>
-                          <button
-                            type="button"
-                            className="text-left w-full hover:underline"
-                            onClick={() => handleContentSearch(ex)}
-                          >
-                            {ex}
-                          </button>
-                        </div>
-                      ))}
-                    </pre>
-                  ) : (
-                    <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
-                      {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                        <pre
-                          className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
-                          style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
-                        >
-                          {tokens.map((line, i) => (
-                            <div key={`cmd-${i}`} {...getLineProps({ line })}>
-                              {line.map((token, key) => (
-                                <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
-                              ))}
-                            </div>
-                          ))}
-                        </pre>
-                      )}
-                    </Highlight>
-                  )
+                  <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                    {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                      <pre
+                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
+                        style={{ ...style, whiteSpace: 'pre' }}
+                      >
+                        {helpCommands && helpCommands.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {helpCommands.map((cmd, idx) => (
+                              <div key={`${cmd.key}-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(cmd.label)}
+                                >
+                                  {`${cmd.label.padEnd(12)} ${cmd.description}`}
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : topExamples && topExamples.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {topExamples.map((ex, idx) => (
+                              <div key={`${ex}-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(ex)}
+                                >
+                                  {ex}
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            {tokens.map((line, i) => (
+                              <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                                {line.map((token, key) => (
+                                  <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                                ))}
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </pre>
+                    )}
+                  </Highlight>
                 )}
                 variant="card"
                 showFooter={false}
@@ -1778,7 +1814,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }
