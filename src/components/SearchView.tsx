@@ -1605,8 +1605,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
                     {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
                       <pre
-                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
-                        style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
+                        style={{ ...style, whiteSpace: 'pre' }}
                       >
                         {topExamples && topExamples.length > 0 ? (
                           <>
