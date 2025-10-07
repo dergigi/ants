@@ -1602,40 +1602,42 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 event={new NDKEvent(ndk)}
                 onAuthorClick={goToProfile}
                 renderContent={() => (
-                  topExamples && topExamples.length > 0 ? (
-                    <pre className="text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]">
-                      <div>{topCommandText.split('\n')[0]}</div>
-                      <div>&nbsp;</div>
-                      {topExamples.map((ex, idx) => (
-                        <div key={`${ex}-${idx}`}>
-                          <button
-                            type="button"
-                            className="text-left w-full hover:underline"
-                            onClick={() => handleContentSearch(ex)}
-                          >
-                            {ex}
-                          </button>
-                        </div>
-                      ))}
-                    </pre>
-                  ) : (
-                    <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
-                      {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                        <pre
-                          className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
-                          style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
-                        >
-                          {tokens.map((line, i) => (
-                            <div key={`cmd-${i}`} {...getLineProps({ line })}>
-                              {line.map((token, key) => (
-                                <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
-                              ))}
-                            </div>
-                          ))}
-                        </pre>
-                      )}
-                    </Highlight>
-                  )
+                  <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
+                    {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
+                      <pre
+                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 bg-[#1f1f1f] border border-[#3d3d3d]`.trim()}
+                        style={{ ...style, background: 'transparent', whiteSpace: 'pre' }}
+                      >
+                        {topExamples && topExamples.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {topExamples.map((ex, idx) => (
+                              <div key={`${ex}-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(ex)}
+                                >
+                                  {ex}
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            {tokens.map((line, i) => (
+                              <div key={`cmd-${i}`} {...getLineProps({ line })}>
+                                {line.map((token, key) => (
+                                  <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
+                                ))}
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </pre>
+                    )}
+                  </Highlight>
                 )}
                 variant="card"
                 showFooter={false}
