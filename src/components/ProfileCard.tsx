@@ -36,8 +36,6 @@ function cleanLightningAddress(lightning: string, npub: string): string {
 function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
-  const bottomItems = useMemo(() => createProfileExplorerItems(npub, pubkey), [npub, pubkey]);
-  const nativeAppHref = useMemo(() => bottomItems.find((item) => item.name === 'Native App')?.href, [bottomItems]);
   const router = useRouter();
   const pathname = usePathname();
   const hasSentZap = useHasSentZap(pubkey);
@@ -164,16 +162,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             onToggleRaw={onToggleRaw}
             onToggleMenu={onToggleMenu}
             menuButtonRef={menuButtonRef}
-            externalHref={nativeAppHref}
-            externalTitle="Open in native app"
-            externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
-            onExternalClick={(e) => {
-              if (!nativeAppHref) return;
-              if (nativeAppHref.startsWith('/')) {
-                e.preventDefault();
-                router.push(nativeAppHref);
-              }
-            }}
           />
         </div>
       </div>
