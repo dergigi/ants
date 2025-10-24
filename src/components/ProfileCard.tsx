@@ -447,20 +447,42 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
             <ul className="py-1 text-sm text-gray-200">
               {(() => {
                 const items = createProfileExplorerItems(event.author.npub, event.author.pubkey);
-                return items.map((item) => (
-                  <li key={item.name}>
-                    <a
-                      href={item.href}
-                      target={item.href.startsWith('http') ? '_blank' : undefined}
-                      rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                      onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
-                    >
-                      <span>{item.name}</span>
-                      <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                    </a>
-                  </li>
-                ));
+                const portalItems = items.slice(0, -2); // All items except last two
+                const clientItems = items.slice(-2); // Last two items (Web Client, Native App)
+                
+                return (
+                  <>
+                    {portalItems.map((item) => (
+                      <li key={item.name}>
+                        <a
+                          href={item.href}
+                          target={item.href.startsWith('http') ? '_blank' : undefined}
+                          rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                          className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                          onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                        >
+                          <span>{item.name}</span>
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                        </a>
+                      </li>
+                    ))}
+                    <li className="border-t border-[#3d3d3d] my-1"></li>
+                    {clientItems.map((item) => (
+                      <li key={item.name}>
+                        <a
+                          href={item.href}
+                          target={item.href.startsWith('http') ? '_blank' : undefined}
+                          rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                          className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                          onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                        >
+                          <span>{item.name}</span>
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                        </a>
+                      </li>
+                    ))}
+                  </>
+                );
               })()}
             </ul>
           </div>
