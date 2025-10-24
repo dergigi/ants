@@ -378,7 +378,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           >
             <ul className="py-1 text-sm text-gray-200">
               {(() => {
-                const nevent = event.id;
+                const nevent = nip19.neventEncode({ id: event.id });
                 const items = createEventExplorerItems(nevent);
                 return items.map((item) => (
                   <li key={item.name}>
