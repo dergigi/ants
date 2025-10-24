@@ -13,7 +13,7 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
-import { shortenNevent, shortenNpub } from '@/lib/utils';
+import { shortenNpub } from '@/lib/utils';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
@@ -378,7 +378,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           >
             <ul className="py-1 text-sm text-gray-200">
               {(() => {
-                const nevent = shortenNevent(event.id);
+                const nevent = event.id;
                 const items = createEventExplorerItems(nevent);
                 return items.map((item) => (
                   <li key={item.name}>
