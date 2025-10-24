@@ -33,7 +33,7 @@ function cleanLightningAddress(lightning: string, npub: string): string {
   return lightning;
 }
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const bottomItems = useMemo(() => createProfileExplorerItems(npub, pubkey), [npub, pubkey]);
@@ -162,15 +162,8 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             eventKind={0}
             showRaw={showRaw}
             onToggleRaw={onToggleRaw}
-            onToggleMenu={() => {
-              if (portalButtonRef.current) {
-                const rect = portalButtonRef.current.getBoundingClientRect();
-                const position = calculateAbsoluteMenuPosition(rect);
-                setMenuPosition(position);
-              }
-              setShowPortalMenu((v) => !v);
-            }}
-            menuButtonRef={portalButtonRef}
+            onToggleMenu={onToggleMenu}
+            menuButtonRef={menuButtonRef}
             externalHref={nativeAppHref}
             externalTitle="Open in native app"
             externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
@@ -209,7 +202,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [rawLoading, setRawLoading] = useState<boolean>(false);
   const [showPortalMenu, setShowPortalMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const portalButtonRef = useRef<HTMLButtonElement>(null);
+  const portalButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // When raw view is toggled on, fetch the newest profile metadata for accurate id/sig
   useEffect(() => {
@@ -441,6 +434,15 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         showRaw={showRaw}
         user={event.author}
         onAuthorClick={onAuthorClick}
+        onToggleMenu={() => {
+          if (portalButtonRef.current) {
+            const rect = portalButtonRef.current.getBoundingClientRect();
+            const position = calculateAbsoluteMenuPosition(rect);
+            setMenuPosition(position);
+          }
+          setShowPortalMenu((v) => !v);
+        }}
+        menuButtonRef={portalButtonRef}
       />
       
       {showPortalMenu && typeof window !== 'undefined' && event?.author?.npub && createPortal(
