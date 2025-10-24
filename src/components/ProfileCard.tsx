@@ -5,13 +5,13 @@ import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { getNewestProfileMetadata, getNewestProfileEvent } from '@/lib/vertex';
 import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
-import { shortenNpub, trimImageUrl } from '@/lib/utils';
+import { shortenNpub, trimImageUrl, calculateAbsoluteMenuPosition } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { createProfileExplorerItems } from '@/lib/portals';
@@ -20,6 +20,7 @@ import CardActions from '@/components/CardActions';
 import { formatRelativeTimeAuto } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
 import { useHasSentZap, useHasSentNutzap } from '@/hooks/useHasSentZap';
+import { createPortal } from 'react-dom';
 
 // Import centralized URL utilities
 import { cleanWebsiteUrl } from '@/lib/utils/urlUtils';
@@ -161,6 +162,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             eventKind={0}
             showRaw={showRaw}
             onToggleRaw={onToggleRaw}
+            onToggleMenu={() => {
+              if (portalButtonRef.current) {
+                const rect = portalButtonRef.current.getBoundingClientRect();
+                const position = calculateAbsoluteMenuPosition(rect);
+                setMenuPosition(position);
+              }
+              setShowPortalMenu((v) => !v);
+            }}
+            menuButtonRef={portalButtonRef}
             externalHref={nativeAppHref}
             externalTitle="Open in native app"
             externalTarget={nativeAppHref?.startsWith('http') ? '_blank' : undefined}
@@ -197,6 +207,9 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
   const [showRaw, setShowRaw] = useState(false);
   const [rawProfileEvent, setRawProfileEvent] = useState<NDKEvent | null>(null);
   const [rawLoading, setRawLoading] = useState<boolean>(false);
+  const [showPortalMenu, setShowPortalMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const portalButtonRef = useRef<HTMLButtonElement>(null);
 
   // When raw view is toggled on, fetch the newest profile metadata for accurate id/sig
   useEffect(() => {
@@ -429,6 +442,41 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         user={event.author}
         onAuthorClick={onAuthorClick}
       />
+      
+      {showPortalMenu && typeof window !== 'undefined' && event?.author?.npub && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => { e.preventDefault(); setShowPortalMenu(false); }}
+          />
+          <div
+            className="absolute z-[9999] w-56 rounded-md bg-[#2d2d2d]/95 border border-[#3d3d3d] shadow-lg backdrop-blur-sm"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <ul className="py-1 text-sm text-gray-200">
+              {(() => {
+                const items = createProfileExplorerItems(event.author.npub, event.author.pubkey);
+                return items.map((item) => (
+                  <li key={item.name}>
+                    <a
+                      href={item.href}
+                      target={item.href.startsWith('http') ? '_blank' : undefined}
+                      rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                      className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                      onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                    >
+                      <span>{item.name}</span>
+                      <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                    </a>
+                  </li>
+                ));
+              })()}
+            </ul>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }
