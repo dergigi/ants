@@ -1,7 +1,7 @@
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faArrowUpWideShort, faArrowDownShortWide } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faArrowDownWideShort, faArrowDownShortWide } from '@fortawesome/free-solid-svg-icons';
 
 export type SortOrder = 'newest' | 'oldest';
 
@@ -14,7 +14,7 @@ export default function SortCollapsed({
   sortOrder,
   onToggle
 }: SortCollapsedProps) {
-  const sortIcon = sortOrder === 'newest' ? faArrowUpWideShort : faArrowDownShortWide;
+  const sortIcon = sortOrder === 'newest' ? faArrowDownWideShort : faArrowDownShortWide;
   const tooltip = sortOrder === 'newest' ? 'Showing newest first' : 'Showing oldest first';
   
   return (
