@@ -11,8 +11,7 @@ interface LogoProps {
 
 export default function Logo({ size = 'small', className = '', onClick, isActive = false }: LogoProps) {
   const dimensions = size === 'large' ? { width: 32, height: 32, className: 'w-8 h-8' } : { width: 20, height: 20, className: 'w-5 h-5' };
-  const logoSrc = isActive ? '/ant-blue.svg' : '/ant-gray.svg';
-  const colorClass = isActive ? 'text-blue-400' : 'text-gray-400';
+  const logoSrc = '/favicon-32x32.png';
   
   return (
     <button
@@ -25,7 +24,7 @@ export default function Logo({ size = 'small', className = '', onClick, isActive
         alt="ants menu" 
         width={dimensions.width}
         height={dimensions.height}
-        className={`${dimensions.className} ${colorClass}`}
+        className={dimensions.className}
       />
     </button>
   );
