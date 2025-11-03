@@ -90,3 +90,20 @@ export function useIsMobile(): boolean {
 export function formatRelativeTimeAuto(timestamp: number): string {
   return formatRelativeTime(timestamp, isMobileViewport());
 }
+
+/**
+ * Formats a timestamp as an exact date string for tooltips
+ * @param timestamp - Unix timestamp in seconds
+ * @returns Formatted date string (e.g., "January 15, 2024 at 3:45 PM")
+ */
+export function formatExactDate(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}

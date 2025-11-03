@@ -12,7 +12,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import EventCard from '@/components/EventCard';
 import TruncatedText from '@/components/TruncatedText';
-import { formatRelativeTimeAuto } from '@/lib/relativeTime';
+import { formatRelativeTimeAuto, formatExactDate } from '@/lib/relativeTime';
 
 interface InlineNostrTokenProps {
   token: string;
@@ -168,7 +168,7 @@ export default function InlineNostrToken({
                     <button
                       type="button"
                       className="text-xs hover:underline opacity-80"
-                      title="Search this reference"
+                      title={formatExactDate(createdAt)}
                       onClick={() => onSearch(token)}
                     >
                       {formatRelativeTimeAuto(createdAt)}

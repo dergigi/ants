@@ -49,6 +49,13 @@ export const searchExamples = [
   'knowledge by:platobot@dergigi.com',
   'is:muted by:fiatjaf',
 
+  // Date Filters
+  'until:2023-01-01',
+  'hello since:2021-01-01 until:2021-12-31',
+  'GM by:dergigi until:2024-06-06',
+  'GN by:dergigi since:2025-10-31',
+  'GM by:dergigi since:2024-01-01 until:2024-03-31',
+
   // Profile lookup / NIP-05
   'p:fiatjaf',
   'p:hodl',

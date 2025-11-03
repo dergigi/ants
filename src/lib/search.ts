@@ -126,6 +126,47 @@ function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: number[
   return { cleaned: cleaned.trim(), kinds: uniqueKinds.length ? uniqueKinds : undefined };
 }
 
+// Extract date filter(s) from query string: since:YYYY-MM-DD and until:YYYY-MM-DD
+function extractDateFilter(rawQuery: string): { cleaned: string; since?: number; until?: number } {
+  let cleaned = rawQuery;
+  let since: number | undefined;
+  let until: number | undefined;
+
+  // Convert YYYY-MM-DD to Unix timestamp (start of day in UTC)
+  const dateToTimestamp = (dateStr: string): number => {
+    const date = new Date(dateStr + 'T00:00:00Z');
+    return Math.floor(date.getTime() / 1000);
+  };
+
+  // Extract since:YYYY-MM-DD
+  const sinceRegex = /(?:^|\s)since:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
+  cleaned = cleaned.replace(sinceRegex, (_, dateStr: string) => {
+    since = dateToTimestamp(dateStr);
+    return ' ';
+  });
+
+  // Extract until:YYYY-MM-DD
+  const untilRegex = /(?:^|\s)until:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
+  cleaned = cleaned.replace(untilRegex, (_, dateStr: string) => {
+    // For until, include entire day - add end of day timestamp
+    const startOfDay = dateToTimestamp(dateStr);
+    until = startOfDay + 86399; // Add 23:59:59 seconds
+    return ' ';
+  });
+
+  return {
+    cleaned: cleaned.trim(),
+    since,
+    until
+  };
+}
+
+// Helper function to apply date filters to a filter object
+function applyDateFilter(filter: Partial<NDKFilter>, dateFilter?: { since?: number; until?: number }): Partial<NDKFilter> {
+  if (!dateFilter || (!dateFilter.since && !dateFilter.until)) return filter;
+  return { ...filter, ...(dateFilter.since && { since: dateFilter.since }), ...(dateFilter.until && { until: dateFilter.until }) };
+}
+
 // Streaming subscription that keeps connections open and streams results
 export async function subscribeAndStream(
   filter: NDKFilter, 
@@ -436,6 +477,8 @@ async function searchByAnyTerms(
         .replace(/\bkinds:[^\s]+/gi, ' ')
         .replace(/\bby:[^\s]+/gi, ' ')
         .replace(/\ba:[^\s]+/gi, ' ')
+        .replace(/\bsince:[^\s]+/gi, ' ')
+        .replace(/\buntil:[^\s]+/gi, ' ')
         .replace(/#[A-Za-z0-9_]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -769,10 +812,16 @@ export async function searchEvents(
   
   // Extract kind filters and default to SEARCH_DEFAULT_KINDS when not provided
   const kindExtraction = extractKindFilter(preprocessedQuery);
-  const cleanedQuery = kindExtraction.cleaned;
+  const kindCleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
     : SEARCH_DEFAULT_KINDS; // Default to richly rendered kinds when no kind filter is specified
+  
+  // Extract date filters
+  const dateExtraction = extractDateFilter(kindCleanedQuery);
+  const dateFilter = { since: dateExtraction.since, until: dateExtraction.until };
+  const cleanedQuery = dateExtraction.cleaned;
+  
   const extensionFilters: Array<(content: string) => boolean> = [];
   const topLevelOrParts = parseOrQuery(cleanedQuery);
   const hasTopLevelOr = topLevelOrParts.length > 1;
@@ -824,7 +873,7 @@ export async function searchEvents(
         chosenRelaySet,
         abortSignal,
         nip50Extensions,
-        { kinds: effectiveKinds },
+        applyDateFilter({ kinds: effectiveKinds }, dateFilter),
         () => getBroadRelaySet()
       );
       
@@ -854,11 +903,11 @@ export async function searchEvents(
       }
 
       if (!terms) {
-        let res = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, 8000, chosenRelaySet, abortSignal);
+        let res = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, dateFilter) as NDKFilter, 8000, chosenRelaySet, abortSignal);
         if (res.length === 0) {
           const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
           const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-          res = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, 10000, broadRelaySet, abortSignal);
+          res = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 200) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
         }
         const dedupe = new Map<string, NDKEvent>();
         for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
@@ -873,14 +922,14 @@ export async function searchEvents(
         chosenRelaySet,
         abortSignal,
         nip50Extensions,
-        filters,
+        applyDateFilter(filters, dateFilter),
         () => getBroadRelaySet()
       );
 
       if (res.length === 0) {
         const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
         const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-        const authorOnlyFilter: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) };
+        const authorOnlyFilter: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter;
         let authorOnly = await subscribeAndCollect(authorOnlyFilter, 10000, broadRelaySet, abortSignal);
         const trimmed = terms.trim();
         if (trimmed) {
@@ -957,14 +1006,14 @@ export async function searchEvents(
       chosenRelaySet,
       abortSignal,
       nip50Extensions,
-      { kinds: effectiveKinds },
+      applyDateFilter({ kinds: effectiveKinds }, dateFilter),
       () => getBroadRelaySet()
     );
     
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
       const broadRelaySet = await getBroadRelaySet();
-      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter));
     }
     
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
@@ -1027,7 +1076,7 @@ export async function searchEvents(
     const nonLicenseRemainder = cleanedQuery.replace(/\blicense:[^\s)]+/gi, '').trim();
     if (licenseMatches.length > 0 && nonLicenseRemainder.length === 0) {
       const licenses = Array.from(new Set(licenseMatches.map((v) => v.toUpperCase())));
-      const licenseFilter: NDKFilter & { '#license'?: string[] } = { kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) } as NDKFilter & { '#license'?: string[] };
+      const licenseFilter: NDKFilter & { '#license'?: string[] } = applyDateFilter({ kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) }, dateFilter) as NDKFilter & { '#license'?: string[] };
       const tagRelaySet = await getBroadRelaySet();
       const results = isStreaming
         ? await subscribeAndStream(licenseFilter, {
@@ -1048,7 +1097,7 @@ export async function searchEvents(
 
   if (hashtagMatches.length > 0 && nonHashtagRemainder.length === 0) {
     const tags = Array.from(new Set(hashtagMatches.map((h) => h.slice(1).toLowerCase())));
-    const tagFilter: TagTFilter = { kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) };
+    const tagFilter: TagTFilter = applyDateFilter({ kinds: effectiveKinds, '#t': tags, limit: Math.max(limit, 500) }, dateFilter) as TagTFilter;
 
     // Use broader relay set for hashtag searches - include all available relays
     const tagRelaySet = await getBroadRelaySet();
@@ -1075,7 +1124,7 @@ export async function searchEvents(
   if (aTagMatch) {
     const aTagValue = (aTagMatch[1] || '').trim();
     if (aTagValue) {
-      const aTagFilter: TagTFilter = { kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) };
+      const aTagFilter: TagTFilter = applyDateFilter({ kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) }, dateFilter) as TagTFilter;
       
       // Use broader relay set for a tag searches
       const aTagRelaySet = await getBroadRelaySet();
@@ -1136,11 +1185,11 @@ export async function searchEvents(
       const pubkey = getPubkey(cleanedQuery);
       if (!pubkey) return [];
 
-      const res = await subscribeAndCollect({
+      const res = await subscribeAndCollect(applyDateFilter({
         kinds: effectiveKinds,
         authors: [pubkey],
         limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet, abortSignal);
+      }, dateFilter) as NDKFilter, 8000, chosenRelaySet, abortSignal);
       return sortEventsNewestFirst(res).slice(0, limit);
     } catch (error) {
       console.error('Error processing npub query:', error);
@@ -1181,11 +1230,11 @@ export async function searchEvents(
       return [];
     }
 
-    const filters: NDKFilter = {
+    const filters: NDKFilter = applyDateFilter({
       kinds: effectiveKinds,
       authors: [pubkey],
       limit: Math.max(limit, 200)
-    };
+    }, dateFilter) as NDKFilter;
 
     // Add search term to the filter if present
     if (terms) {
@@ -1207,7 +1256,7 @@ export async function searchEvents(
           const seen = new Set<string>();
           for (const seed of seedExpansions3) {
             try {
-              const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+              const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
               const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
               for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
             } catch {}
@@ -1238,7 +1287,7 @@ export async function searchEvents(
             chosenRelaySet,
             abortSignal,
             nip50Extensions,
-            { authors: [pubkey], kinds: effectiveKinds },
+            applyDateFilter({ authors: [pubkey], kinds: effectiveKinds }, dateFilter),
             () => getBroadRelaySet()
           );
           res = [...res, ...seeded];
@@ -1255,11 +1304,11 @@ export async function searchEvents(
       const termStr = terms.trim();
       const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
       if (res.length === 0 && termStr) {
-        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       } else if (res.length === 0 && hasShortToken) {
-        const authorOnly = await subscribeAndCollect({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, 10000, broadRelaySet, abortSignal);
+        const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
         const needle = termStr.toLowerCase();
         res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
       }
@@ -1281,10 +1330,10 @@ export async function searchEvents(
     const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
     const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
     // Create the filter object that will be sent to NDK
-    const searchFilter = {
+    const searchFilter = applyDateFilter({
       kinds: effectiveKinds,
       search: searchQuery
-    };
+    }, dateFilter) as NDKFilter;
     
     results = isStreaming 
       ? await subscribeAndStream(searchFilter, {
