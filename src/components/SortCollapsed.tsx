@@ -15,14 +15,14 @@ export default function SortCollapsed({
   onToggle
 }: SortCollapsedProps) {
   const sortIcon = sortOrder === 'newest' ? faArrowUpWideShort : faArrowDownShortWide;
-  const sortLabel = sortOrder === 'newest' ? 'Newest first' : 'Oldest first';
+  const tooltip = sortOrder === 'newest' ? 'Showing newest first' : 'Showing oldest first';
   
   return (
     <button
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onToggle}
-      title={`Toggle sort order: ${sortLabel}`}
+      title={tooltip}
     >
       <FontAwesomeIcon 
         icon={faClock} 
