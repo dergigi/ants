@@ -17,7 +17,7 @@ import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/prof
 import { createProfileExplorerItems } from '@/lib/portals';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
-import { formatRelativeTimeAuto } from '@/lib/relativeTime';
+import { formatRelativeTimeAuto, formatExactDate } from '@/lib/relativeTime';
 import Nip05Display from '@/components/Nip05Display';
 import { useHasSentZap, useHasSentNutzap } from '@/hooks/useHasSentZap';
 import { createPortal } from 'react-dom';
@@ -145,14 +145,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
               <button
                 onClick={onToggleRaw}
                 className="hover:underline cursor-pointer"
+                title={updatedAt ? formatExactDate(updatedAt) : undefined}
               >
                 {updatedLabel}
               </button>
             ) : (
-              <a href={`/p/${npub}`} className="hover:underline">{updatedLabel}</a>
+              <a href={`/p/${npub}`} className="hover:underline" title={updatedAt ? formatExactDate(updatedAt) : undefined}>{updatedLabel}</a>
             )
           ) : (
-            <span>{updatedLabel}</span>
+            <span title={updatedAt ? formatExactDate(updatedAt) : undefined}>{updatedLabel}</span>
           )}
           <CardActions
             eventId={fallbackEventId}

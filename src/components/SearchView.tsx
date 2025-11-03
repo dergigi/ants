@@ -50,6 +50,7 @@ import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
+import { formatExactDate } from '@/lib/relativeTime';
 import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
@@ -1170,11 +1171,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [setQuery, updateUrlForSearch, handleSearch]);
 
   // DRY component for nevent search buttons
-  const NeventSearchButton = useCallback(({ eventId, timestamp }: { eventId: string; timestamp: string }) => (
+  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate }: { eventId: string; timestamp: string; exactDate?: string }) => (
     <button
       type="button"
       className="text-xs hover:underline"
-      title="Search this nevent"
+      title={exactDate || "Search this nevent"}
       onClick={() => handleNeventSearch(eventId)}
     >
       {timestamp}
@@ -1186,7 +1187,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     event,
     onAuthorClick: goToProfile,
     className,
-    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />
+    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} exactDate={event.created_at ? formatExactDate(event.created_at) : undefined} />
   }), [goToProfile, NeventSearchButton]);
 
 
@@ -1462,7 +1463,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         mediaRenderer={renderNoteMedia}
         className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
         showFooter={true}
-        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} />}
+        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} exactDate={parentEvent.created_at ? formatExactDate(parentEvent.created_at) : undefined} />}
       />
     ));
   }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton]);
