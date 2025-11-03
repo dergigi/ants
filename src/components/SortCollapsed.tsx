@@ -1,7 +1,7 @@
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpWideShort } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faArrowUpWideShort, faArrowDownShortWide } from '@fortawesome/free-solid-svg-icons';
 
 export type SortOrder = 'newest' | 'oldest';
 
@@ -14,6 +14,7 @@ export default function SortCollapsed({
   sortOrder,
   onToggle
 }: SortCollapsedProps) {
+  const sortIcon = sortOrder === 'newest' ? faArrowUpWideShort : faArrowDownShortWide;
   const sortLabel = sortOrder === 'newest' ? 'Newest first' : 'Oldest first';
   
   return (
@@ -24,12 +25,13 @@ export default function SortCollapsed({
       title={`Toggle sort order: ${sortLabel}`}
     >
       <FontAwesomeIcon 
-        icon={faArrowUpWideShort} 
+        icon={faClock} 
         className="w-3 h-3 text-gray-500" 
       />
-      <span className="text-xs text-gray-400">
-        {sortLabel}
-      </span>
+      <FontAwesomeIcon 
+        icon={sortIcon} 
+        className="w-3 h-3 text-gray-500" 
+      />
     </button>
   );
 }
