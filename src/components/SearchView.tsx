@@ -32,7 +32,6 @@ import FilterCollapsed from '@/components/FilterCollapsed';
 import RelayCollapsed from '@/components/RelayCollapsed';
 import RelayStatusDisplay from '@/components/RelayStatusDisplay';
 import SortCollapsed, { SortOrder } from '@/components/SortCollapsed';
-import SortExpanded from '@/components/SortExpanded';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
@@ -110,7 +109,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
-  const [showSortDetails, setShowSortDetails] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
@@ -1589,31 +1587,32 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       {/* Collapsed state - always in same row */}
       {(loading || results.length > 0) && (
         <div className="w-full mt-2">
-          {/* Button row - always collapsed states */}
-          <div className="flex items-center justify-end gap-3">
+          {/* Button row - sort on left, other controls on right */}
+          <div className="flex items-center justify-between gap-3">
             {hasNonProfileResults && (
               <SortCollapsed
                 sortOrder={sortOrder}
-                onExpand={() => setShowSortDetails(!showSortDetails)}
-                isExpanded={showSortDetails}
+                onToggle={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
               />
             )}
             
-            <RelayCollapsed
-              connectedCount={successfullyActiveRelays.size}
-              totalCount={relayInfo.totalCount}
-              onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
-              isExpanded={showConnectionDetails}
-            />
+            <div className="flex items-center gap-3 ml-auto">
+              <RelayCollapsed
+                connectedCount={successfullyActiveRelays.size}
+                totalCount={relayInfo.totalCount}
+                onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
+                isExpanded={showConnectionDetails}
+              />
 
-            <FilterCollapsed
-              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || loading || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
-              hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
-              filteredCount={fuseFilteredResults.length}
-              resultCount={results.length}
-              onExpand={() => setShowFilterDetails(!showFilterDetails)}
-              isExpanded={showFilterDetails}
-            />
+              <FilterCollapsed
+                filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || loading || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+                hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
+                filteredCount={fuseFilteredResults.length}
+                resultCount={results.length}
+                onExpand={() => setShowFilterDetails(!showFilterDetails)}
+                isExpanded={showFilterDetails}
+              />
+            </div>
           </div>
 
           {/* Expanded views - below button row, full width */}
@@ -1637,19 +1636,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 filteredCount={fuseFilteredResults.length}
                 emojiAutoDisabled={emojiAutoDisabled}
                 showButton={false}
-              />
-            </div>
-          )}
-
-          {showSortDetails && hasNonProfileResults && (
-            <div className="mt-2">
-              <SortExpanded
-                sortOrder={sortOrder}
-                onSortChange={(order) => {
-                  setSortOrder(order);
-                  setShowSortDetails(false);
-                }}
-                onCollapse={() => setShowSortDetails(false)}
               />
             </div>
           )}

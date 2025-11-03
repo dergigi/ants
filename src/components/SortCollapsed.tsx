@@ -1,28 +1,27 @@
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpWideShort, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpWideShort } from '@fortawesome/free-solid-svg-icons';
 
 export type SortOrder = 'newest' | 'oldest';
 
 interface SortCollapsedProps {
   sortOrder: SortOrder;
-  onExpand: () => void;
-  isExpanded?: boolean;
+  onToggle: () => void;
 }
 
 export default function SortCollapsed({
   sortOrder,
-  onExpand,
-  isExpanded = false
+  onToggle
 }: SortCollapsedProps) {
-  const sortLabel = sortOrder === 'newest' ? 'Newest' : 'Oldest';
+  const sortLabel = sortOrder === 'newest' ? 'Newest first' : 'Oldest first';
   
   return (
     <button
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
-      onClick={onExpand}
+      onClick={onToggle}
+      title={`Toggle sort order: ${sortLabel}`}
     >
       <FontAwesomeIcon 
         icon={faArrowUpWideShort} 
@@ -31,7 +30,6 @@ export default function SortCollapsed({
       <span className="text-xs text-gray-400">
         {sortLabel}
       </span>
-      <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
     </button>
   );
 }
