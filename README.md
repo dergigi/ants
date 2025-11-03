@@ -33,6 +33,7 @@ ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexampl
 - [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
 - [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
 - [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
+- [`GM by:dergigi since:2024-01-01 until:2024-03-31`](https://search.dergigi.com/?q=GM%20by%3Adergigi%20since%3A2024-01-01%20until%3A2024-03-31) - "GM" messages from dergigi in Q1 2024
 - [`/help`](https://search.dergigi.com/?q=%2Fhelp) ...in case you're lost.
 
 Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
