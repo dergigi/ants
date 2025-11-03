@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-11-03
+
+### Added
+- Sort dropdown for non-profile search results
+
+### Changed
+- Replace sort text with clock + arrow icons
+- Change sort dropdown to toggle button, left-align
+- Extract and apply purple favicon as app logo and favicon
+- Update favicons and icons to blue logo theme
+- Use SVG favicon (ant-blue.svg) with PNG fallbacks
+
+### Fixed
+- Use arrow-up-short-wide icon for oldest sort order
+- Use arrow-down-wide-short icon for newest sort order
+- Update sort button tooltip to show current state
+- Remove conflicting favicon.ico from app directory
+- Use gray/blue SVG logos based on login state
+
 ## [0.2.2] - 2025-11-03
 
 ### Added
