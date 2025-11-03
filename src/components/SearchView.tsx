@@ -31,6 +31,7 @@ import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import FilterCollapsed from '@/components/FilterCollapsed';
 import RelayCollapsed from '@/components/RelayCollapsed';
 import RelayStatusDisplay from '@/components/RelayStatusDisplay';
+import SortCollapsed, { SortOrder } from '@/components/SortCollapsed';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
@@ -108,6 +109,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [rotationSeed, setRotationSeed] = useState(0);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
@@ -395,6 +397,38 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
     return fuse.search(q).map(r => r.item);
   }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, shouldEnableFilters]);
+
+  // Separate profiles from non-profiles and sort only non-profiles by date
+  const sortedResults = useMemo(() => {
+    const profiles: NDKEvent[] = [];
+    const nonProfiles: NDKEvent[] = [];
+    
+    // Separate events by kind
+    for (const event of fuseFilteredResults) {
+      if (event.kind === 0) {
+        profiles.push(event);
+      } else {
+        nonProfiles.push(event);
+      }
+    }
+    
+    // Sort non-profiles by created_at based on sortOrder
+    const sortedNonProfiles = [...nonProfiles].sort((a, b) => {
+      if (sortOrder === 'newest') {
+        return (b.created_at || 0) - (a.created_at || 0);
+      } else {
+        return (a.created_at || 0) - (b.created_at || 0);
+      }
+    });
+    
+    // Return profiles first (maintaining their verified-first order), then sorted non-profiles
+    return [...profiles, ...sortedNonProfiles];
+  }, [fuseFilteredResults, sortOrder]);
+
+  // Check if there are non-profile results to show sort dropdown
+  const hasNonProfileResults = useMemo(() => {
+    return fuseFilteredResults.some(event => event.kind !== 0);
+  }, [fuseFilteredResults]);
 
   // Seed profile prefetch for visible profile cards as soon as results materialize
   useEffect(() => {
@@ -1553,23 +1587,32 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       {/* Collapsed state - always in same row */}
       {(loading || results.length > 0) && (
         <div className="w-full mt-2">
-          {/* Button row - always collapsed states */}
-          <div className="flex items-center justify-end gap-3">
-            <RelayCollapsed
-              connectedCount={successfullyActiveRelays.size}
-              totalCount={relayInfo.totalCount}
-              onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
-              isExpanded={showConnectionDetails}
-            />
+          {/* Button row - sort on left, other controls on right */}
+          <div className="flex items-center justify-between gap-3">
+            {hasNonProfileResults && (
+              <SortCollapsed
+                sortOrder={sortOrder}
+                onToggle={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+              />
+            )}
+            
+            <div className="flex items-center gap-3 ml-auto">
+              <RelayCollapsed
+                connectedCount={successfullyActiveRelays.size}
+                totalCount={relayInfo.totalCount}
+                onExpand={() => setShowConnectionDetails(!showConnectionDetails)}
+                isExpanded={showConnectionDetails}
+              />
 
-            <FilterCollapsed
-              filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || loading || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
-              hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
-              filteredCount={fuseFilteredResults.length}
-              resultCount={results.length}
-              onExpand={() => setShowFilterDetails(!showFilterDetails)}
-              isExpanded={showFilterDetails}
-            />
+              <FilterCollapsed
+                filtersAreActive={filterSettings.filterMode !== 'never' && (filterSettings.filterMode === 'always' || loading || (filterSettings.filterMode === 'intelligently' && results.length >= SEARCH_FILTER_THRESHOLD))}
+                hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
+                filteredCount={fuseFilteredResults.length}
+                resultCount={results.length}
+                onExpand={() => setShowFilterDetails(!showFilterDetails)}
+                isExpanded={showFilterDetails}
+              />
+            </div>
           </div>
 
           {/* Expanded views - below button row, full width */}
@@ -1602,7 +1645,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       {/* Textbox moved inside ClientFilters 'Show:' section */}
 
       {useMemo(() => {
-        const finalResults = fuseFilteredResults;
+        const finalResults = sortedResults;
         return (
           <div className="mt-8 space-y-4">
             {topCommandText ? (
@@ -1815,7 +1858,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [fuseFilteredResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }
