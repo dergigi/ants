@@ -28,7 +28,7 @@ export default function RelayIndicator({ event, className = '' }: RelayIndicator
     >
       <FontAwesomeIcon 
         icon={faHardDrive} 
-        className="text-xs text-gray-400 hover:text-gray-300 transition-colors" 
+        className="text-xs text-gray-400" 
       />
     </div>
   );
