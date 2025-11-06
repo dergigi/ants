@@ -5,8 +5,8 @@ export type ExplorerLink = {
 };
 
 export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
-  { name: 'njump.me', base: 'https://njump.me/' },
   { name: 'njump.to', base: 'https://njump.to/' },
+  { name: 'njump.me', base: 'https://njump.me/' },
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
@@ -21,8 +21,8 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
 ] as const;
 
 export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
-  { name: 'njump.me', base: 'https://njump.me/' },
   { name: 'njump.to', base: 'https://njump.to/' },
+  { name: 'njump.me', base: 'https://njump.me/' },
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
