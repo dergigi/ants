@@ -196,16 +196,16 @@ export function normalizeNostrIdentifier(rawId: string): string {
 }
 
 /**
- * Parses an identifier for event pages (/e/[id]) - handles nevent, note, and hex event IDs
+ * Parses an identifier for event pages (/e/[id]) - handles nevent, note, naddr, and hex event IDs
  */
 export function parseEventIdentifier(rawId: string): string {
   const token = normalizeNostrIdentifier(rawId);
   if (!token) return '';
 
-  // If it's bech32 nevent/note, pass through unchanged
+  // If it's bech32 nevent/note/naddr, pass through unchanged
   try {
     const decoded = nip19.decode(token);
-    if (decoded?.type === 'nevent' || decoded?.type === 'note') {
+    if (decoded?.type === 'nevent' || decoded?.type === 'note' || decoded?.type === 'naddr') {
       return token;
     }
   } catch {}
@@ -244,13 +244,13 @@ export function parseProfileIdentifier(rawId: string): string {
 }
 
 /**
- * Checks if an identifier is a valid nevent or note
+ * Checks if an identifier is a valid nevent, note, or naddr
  */
 export function isValidEventIdentifier(identifier: string): boolean {
   if (!identifier) return false;
   try {
     const decoded = nip19.decode(identifier);
-    return decoded?.type === 'nevent' || decoded?.type === 'note';
+    return decoded?.type === 'nevent' || decoded?.type === 'note' || decoded?.type === 'naddr';
   } catch {
     return false;
   }
