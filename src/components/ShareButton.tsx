@@ -101,7 +101,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
         title="Share this search"
         onClick={handleButtonClick}
       >
-        <FontAwesomeIcon icon={copied ? faCheck : faShareNodes} className="text-xs" />
+        <FontAwesomeIcon icon={copied ? faCheck : faShareNodes} className="text-xs text-gray-500" />
       </IconButton>
       {showMenu && typeof window !== 'undefined' && createPortal(
         <>
