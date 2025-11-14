@@ -33,12 +33,34 @@ export default function ShareButton({ url }: ShareButtonProps) {
       const scrollX = window.scrollX;
       const scrollY = window.scrollY;
       const menuWidth = 180;
+      const menuHeight = 90; // Estimated height: 2 items with padding (~88px)
+      const gap = 1; // Gap between button and menu
       
-      // Position menu closer to button (1px gap instead of 4px)
+      // Calculate available space
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // Determine vertical position (prefer below, but use above if not enough space)
+      let top: number;
+      if (spaceBelow >= menuHeight + gap) {
+        // Position below button
+        top = rect.bottom + scrollY + gap;
+      } else if (spaceAbove >= menuHeight + gap) {
+        // Position above button
+        top = rect.top + scrollY - menuHeight - gap;
+      } else {
+        // Not enough space in either direction, use the one with more space
+        if (spaceBelow >= spaceAbove) {
+          top = rect.bottom + scrollY + gap;
+        } else {
+          top = rect.top + scrollY - menuHeight - gap;
+        }
+      }
+      
+      // Horizontal positioning
       let left = rect.left + scrollX;
-      const top = rect.bottom + scrollY + 1;
       
-      // Adjust if menu would go off-screen
+      // Adjust if menu would go off-screen horizontally
       if (left + menuWidth > window.innerWidth + scrollX) {
         left = rect.right + scrollX - menuWidth;
         if (left < scrollX) {
