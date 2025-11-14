@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShare, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faShareNodes, faCheck } from '@fortawesome/free-solid-svg-icons';
 
 interface ShareButtonProps {
   url?: string;
@@ -50,7 +50,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
       title={copied ? 'Copied!' : 'Share this search'}
     >
       <FontAwesomeIcon 
-        icon={copied ? faCheck : faShare} 
+        icon={copied ? faCheck : faShareNodes} 
         className="w-3 h-3 text-gray-500" 
       />
     </button>
