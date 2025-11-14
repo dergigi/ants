@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShareNodes, faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
-import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import IconButton from '@/components/IconButton';
 
 interface ShareButtonProps {
@@ -31,7 +30,23 @@ export default function ShareButton({ url }: ShareButtonProps) {
     
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPosition(calculateAbsoluteMenuPosition(rect, 180));
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      const menuWidth = 180;
+      
+      // Position menu closer to button (1px gap instead of 4px)
+      let left = rect.left + scrollX;
+      let top = rect.bottom + scrollY + 1;
+      
+      // Adjust if menu would go off-screen
+      if (left + menuWidth > window.innerWidth + scrollX) {
+        left = rect.right + scrollX - menuWidth;
+        if (left < scrollX) {
+          left = window.innerWidth + scrollX - menuWidth - 8;
+        }
+      }
+      
+      setMenuPosition({ top, left });
     }
     setShowMenu((prev) => !prev);
   };
