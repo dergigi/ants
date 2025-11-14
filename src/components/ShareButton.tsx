@@ -107,7 +107,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
                   disabled={!hasShareAPI}
                 >
                   <FontAwesomeIcon icon={faShareNodes} className="text-xs text-gray-400" />
-                  <span>Share With...</span>
+                  <span>Share with...</span>
                 </button>
               </li>
             </ul>
