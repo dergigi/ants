@@ -72,13 +72,14 @@ export default function ShareButton({ url }: ShareButtonProps) {
       <button
         ref={buttonRef}
         type="button"
-        className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
+        className="w-6 h-6 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
         onClick={handleButtonClick}
         title="Share this search"
+        aria-label="Share this search"
       >
         <FontAwesomeIcon 
           icon={copied ? faCheck : faShareNodes} 
-          className="w-3 h-3 text-gray-500" 
+          className="text-xs" 
         />
       </button>
       {showMenu && typeof window !== 'undefined' && createPortal(
