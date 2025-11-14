@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShareNodes, faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
+import IconButton from '@/components/IconButton';
 
 interface ShareButtonProps {
   url?: string;
@@ -22,6 +23,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
   }, []);
 
   const shareUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
+  const hasShareAPI = typeof navigator.share === 'function';
 
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -29,64 +31,46 @@ export default function ShareButton({ url }: ShareButtonProps) {
     
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const position = calculateAbsoluteMenuPosition(rect, 180);
-      setMenuPosition(position);
+      setMenuPosition(calculateAbsoluteMenuPosition(rect, 180));
     }
     setShowMenu((prev) => !prev);
   };
 
-  const handleCopyUrl = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleCopyUrl = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setShowMenu(false);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 1500);
-    } catch (err) {
-      // Clipboard failed - silently fail
-    }
+    } catch {}
   };
 
-  const handleShareWith = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleShareWith = async () => {
     try {
-      if (navigator.share && typeof navigator.share === 'function') {
-        await navigator.share({
-          title: 'Ants Search',
-          url: shareUrl,
-        });
+      if (hasShareAPI) {
+        await navigator.share({ title: 'Ants Search', url: shareUrl });
         setShowMenu(false);
       }
-    } catch (err) {
-      // User cancelled share - silently fail
-    }
+    } catch {}
   };
+
+  const menuItemClass = 'w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center gap-2';
 
   return (
     <>
-      <button
+      <IconButton
         ref={buttonRef}
-        type="button"
-        className="w-6 h-6 rounded-md text-gray-300 flex items-center justify-center text-[12px] leading-none hover:bg-[#3a3a3a]"
-        onClick={handleButtonClick}
         title="Share this search"
-        aria-label="Share this search"
+        onClick={handleButtonClick}
       >
-        <FontAwesomeIcon 
-          icon={copied ? faCheck : faShareNodes} 
-          className="text-xs" 
-        />
-      </button>
+        <FontAwesomeIcon icon={copied ? faCheck : faShareNodes} className="text-xs" />
+      </IconButton>
       {showMenu && typeof window !== 'undefined' && createPortal(
         <>
           <div
             className="fixed inset-0 z-[9998]"
-            onClick={(e) => { e.preventDefault(); setShowMenu(false); }}
+            onClick={() => setShowMenu(false)}
           />
           <div
             className="fixed z-[9999] bg-[#1f1f1f] border border-[#3d3d3d] rounded-md shadow-lg min-w-[180px]"
@@ -95,11 +79,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
           >
             <ul className="py-1 text-sm text-gray-200">
               <li>
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center gap-2"
-                  onClick={handleCopyUrl}
-                >
+                <button type="button" className={menuItemClass} onClick={handleCopyUrl}>
                   <FontAwesomeIcon icon={faCopy} className="text-xs text-gray-400" />
                   <span>Copy URL</span>
                 </button>
@@ -107,9 +87,9 @@ export default function ShareButton({ url }: ShareButtonProps) {
               <li>
                 <button
                   type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${menuItemClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                   onClick={handleShareWith}
-                  disabled={!navigator.share || typeof navigator.share !== 'function'}
+                  disabled={!hasShareAPI}
                 >
                   <FontAwesomeIcon icon={faShareNodes} className="text-xs text-gray-400" />
                   <span>Share With...</span>
