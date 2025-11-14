@@ -1591,13 +1591,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           {/* Button row - sort on left, other controls on right */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
+              <ShareButton />
               {hasNonProfileResults && (
                 <SortCollapsed
                   sortOrder={sortOrder}
                   onToggle={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
                 />
               )}
-              <ShareButton />
             </div>
             
             <div className="flex items-center gap-3 ml-auto">
