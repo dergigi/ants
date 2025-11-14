@@ -36,7 +36,7 @@ export default function ShareButton({ url }: ShareButtonProps) {
       
       // Position menu closer to button (1px gap instead of 4px)
       let left = rect.left + scrollX;
-      let top = rect.bottom + scrollY + 1;
+      const top = rect.bottom + scrollY + 1;
       
       // Adjust if menu would go off-screen
       if (left + menuWidth > window.innerWidth + scrollX) {
