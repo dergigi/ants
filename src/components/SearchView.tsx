@@ -32,6 +32,7 @@ import FilterCollapsed from '@/components/FilterCollapsed';
 import RelayCollapsed from '@/components/RelayCollapsed';
 import RelayStatusDisplay from '@/components/RelayStatusDisplay';
 import SortCollapsed, { SortOrder } from '@/components/SortCollapsed';
+import ShareButton from '@/components/ShareButton';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
@@ -1589,12 +1590,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         <div className="w-full mt-2">
           {/* Button row - sort on left, other controls on right */}
           <div className="flex items-center justify-between gap-3">
-            {hasNonProfileResults && (
-              <SortCollapsed
-                sortOrder={sortOrder}
-                onToggle={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
-              />
-            )}
+            <div className="flex items-center gap-3">
+              <ShareButton />
+              {hasNonProfileResults && (
+                <SortCollapsed
+                  sortOrder={sortOrder}
+                  onToggle={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+                />
+              )}
+            </div>
             
             <div className="flex items-center gap-3 ml-auto">
               <RelayCollapsed
