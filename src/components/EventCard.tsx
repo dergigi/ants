@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faSpinner, faCode } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -423,7 +423,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                           onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                         >
                           <span>{item.name}</span>
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                          <FontAwesomeIcon icon={item.name === 'Native App' ? faMobileScreenButton : faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                         </a>
                       </li>
                     ))}

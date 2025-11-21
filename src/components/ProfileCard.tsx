@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare, faCode } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub, trimImageUrl, calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -490,7 +490,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                           onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                         >
                           <span>{item.name}</span>
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                          <FontAwesomeIcon icon={item.name === 'Native App' ? faMobileScreenButton : faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                         </a>
                       </li>
                     ))}
