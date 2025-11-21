@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare, faCode } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub, trimImageUrl, calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -159,8 +159,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             eventId={fallbackEventId}
             profilePubkey={pubkey}
             eventKind={0}
-            showRaw={showRaw}
-            onToggleRaw={onToggleRaw}
             onToggleMenu={onToggleMenu}
             menuButtonRef={menuButtonRef}
           />
@@ -453,6 +451,21 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                 
                 return (
                   <>
+                    <li>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRaw(v => !v);
+                          setShowPortalMenu(false);
+                        }}
+                      >
+                        <span>{showRaw ? 'Hide raw JSON' : 'Show raw JSON'}</span>
+                        <FontAwesomeIcon icon={faCode} className="text-gray-400 text-xs" />
+                      </button>
+                    </li>
+                    <li className="border-t border-[#3d3d3d] my-1"></li>
                     {portalItems.map((item) => (
                       <li key={item.name}>
                         <a

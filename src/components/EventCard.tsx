@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faSpinner, faCode } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -347,8 +347,6 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   eventId={event?.id}
                   profilePubkey={event?.author?.pubkey}
                   eventKind={event?.kind}
-                  showRaw={showRaw}
-                  onToggleRaw={() => setShowRaw(v => !v)}
                   onToggleMenu={() => {
                     if (portalButtonRef.current) {
                       const rect = portalButtonRef.current.getBoundingClientRect();
@@ -385,6 +383,21 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 
                 return (
                   <>
+                    <li>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRaw(v => !v);
+                          setShowPortalMenu(false);
+                        }}
+                      >
+                        <span>{showRaw ? 'Hide raw JSON' : 'Show raw JSON'}</span>
+                        <FontAwesomeIcon icon={faCode} className="text-gray-400 text-xs" />
+                      </button>
+                    </li>
+                    <li className="border-t border-[#3d3d3d] my-1"></li>
                     {portalItems.map((item) => (
                       <li key={item.name}>
                         <a

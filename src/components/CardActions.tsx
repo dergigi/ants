@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCode, faMobileScreenButton, faExternalLink } from '@fortawesome/free-solid-svg-icons';
+import { faMobileScreenButton, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { nip19 } from 'nostr-tools';
 import IconButton from '@/components/IconButton';
 import CopyButton from '@/components/CopyButton';
@@ -11,8 +11,6 @@ type Props = {
   eventId?: string;
   profilePubkey?: string;
   eventKind?: number;
-  showRaw: boolean;
-  onToggleRaw: () => void;
   onToggleMenu?: () => void;
   menuButtonRef?: React.RefObject<HTMLButtonElement | null>;
   className?: string;
@@ -27,8 +25,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
     eventId,
     profilePubkey,
     eventKind,
-    showRaw,
-    onToggleRaw,
     onToggleMenu,
     menuButtonRef,
     className,
@@ -50,13 +46,6 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
 
   return (
     <div ref={ref} className={`flex items-center gap-2 ${className || ''}`.trim()}>
-      <IconButton
-        title={showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-        ariaLabel="Toggle raw JSON"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleRaw(); }}
-      >
-        <FontAwesomeIcon icon={faCode} className="text-xs" />
-      </IconButton>
       {eventKind === 0 && nprofile ? (
         <CopyButton
           text={`nostr:${nprofile}`}
