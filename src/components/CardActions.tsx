@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
+import { faCode, faMobileScreenButton, faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { nip19 } from 'nostr-tools';
 import IconButton from '@/components/IconButton';
 import CopyButton from '@/components/CopyButton';
@@ -87,6 +87,25 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
           }}
         >
           <FontAwesomeIcon icon={faMobileScreenButton} className="text-xs" />
+        </IconButton>
+      ) : null}
+      {(eventId || (eventKind === 0 && profilePubkey)) ? (
+        <IconButton
+          title="Open with njump.to"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const njumpUrl = eventKind === 0 && nprofile 
+              ? `https://njump.to/${nprofile}`
+              : eventId 
+              ? `https://njump.to/${nip19.neventEncode({ id: eventId })}`
+              : null;
+            if (njumpUrl) {
+              window.open(njumpUrl, '_blank', 'noopener,noreferrer');
+            }
+          }}
+        >
+          <FontAwesomeIcon icon={faExternalLink} className="text-xs" />
         </IconButton>
       ) : null}
       {isMenuVisible ? (
