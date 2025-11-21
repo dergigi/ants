@@ -33,7 +33,7 @@ function cleanLightningAddress(lightning: string, npub: string): string {
   return lightning;
 }
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const router = useRouter();
@@ -418,7 +418,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         website={(profile?.website || profile?.url) as string | undefined}
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
-        showRaw={showRaw}
         user={event.author}
         onAuthorClick={onAuthorClick}
         onToggleMenu={() => {
