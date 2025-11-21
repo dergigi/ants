@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCode, faMobile } from '@fortawesome/free-solid-svg-icons';
+import { faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 import { nip19 } from 'nostr-tools';
 import IconButton from '@/components/IconButton';
 import CopyButton from '@/components/CopyButton';
@@ -86,7 +86,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
             }
           }}
         >
-          <FontAwesomeIcon icon={faMobile} className="text-xs" />
+          <FontAwesomeIcon icon={faMobileScreenButton} className="text-xs" />
         </IconButton>
       ) : null}
       {isMenuVisible ? (
