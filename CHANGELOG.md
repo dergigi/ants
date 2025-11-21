@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-11-22
+
+### Added
+- Share button next to chronological order button
+- Dropdown menu to share button with Copy URL and Share With options
+- Open with njump.to button next to mobile icon
+- Phone icon to Native App menu item
+- njump.to to nostr gateways list
+- Make njump.to the default gateway (first in list)
+- Make relay indicator clickable to open event on njump.to
+
+### Changed
+- Move show raw JSON button into three-dot menu
+- Reorder menu items - raw JSON above web client with separator
+- Replace open in native app icon with mobile icon
+- Use mobile-screen-button icon for open in native app
+- Update share button to match other small button styles
+- Simplify ShareButton using IconButton and DRY principles
+- Match share icon color to clock icon
+
+### Fixed
+- Handle naddr identifiers to prevent redirect loop
+- Remove unused showRaw parameter from ProfileCreatedAt
+- Add vertical overflow handling for menu positioning
+- Change 'Share With...' to 'Share with...'
+- Use const for top variable (lint fix)
+- Position share menu closer to button (1px gap instead of 4px)
+- Position share button to the left of chronological order button
+- Remove click functionality from RelayIndicator
+
 ## [0.2.3] - 2025-11-03
 
 ### Added
