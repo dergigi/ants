@@ -8,7 +8,7 @@ import { isAbsoluteHttpUrl } from '@/lib/urlPatterns';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
+import { faExternalLink, faArrowLeft, faBoltLightning, faHouseUser, faArrowUpRightFromSquare, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 import TitleBarButton from '@/components/TitleBarButton';
 import CopyButton from '@/components/CopyButton';
 import { shortenNpub, trimImageUrl, calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -33,7 +33,7 @@ function cleanLightningAddress(lightning: string, npub: string): string {
   return lightning;
 }
 
-function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, showRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; showRaw: boolean; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
+function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightning, website, npub, onToggleRaw, user, onAuthorClick, onToggleMenu, menuButtonRef }: { pubkey: string; fallbackEventId?: string; fallbackCreatedAt?: number; lightning?: string; website?: string; npub: string; onToggleRaw: () => void; user: NDKUser; onAuthorClick?: (npub: string) => void; onToggleMenu?: () => void; menuButtonRef?: React.RefObject<HTMLButtonElement | null> }) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [updatedEventId, setUpdatedEventId] = useState<string | null>(null);
   const router = useRouter();
@@ -159,8 +159,6 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
             eventId={fallbackEventId}
             profilePubkey={pubkey}
             eventKind={0}
-            showRaw={showRaw}
-            onToggleRaw={onToggleRaw}
             onToggleMenu={onToggleMenu}
             menuButtonRef={menuButtonRef}
           />
@@ -420,7 +418,6 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
         website={(profile?.website || profile?.url) as string | undefined}
         npub={event.author.npub}
         onToggleRaw={() => setShowRaw(v => !v)}
-        showRaw={showRaw}
         user={event.author}
         onAuthorClick={onAuthorClick}
         onToggleMenu={() => {
@@ -468,6 +465,21 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                       </li>
                     ))}
                     <li className="border-t border-[#3d3d3d] my-1"></li>
+                    <li>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRaw(v => !v);
+                          setShowPortalMenu(false);
+                        }}
+                      >
+                        <span>{showRaw ? 'Hide raw JSON' : 'Show raw JSON'}</span>
+                        <FontAwesomeIcon icon={faCode} className="text-gray-400 text-xs" />
+                      </button>
+                    </li>
+                    <li className="border-t border-[#3d3d3d] my-1"></li>
                     {clientItems.map((item) => (
                       <li key={item.name}>
                         <a
@@ -478,7 +490,7 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
                           onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
                         >
                           <span>{item.name}</span>
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                          <FontAwesomeIcon icon={item.name === 'Native App' ? faMobileScreenButton : faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
                         </a>
                       </li>
                     ))}
