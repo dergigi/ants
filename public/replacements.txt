@@ -28,7 +28,7 @@ site:hackernews => (news.ycombinator.com OR www.news.ycombinator.com)
 site:hn => (news.ycombinator.com OR www.news.ycombinator.com)
 
 # --- HAS ---
-has:image => (.png OR .jpg OR .jpeg OR OR .webp OR .avif OR .svg)
+has:image => (.png OR .jpg OR .jpeg OR .webp OR .avif OR .svg)
 has:video => (.mp4 OR .webm OR .ogg OR .ogv OR .mov OR .m4v)
 has:gif => (.gif OR .gifs OR .apng)
 
