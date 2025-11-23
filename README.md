@@ -179,6 +179,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - [x] don't do so many requests, lots of requests can be merged into one
 - [x] add a `/kinds` command that shows all substitutions
 - [ ] implement streaming search aka "live" mode
+- [ ] support relatr in addition to vertex
 - [ ] be nice to relays (respect limits etc)
 - [ ] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
