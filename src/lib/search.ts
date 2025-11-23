@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter } from './ndk';
+import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter, resetLastReducedFilters } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
