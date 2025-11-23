@@ -170,11 +170,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const version = packageJson.version;
       const commit = process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown';
       const lines = [
-        `Version: ${version}`,
-        `Commit: ${commit}`,
-        '',
         'Available commands:',
-        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)
+        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`),
+        '',
+        `Version: ${version} | Commit: ${commit}`
       ];
       setTopCommandText(buildCli('--help', lines));
       setHelpCommands(commands);
