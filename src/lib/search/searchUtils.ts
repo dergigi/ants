@@ -48,5 +48,5 @@ export function buildSearchQueryWithExtensions(baseQuery: string, extensions: Ni
   return query.trim();
 }
 
-// Re-export the subscription functions from the main search module
-export { subscribeAndStream, subscribeAndCollect } from '../search';
+// Re-export the subscription functions from the subscriptions module
+export { subscribeAndStream, subscribeAndCollect } from './subscriptions';
