@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
@@ -227,10 +227,8 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     };
   }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
 
-  const filtersJson = useMemo(() => {
+  const filtersJson = (() => {
     try {
-      // Tie memo to query so it refreshes when a new search is run
-      void query;
       const filters = getLastReducedFilters();
       if (!filters || filters.length === 0) return '';
       const json = JSON.stringify(filters, null, 2);
@@ -238,7 +236,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     } catch {
       return '';
     }
-  }, [query]);
+  })();
 
   if (!translation) return null;
 
