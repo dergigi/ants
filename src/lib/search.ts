@@ -1,10 +1,8 @@
-import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter, resetLastReducedFilters } from './ndk';
-import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
-import { relaySets as predefinedRelaySets, RELAYS, getNip50SearchRelaySet, extendWithUserAndPremium } from './relays';
-import { getUserRelayAdditions } from './storage';
+import { RELAYS, getNip50SearchRelaySet } from './relays';
 import { normalizeRelayUrl } from './urlUtils';
 import { trackEventRelay } from './eventRelayTracking';
 import { SEARCH_DEFAULT_KINDS } from './constants';
@@ -15,6 +13,35 @@ import {
   buildSearchQueryWithExtensions
 } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
+
+// Import query parsing utilities
+import {
+  extractNip50Extensions,
+  stripRelayFilters,
+  extractKindFilter,
+  extractDateFilter,
+  applyDateFilter,
+  normalizeResidualSearchText
+} from './search/queryParsing';
+
+// Import query transformation utilities
+import {
+  parseOrQuery,
+  expandParenthesizedOr
+} from './search/queryTransforms';
+
+// Import identifier lookup utilities
+import {
+  isNpub,
+  getPubkey,
+  searchByNip19Identifier
+} from './search/idLookup';
+
+// Import relay management utilities
+import {
+  getSearchRelaySet,
+  getBroadRelaySet
+} from './search/relayManagement';
 
 // Note: We no longer inject properties into NDKEvent objects
 // Instead, we use the eventRelayTracking system to track relay sources
@@ -31,158 +58,8 @@ export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as c
 export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
 
-// Use a search-capable relay set explicitly for NIP-50 queries (lazy, async)
-let searchRelaySetPromise: Promise<NDKRelaySet> | null = null;
-async function getSearchRelaySet(): Promise<NDKRelaySet> {
-  if (!searchRelaySetPromise) searchRelaySetPromise = predefinedRelaySets.search();
-  return searchRelaySetPromise;
-}
-
-async function getBroadRelaySet(): Promise<NDKRelaySet> {
-  const base = await extendWithUserAndPremium([...RELAYS.DEFAULT, ...RELAYS.SEARCH]);
-  const manual = getUserRelayAdditions();
-  const combined = new Set<string>([...base, ...manual]);
-  return NDKRelaySet.fromRelayUrls(Array.from(combined), ndk);
-}
-
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
 
-// Extract NIP-50 extensions from the raw query string
-function extractNip50Extensions(rawQuery: string): { cleaned: string; extensions: Nip50Extensions } {
-  let cleaned = rawQuery;
-  const extensions: Nip50Extensions = {};
-
-  // include:spam - turn off spam filtering
-  const includeSpamRegex = /(?:^|\s)include:spam(?:\s|$)/gi;
-  if (includeSpamRegex.test(cleaned)) {
-    extensions.includeSpam = true;
-    cleaned = cleaned.replace(includeSpamRegex, ' ');
-  }
-
-  // domain:<domain> - include only events from users whose valid nip05 domain matches the domain
-  const domainRegex = /(?:^|\s)domain:([^\s]+)(?:\s|$)/gi;
-  cleaned = cleaned.replace(domainRegex, (_, domain: string) => {
-    const value = (domain || '').trim();
-    if (value) extensions.domain = value;
-    return ' ';
-  });
-
-  // language:<two letter ISO 639-1 language code> - include only events of a specified language
-  const languageRegex = /(?:^|\s)language:([a-z]{2})(?:\s|$)/gi;
-  cleaned = cleaned.replace(languageRegex, (_, lang: string) => {
-    const value = (lang || '').trim().toLowerCase();
-    if (value && value.length === 2) extensions.language = value;
-    return ' ';
-  });
-
-  // sentiment:<negative/neutral/positive> - include only events of a specific sentiment
-  const sentimentRegex = /(?:^|\s)sentiment:(negative|neutral|positive)(?:\s|$)/gi;
-  cleaned = cleaned.replace(sentimentRegex, (_, sentiment: string) => {
-    const value = (sentiment || '').trim().toLowerCase();
-    if (['negative', 'neutral', 'positive'].includes(value)) {
-      extensions.sentiment = value as 'negative' | 'neutral' | 'positive';
-    }
-    return ' ';
-  });
-
-  // nsfw:<true/false> - include or exclude nsfw events (default: true)
-  const nsfwRegex = /(?:^|\s)nsfw:(true|false)(?:\s|$)/gi;
-  cleaned = cleaned.replace(nsfwRegex, (_, nsfw: string) => {
-    const value = (nsfw || '').trim().toLowerCase();
-    if (value === 'true') extensions.nsfw = true;
-    else if (value === 'false') extensions.nsfw = false;
-    return ' ';
-  });
-
-  return { cleaned: cleaned.trim(), extensions };
-}
-
-
-// Strip legacy relay filters from query (relay:..., relays:mine)
-function stripRelayFilters(rawQuery: string): string {
-  return rawQuery
-    .replace(/(?:^|\s)relay:[^\s]+(?:\s|$)/gi, ' ')
-    .replace(/(?:^|\s)relays:mine(?:\s|$)/gi, ' ')
-    .trim();
-}
-
-// Extract kind filter(s) from query string: supports comma-separated numbers
-function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: number[] } {
-  let cleaned = rawQuery;
-  const kinds: number[] = [];
-  const kindRegex = /(?:^|\s)kind:([0-9,\s]+)(?=\s|$)/gi;
-  cleaned = cleaned.replace(kindRegex, (_, list: string) => {
-    (list || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .forEach((token) => {
-        const num = parseInt(token, 10);
-        if (!Number.isNaN(num)) kinds.push(num);
-      });
-    return ' ';
-  });
-  const uniqueKinds = Array.from(new Set(kinds));
-  return { cleaned: cleaned.trim(), kinds: uniqueKinds.length ? uniqueKinds : undefined };
-}
-
-// Extract date filter(s) from query string: since:YYYY-MM-DD and until:YYYY-MM-DD
-function extractDateFilter(rawQuery: string): { cleaned: string; since?: number; until?: number } {
-  let cleaned = rawQuery;
-  let since: number | undefined;
-  let until: number | undefined;
-
-  // Convert YYYY-MM-DD to Unix timestamp (start of day in UTC)
-  const dateToTimestamp = (dateStr: string): number => {
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return Math.floor(date.getTime() / 1000);
-  };
-
-  // Extract since:YYYY-MM-DD
-  const sinceRegex = /(?:^|\s)since:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
-  cleaned = cleaned.replace(sinceRegex, (_, dateStr: string) => {
-    since = dateToTimestamp(dateStr);
-    return ' ';
-  });
-
-  // Extract until:YYYY-MM-DD
-  const untilRegex = /(?:^|\s)until:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
-  cleaned = cleaned.replace(untilRegex, (_, dateStr: string) => {
-    // For until, include entire day - add end of day timestamp
-    const startOfDay = dateToTimestamp(dateStr);
-    until = startOfDay + 86399; // Add 23:59:59 seconds
-    return ' ';
-  });
-
-  return {
-    cleaned: cleaned.trim(),
-    since,
-    until
-  };
-}
-
-// Helper function to apply date filters to a filter object
-function applyDateFilter(filter: Partial<NDKFilter>, dateFilter?: { since?: number; until?: number }): Partial<NDKFilter> {
-  if (!dateFilter || (!dateFilter.since && !dateFilter.until)) return filter;
-  return { ...filter, ...(dateFilter.since && { since: dateFilter.since }), ...(dateFilter.until && { until: dateFilter.until }) };
-}
-
-// Normalize residual search text that remains after stripping structured tokens.
-// If the text contains only logical operators and parentheses/quotes, treat it as empty.
-function normalizeResidualSearchText(input: string): string {
-  const trimmed = (input || '').trim();
-  if (!trimmed) return '';
-
-  // Remove only structural characters for inspection, but keep the original
-  // string for cases where there is meaningful content.
-  const tokens = trimmed
-    .replace(/[()"']/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-
-  const hasMeaningfulToken = tokens.some((t) => !/^(OR|AND)$/i.test(t));
-  return hasMeaningfulToken ? trimmed : '';
-}
 
 // Streaming subscription that keeps connections open and streams results
 export async function subscribeAndStream(
@@ -540,230 +417,13 @@ async function searchByAnyTerms(
   return merged;
 }
 
-async function getUserRelayUrlsFromWellKnown(pubkey: string, nip05?: string): Promise<string[]> {
-  if (!nip05) return [];
-  
-  try {
-    const [, domain] = nip05.includes('@') ? nip05.split('@') : ['_', nip05];
-    if (!domain) return [];
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(`https://${domain}/.well-known/nostr.json`, { signal: controller.signal });
-    clearTimeout(timeout);
-    
-    if (!res.ok) return [];
-    const data = await res.json();
-    
-    // Check if this pubkey has relays listed in well-known
-    const relays = data?.relays?.[pubkey.toLowerCase()];
-    if (Array.isArray(relays) && relays.length > 0) {
-      return relays
-        .filter((r: unknown): r is string => typeof r === 'string')
-        .map((r: string) => /^wss?:\/\//i.test(r) ? r : `wss://${r}`);
-    }
-  } catch (error) {
-    console.warn('Failed to fetch relays from well-known:', error);
-  }
-  
-  return [];
-}
-
-export async function getUserRelayUrls(timeoutMs: number = 6000): Promise<string[]> {
-  try {
-    const pubkey = getStoredPubkey();
-    if (!pubkey) return [];
-
-    // First try to get relays from well-known (faster, more reliable)
-    const user = new NDKUser({ pubkey });
-    user.ndk = ndk;
-    try {
-      await user.fetchProfile();
-      const wellKnownRelays = await getUserRelayUrlsFromWellKnown(pubkey, user.profile?.nip05);
-      if (wellKnownRelays.length > 0) {
-        return wellKnownRelays;
-      }
-    } catch (error) {
-      console.warn('Failed to fetch profile for well-known relay lookup:', error);
-    }
-
-    // Fallback to NIP-65 (kind 10002) if well-known doesn't have relays
-    return await new Promise<string[]>((resolve) => {
-      let latest: NDKEvent | null = null;
-      const sub = safeSubscribe([{ kinds: [10002], authors: [pubkey], limit: 3 }], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY });
-      if (!sub) {
-        resolve([]);
-        return;
-      }
-      const timer = setTimeout(() => { try { sub.stop(); } catch {}; resolve([]); }, timeoutMs);
-      sub.on('event', (e: NDKEvent) => {
-        if (!latest || ((e.created_at || 0) > (latest.created_at || 0))) {
-          latest = e;
-        }
-      });
-      sub.on('eose', () => {
-        clearTimeout(timer);
-        if (!latest) return resolve([]);
-        const urls = new Set<string>();
-        for (const tag of latest.tags as unknown as string[][]) {
-          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
-            const raw = tag[1];
-            const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
-            urls.add(normalized);
-          }
-        }
-        resolve(Array.from(urls));
-      });
-      sub.start();
-    });
-  } catch {
-    return [];
-  }
-}
-
-function isNpub(str: string): boolean {
-  // Check if it's a valid npub: starts with npub1, contains only valid bech32 characters, and reasonable length
-  return /^npub1[0-9a-z]+$/i.test(str) && str.length > 10;
-}
-
-function getPubkey(str: string): string | null {
-  if (isNpub(str)) {
-    try {
-      const { data } = nip19.decode(str);
-      return data as string;
-    } catch (error) {
-      console.error('Error decoding npub:', error);
-      return null;
-    }
-  }
-  return str;
-}
-
-function sanitizeRelayUrls(relays: unknown): string[] {
-  if (!Array.isArray(relays)) return [];
-  const normalized = relays
-    .filter((r: unknown): r is string => typeof r === 'string' && r.trim().length > 0)
-    .map((r) => r.trim())
-    .map((r) => (/^wss?:\/\//i.test(r) ? r : `wss://${r}`));
-  return Array.from(new Set(normalized));
-}
-
-async function fetchEventByIdentifier(
-  options: {
-    id?: string;
-    filter?: NDKFilter;
-    relayHints?: string[];
-  },
-  abortSignal?: AbortSignal
-): Promise<NDKEvent[]> {
-  const { id, filter, relayHints } = options;
-  const baseFilter = filter || (id ? { ids: [id], limit: 1 } : undefined);
-  if (!baseFilter) return [];
+// Re-export getUserRelayUrls for backwards compatibility
+export { getUserRelayUrls } from './search/relayManagement';
 
 
-  const relaySetsToTry: NDKRelaySet[] = [];
-  const hinted = sanitizeRelayUrls(relayHints);
-  if (hinted.length > 0) {
-    relaySetsToTry.push(NDKRelaySet.fromRelayUrls(hinted, ndk));
-  }
-  relaySetsToTry.push(await predefinedRelaySets.default());
-  relaySetsToTry.push(await getSearchRelaySet());
 
-  for (const rs of relaySetsToTry) {
-    const events = await subscribeAndCollect(baseFilter as NDKFilter, 8000, rs, abortSignal);
-    if (events.length > 0) return events;
-  }
-  return [];
-}
-
-
-export function parseOrQuery(query: string): string[] {
-  // Split by " OR " (case-insensitive) while preserving quoted segments
-  const parts: string[] = [];
-  let currentPart = '';
-  let inQuotes = false;
-
-  const stripOuterQuotes = (value: string): string => {
-    const trimmed = value.trim();
-    return trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2
-      ? trimmed.slice(1, -1)
-      : trimmed;
-  };
-
-  for (let i = 0; i < query.length; i++) {
-    const char = query[i];
-
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      currentPart += char;
-      continue;
-    }
-
-    // Detect the literal sequence " OR " when not inside quotes
-    if (!inQuotes && query.substr(i, 4).toUpperCase() === ' OR ') {
-      const cleaned = stripOuterQuotes(currentPart);
-      if (cleaned) parts.push(cleaned);
-      currentPart = '';
-      i += 3; // skip the remaining characters of " OR " (loop will +1)
-      continue;
-    }
-
-    currentPart += char;
-  }
-
-  const cleaned = stripOuterQuotes(currentPart);
-  if (cleaned) parts.push(cleaned);
-  return parts;
-}
-
-// Expand queries with parenthesized OR blocks by distributing surrounding terms.
-// Example: "GM (.mp4 OR .jpg)" -> ["GM .mp4", "GM .jpg"]
-export function expandParenthesizedOr(query: string): string[] {
-  const normalize = (s: string) => s.replace(/\s{2,}/g, ' ').trim();
-  const needsSpace = (leftLast: string | undefined, rightFirst: string | undefined): boolean => {
-    if (!leftLast || !rightFirst) return false;
-    if (/\s/.test(leftLast)) return false; // already spaced
-    if (/\s/.test(rightFirst)) return false; // already spaced
-    // Do not insert a space after a scope token like 'p:' or 'by:'
-    if (leftLast === ':') return false;
-    // If right begins with a dot or alphanumeric, and left ends with alphanumeric,
-    // insert a space to avoid unintended token merge like "GM.png".
-    const leftWordy = /[A-Za-z0-9_]$/.test(leftLast);
-    const rightWordyOrDot = /^[A-Za-z0-9.]/.test(rightFirst);
-    return leftWordy && rightWordyOrDot;
-  };
-  const smartJoin = (a: string, b: string): string => {
-    if (!a) return b;
-    if (!b) return a;
-    const leftLast = a[a.length - 1];
-    const rightFirst = b[0];
-    return needsSpace(leftLast, rightFirst) ? `${a} ${b}` : `${a}${b}`;
-  };
-  const unique = (arr: string[]) => Array.from(new Set(arr.map(normalize)));
-
-  const rx = /\(([^()]*?\s+OR\s+[^()]*?)\)/i; // innermost () that contains an OR
-  const work = normalize(query);
-  const m = work.match(rx);
-  if (!m) return [work];
-
-  const start = m.index || 0;
-  const end = start + m[0].length;
-  const before = work.slice(0, start);
-  const inner = m[1];
-  const after = work.slice(end);
-
-  // Split inner by OR (case-insensitive), keep tokens as-is
-  const alts = inner.split(/\s+OR\s+/i).map((s) => s.trim()).filter(Boolean);
-  const expanded: string[] = [];
-  for (const alt of alts) {
-    const joined = smartJoin(before, alt);
-    const next = normalize(smartJoin(joined, after));
-    for (const ex of expandParenthesizedOr(next)) {
-      expanded.push(ex);
-    }
-  }
-  return unique(expanded);
-}
+// Re-export query transformation utilities for backwards compatibility
+export { parseOrQuery, expandParenthesizedOr } from './search/queryTransforms';
 
 // Streaming search options
 interface StreamingSearchOptions {
@@ -1206,34 +866,9 @@ export async function searchEvents(
     }
   } catch {}
 
-  // nevent/note bech32: fetch by id (optionally using relays embedded in nevent)
-  try {
-    const decoded = nip19.decode(extCleanedQuery);
-    if (decoded?.type === 'nevent') {
-      const data = decoded.data as { id: string; relays?: string[] };
-      const results = await fetchEventByIdentifier({ id: data.id, relayHints: data.relays }, abortSignal);
-      if (results.length > 0) return results;
-      return [];
-    }
-    if (decoded?.type === 'note') {
-      const id = decoded.data as string;
-      const results = await fetchEventByIdentifier({ id }, abortSignal);
-      if (results.length > 0) return results;
-      return [];
-    }
-    if (decoded?.type === 'naddr') {
-      const data = decoded.data as { pubkey: string; identifier: string; kind: number; relays?: string[] };
-      const pointerFilter: NDKFilter = {
-        kinds: [data.kind],
-        authors: [data.pubkey],
-        '#d': [data.identifier],
-        limit: 1
-      };
-      const results = await fetchEventByIdentifier({ filter: pointerFilter, relayHints: data.relays }, abortSignal);
-      if (results.length > 0) return results;
-      return [];
-    }
-  } catch {}
+  // nevent/note/naddr bech32: fetch by NIP-19 identifier
+  const nip19Results = await searchByNip19Identifier(extCleanedQuery, abortSignal, getSearchRelaySet);
+  if (nip19Results.length > 0) return nip19Results;
 
   // Pure hashtag search: use tag-based filter across broad relay set (no NIP-50 required)
   const hashtagMatches = cleanedQuery.match(/#[A-Za-z0-9_]+/g) || [];
