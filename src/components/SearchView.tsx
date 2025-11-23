@@ -1735,7 +1735,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                 rel="noopener noreferrer"
                                 className="hover:underline"
                               >
-                                {process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown'}
+                                {process.env.NEXT_PUBLIC_GIT_COMMIT_SHORT || 'unknown'}
                               </a>
                             </div>
                           </>
