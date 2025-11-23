@@ -474,3 +474,23 @@ export async function searchEvents(
   }
 }
 
+// Convenience function for streaming search
+export async function searchEventsStreaming(
+  query: string,
+  onResults: (results: NDKEvent[], isComplete: boolean) => void,
+  options: {
+    maxResults?: number;
+    timeoutMs?: number;
+    exact?: boolean;
+    relaySetOverride?: NDKRelaySet;
+    abortSignal?: AbortSignal;
+  } = {}
+): Promise<NDKEvent[]> {
+  return searchEvents(query, 1000, {
+    streaming: true,
+    onResults,
+    maxResults: options.maxResults || 1000,
+    timeoutMs: options.timeoutMs || 30000,
+    exact: options.exact
+  }, options.relaySetOverride, options.abortSignal);
+} 
