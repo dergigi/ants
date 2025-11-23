@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter } from './ndk';
+import { ndk, connectWithTimeout, markRelayActivity, safeSubscribe, isValidFilter, resetLastReducedFilters } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { searchProfilesFullText, resolveNip05ToPubkey, profileEventFromPubkey, resolveAuthor } from './vertex';
 import { nip19 } from 'nostr-tools';
@@ -167,6 +167,23 @@ function applyDateFilter(filter: Partial<NDKFilter>, dateFilter?: { since?: numb
   return { ...filter, ...(dateFilter.since && { since: dateFilter.since }), ...(dateFilter.until && { until: dateFilter.until }) };
 }
 
+// Normalize residual search text that remains after stripping structured tokens.
+// If the text contains only logical operators and parentheses/quotes, treat it as empty.
+function normalizeResidualSearchText(input: string): string {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return '';
+
+  // Remove only structural characters for inspection, but keep the original
+  // string for cases where there is meaningful content.
+  const tokens = trimmed
+    .replace(/[()"']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const hasMeaningfulToken = tokens.some((t) => !/^(OR|AND)$/i.test(t));
+  return hasMeaningfulToken ? trimmed : '';
+}
+
 // Streaming subscription that keeps connections open and streams results
 export async function subscribeAndStream(
   filter: NDKFilter, 
@@ -214,7 +231,8 @@ export async function subscribeAndStream(
     const sub = safeSubscribe([streamingFilter], { 
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet: rs 
+      relaySet: rs,
+      __trackFilters: true
     });
 
     if (!sub) {
@@ -325,7 +343,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
     (async () => {
       const rs = relaySet || await getSearchRelaySet();
-      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs });
+      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs, __trackFilters: true });
     
       if (!sub) {
         console.warn('Failed to create subscription in subscribeAndCollect');
@@ -471,8 +489,7 @@ async function searchByAnyTerms(
         
         filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
       }
-
-      const residual = preprocessedTerm
+      const residualRaw = preprocessedTerm
         .replace(/\bkind:[^\s]+/gi, ' ')
         .replace(/\bkinds:[^\s]+/gi, ' ')
         .replace(/\bby:[^\s]+/gi, ' ')
@@ -482,8 +499,9 @@ async function searchByAnyTerms(
         .replace(/#[A-Za-z0-9_]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+      const residual = normalizeResidualSearchText(residualRaw);
       const needsFullTextSearch = hasLogicalOperators || residual.length > 0;
-      const searchBasis = residual || '';
+      const searchBasis = residual;
       const searchQuery = needsFullTextSearch && searchBasis.length > 0
         ? (nip50Extensions ? buildSearchQueryWithExtensions(searchBasis, nip50Extensions) : searchBasis)
         : undefined;
@@ -763,6 +781,7 @@ export async function searchEvents(
   relaySetOverride?: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
+  resetLastReducedFilters();
   // Check if already aborted
   if (abortSignal?.aborted) {
     throw new Error('Search aborted');
@@ -854,6 +873,155 @@ export async function searchEvents(
           } catch {}
         }
         return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
+      }
+
+      // Check if all seeds differ only by by: clauses (optimization: single filter with multiple authors)
+      const extractByTokens = (s: string): string[] => {
+        const matches = Array.from(s.matchAll(/\bby:(\S+)/gi));
+        return matches.map(m => m[1] || '').filter(Boolean);
+      };
+      
+      const extractNonByContent = (s: string): string => {
+        return s.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
+      };
+      
+      const firstNonBy = extractNonByContent(expandedSeeds[0]);
+      const allSameNonBy = expandedSeeds.every(seed => extractNonByContent(seed) === firstNonBy);
+      const allHaveBy = expandedSeeds.every(seed => /\bby:\S+/i.test(seed));
+      
+      if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
+        // All seeds are identical except for by: clauses - optimize with single filter
+        const allByTokens = expandedSeeds.flatMap(extractByTokens);
+        const uniqueByTokens = Array.from(new Set(allByTokens));
+        
+        // Resolve all authors to pubkeys
+        const resolvedPubkeys: string[] = [];
+        for (const authorToken of uniqueByTokens) {
+          try {
+            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+              const hex = nip19.decode(authorToken).data as string;
+              resolvedPubkeys.push(hex);
+            } else {
+              const resolved = await resolveAuthor(authorToken);
+              if (resolved.pubkeyHex) {
+                resolvedPubkeys.push(resolved.pubkeyHex);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to resolve author ${authorToken}:`, error);
+          }
+        }
+        
+        if (resolvedPubkeys.length > 0) {
+          // Build single filter with all authors
+          const baseQuery = firstNonBy || '';
+          const { applySimpleReplacements } = await import('./search/replacements');
+          const preprocessed = await applySimpleReplacements(baseQuery);
+          const tagMatches = Array.from(preprocessed.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
+          
+          const filter: NDKFilter = applyDateFilter({
+            kinds: effectiveKinds,
+            authors: resolvedPubkeys,
+            limit: Math.max(limit, 500),
+            ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
+          }, dateFilter) as NDKFilter;
+          
+          // Extract residual search text
+          const residual = preprocessed
+            .replace(/\bkind:[^\s]+/gi, ' ')
+            .replace(/\bkinds:[^\s]+/gi, ' ')
+            .replace(/#[A-Za-z0-9_]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (residual.length > 0) {
+            filter.search = nip50Extensions 
+              ? buildSearchQueryWithExtensions(residual, nip50Extensions)
+              : residual;
+          }
+          
+          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          return sortEventsNewestFirst(results).slice(0, limit);
+        }
+      }
+
+      // Check for combined hashtag + author OR patterns like:
+      // "(#yestr OR #nostr) (by:dergigi OR by:IntuitiveGuy)"
+      const extractTags = (s: string): string[] => {
+        const matches = Array.from(s.matchAll(/#[A-Za-z0-9_]+/gi));
+        return matches.map((m) => (m[0] || '').slice(1).toLowerCase()).filter(Boolean);
+      };
+
+      const extractCoreWithoutByAndTags = (s: string): string => {
+        return s
+          .replace(/\bby:\S+/gi, '')
+          .replace(/#[A-Za-z0-9_]+/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+
+      const baseCore = extractCoreWithoutByAndTags(expandedSeeds[0]);
+      const allSameCore = expandedSeeds.every((seed) => extractCoreWithoutByAndTags(seed) === baseCore);
+      const allHaveTagAndBy = expandedSeeds.every((seed) => extractTags(seed).length > 0 && extractByTokens(seed).length > 0);
+
+      if (allSameCore && allHaveTagAndBy) {
+        const allTags = new Set<string>();
+        const allByTokens: string[] = [];
+        for (const seed of expandedSeeds) {
+          extractTags(seed).forEach((t) => allTags.add(t));
+          allByTokens.push(...extractByTokens(seed));
+        }
+
+        const uniqueByTokens = Array.from(new Set(allByTokens));
+
+        // Resolve all authors to pubkeys
+        const resolvedPubkeys: string[] = [];
+        for (const authorToken of uniqueByTokens) {
+          try {
+            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+              const hex = nip19.decode(authorToken).data as string;
+              resolvedPubkeys.push(hex);
+            } else {
+              const resolved = await resolveAuthor(authorToken);
+              if (resolved.pubkeyHex) {
+                resolvedPubkeys.push(resolved.pubkeyHex);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to resolve author ${authorToken}:`, error);
+          }
+        }
+
+        if (resolvedPubkeys.length > 0 && allTags.size > 0) {
+          const { applySimpleReplacements } = await import('./search/replacements');
+          const baseQuery = baseCore || '';
+          const preprocessed = await applySimpleReplacements(baseQuery);
+
+          const filter: NDKFilter = applyDateFilter({
+            kinds: effectiveKinds,
+            authors: resolvedPubkeys,
+            '#t': Array.from(allTags),
+            limit: Math.max(limit, 500)
+          }, dateFilter) as NDKFilter;
+
+          const residualRaw = preprocessed
+            .replace(/\bkind:[^\s]+/gi, ' ')
+            .replace(/\bkinds:[^\s]+/gi, ' ')
+            .replace(/#[A-Za-z0-9_]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const residual = normalizeResidualSearchText(residualRaw);
+
+          if (residual.length > 0) {
+            filter.search = nip50Extensions
+              ? buildSearchQueryWithExtensions(residual, nip50Extensions)
+              : residual;
+          }
+
+          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          return sortEventsNewestFirst(results).slice(0, limit);
+        }
       }
 
       const translatedSeeds = expandedSeeds
