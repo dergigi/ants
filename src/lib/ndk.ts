@@ -7,8 +7,11 @@ import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
 import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';
 
-let lastReducedFilters: NDKFilter[] | null = null;
-export const getLastReducedFilters = (): NDKFilter[] | null => lastReducedFilters;
+let lastReducedFilters: NDKFilter[] = [];
+export const getLastReducedFilters = (): NDKFilter[] => lastReducedFilters;
+export const resetLastReducedFilters = (): void => {
+  lastReducedFilters = [];
+};
 
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
@@ -467,9 +470,6 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   const validFilters = filters.filter(isValidFilter);
   
   if (validFilters.length === 0) {
-    if (trackFilters) {
-      lastReducedFilters = null;
-    }
     console.warn('No valid filters provided to safeSubscribe, skipping subscription');
     return null;
   }
@@ -482,7 +482,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   // This automatically optimizes cases like multiple authors with the same kinds/search constraints
   const reducedFilters = reduceFilters(validFilters);
   if (trackFilters) {
-    lastReducedFilters = reducedFilters;
+    lastReducedFilters = [...lastReducedFilters, ...reducedFilters];
   }
   
   if (reducedFilters.length < validFilters.length) {

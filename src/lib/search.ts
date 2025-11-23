@@ -764,6 +764,7 @@ export async function searchEvents(
   relaySetOverride?: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
+  resetLastReducedFilters();
   // Check if already aborted
   if (abortSignal?.aborted) {
     throw new Error('Search aborted');
