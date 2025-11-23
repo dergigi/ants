@@ -73,6 +73,21 @@ describe('reduceFilters', () => {
     expect(reduced[0]['#t']).toHaveLength(3);
   });
 
+  it('merges distinct hashtag filters like #pugstr OR #horsestr OR #goatstr', () => {
+    const filters: NDKFilter[] = [
+      { kinds: [1], '#t': ['pugstr'] },
+      { kinds: [1], '#t': ['horsestr'] },
+      { kinds: [1], '#t': ['goatstr'] },
+    ];
+
+    const reduced = reduceFilters(filters);
+    expect(reduced).toHaveLength(1);
+    expect(reduced[0]['#t']).toContain('pugstr');
+    expect(reduced[0]['#t']).toContain('horsestr');
+    expect(reduced[0]['#t']).toContain('goatstr');
+    expect(reduced[0]['#t']).toHaveLength(3);
+  });
+
   it('does not merge filters with different search queries', () => {
     const filters: NDKFilter[] = [
       { kinds: [1], search: 'query1' },
