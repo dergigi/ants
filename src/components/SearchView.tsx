@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
+import { getIsKindRules } from '@/lib/search/replacements';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -119,6 +120,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const [helpCommands, setHelpCommands] = useState<readonly SlashCommand[] | null>(null);
+  const [kindsRules, setKindsRules] = useState<Array<{ token: string; expansion: string }> | null>(null);
+  const [kindsLoading, setKindsLoading] = useState(false);
+  const [kindsError, setKindsError] = useState<string | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
@@ -166,18 +170,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('--help', lines));
       setHelpCommands(commands);
       setTopExamples(null);
+      setKindsRules(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
       setTopExamples(Array.from(examples));
       setTopCommandText(buildCli('--help examples'));
       setHelpCommands(null);
+      setKindsRules(null);
     },
     onLogin: async () => {
       setLoginState('logging-in');
       setTopCommandText(buildCli('login', 'Attempting login…'));
       setTopExamples(null);
       setHelpCommands(null);
+      setKindsRules(null);
       try {
         const user = await login();
         if (user) {
@@ -227,11 +234,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
       setTopExamples(null);
       setHelpCommands(null);
+      setKindsRules(null);
     },
     onClear: async () => {
       setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
       setHelpCommands(null);
+      setKindsRules(null);
       try {
         await executeClearCommand();
         setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
@@ -244,10 +253,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
       setTopExamples(null);
       setHelpCommands(null);
+      setKindsRules(null);
       setQuery(tutorialNevent);
       updateSearchQuery(searchParams, router, tutorialNevent);
+    },
+    onKinds: async () => {
+      setTopCommandText(buildCli('kinds', 'Loading kind shortcuts...'));
+      setTopExamples(null);
+      setHelpCommands(null);
+      setResults([]);
+      setKindsLoading(true);
+      setKindsError(null);
+      try {
+        const rules = await getIsKindRules();
+        setKindsRules(rules.map(r => ({ token: r.token, expansion: r.expansion })));
+        setTopCommandText(buildCli('kinds', `${rules.length} is: shortcuts that map to nostr kinds`));
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to load kind shortcuts';
+        setKindsError(errorMsg);
+        setTopCommandText(buildCli('kinds', `Error: ${errorMsg}`));
+      } finally {
+        setKindsLoading(false);
+      }
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router, kindsError]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
@@ -718,6 +747,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (identifierOnly || identifierInUrl) {
         setTopCommandText(null);
         setTopExamples(null);
+        setKindsRules(null);
         setShowExternalButton(false);
         setResults([]);
         setLoading(false);
@@ -758,6 +788,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     if (!isCmd) {
       setTopCommandText(null);
       setTopExamples(null);
+      setKindsRules(null);
       setShowExternalButton(false);
     }
     setResults([]);
@@ -919,6 +950,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             if (unknownCmd) {
               setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
               setTopExamples(null);
+              setKindsRules(null);
             }
             handleSearch(initialQueryRef.current);
           } else {
@@ -1045,6 +1077,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (unknownCmd) {
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
+        setKindsRules(null);
       }
     });
     return cleanup;
@@ -1124,6 +1157,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (unknownCmd) {
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
+        setKindsRules(null);
       }
       return;
     }
@@ -1142,6 +1176,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       if (unknownCmd) {
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
+        setKindsRules(null);
       }
       setQuery(raw);
       updateUrlForSearch(raw);
@@ -1155,6 +1190,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       // Clear any previous command card for non-command searches
       setTopCommandText(null);
       setTopExamples(null);
+      setKindsRules(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     let displayVal = raw;
@@ -1515,6 +1551,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResolvingAuthor(false);
     setTopCommandText(null);
     setTopExamples(null);
+    setKindsRules(null);
     // Always reset to root path when clearing
     router.replace('/');
   }, [router]);
@@ -1695,6 +1732,36 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                               </div>
                             ))}
                           </>
+                        ) : kindsRules && kindsRules.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {kindsRules.map((rule, idx) => (
+                              <div key={`${rule.token}-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(rule.token)}
+                                >
+                                  <span className="font-mono">{rule.token.padEnd(16)}</span>
+                                  <span className="text-gray-400"> => </span>
+                                  <span className="font-mono text-blue-400">{rule.expansion}</span>
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : kindsLoading ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            <div>Loading kind shortcuts...</div>
+                          </>
+                        ) : kindsError ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            <div className="text-red-400">Error: {kindsError}</div>
+                          </>
                         ) : (
                           <>
                             {tokens.map((line, i) => (
@@ -1862,7 +1929,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }

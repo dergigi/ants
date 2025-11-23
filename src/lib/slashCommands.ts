@@ -13,7 +13,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { key: 'login', label: '/login', description: 'Connect with NIP-07' },
   { key: 'logout', label: '/logout', description: 'Clear session' },
   { key: 'clear', label: '/clear', description: 'Clear all caches' },
-  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial video' }
+  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial video' },
+  { key: 'kinds', label: '/kinds', description: 'List is: shortcuts that map to nostr kinds' }
 ] as const;
 
 export interface SlashCommandHandlers {
@@ -23,6 +24,7 @@ export interface SlashCommandHandlers {
   onLogout: () => void;
   onClear: () => Promise<void>;
   onTutorial: () => void;
+  onKinds: () => Promise<void>;
 }
 
 export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
@@ -56,6 +58,11 @@ export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
     
     if (cmd === 'tutorial') {
       handlers.onTutorial();
+      return;
+    }
+    
+    if (cmd === 'kinds') {
+      handlers.onKinds();
       return;
     }
     
