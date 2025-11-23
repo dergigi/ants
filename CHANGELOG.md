@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2025-11-23
+
+### Added
+- Nostr filter reducer for smarter request optimization
+- Query inspector showing reduced filters on hover and in expandable panel
+
+### Changed
+- Collapse hashtag and author OR into single filter
+
+### Fixed
+- Correct has:image replacement expansion
+- Avoid spurious residual search text for structured OR queries
+
 ## [0.2.4] - 2025-11-22
 
 ### Added
