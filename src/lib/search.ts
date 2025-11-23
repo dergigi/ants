@@ -928,6 +928,83 @@ export async function searchEvents(
         }
       }
 
+      // Check for combined hashtag + author OR patterns like:
+      // "(#yestr OR #nostr) (by:dergigi OR by:IntuitiveGuy)"
+      const extractTags = (s: string): string[] => {
+        const matches = Array.from(s.matchAll(/#[A-Za-z0-9_]+/gi));
+        return matches.map((m) => (m[0] || '').slice(1).toLowerCase()).filter(Boolean);
+      };
+
+      const extractCoreWithoutByAndTags = (s: string): string => {
+        return s
+          .replace(/\bby:\S+/gi, '')
+          .replace(/#[A-Za-z0-9_]+/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+
+      const baseCore = extractCoreWithoutByAndTags(expandedSeeds[0]);
+      const allSameCore = expandedSeeds.every((seed) => extractCoreWithoutByAndTags(seed) === baseCore);
+      const allHaveTagAndBy = expandedSeeds.every((seed) => extractTags(seed).length > 0 && extractByTokens(seed).length > 0);
+
+      if (allSameCore && allHaveTagAndBy) {
+        const allTags = new Set<string>();
+        const allByTokens: string[] = [];
+        for (const seed of expandedSeeds) {
+          extractTags(seed).forEach((t) => allTags.add(t));
+          allByTokens.push(...extractByTokens(seed));
+        }
+
+        const uniqueByTokens = Array.from(new Set(allByTokens));
+
+        // Resolve all authors to pubkeys
+        const resolvedPubkeys: string[] = [];
+        for (const authorToken of uniqueByTokens) {
+          try {
+            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+              const hex = nip19.decode(authorToken).data as string;
+              resolvedPubkeys.push(hex);
+            } else {
+              const resolved = await resolveAuthor(authorToken);
+              if (resolved.pubkeyHex) {
+                resolvedPubkeys.push(resolved.pubkeyHex);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to resolve author ${authorToken}:`, error);
+          }
+        }
+
+        if (resolvedPubkeys.length > 0 && allTags.size > 0) {
+          const { applySimpleReplacements } = await import('./search/replacements');
+          const baseQuery = baseCore || '';
+          const preprocessed = await applySimpleReplacements(baseQuery);
+
+          const filter: NDKFilter = applyDateFilter({
+            kinds: effectiveKinds,
+            authors: resolvedPubkeys,
+            '#t': Array.from(allTags),
+            limit: Math.max(limit, 500)
+          }, dateFilter) as NDKFilter;
+
+          const residual = preprocessed
+            .replace(/\bkind:[^\s]+/gi, ' ')
+            .replace(/\bkinds:[^\s]+/gi, ' ')
+            .replace(/#[A-Za-z0-9_]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (residual.length > 0) {
+            filter.search = nip50Extensions
+              ? buildSearchQueryWithExtensions(residual, nip50Extensions)
+              : residual;
+          }
+
+          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          return sortEventsNewestFirst(results).slice(0, limit);
+        }
+      }
+
       const translatedSeeds = expandedSeeds
         .map((seed) => {
           const existingKind = extractKindFilter(seed);
