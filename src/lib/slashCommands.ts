@@ -10,11 +10,11 @@ export interface SlashCommand {
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { key: 'help', label: '/help', description: 'Show this help' },
   { key: 'examples', label: '/examples', description: 'List example queries' },
+  { key: 'kinds', label: '/kinds', description: 'List is: shortcuts that map to nostr kinds' },
   { key: 'login', label: '/login', description: 'Connect with NIP-07' },
   { key: 'logout', label: '/logout', description: 'Clear session' },
   { key: 'clear', label: '/clear', description: 'Clear all caches' },
-  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial video' },
-  { key: 'kinds', label: '/kinds', description: 'List is: shortcuts that map to nostr kinds' }
+  { key: 'tutorial', label: '/tutorial', description: 'Show tutorial video' }
 ] as const;
 
 export interface SlashCommandHandlers {
