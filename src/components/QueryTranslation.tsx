@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { nip19 } from 'nostr-tools';
+import { getLastReducedFilters } from '@/lib/ndk';
 
 interface QueryTranslationProps {
   query: string;
@@ -228,6 +229,16 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   if (!translation) return null;
 
   const isLongTranslation = translation.split('\n').length > 4;
+  const filtersTooltip = useMemo(() => {
+    try {
+      const filters = getLastReducedFilters();
+      if (!filters || filters.length === 0) return '';
+      const json = JSON.stringify(filters, null, 2);
+      return json.length > 2000 ? `${json.slice(0, 2000)}\n…` : json;
+    } catch {
+      return '';
+    }
+  }, [query]);
 
   return (
     <div 
@@ -241,7 +252,11 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         }
       }}
     >
-      <FontAwesomeIcon icon={faEquals} className="mt-0.5 flex-shrink-0" />
+      <FontAwesomeIcon
+        icon={faEquals}
+        className="mt-0.5 flex-shrink-0"
+        title={filtersTooltip || undefined}
+      />
       <div className="flex-1 min-w-0">
         {isLongTranslation && !isExplanationExpanded ? (
           <>

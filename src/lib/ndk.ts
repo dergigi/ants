@@ -7,6 +7,9 @@ import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
 import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';
 
+let lastReducedFilters: NDKFilter[] | null = null;
+export const getLastReducedFilters = (): NDKFilter[] | null => lastReducedFilters;
+
 // SQLite (WASM) cache adapter — initialized lazily and only on the client
 const cacheAdapter = new NDKCacheAdapterSqliteWasm({ 
   dbName: 'ants-ndk-cache', 
@@ -463,6 +466,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   const validFilters = filters.filter(isValidFilter);
   
   if (validFilters.length === 0) {
+    lastReducedFilters = null;
     console.warn('No valid filters provided to safeSubscribe, skipping subscription');
     return null;
   }
@@ -474,6 +478,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   // Reduce filters: merge compatible filters to reduce the number of REQ messages
   // This automatically optimizes cases like multiple authors with the same kinds/search constraints
   const reducedFilters = reduceFilters(validFilters);
+  lastReducedFilters = reducedFilters;
   
   if (reducedFilters.length < validFilters.length) {
     console.log(`Reduced ${validFilters.length} filters to ${reducedFilters.length} filters`);
