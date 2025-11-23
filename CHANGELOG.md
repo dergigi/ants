@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2025-11-23
+
+### Added
+- `/kinds` command to list is: shortcuts mapping to nostr kinds
+- Version and commit hash to `/help` output
+- Clickable links for version and commit in help output
+
+### Changed
+- Moved version and commit to end of help output on one line
+
+### Fixed
+- Reorder `/kinds` command to appear after `/examples` in help text
+- Update `/kinds` command description to 'List kind mappings'
+- Resolve linting issues in SearchView
+- Use full commit hash for GitHub URL while displaying short hash
+
 ## [0.2.6] - 2025-11-23
 
 ### Added
