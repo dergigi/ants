@@ -167,6 +167,23 @@ function applyDateFilter(filter: Partial<NDKFilter>, dateFilter?: { since?: numb
   return { ...filter, ...(dateFilter.since && { since: dateFilter.since }), ...(dateFilter.until && { until: dateFilter.until }) };
 }
 
+// Normalize residual search text that remains after stripping structured tokens.
+// If the text contains only logical operators and parentheses/quotes, treat it as empty.
+function normalizeResidualSearchText(input: string): string {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return '';
+
+  // Remove only structural characters for inspection, but keep the original
+  // string for cases where there is meaningful content.
+  const tokens = trimmed
+    .replace(/[()"']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const hasMeaningfulToken = tokens.some((t) => !/^(OR|AND)$/i.test(t));
+  return hasMeaningfulToken ? trimmed : '';
+}
+
 // Streaming subscription that keeps connections open and streams results
 export async function subscribeAndStream(
   filter: NDKFilter, 
@@ -472,8 +489,7 @@ async function searchByAnyTerms(
         
         filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
       }
-
-      const residual = preprocessedTerm
+      const residualRaw = preprocessedTerm
         .replace(/\bkind:[^\s]+/gi, ' ')
         .replace(/\bkinds:[^\s]+/gi, ' ')
         .replace(/\bby:[^\s]+/gi, ' ')
@@ -483,8 +499,9 @@ async function searchByAnyTerms(
         .replace(/#[A-Za-z0-9_]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+      const residual = normalizeResidualSearchText(residualRaw);
       const needsFullTextSearch = hasLogicalOperators || residual.length > 0;
-      const searchBasis = residual || '';
+      const searchBasis = residual;
       const searchQuery = needsFullTextSearch && searchBasis.length > 0
         ? (nip50Extensions ? buildSearchQueryWithExtensions(searchBasis, nip50Extensions) : searchBasis)
         : undefined;
@@ -987,12 +1004,14 @@ export async function searchEvents(
             limit: Math.max(limit, 500)
           }, dateFilter) as NDKFilter;
 
-          const residual = preprocessed
+          const residualRaw = preprocessed
             .replace(/\bkind:[^\s]+/gi, ' ')
             .replace(/\bkinds:[^\s]+/gi, ' ')
             .replace(/#[A-Za-z0-9_]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+
+          const residual = normalizeResidualSearchText(residualRaw);
 
           if (residual.length > 0) {
             filter.search = nip50Extensions

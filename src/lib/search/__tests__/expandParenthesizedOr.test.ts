@@ -70,5 +70,16 @@ describe('expandParenthesizedOr', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toBe('A');
   });
+
+  it('expands hashtag and author OR blocks together', () => {
+    const query = '(#yestr OR #nostr) (by:dergigi OR by:IntuitiveGuy)';
+    const result = expandParenthesizedOr(query);
+
+    // Expect all four combinations of hashtag and author, without stray parentheses
+    expect(result).toContain('#yestr by:dergigi');
+    expect(result).toContain('#yestr by:IntuitiveGuy');
+    expect(result).toContain('#nostr by:dergigi');
+    expect(result).toContain('#nostr by:IntuitiveGuy');
+  });
 });
 
