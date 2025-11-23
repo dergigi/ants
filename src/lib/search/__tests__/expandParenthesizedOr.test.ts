@@ -1,3 +1,29 @@
+// Mock the problematic NDK imports before importing search
+jest.mock('../../ndk', () => ({
+  ndk: {},
+  connectWithTimeout: jest.fn(),
+  markRelayActivity: jest.fn(),
+  safeSubscribe: jest.fn(),
+  isValidFilter: jest.fn(() => true),
+}));
+
+jest.mock('../../vertex', () => ({
+  searchProfilesFullText: jest.fn(),
+  resolveNip05ToPubkey: jest.fn(),
+  profileEventFromPubkey: jest.fn(),
+  resolveAuthor: jest.fn(),
+}));
+
+jest.mock('../../relays', () => ({
+  relaySets: {
+    search: jest.fn(),
+    default: jest.fn(),
+  },
+  RELAYS: {},
+  getNip50SearchRelaySet: jest.fn(),
+  extendWithUserAndPremium: jest.fn(),
+}));
+
 import { expandParenthesizedOr } from '../../search';
 
 describe('expandParenthesizedOr', () => {

@@ -1,3 +1,13 @@
+// Mock the problematic NDK imports before importing filterReduce
+jest.mock('../../ndk', () => ({
+  isValidFilter: jest.fn((filter: unknown) => {
+    // Simple validation: filter must be an object with at least one property
+    if (!filter || typeof filter !== 'object') return false;
+    const f = filter as Record<string, unknown>;
+    return Object.keys(f).length > 0;
+  }),
+}));
+
 import type { NDKFilter } from '@nostr-dev-kit/ndk';
 import { reduceFilters } from '../filterReduce';
 
