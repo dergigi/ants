@@ -1,6 +1,7 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterSqliteWasm from '@nostr-dev-kit/ndk-cache-sqlite-wasm';
 import { getFilteredExamples } from './examples';
+import { reduceFilters } from './utils/filterReduce';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
@@ -470,8 +471,16 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
     console.warn(`Filtered out ${filters.length - validFilters.length} invalid filters`);
   }
   
+  // Reduce filters: merge compatible filters to reduce the number of REQ messages
+  // This automatically optimizes cases like multiple authors with the same kinds/search constraints
+  const reducedFilters = reduceFilters(validFilters);
+  
+  if (reducedFilters.length < validFilters.length) {
+    console.log(`Reduced ${validFilters.length} filters to ${reducedFilters.length} filters`);
+  }
+  
   try {
-    return ndk.subscribe(validFilters, options);
+    return ndk.subscribe(reducedFilters, options);
   } catch (error) {
     // If the sqlite-wasm cache throws the binding error, disable cache and retry once live-only
     if (isUndefinedBindWasmError(error)) {
@@ -480,7 +489,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
       try {
         // Force cache usage to ONLY_RELAY to bypass cache completely
         const liveOptions = { ...options, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY };
-        return ndk.subscribe(validFilters, liveOptions);
+        return ndk.subscribe(reducedFilters, liveOptions);
       } catch (e2) {
         console.error('Failed to create NDK subscription after disabling cache:', e2);
         return null;
