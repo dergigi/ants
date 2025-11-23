@@ -90,6 +90,7 @@ export const searchExamples = [
   // Nested OR
   '(GM OR GN) by:dergigi has:image',
   'p:(NewsBot or RSS)',
+  '(#yestr OR #nostr) (by:dergigi OR by:IntuitiveGuy)',
 
   // Media Modifiers
   'has:gif',
