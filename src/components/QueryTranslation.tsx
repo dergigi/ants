@@ -235,7 +235,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     } catch {
       return '';
     }
-  }, [query]);
+  }, []);
 
   if (!translation) return null;
 
