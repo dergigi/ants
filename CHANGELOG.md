@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2025-11-23
+
+### Added
+- Support for NIP-05 domain profile searches
+
+### Changed
+- Refactored search utilities into focused modules
+- Improved search controller organization
+
+### Removed
+- Unused streaming wrapper
+
 ## [0.2.5] - 2025-11-23
 
 ### Added
