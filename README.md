@@ -113,6 +113,7 @@ If it's a valid NIP-05 we should be able to get the hex of the npub straight up,
 ## Live Instances
 
 - [ants.sh](https://ants.sh/)
+- [search.dergigi.com](https://search.dergigi.com/)
 
 ## Ranking behavior
 
