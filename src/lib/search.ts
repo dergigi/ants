@@ -214,7 +214,8 @@ export async function subscribeAndStream(
     const sub = safeSubscribe([streamingFilter], { 
       closeOnEose: false, // Keep connection open!
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet: rs 
+      relaySet: rs,
+      __trackFilters: true
     });
 
     if (!sub) {
@@ -325,7 +326,7 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
 
     (async () => {
       const rs = relaySet || await getSearchRelaySet();
-      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs });
+      const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs, __trackFilters: true });
     
       if (!sub) {
         console.warn('Failed to create subscription in subscribeAndCollect');

@@ -462,11 +462,14 @@ export const isValidFilter = (filter: NDKFilter): boolean => {
  * @returns NDK subscription or null if filters are invalid
  */
 export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unknown> = {}): NDKSubscription | null => {
+  const trackFilters = Boolean((options as { __trackFilters?: boolean }).__trackFilters);
   // Validate all filters
   const validFilters = filters.filter(isValidFilter);
   
   if (validFilters.length === 0) {
-    lastReducedFilters = null;
+    if (trackFilters) {
+      lastReducedFilters = null;
+    }
     console.warn('No valid filters provided to safeSubscribe, skipping subscription');
     return null;
   }
@@ -478,7 +481,9 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   // Reduce filters: merge compatible filters to reduce the number of REQ messages
   // This automatically optimizes cases like multiple authors with the same kinds/search constraints
   const reducedFilters = reduceFilters(validFilters);
-  lastReducedFilters = reducedFilters;
+  if (trackFilters) {
+    lastReducedFilters = reducedFilters;
+  }
   
   if (reducedFilters.length < validFilters.length) {
     console.log(`Reduced ${validFilters.length} filters to ${reducedFilters.length} filters`);
