@@ -72,6 +72,7 @@ import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
+import packageJson from '../../package.json';
 
 type Props = {
   initialQuery?: string;
@@ -166,7 +167,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, []);
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
-      const lines = ['Available commands:', ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)];
+      const version = packageJson.version;
+      const commit = process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown';
+      const lines = [
+        `Version: ${version}`,
+        `Commit: ${commit}`,
+        '',
+        'Available commands:',
+        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)
+      ];
       setTopCommandText(buildCli('--help', lines));
       setHelpCommands(commands);
       setTopExamples(null);
