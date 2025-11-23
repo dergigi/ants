@@ -6,46 +6,46 @@ An opinionated search interface for nostr.
 
 ants is the search and discovery interface I always wanted to have. It has all kinds of search modifiers, can do reverse image lookups, and will not shy away from throwing events back at you that it can't even render yet.
 
-The basic philosophy is to *always stay in search* and to embrace false positives, i.e. rather show too much than too little. But we still want to be able to filter out nonsense and spam. It's very much a work-in-progress. It doesn't have many [WoT](https://search.dergigi.com/?q=%28WoT+OR+%22web+of+trust%22%29+by%3Adergigi.com) features yet, for example.
+The basic philosophy is to *always stay in search* and to embrace false positives, i.e. rather show too much than too little. But we still want to be able to filter out nonsense and spam. It's very much a work-in-progress. It doesn't have many [WoT](https://ants.sh/?q=%28WoT+OR+%22web+of+trust%22%29+by%3Adergigi.com) features yet, for example.
 
 The current version is not very performant and will probably crash often.
 
-But it's useful to at least one person already, which is [me](https://search.dergigi.com/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
+But it's useful to at least one person already, which is [me](https://ants.sh/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
 
 ## Search Examples
 
-ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexamples) by making good use of [NIP-05](https://search.dergigi.com/?q=nip%3A05), [NIP-50](https://search.dergigi.com/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
+ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by making good use of [NIP-05](https://ants.sh/?q=nip%3A05), [NIP-50](https://ants.sh/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
 
-- [`vibe coding`](https://search.dergigi.com/?q=vibe%20coding) - anything that mentions "vibe coding"
-- [`#SovEng`](https://search.dergigi.com/?q=%23SovEng) - posts tagged `#SovEng`
-- [`by:fiatjaf`](https://search.dergigi.com/?q=by%3Afiatjaf) - find events from fiatjaf
-- [`GM by:dergigi`](https://search.dergigi.com/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
-- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - "GN" by npub
-- [`p:fiatjaf`](https://search.dergigi.com/?q=p%3Afiatjaf) - look up a profile (full-text search across name, display name, about)
-- [`nip:05`](https://search.dergigi.com/?q=nip%3A05) - find notes that link to the NIP-05 spec
-- [`bitcoin OR lightning`](https://search.dergigi.com/?q=bitcoin%20OR%20lightning) - match either
-- [`(GM OR GN) by:dergigi has:image`](https://search.dergigi.com/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - boolean OR plus media filter scoped to author
-- [`has:image`](https://search.dergigi.com/?q=has%3Aimage) - notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
-- [`by:dergigi has:image`](https://search.dergigi.com/?q=by%3Adergigi%20has%3Aimage) - find images from dergigi
-- [`site:yt`](https://search.dergigi.com/?q=site%3Ayt) - find posts with YouTube links
-- [`is:highlight`](https://search.dergigi.com/?q=is%3Ahighlight) - highlights
-- [`is:code by:hzrd149`](https://search.dergigi.com/?q=is%3Acode%20by%3Ahzrd149) - code snippets by hzrd149
-- [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://search.dergigi.com/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
-- [`#pugstr or #horsestr or #goatstr`](https://search.dergigi.com/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
-- [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
-- [`GM by:dergigi since:2024-01-01 until:2024-03-31`](https://search.dergigi.com/?q=GM%20by%3Adergigi%20since%3A2024-01-01%20until%3A2024-03-31) - "GM" messages from dergigi in Q1 2024
-- [`/help`](https://search.dergigi.com/?q=%2Fhelp) ...in case you're lost.
-- [`/kinds`](https://search.dergigi.com/?q=%2Fkinds) ...list all `is:` shortcuts that map to nostr kinds.
+- [`vibe coding`](https://ants.sh/?q=vibe%20coding) - anything that mentions "vibe coding"
+- [`#SovEng`](https://ants.sh/?q=%23SovEng) - posts tagged `#SovEng`
+- [`by:fiatjaf`](https://ants.sh/?q=by%3Afiatjaf) - find events from fiatjaf
+- [`GM by:dergigi`](https://ants.sh/?q=GM%20by%3Adergigi) - find "GM" messages from dergigi
+- [`GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://ants.sh/?q=GN%20by%3Anpub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - "GN" by npub
+- [`p:fiatjaf`](https://ants.sh/?q=p%3Afiatjaf) - look up a profile (full-text search across name, display name, about)
+- [`nip:05`](https://ants.sh/?q=nip%3A05) - find notes that link to the NIP-05 spec
+- [`bitcoin OR lightning`](https://ants.sh/?q=bitcoin%20OR%20lightning) - match either
+- [`(GM OR GN) by:dergigi has:image`](https://ants.sh/?q=%28GM%20OR%20GN%29%20by%3Adergigi%20has%3Aimage) - boolean OR plus media filter scoped to author
+- [`has:image`](https://ants.sh/?q=has%3Aimage) - notes with any image (png, jpg, jpeg, gif, gifs, apng, webp, avif, svg)
+- [`by:dergigi has:image`](https://ants.sh/?q=by%3Adergigi%20has%3Aimage) - find images from dergigi
+- [`site:yt`](https://ants.sh/?q=site%3Ayt) - find posts with YouTube links
+- [`is:highlight`](https://ants.sh/?q=is%3Ahighlight) - highlights
+- [`is:code by:hzrd149`](https://ants.sh/?q=is%3Acode%20by%3Ahzrd149) - code snippets by hzrd149
+- [`NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)`](https://ants.sh/?q=NIP-EE%20%28by%3Ajeffg%20OR%20by%3Afuturepaul%20OR%20by%3Afranzap%29) - search across multiple authors
+- [`#pugstr or #horsestr or #goatstr`](https://ants.sh/?q=%23pugstr%20or%20%23horsestr%20or%20%23goatstr) - search for multiple hashtags
+- [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://ants.sh/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
+- [`GM by:dergigi since:2024-01-01 until:2024-03-31`](https://ants.sh/?q=GM%20by%3Adergigi%20since%3A2024-01-01%20until%3A2024-03-31) - "GM" messages from dergigi in Q1 2024
+- [`/help`](https://ants.sh/?q=%2Fhelp) ...in case you're lost.
+- [`/kinds`](https://ants.sh/?q=%2Fkinds) ...list all `is:` shortcuts that map to nostr kinds.
 
-Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
+Type [`/examples`](https://ants.sh/?q=%2Fexamples) in the search field to see the full list.
 
 ## URL Paths
 
 ants supports bech32-encoded entities as per NIP-19, just like [njump.me](https://njump.me/) and other portals do:
 
-- [`/p/_@dergigi.com`](https://search.dergigi.com/p/_@dergigi.com) - profile by NIP-05 identifier
-- [`/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://search.dergigi.com/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - direct profile by npub
-- [`/p/dergigi`](https://search.dergigi.com/p/dergigi) - profile search by username
+- [`/p/_@dergigi.com`](https://ants.sh/p/_@dergigi.com) - profile by NIP-05 identifier
+- [`/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc`](https://ants.sh/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc) - direct profile by npub
+- [`/p/dergigi`](https://ants.sh/p/dergigi) - profile search by username
 - `/p/[id]` - view a specific profile by hex ID
 - `/e/nevent1...` - event by nevent identifier
 - `/e/note1...` - event by note identifier
@@ -112,7 +112,7 @@ If it's a valid NIP-05 we should be able to get the hex of the npub straight up,
 
 ## Live Instances
 
-- [search.dergigi.com](https://search.dergigi.com/)
+- [ants.sh](https://ants.sh/)
 
 ## Ranking behavior
 
@@ -135,7 +135,7 @@ If Vertex is unavailable or credits are insufficient (or when logged out), we fa
 Set the public site URL (used for Open Graph/Twitter metadata) via environment variable:
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://search.dergigi.com
+NEXT_PUBLIC_SITE_URL=https://ants.sh
 ```
 
 You can place this in a local `.env` file.

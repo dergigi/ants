@@ -7,7 +7,7 @@ import { LoginTriggerProvider } from "@/lib/LoginTrigger";
 import { ClearTriggerProvider } from "@/lib/ClearTrigger";
 import { Suspense } from "react";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://search.dergigi.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://ants.sh";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
