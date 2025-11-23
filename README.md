@@ -35,6 +35,7 @@ ants can search for [all kinds of stuff](https://search.dergigi.com/?q=%2Fexampl
 - [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://search.dergigi.com/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
 - [`GM by:dergigi since:2024-01-01 until:2024-03-31`](https://search.dergigi.com/?q=GM%20by%3Adergigi%20since%3A2024-01-01%20until%3A2024-03-31) - "GM" messages from dergigi in Q1 2024
 - [`/help`](https://search.dergigi.com/?q=%2Fhelp) ...in case you're lost.
+- [`/kinds`](https://search.dergigi.com/?q=%2Fkinds) ...list all `is:` shortcuts that map to nostr kinds.
 
 Type [`/examples`](https://search.dergigi.com/?q=%2Fexamples) in the search field to see the full list.
 
@@ -180,7 +181,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - [x] add support for code snippets (`kind:1337`)
 - [ ] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
-- [ ] add a `/kinds` command that shows all substitutions
+- [x] add a `/kinds` command that shows all substitutions
 - [ ] explain what the different icons and symbols mean somehow
 - [ ] move some things around in the UI
 - [ ] make stuff less stupid and buggy overall

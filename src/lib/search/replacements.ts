@@ -129,4 +129,41 @@ export async function getIsKindTokens(): Promise<string[]> {
     .map((r) => `is:${r.key}`);
 }
 
+export interface IsKindRule {
+  token: string;
+  kind: string;
+  expansion: string;
+}
+
+function extractKindNumber(expansion: string): number {
+  const match = expansion.match(/kind:(\d+)/i);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  // If multiple kinds (e.g., "kind:21 OR kind:22"), use the first one
+  const firstMatch = expansion.match(/kind:(\d+)/i);
+  return firstMatch ? parseInt(firstMatch[1], 10) : 999999;
+}
+
+export async function getIsKindRules(): Promise<IsKindRule[]> {
+  const rules = await loadRules();
+  const isKindRules = rules
+    .filter((r) => r.kind === 'is' && r.expansion.includes('kind:'))
+    .map((r) => ({
+      token: `is:${r.key}`,
+      kind: r.kind,
+      expansion: r.expansion
+    }));
+  
+  // Sort by numeric kind value (ascending), then by token (alphabetically)
+  return isKindRules.sort((a, b) => {
+    const kindA = extractKindNumber(a.expansion);
+    const kindB = extractKindNumber(b.expansion);
+    if (kindA !== kindB) {
+      return kindA - kindB;
+    }
+    return a.token.localeCompare(b.token);
+  });
+}
+
 

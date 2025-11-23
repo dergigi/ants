@@ -10,6 +10,7 @@ export interface SlashCommand {
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { key: 'help', label: '/help', description: 'Show this help' },
   { key: 'examples', label: '/examples', description: 'List example queries' },
+  { key: 'kinds', label: '/kinds', description: 'List kind mappings' },
   { key: 'login', label: '/login', description: 'Connect with NIP-07' },
   { key: 'logout', label: '/logout', description: 'Clear session' },
   { key: 'clear', label: '/clear', description: 'Clear all caches' },
@@ -23,6 +24,7 @@ export interface SlashCommandHandlers {
   onLogout: () => void;
   onClear: () => Promise<void>;
   onTutorial: () => void;
+  onKinds: () => Promise<void>;
 }
 
 export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
@@ -56,6 +58,11 @@ export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
     
     if (cmd === 'tutorial') {
       handlers.onTutorial();
+      return;
+    }
+    
+    if (cmd === 'kinds') {
+      handlers.onKinds();
       return;
     }
     
