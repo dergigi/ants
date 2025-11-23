@@ -17,6 +17,7 @@ interface QueryTranslationProps {
 export default function QueryTranslation({ query, onAuthorResolved }: QueryTranslationProps) {
   const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
   const [translation, setTranslation] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
   const authorResolutionCache = useRef<Map<string, string>>(new Map());
   const lastResolvedQueryRef = useRef<string | null>(null);
   const resolutionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -226,8 +227,10 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     };
   }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
 
-  const filtersTooltip = useMemo(() => {
+  const filtersJson = useMemo(() => {
     try {
+      // Tie memo to query so it refreshes when a new search is run
+      void query;
       const filters = getLastReducedFilters();
       if (!filters || filters.length === 0) return '';
       const json = JSON.stringify(filters, null, 2);
@@ -235,7 +238,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     } catch {
       return '';
     }
-  }, []);
+  }, [query]);
 
   if (!translation) return null;
 
@@ -253,11 +256,20 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         }
       }}
     >
-      <FontAwesomeIcon
-        icon={faEquals}
-        className="mt-0.5 flex-shrink-0"
-        title={filtersTooltip || undefined}
-      />
+      <button
+        type="button"
+        className="mt-0.5 flex-shrink-0 text-xs text-gray-500 hover:text-gray-200"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (filtersJson) {
+            setShowFilters((prev) => !prev);
+          }
+        }}
+        aria-label="Show effective filters"
+        aria-expanded={showFilters}
+      >
+        <FontAwesomeIcon icon={faEquals} />
+      </button>
       <div className="flex-1 min-w-0">
         {isLongTranslation && !isExplanationExpanded ? (
           <>
@@ -281,6 +293,11 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
               </div>
             )}
           </>
+        )}
+        {showFilters && filtersJson && (
+          <pre className="mt-1 max-h-48 overflow-auto rounded border border-gray-700/60 bg-black/40 p-2 text-[10px] leading-snug whitespace-pre-wrap">
+            {filtersJson}
+          </pre>
         )}
       </div>
     </div>
