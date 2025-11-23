@@ -1,5 +1,6 @@
 import { NDKFilter } from '@nostr-dev-kit/ndk';
 import { Nip50Extensions } from './searchUtils';
+import { parseOrQuery } from './queryTransforms';
 
 /**
  * Extract NIP-50 extensions from the raw query string
@@ -148,5 +149,51 @@ export function normalizeResidualSearchText(input: string): string {
 
   const hasMeaningfulToken = tokens.some((t) => !/^(OR|AND)$/i.test(t));
   return hasMeaningfulToken ? trimmed : '';
+}
+
+/**
+ * Parsed query structure containing all extracted information
+ */
+export interface ParsedQuery {
+  cleanedQuery: string;
+  effectiveKinds: number[];
+  dateFilter: { since?: number; until?: number };
+  hasTopLevelOr: boolean;
+  topLevelOrParts: string[];
+  extensionFilters: Array<(content: string) => boolean>;
+}
+
+/**
+ * Parse a preprocessed search query into a structured ParsedQuery object
+ * This consolidates all query parsing logic into a single helper
+ */
+export function parseSearchQuery(
+  preprocessedQuery: string,
+  defaultKinds: number[]
+): ParsedQuery {
+  // Extract kind filters and default to provided defaultKinds when not provided
+  const kindExtraction = extractKindFilter(preprocessedQuery);
+  const kindCleanedQuery = kindExtraction.cleaned;
+  const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
+    ? kindExtraction.kinds
+    : defaultKinds;
+  
+  // Extract date filters
+  const dateExtraction = extractDateFilter(kindCleanedQuery);
+  const dateFilter = { since: dateExtraction.since, until: dateExtraction.until };
+  const cleanedQuery = dateExtraction.cleaned;
+  
+  const extensionFilters: Array<(content: string) => boolean> = [];
+  const topLevelOrParts = parseOrQuery(cleanedQuery);
+  const hasTopLevelOr = topLevelOrParts.length > 1;
+
+  return {
+    cleanedQuery,
+    effectiveKinds,
+    dateFilter,
+    hasTopLevelOr,
+    topLevelOrParts,
+    extensionFilters
+  };
 }
 
