@@ -226,9 +226,6 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     };
   }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
 
-  if (!translation) return null;
-
-  const isLongTranslation = translation.split('\n').length > 4;
   const filtersTooltip = useMemo(() => {
     try {
       const filters = getLastReducedFilters();
@@ -239,6 +236,10 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       return '';
     }
   }, [query]);
+
+  if (!translation) return null;
+
+  const isLongTranslation = translation.split('\n').length > 4;
 
   return (
     <div 
