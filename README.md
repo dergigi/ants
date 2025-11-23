@@ -35,7 +35,6 @@ ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by maki
 - [`is:highlight (by:fiatjaf.com OR by:@f7z.io)`](https://ants.sh/?q=is%3Ahighlight%20%28by%3Afiatjaf.com%20OR%20by%3A%40f7z.io%29) - highlights from specific authors
 - [`GM by:dergigi since:2024-01-01 until:2024-03-31`](https://ants.sh/?q=GM%20by%3Adergigi%20since%3A2024-01-01%20until%3A2024-03-31) - "GM" messages from dergigi in Q1 2024
 - [`/help`](https://ants.sh/?q=%2Fhelp) ...in case you're lost.
-- [`/kinds`](https://ants.sh/?q=%2Fkinds) ...list all `is:` shortcuts that map to nostr kinds.
 
 Type [`/examples`](https://ants.sh/?q=%2Fexamples) in the search field to see the full list.
 
