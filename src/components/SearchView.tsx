@@ -276,7 +276,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setKindsLoading(false);
       }
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router, kindsError]);
+  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
@@ -1744,7 +1744,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                   onClick={() => handleContentSearch(rule.token)}
                                 >
                                   <span className="font-mono">{rule.token.padEnd(16)}</span>
-                                  <span className="text-gray-400"> => </span>
+                                  <span className="text-gray-400">{' => '}</span>
                                   <span className="font-mono text-blue-400">{rule.expansion}</span>
                                 </button>
                               </div>
