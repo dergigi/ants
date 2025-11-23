@@ -167,13 +167,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, []);
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
-      const version = packageJson.version;
-      const commit = process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown';
       const lines = [
         'Available commands:',
-        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`),
-        '',
-        `Version: ${version} | Commit: ${commit}`
+        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)
       ];
       setTopCommandText(buildCli('--help', lines));
       setHelpCommands(commands);
@@ -1723,6 +1719,25 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                                 </button>
                               </div>
                             ))}
+                            <div>&nbsp;</div>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={`https://github.com/dergigi/ants/releases/tag/v${packageJson.version}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline"
+                              >
+                                v{packageJson.version}
+                              </a>
+                              <a
+                                href={`https://github.com/dergigi/ants/commit/${process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown'}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline"
+                              >
+                                {process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown'}
+                              </a>
+                            </div>
                           </>
                         ) : topExamples && topExamples.length > 0 ? (
                           <>
