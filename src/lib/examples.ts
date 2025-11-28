@@ -133,6 +133,7 @@ export const searchExamples = [
   'is:highlight (by:fiatjaf.com OR by:@f7z.io)',
   'is:followpack art',
   'is:followpack (bitcoin OR nostr)',
+  'is:followpack by:odell',
 
   // Multiple hashtags
   '#penisbutter or #⭕️',
