@@ -372,7 +372,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               onExploreClick={() => {
                 const query = followPack.memberPubkeys
                   .slice(0, 10)
-                  .map((p) => `p:${p}`)
+                  .map((p) => `by:${p}`)
                   .join(' OR ');
                 if (query) {
                   navigateToSearch(query);
