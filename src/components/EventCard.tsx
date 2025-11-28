@@ -1,10 +1,10 @@
 'use client';
 
+import React, { useRef, useState, useEffect } from 'react';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
-import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -367,11 +367,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               })()}
             </div>
           ) : isFollowPack && followPack ? (
-            <FollowPackCard
+              <FollowPackCard
               followPack={followPack}
               onExploreClick={() => {
                 const query = followPack.memberPubkeys
-                  .slice(0, 10)
                   .map((p) => `by:${p}`)
                   .join(' OR ');
                 if (query) {
@@ -432,22 +431,49 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 const items = createEventExplorerItems(nevent);
                 const portalItems = items.slice(0, -2); // All items except last two
                 const clientItems = items.slice(-2); // Last two items (Web Client, Native App)
+
+                // Special handling for follow packs: add Following._ link
+                if (isFollowPack) {
+                  let dTag: string | undefined;
+                  if (typeof (event as unknown as { tagValue?: (name: string) => string | undefined }).tagValue === 'function') {
+                    dTag = (event as unknown as { tagValue?: (name: string) => string | undefined }).tagValue?.('d');
+                  } else {
+                    const dTagEntry = event.tags.find(
+                      (t) => Array.isArray(t) && t[0] === 'd' && typeof t[1] === 'string'
+                    );
+                    dTag = dTagEntry ? (dTagEntry[1] as string) : undefined;
+                  }
+
+                  const creatorPubkey = event.pubkey;
+
+                  if (dTag && creatorPubkey) {
+                    portalItems.unshift({
+                      name: 'following.space',
+                      href: `https://following.space/d/${encodeURIComponent(dTag)}?p=${creatorPubkey}`,
+                    });
+                  }
+                }
                 
                 return (
                   <>
-                    {portalItems.map((item) => (
-                      <li key={item.name}>
-                        <a
-                          href={item.href}
-                          target={item.href.startsWith('http') ? '_blank' : undefined}
-                          rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                          className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
-                          onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
-                        >
-                          <span>{item.name}</span>
-                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
-                        </a>
-                      </li>
+                    {portalItems.map((item, index) => (
+                      <React.Fragment key={item.name}>
+                        <li>
+                          <a
+                            href={item.href}
+                            target={item.href.startsWith('http') ? '_blank' : undefined}
+                            rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                            className="px-3 py-2 hover:bg-[#3a3a3a] flex items-center justify-between"
+                            onClick={(e) => { e.stopPropagation(); setShowPortalMenu(false); }}
+                          >
+                            <span>{item.name}</span>
+                            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-gray-400 text-xs" />
+                          </a>
+                        </li>
+                        {index === 0 && item.name === 'following.space' ? (
+                          <li className="border-t border-[#3d3d3d] my-1"></li>
+                        ) : null}
+                      </React.Fragment>
                     ))}
                     <li className="border-t border-[#3d3d3d] my-1"></li>
                     <li>
