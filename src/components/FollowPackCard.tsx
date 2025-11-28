@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import ProfileImage from '@/components/ProfileImage';
