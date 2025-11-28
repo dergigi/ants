@@ -77,12 +77,6 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
 
   return (
     <div className="mb-3 space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-semibold text-gray-100">
-          {followPack.title || 'Follow Pack'}
-        </span>
-      </div>
-
       {followPack.description && (
         <div className="text-gray-100 whitespace-pre-wrap break-words">
           {followPack.description}

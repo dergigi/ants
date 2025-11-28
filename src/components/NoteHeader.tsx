@@ -149,6 +149,11 @@ export default function NoteHeader({
   };
   const fileName = isCodeEvent ? (getTagValue(['name', 'f', 'title']) || null) : null;
   
+  // Extract follow pack title (kind 39089)
+  const FOLLOW_PACK_KIND = 39089;
+  const isFollowPack = displayEvent.kind === FOLLOW_PACK_KIND;
+  const followPackTitle = isFollowPack ? (getTagValue(['title']) || null) : null;
+  
   const parentLabel = (() => {
     if (!topmostParentId) return null;
     const normalized = topmostParentId.trim();
@@ -199,6 +204,9 @@ export default function NoteHeader({
                   )}
                   {fileName ? (
                     <span className="text-gray-200 truncate font-semibold" title={fileName}>{fileName}</span>
+                  ) : null}
+                  {followPackTitle ? (
+                    <span className="text-gray-200 truncate font-semibold" title={followPackTitle}>{followPackTitle}</span>
                   ) : null}
                   
                 </>
