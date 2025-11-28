@@ -7,7 +7,8 @@ import { SEARCH_DEFAULT_KINDS } from './constants';
 
 // Import shared utilities
 import { 
-  buildSearchQueryWithExtensions
+  buildSearchQueryWithExtensions,
+  Nip50Extensions
 } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
 
@@ -72,6 +73,94 @@ export { getUserRelayUrls } from './search/relayManagement';
 // Re-export query transformation utilities for backwards compatibility
 export { parseOrQuery, expandParenthesizedOr } from './search/queryTransforms';
 
+// Helper functions for analyzing OR seeds with by: clauses
+/**
+ * Extract all by: tokens from a seed string
+ */
+function extractByTokens(seed: string): string[] {
+  const matches = Array.from(seed.matchAll(/\bby:(\S+)/gi));
+  return matches.map(m => m[1] || '').filter(Boolean);
+}
+
+/**
+ * Extract the content of a seed string after removing all by: clauses
+ */
+function extractNonByContent(seed: string): string {
+  return seed.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Optimize pure by: OR queries into a single filter with multiple authors.
+ * Only applies when all seeds contain only by: clauses (no other content).
+ * Returns null if optimization cannot be applied.
+ */
+async function maybeOptimizeByOnlyOrSeeds(
+  seeds: string[],
+  effectiveKinds: number[],
+  dateFilter: { since?: number; until?: number },
+  nip50Extensions: Nip50Extensions | undefined,
+  chosenRelaySet: NDKRelaySet,
+  abortSignal: AbortSignal | undefined,
+  limit: number
+): Promise<NDKEvent[] | null> {
+  // Trim and filter empty seeds
+  const trimmedSeeds = seeds.map(s => s.trim()).filter(Boolean);
+  if (trimmedSeeds.length < 2) {
+    return null; // Need at least 2 seeds for OR optimization
+  }
+
+  // Check if all seeds are pure by: clauses (no residual content after stripping by:)
+  for (const seed of trimmedSeeds) {
+    const nonByContent = extractNonByContent(seed);
+    if (nonByContent.length > 0) {
+      return null; // Has residual content, not a pure by: query
+    }
+    // Also check that each seed has at least one by: token
+    if (!/\bby:\S+/i.test(seed)) {
+      return null; // Seed doesn't have a by: token
+    }
+  }
+
+  // Collect all by: tokens and de-duplicate
+  const allByTokens = trimmedSeeds.flatMap(extractByTokens);
+  const uniqueByTokens = Array.from(new Set(allByTokens));
+  if (uniqueByTokens.length === 0) {
+    return null;
+  }
+
+  // Resolve all tokens to hex pubkeys
+  const resolvedPubkeys: string[] = [];
+  for (const authorToken of uniqueByTokens) {
+    try {
+      if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+        const hex = nip19.decode(authorToken).data as string;
+        resolvedPubkeys.push(hex);
+      } else {
+        const resolved = await resolveAuthor(authorToken);
+        if (resolved.pubkeyHex) {
+          resolvedPubkeys.push(resolved.pubkeyHex);
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to resolve author ${authorToken}:`, error);
+    }
+  }
+
+  if (resolvedPubkeys.length === 0) {
+    return null; // No pubkeys could be resolved
+  }
+
+  // Build single filter with all authors
+  const filter: NDKFilter = applyDateFilter({
+    kinds: effectiveKinds,
+    authors: resolvedPubkeys,
+    limit: Math.max(limit, 500)
+  }, dateFilter) as NDKFilter;
+
+  // Execute single subscription
+  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  return sortEventsNewestFirst(results).slice(0, limit);
+}
 
 export async function searchEvents(
   query: string,
@@ -176,16 +265,21 @@ export async function searchEvents(
         return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
       }
 
+      // Try optimizing pure by: OR queries (only by: clauses, no other content)
+      const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
+        expandedSeeds,
+        effectiveKinds,
+        dateFilter,
+        nip50Extensions,
+        chosenRelaySet,
+        abortSignal,
+        limit
+      );
+      if (byOnlyResults !== null) {
+        return byOnlyResults;
+      }
+
       // Check if all seeds differ only by by: clauses (optimization: single filter with multiple authors)
-      const extractByTokens = (s: string): string[] => {
-        const matches = Array.from(s.matchAll(/\bby:(\S+)/gi));
-        return matches.map(m => m[1] || '').filter(Boolean);
-      };
-      
-      const extractNonByContent = (s: string): string => {
-        return s.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
-      };
-      
       const firstNonBy = extractNonByContent(expandedSeeds[0]);
       const allSameNonBy = expandedSeeds.every(seed => extractNonByContent(seed) === firstNonBy);
       const allHaveBy = expandedSeeds.every(seed => /\bby:\S+/i.test(seed));
@@ -389,6 +483,20 @@ export async function searchEvents(
         return acc;
       }, []);
 
+    // Try optimizing pure by: OR queries (only by: clauses, no other content)
+    // Pure by-only OR queries are pre-optimized here and won't reach searchByAnyTerms
+    const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
+      normalizedParts,
+      effectiveKinds,
+      dateFilter,
+      nip50Extensions,
+      chosenRelaySet,
+      abortSignal,
+      limit
+    );
+    if (byOnlyResults !== null) {
+      return byOnlyResults;
+    }
 
     // If all OR parts are p:<term>, do profile full-text search across parts
     const isPClause = (s: string) => /^p:\S+/i.test(s);
@@ -412,6 +520,7 @@ export async function searchEvents(
       return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
     }
 
+    // Note: Pure by-only OR queries are pre-optimized above and won't reach this path
     let orResults = await searchByAnyTerms(
       normalizedParts,
       Math.max(limit, 500),

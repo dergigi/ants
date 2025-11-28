@@ -432,6 +432,28 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 const items = createEventExplorerItems(nevent);
                 const portalItems = items.slice(0, -2); // All items except last two
                 const clientItems = items.slice(-2); // Last two items (Web Client, Native App)
+
+                // Special handling for follow packs: add Following._ link
+                if (isFollowPack) {
+                  let dTag: string | undefined;
+                  if (typeof (event as unknown as { tagValue?: (name: string) => string | undefined }).tagValue === 'function') {
+                    dTag = (event as unknown as { tagValue?: (name: string) => string | undefined }).tagValue?.('d');
+                  } else {
+                    const dTagEntry = event.tags.find(
+                      (t) => Array.isArray(t) && t[0] === 'd' && typeof t[1] === 'string'
+                    );
+                    dTag = dTagEntry ? (dTagEntry[1] as string) : undefined;
+                  }
+
+                  const creatorPubkey = event.pubkey;
+
+                  if (dTag && creatorPubkey) {
+                    portalItems.unshift({
+                      name: 'Following._',
+                      href: `https://following.space/d/${encodeURIComponent(dTag)}?p=${creatorPubkey}`,
+                    });
+                  }
+                }
                 
                 return (
                   <>
