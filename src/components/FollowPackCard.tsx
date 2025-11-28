@@ -84,18 +84,16 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
       )}
 
       {followPack.image && (
-        <div className="mb-2 h-52 rounded-md relative overflow-visible">
-          <div className="h-48 overflow-hidden rounded-md">
-            <ImageWithBlurhash
-              src={followPack.image}
-              alt={followPack.title || 'Follow pack image'}
-              width={800}
-              height={200}
-              dim={null}
-              objectFit="cover"
-              containerClassName="h-full"
-            />
-          </div>
+        <div className="mb-2 h-48 rounded-md relative pb-10">
+          <ImageWithBlurhash
+            src={followPack.image}
+            alt={followPack.title || 'Follow pack image'}
+            width={800}
+            height={200}
+            dim={null}
+            objectFit="cover"
+            containerClassName="h-full"
+          />
         </div>
       )}
 
