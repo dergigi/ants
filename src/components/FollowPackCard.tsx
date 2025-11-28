@@ -97,11 +97,11 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
               <FollowPackMemberAvatar key={pubkey} pubkeyHex={pubkey} />
             ))}
           </div>
-          <div className="text-sm text-gray-400">
-            {followPack.memberCount}{' '}
-            {followPack.memberCount === 1 ? 'member' : 'members'}
-            {remaining > 0 ? ` · +${remaining} more` : ''}
-          </div>
+          {remaining > 0 && (
+            <div className="text-sm text-gray-400">
+              +{remaining} more
+            </div>
+          )}
         </div>
       )}
 
