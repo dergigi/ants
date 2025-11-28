@@ -17,6 +17,7 @@ interface ImageWithBlurhashProps {
   height: number;
   dim?: { width: number; height: number } | null;
   onClickSearch?: () => void;
+  objectFit?: 'contain' | 'cover';
 }
 
 export default function ImageWithBlurhash({ 
@@ -26,7 +27,8 @@ export default function ImageWithBlurhash({
   width, 
   height, 
   dim,
-  onClickSearch
+  onClickSearch,
+  objectFit = 'contain'
 }: ImageWithBlurhashProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -104,7 +106,7 @@ export default function ImageWithBlurhash({
         alt={alt}
         width={width}
         height={height} 
-        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'} transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
