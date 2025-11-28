@@ -11,6 +11,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
+import FollowPackCard, { type FollowPackData } from '@/components/FollowPackCard';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
@@ -33,6 +34,40 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
     {children}
   </button>
 );
+
+// Parse follow pack event (kind 39089)
+const FOLLOW_PACK_KIND = 39089;
+function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
+  if (event.kind !== FOLLOW_PACK_KIND) return null;
+  
+  let title: string | undefined;
+  let description: string | undefined;
+  let image: string | undefined;
+  const memberPubkeys: string[] = [];
+  
+  for (const tag of event.tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    const [tagName, ...rest] = tag;
+    
+    if (tagName === 'title' && rest[0]) {
+      title = rest[0];
+    } else if (tagName === 'description' && rest[0]) {
+      description = rest[0];
+    } else if (tagName === 'image' && rest[0]) {
+      image = rest[0];
+    } else if (tagName === 'p' && rest[0]) {
+      memberPubkeys.push(rest[0]);
+    }
+  }
+  
+  return {
+    title,
+    description,
+    image,
+    memberCount: memberPubkeys.length,
+    memberPubkeys
+  };
+}
 
 
 type Props = {
@@ -66,6 +101,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
+  
+  // Check if this is a follow pack event
+  const isFollowPack = event.kind === FOLLOW_PACK_KIND;
+  const followPack = isFollowPack ? parseFollowPackTags(event) : null;
 
   // Inline component to render author like a mention
   function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
@@ -327,6 +366,19 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                 );
               })()}
             </div>
+          ) : isFollowPack && followPack ? (
+            <FollowPackCard
+              followPack={followPack}
+              onExploreClick={() => {
+                const query = followPack.memberPubkeys
+                  .slice(0, 10)
+                  .map((p) => `by:${p}`)
+                  .join(' OR ');
+                if (query) {
+                  navigateToSearch(query);
+                }
+              }}
+            />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}

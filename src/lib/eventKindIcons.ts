@@ -16,6 +16,7 @@ import {
   faThumbtack, 
   faBookmark,
   faCircleUser,
+  faUsers,
   type IconDefinition
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -43,6 +44,7 @@ export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
   10000: faEyeSlash,   // Mute lists
   10001: faThumbtack,  // Pin lists
   10003: faBookmark,   // Bookmark lists
+  39089: faUsers,      // Follow packs
 };
 
 /**
@@ -80,6 +82,7 @@ export function getEventKindIconName(kind: number): string | null {
     10000: 'eye-slash',
     10001: 'fa-thumbtack',
     10003: 'fa-bookmark',
+    39089: 'fa-users',
   };
   
   return iconMap[kind] || null;
@@ -111,6 +114,7 @@ export function getEventKindDisplayName(kind: number): string {
     10000: 'Mute List',
     10001: 'Pin List',
     10003: 'Bookmark List',
+    39089: 'Follow Pack',
   };
   
   return displayNames[kind] || 'Note';
