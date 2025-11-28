@@ -53,6 +53,7 @@ is:muted => kind:10000
 is:pin => kind:10001
 is:bookmark => kind:10003
 is:code => kind:1337
+is:followpack => kind:39089
 
 # --- IS ---
 

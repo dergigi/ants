@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -11,6 +11,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
+import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
@@ -33,6 +34,40 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
     {children}
   </button>
 );
+
+// Parse follow pack event (kind 39089)
+const FOLLOW_PACK_KIND = 39089;
+function parseFollowPackTags(event: NDKEvent): { title?: string; description?: string; image?: string; memberCount: number; memberPubkeys: string[] } | null {
+  if (event.kind !== FOLLOW_PACK_KIND) return null;
+  
+  let title: string | undefined;
+  let description: string | undefined;
+  let image: string | undefined;
+  const memberPubkeys: string[] = [];
+  
+  for (const tag of event.tags) {
+    if (!Array.isArray(tag) || tag.length < 2) continue;
+    const [tagName, ...rest] = tag;
+    
+    if (tagName === 'title' && rest[0]) {
+      title = rest[0];
+    } else if (tagName === 'description' && rest[0]) {
+      description = rest[0];
+    } else if (tagName === 'image' && rest[0]) {
+      image = rest[0];
+    } else if (tagName === 'p' && rest[0]) {
+      memberPubkeys.push(rest[0]);
+    }
+  }
+  
+  return {
+    title,
+    description,
+    image,
+    memberCount: memberPubkeys.length,
+    memberPubkeys
+  };
+}
 
 
 type Props = {
@@ -66,6 +101,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   // Check if this is a highlight event
   const isHighlight = event.kind === HIGHLIGHTS_KIND;
   const highlight = isHighlight ? parseHighlightEvent(event) : null;
+  
+  // Check if this is a follow pack event
+  const isFollowPack = event.kind === FOLLOW_PACK_KIND;
+  const followPack = isFollowPack ? parseFollowPackTags(event) : null;
 
   // Inline component to render author like a mention
   function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
@@ -326,6 +365,44 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   </div>
                 );
               })()}
+            </div>
+          ) : isFollowPack && followPack ? (
+            <div className="mb-3 space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <FontAwesomeIcon icon={faUsers} className="text-blue-400" />
+                <span className="font-semibold text-gray-100">
+                  {followPack.title || 'Follow Pack'}
+                </span>
+              </div>
+              {followPack.description && (
+                <div className={contentClasses}>
+                  {followPack.description}
+                </div>
+              )}
+              {followPack.image && (
+                <div className="mb-2">
+                  <ImageWithBlurhash
+                    src={followPack.image}
+                    alt={followPack.title || 'Follow pack image'}
+                    width={800}
+                    height={450}
+                    dim={null}
+                  />
+                </div>
+              )}
+              <div className="text-sm text-gray-400">
+                {followPack.memberCount} {followPack.memberCount === 1 ? 'member' : 'members'}
+              </div>
+              {followPack.memberPubkeys.length > 0 && (
+                <div className="mt-2">
+                  <SearchButton 
+                    query={followPack.memberPubkeys.slice(0, 10).map(p => `p:${p}`).join(' OR ')}
+                    className="text-blue-400 hover:text-blue-300 hover:underline text-sm"
+                  >
+                    Explore pack
+                  </SearchButton>
+                </div>
+              )}
             </div>
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>

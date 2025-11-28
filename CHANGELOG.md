@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Support for viewing Nostr follow packs (kind 39089) with `is:followpack` search shortcut
+
 ## [0.2.7] - 2025-11-23
 
 ### Added
