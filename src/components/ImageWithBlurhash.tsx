@@ -106,7 +106,7 @@ export default function ImageWithBlurhash({
         alt={alt}
         width={width}
         height={height} 
-        className={`absolute inset-0 h-full w-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'} transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full ${objectFit === 'cover' ? 'object-cover object-center' : 'object-contain'} transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
