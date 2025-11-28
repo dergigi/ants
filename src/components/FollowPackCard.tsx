@@ -18,6 +18,7 @@ export type FollowPackData = {
 type FollowPackCardProps = {
   followPack: FollowPackData;
   onExploreClick?: () => void;
+  renderContent?: (content: string) => React.ReactNode;
 };
 
 function FollowPackMemberAvatar({ pubkeyHex }: { pubkeyHex: string }) {
@@ -70,7 +71,7 @@ function FollowPackMemberAvatar({ pubkeyHex }: { pubkeyHex: string }) {
   );
 }
 
-export default function FollowPackCard({ followPack, onExploreClick }: FollowPackCardProps) {
+export default function FollowPackCard({ followPack, onExploreClick, renderContent }: FollowPackCardProps) {
   const maxAvatars = 5;
   const visiblePubkeys = followPack.memberPubkeys.slice(0, maxAvatars);
   const remaining = Math.max(0, followPack.memberCount - visiblePubkeys.length);
@@ -79,12 +80,12 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
     <div className="mb-3 space-y-3">
       {followPack.description && (
         <div className="text-gray-100 whitespace-pre-wrap break-words">
-          {followPack.description}
+          {renderContent ? renderContent(followPack.description) : followPack.description}
         </div>
       )}
 
       {followPack.image && (
-        <div className="mb-2 h-48 rounded-md relative pb-10">
+        <div className="mb-2 h-48 rounded-md relative">
           <ImageWithBlurhash
             src={followPack.image}
             alt={followPack.title || 'Follow pack image'}
@@ -92,7 +93,7 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
             height={200}
             dim={null}
             objectFit="cover"
-            containerClassName="h-full"
+            containerClassName="h-full overflow-visible"
           />
         </div>
       )}

@@ -377,6 +377,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   navigateToSearch(query);
                 }
               }}
+              renderContent={renderContent}
             />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
