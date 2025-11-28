@@ -3,7 +3,7 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import AuthorBadge from '@/components/AuthorBadge';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faSpinner, faCode, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createEventExplorerItems } from '@/lib/portals';
@@ -11,7 +11,7 @@ import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import RawEventJson from '@/components/RawEventJson';
 import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
-import ImageWithBlurhash from '@/components/ImageWithBlurhash';
+import FollowPackCard, { type FollowPackData } from '@/components/FollowPackCard';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
@@ -37,7 +37,7 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
 
 // Parse follow pack event (kind 39089)
 const FOLLOW_PACK_KIND = 39089;
-function parseFollowPackTags(event: NDKEvent): { title?: string; description?: string; image?: string; memberCount: number; memberPubkeys: string[] } | null {
+function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
   if (event.kind !== FOLLOW_PACK_KIND) return null;
   
   let title: string | undefined;
@@ -367,43 +367,18 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               })()}
             </div>
           ) : isFollowPack && followPack ? (
-            <div className="mb-3 space-y-3">
-              <div className="flex items-center gap-2 mb-2">
-                <FontAwesomeIcon icon={faUsers} className="text-blue-400" />
-                <span className="font-semibold text-gray-100">
-                  {followPack.title || 'Follow Pack'}
-                </span>
-              </div>
-              {followPack.description && (
-                <div className={contentClasses}>
-                  {followPack.description}
-                </div>
-              )}
-              {followPack.image && (
-                <div className="mb-2">
-                  <ImageWithBlurhash
-                    src={followPack.image}
-                    alt={followPack.title || 'Follow pack image'}
-                    width={800}
-                    height={450}
-                    dim={null}
-                  />
-                </div>
-              )}
-              <div className="text-sm text-gray-400">
-                {followPack.memberCount} {followPack.memberCount === 1 ? 'member' : 'members'}
-              </div>
-              {followPack.memberPubkeys.length > 0 && (
-                <div className="mt-2">
-                  <SearchButton 
-                    query={followPack.memberPubkeys.slice(0, 10).map(p => `p:${p}`).join(' OR ')}
-                    className="text-blue-400 hover:text-blue-300 hover:underline text-sm"
-                  >
-                    Explore pack
-                  </SearchButton>
-                </div>
-              )}
-            </div>
+            <FollowPackCard
+              followPack={followPack}
+              onExploreClick={() => {
+                const query = followPack.memberPubkeys
+                  .slice(0, 10)
+                  .map((p) => `p:${p}`)
+                  .join(' OR ');
+                if (query) {
+                  navigateToSearch(query);
+                }
+              }}
+            />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
