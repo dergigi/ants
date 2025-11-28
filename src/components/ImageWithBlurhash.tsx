@@ -18,6 +18,7 @@ interface ImageWithBlurhashProps {
   dim?: { width: number; height: number } | null;
   onClickSearch?: () => void;
   objectFit?: 'contain' | 'cover';
+  containerClassName?: string;
 }
 
 export default function ImageWithBlurhash({ 
@@ -28,7 +29,8 @@ export default function ImageWithBlurhash({
   height, 
   dim,
   onClickSearch,
-  objectFit = 'contain'
+  objectFit = 'contain',
+  containerClassName
 }: ImageWithBlurhashProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -50,9 +52,12 @@ export default function ImageWithBlurhash({
     ? { aspectRatio: `${effectiveDim.width} / ${effectiveDim.height}` }
     : { minHeight: '200px' as const };
 
+  const baseClasses = "relative w-full rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group";
+  const overflowClass = containerClassName?.includes('overflow-visible') ? 'overflow-visible' : 'overflow-hidden';
+  
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
+      className={`${baseClasses} ${overflowClass} ${containerClassName || ''}`}
       style={aspectStyle}
     >
       {/* Blurhash placeholder - shown while loading or on error */}
