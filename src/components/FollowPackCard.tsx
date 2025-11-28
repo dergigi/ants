@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
 import ProfileImage from '@/components/ProfileImage';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import { ndk } from '@/lib/ndk';
@@ -46,13 +47,26 @@ function FollowPackMemberAvatar({ pubkeyHex }: { pubkeyHex: string }) {
   }, [pubkeyHex]);
 
   return (
-    <div className="w-7 h-7 rounded-full overflow-hidden border border-[#3d3d3d] bg-[#1f1f1f] flex items-center justify-center text-[10px] text-gray-300">
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        try {
+          const npub = nip19.npubEncode(pubkeyHex);
+          window.location.href = `/p/${npub}`;
+        } catch {
+          // If encoding fails, fall back to no-op.
+        }
+      }}
+      className="w-7 h-7 rounded-full overflow-hidden border border-[#3d3d3d] bg-[#1f1f1f] flex items-center justify-center text-[10px] text-gray-300 hover:opacity-80 transition-opacity"
+      title="Open profile"
+    >
       {user ? (
         <ProfileImage user={user} size={28} className="w-full h-full object-cover" />
       ) : (
         <span>..</span>
       )}
-    </div>
+    </button>
   );
 }
 
