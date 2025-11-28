@@ -94,23 +94,15 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
               <FollowPackMemberAvatar key={pubkey} pubkeyHex={pubkey} />
             ))}
           </div>
-          {remaining > 0 && (
-            <div className="text-sm text-gray-400">
+          {remaining > 0 && onExploreClick && (
+            <button
+              type="button"
+              onClick={onExploreClick}
+              className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+            >
               +{remaining} more
-            </div>
+            </button>
           )}
-        </div>
-      )}
-
-      {onExploreClick && followPack.memberPubkeys.length > 0 && (
-        <div className="mt-2">
-          <button
-            type="button"
-            onClick={onExploreClick}
-            className="text-blue-400 hover:text-blue-300 hover:underline text-sm"
-          >
-            Explore pack
-          </button>
         </div>
       )}
     </div>
