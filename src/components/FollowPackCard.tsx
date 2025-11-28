@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers } from '@fortawesome/free-solid-svg-icons';
 import ProfileImage from '@/components/ProfileImage';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import { ndk } from '@/lib/ndk';
@@ -66,7 +64,6 @@ export default function FollowPackCard({ followPack, onExploreClick }: FollowPac
   return (
     <div className="mb-3 space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <FontAwesomeIcon icon={faUsers} className="text-blue-400" />
         <span className="font-semibold text-gray-100">
           {followPack.title || 'Follow Pack'}
         </span>
