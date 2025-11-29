@@ -4,10 +4,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { createPortal } from 'react-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsis } from '@fortawesome/free-solid-svg-icons';
 import ProfileImage from '@/components/ProfileImage';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
+import IconButton from '@/components/IconButton';
 import { ndk } from '@/lib/ndk';
 import { getIsKindTokens } from '@/lib/search/replacements';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
@@ -131,7 +130,6 @@ export default function FollowPackCard({ followPack, onExploreClick, renderConte
           {renderContent ? renderContent(followPack.description) : followPack.description}
         </div>
       )}
-
       {followPack.image && (
         <div className="mb-2 h-48 rounded-md relative">
           <ImageWithBlurhash
@@ -165,15 +163,13 @@ export default function FollowPackCard({ followPack, onExploreClick, renderConte
                 </button>
               )}
               {followPack.memberPubkeys.length > 0 && (
-                <button
+                <IconButton
                   ref={menuButtonRef}
-                  type="button"
-                  onClick={handleMenuToggle}
-                  className="w-7 h-7 rounded-full border border-[#3d3d3d] bg-[#1f1f1f] flex items-center justify-center text-gray-300 hover:bg-[#3a3a3a] transition-colors"
                   title="Quick search in this follow pack"
+                  onClick={handleMenuToggle}
                 >
-                  <FontAwesomeIcon icon={faEllipsis} className="text-xs" />
-                </button>
+                  ⋯
+                </IconButton>
               )}
             </div>
           )}
