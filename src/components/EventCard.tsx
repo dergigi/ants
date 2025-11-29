@@ -13,6 +13,7 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import FollowPackCard, { type FollowPackData } from '@/components/FollowPackCard';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { FOLLOW_PACK_KIND } from '@/lib/constants';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
@@ -35,15 +36,13 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
   </button>
 );
 
-// Parse follow pack event (kind 39089)
-const FOLLOW_PACK_KIND = 39089;
 function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
   if (event.kind !== FOLLOW_PACK_KIND) return null;
   
   let title: string | undefined;
   let description: string | undefined;
   let image: string | undefined;
-  const memberPubkeys: string[] = [];
+  const memberPubkeysSet = new Set<string>();
   
   for (const tag of event.tags) {
     if (!Array.isArray(tag) || tag.length < 2) continue;
@@ -56,9 +55,11 @@ function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
     } else if (tagName === 'image' && rest[0]) {
       image = rest[0];
     } else if (tagName === 'p' && rest[0]) {
-      memberPubkeys.push(rest[0]);
+      memberPubkeysSet.add(rest[0]);
     }
   }
+  
+  const memberPubkeys = Array.from(memberPubkeysSet);
   
   return {
     title,
@@ -377,6 +378,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
                   navigateToSearch(query);
                 }
               }}
+              renderContent={renderContent}
             />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>

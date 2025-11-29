@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import ProfileImage from '@/components/ProfileImage';
@@ -18,6 +18,7 @@ export type FollowPackData = {
 type FollowPackCardProps = {
   followPack: FollowPackData;
   onExploreClick?: () => void;
+  renderContent?: (content: string) => React.ReactNode;
 };
 
 function FollowPackMemberAvatar({ pubkeyHex }: { pubkeyHex: string }) {
@@ -70,33 +71,29 @@ function FollowPackMemberAvatar({ pubkeyHex }: { pubkeyHex: string }) {
   );
 }
 
-export default function FollowPackCard({ followPack, onExploreClick }: FollowPackCardProps) {
+export default function FollowPackCard({ followPack, onExploreClick, renderContent }: FollowPackCardProps) {
   const maxAvatars = 5;
   const visiblePubkeys = followPack.memberPubkeys.slice(0, maxAvatars);
   const remaining = Math.max(0, followPack.memberCount - visiblePubkeys.length);
 
   return (
     <div className="mb-3 space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-semibold text-gray-100">
-          {followPack.title || 'Follow Pack'}
-        </span>
-      </div>
-
       {followPack.description && (
         <div className="text-gray-100 whitespace-pre-wrap break-words">
-          {followPack.description}
+          {renderContent ? renderContent(followPack.description) : followPack.description}
         </div>
       )}
 
       {followPack.image && (
-        <div className="mb-2">
+        <div className="mb-2 h-48 rounded-md relative">
           <ImageWithBlurhash
             src={followPack.image}
             alt={followPack.title || 'Follow pack image'}
             width={800}
-            height={450}
+            height={200}
             dim={null}
+            objectFit="cover"
+            containerClassName="h-full overflow-visible"
           />
         </div>
       )}

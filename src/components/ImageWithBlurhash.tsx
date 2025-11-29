@@ -17,6 +17,8 @@ interface ImageWithBlurhashProps {
   height: number;
   dim?: { width: number; height: number } | null;
   onClickSearch?: () => void;
+  objectFit?: 'contain' | 'cover';
+  containerClassName?: string;
 }
 
 export default function ImageWithBlurhash({ 
@@ -26,7 +28,9 @@ export default function ImageWithBlurhash({
   width, 
   height, 
   dim,
-  onClickSearch
+  onClickSearch,
+  objectFit = 'contain',
+  containerClassName
 }: ImageWithBlurhashProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -44,16 +48,27 @@ export default function ImageWithBlurhash({
   }
 
   const effectiveDim = dim && dim.width > 0 && dim.height > 0 ? dim : measuredDim;
-  const aspectStyle = effectiveDim
-    ? { aspectRatio: `${effectiveDim.width} / ${effectiveDim.height}` }
-    : { minHeight: '200px' as const };
+  const useFixedHeight = containerClassName?.includes('h-full') || containerClassName?.includes('h-');
+  const aspectStyle = useFixedHeight 
+    ? {} 
+    : (effectiveDim
+      ? { aspectRatio: `${effectiveDim.width} / ${effectiveDim.height}` }
+      : { minHeight: '200px' as const });
 
+  const baseClasses = "relative w-full rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group";
+  const overflowClass = containerClassName?.includes('overflow-visible') ? 'overflow-visible' : 'overflow-hidden';
+  
+  const shouldClipImage = containerClassName?.includes('overflow-visible');
+  
   return (
     <div 
-      className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-[#1f1f1f] group"
+      className={`${baseClasses} ${overflowClass} ${containerClassName || ''}`}
       style={aspectStyle}
     >
-      {/* Blurhash placeholder - shown while loading or on error */}
+      {/* Image container with clipping - allows buttons to overflow parent */}
+      {shouldClipImage ? (
+        <div className="absolute inset-0 overflow-hidden rounded-md">
+          {/* Blurhash placeholder - shown while loading or on error */}
       {blurhash && blurhash.length >= 6 && (!imageLoaded || imageError) && (
         <div className="absolute inset-0">
           <Blurhash 
@@ -104,7 +119,7 @@ export default function ImageWithBlurhash({
         alt={alt}
         width={width}
         height={height} 
-        className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full ${objectFit === 'cover' ? 'object-cover object-center' : 'object-contain'} transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         unoptimized
@@ -137,6 +152,95 @@ export default function ImageWithBlurhash({
           }
         }}
       />
+        </div>
+      ) : (
+        <>
+          {/* Blurhash placeholder - shown while loading or on error */}
+          {blurhash && blurhash.length >= 6 && (!imageLoaded || imageError) && (
+            <div className="absolute inset-0">
+              <Blurhash 
+                hash={blurhash} 
+                width={'100%'} 
+                height={'100%'} 
+                resolutionX={32} 
+                resolutionY={32} 
+                punch={1} 
+              />
+            </div>
+          )}
+
+          {/* Subtle loading spinner on top of blurhash while the image loads */}
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div
+                className="h-6 w-6 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin"
+                aria-label="Loading image"
+              />
+            </div>
+          )}
+
+          {/* Error state: show status code while keeping blurhash (if any) */}
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="px-3 py-2 rounded-md bg-black/40 text-gray-200 text-sm flex items-center justify-center gap-2 border border-[#3d3d3d]">
+                <FontAwesomeIcon icon={faImage} className="opacity-80" />
+                <span className="flex-1 text-center">{statusCode ?? 'Error'}</span>
+                <button
+                  type="button"
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                  title="Open image in new tab"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(src, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <FontAwesomeIcon icon={faExternalLink} className="text-xs opacity-80" />
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Real image - hidden until loaded */}
+          <Image 
+            src={trimImageUrl(src)} 
+            alt={alt}
+            width={width}
+            height={height} 
+            className={`absolute inset-0 h-full w-full ${objectFit === 'cover' ? 'object-cover object-center' : 'object-contain'} transition-opacity duration-300 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            unoptimized
+            onLoad={(e) => { 
+              setImageLoaded(true); 
+              setStatusCode(200); 
+              try {
+                const img = e.currentTarget as HTMLImageElement;
+                if (!effectiveDim && img?.naturalWidth && img?.naturalHeight) {
+                  setMeasuredDim({ width: img.naturalWidth, height: img.naturalHeight });
+                }
+              } catch {}
+            }}
+            onError={() => {
+              try {
+                // Some browsers expose a 'naturalWidth' of 0 on 404 but no status code; try fetch HEAD
+                fetch(src, { method: 'HEAD' }).then((res) => {
+                  setStatusCode(res.status || null);
+                  // Only treat actual HTTP error codes as errors (4xx, 5xx)
+                  if (res.status >= 400) {
+                    setImageError(true);
+                  }
+                }).catch(() => {
+                  setStatusCode(null);
+                  setImageError(true);
+                });
+              } catch { 
+                setStatusCode(null);
+                setImageError(true);
+              }
+            }}
+          />
+        </>
+      )}
       
       {/* Search icon button - only show when image is loaded and onClickSearch is provided */}
       {imageLoaded && !imageError && onClickSearch && (
