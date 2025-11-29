@@ -151,9 +151,9 @@ export default function FollowPackCard({ followPack, onExploreClick, renderConte
               <FollowPackMemberAvatar key={pubkey} pubkeyHex={pubkey} />
             ))}
           </div>
-          {(remaining > 0 || followPack.memberPubkeys.length > 0) && (
+          {(remaining >= 0 || followPack.memberPubkeys.length > 0) && (
             <div className="flex items-center gap-1">
-              {remaining > 0 && onExploreClick && (
+              {onExploreClick && (
                 <button
                   type="button"
                   onClick={onExploreClick}
