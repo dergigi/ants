@@ -58,7 +58,7 @@ export const UI_CONFIG = {
     FILTER_THRESHOLD: 69,
     
     // Default event kinds when no specific kind is requested (richly rendered kinds)
-    DEFAULT_KINDS: [1, 20, 21, 22, 9802] as number[]
+    DEFAULT_KINDS: [1, 20, 21, 22, 9802, 39089] as number[]
   },
   
   // Profile search settings
