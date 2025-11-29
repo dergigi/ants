@@ -42,7 +42,7 @@ function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
   let title: string | undefined;
   let description: string | undefined;
   let image: string | undefined;
-  const memberPubkeys: string[] = [];
+  const memberPubkeysSet = new Set<string>();
   
   for (const tag of event.tags) {
     if (!Array.isArray(tag) || tag.length < 2) continue;
@@ -55,9 +55,11 @@ function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
     } else if (tagName === 'image' && rest[0]) {
       image = rest[0];
     } else if (tagName === 'p' && rest[0]) {
-      memberPubkeys.push(rest[0]);
+      memberPubkeysSet.add(rest[0]);
     }
   }
+  
+  const memberPubkeys = Array.from(memberPubkeysSet);
   
   return {
     title,
