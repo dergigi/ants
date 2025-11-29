@@ -57,6 +57,8 @@ import { formatExactDate } from '@/lib/relativeTime';
 import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
+const FOLLOW_PACK_KIND = 39089;
+
 
 
 
@@ -1927,6 +1929,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       }}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
+                    <EventCard
+                      {...getCommonEventCardProps(event, noteCardClasses)}
+                      renderContent={(text) => (
+                        <TruncatedText 
+                          content={text} 
+                          maxLength={TEXT_MAX_LENGTH}
+                          className="text-gray-100 whitespace-pre-wrap break-words"
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                        />
+                      )}
+                      mediaRenderer={renderNoteMedia}
+                    />
+                  ) : event.kind === FOLLOW_PACK_KIND ? (
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
