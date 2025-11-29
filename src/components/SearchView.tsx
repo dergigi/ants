@@ -54,10 +54,8 @@ import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
-
-const FOLLOW_PACK_KIND = 39089;
 
 
 

@@ -10,6 +10,7 @@ import { shortenNevent, shortenString } from '@/lib/utils';
 import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon, getEventKindDisplayName } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
+import { FOLLOW_PACK_KIND } from '@/lib/constants';
 
 interface NoteHeaderProps {
   event: NDKEvent;
@@ -149,8 +150,7 @@ export default function NoteHeader({
   };
   const fileName = isCodeEvent ? (getTagValue(['name', 'f', 'title']) || null) : null;
   
-  // Extract follow pack title (kind 39089)
-  const FOLLOW_PACK_KIND = 39089;
+  // Extract follow pack title
   const isFollowPack = displayEvent.kind === FOLLOW_PACK_KIND;
   const followPackTitle = isFollowPack ? (getTagValue(['title']) || null) : null;
   

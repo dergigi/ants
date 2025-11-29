@@ -13,6 +13,7 @@ import CardActions from '@/components/CardActions';
 import Nip05Display from '@/components/Nip05Display';
 import FollowPackCard, { type FollowPackData } from '@/components/FollowPackCard';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
+import { FOLLOW_PACK_KIND } from '@/lib/constants';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
@@ -35,8 +36,6 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
   </button>
 );
 
-// Parse follow pack event (kind 39089)
-const FOLLOW_PACK_KIND = 39089;
 function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
   if (event.kind !== FOLLOW_PACK_KIND) return null;
   
