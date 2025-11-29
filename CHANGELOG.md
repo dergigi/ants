@@ -7,8 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2025-01-27
+
 ### Added
 - Support for viewing Nostr follow packs (kind 39089) with `is:followpack` search shortcut
+- Follow pack member avatars display
+- Follow pack quick menu searches
+- Follow pack name in title bar
+
+### Changed
+- Domain updated from search.dergigi.com to ants.sh
+- Include follow packs in default search kinds
+- Flatten top-level by or queries
+
+### Fixed
+- Dedupe follow pack members to avoid duplicate React keys
+- Always show pack search link
+- Center follow pack image and ensure buttons remain visible
+- Search by hex pubkeys for pack members
+
+### Removed
+- Advancednostrsearch directory
 
 ## [0.2.7] - 2025-11-23
 
