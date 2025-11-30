@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { LoginTriggerProvider } from "@/lib/LoginTrigger";
 import { ClearTriggerProvider } from "@/lib/ClearTrigger";
 import { Suspense } from "react";
+import { FathomAnalytics } from "./fathom";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://ants.sh";
 
@@ -62,6 +63,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans min-h-screen flex flex-col">
+        <FathomAnalytics />
         <LoginTriggerProvider>
           <ClearTriggerProvider>
             <Header />

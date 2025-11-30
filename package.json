@@ -20,6 +20,7 @@
     "@nostr-dev-kit/ndk-cache-sqlite-wasm": "0.5.8",
     "@types/string-similarity": "^4.0.2",
     "blurhash": "^2.0.5",
+    "fathom-client": "^3.7.2",
     "fetch-opengraph": "^1.0.36",
     "fuse.js": "7.1.0",
     "next": "^15.4.6",
