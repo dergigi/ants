@@ -112,7 +112,7 @@ const userRelayCache = new Map<string, {
 const USER_RELAY_CACHE_DURATION_MS = RELAY_USER_RELAY_CACHE_DURATION;
 
 // Discover user relays as per NIP-51
-async function discoverUserRelays(pubkey: string): Promise<{
+export async function discoverUserRelays(pubkey: string): Promise<{
   userRelays: string[];
   blockedRelays: string[];
   searchRelays: string[];
