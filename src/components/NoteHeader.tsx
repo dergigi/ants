@@ -1,92 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faReply, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { ndk, safeSubscribe } from '@/lib/ndk';
-import { shortenNevent, shortenNpub, shortenString } from '@/lib/utils';
+import { shortenNevent, shortenString } from '@/lib/utils';
+import { resolveProfileName, type ProfileResult } from '@/lib/utils/profileUtils';
 import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon, getEventKindDisplayName } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
 
-// --- Module-level profile cache for "replying to @username" ---
-
-type ProfileResult = { display: string; isNpubFallback: boolean };
-type CachedProfile = ProfileResult & { ts: number };
-const profileNameCache = new Map<string, CachedProfile>();
-const profileInflight = new Map<string, Promise<ProfileResult | null>>();
-const profileNegativeCache = new Map<string, number>(); // pubkey → timestamp
-const CACHE_MAX = 500;
-const NEGATIVE_TTL_MS = 60_000;
-const POSITIVE_TTL_MS = 10 * 60_000;
-
 // Cache: eventId → author pubkey (avoids re-fetching parent events)
 // Stores {pubkey, ts} so failed lookups (pubkey=null) expire after NEGATIVE_TTL_MS
+const CACHE_MAX = 500;
+const NEGATIVE_TTL_MS = 60_000;
 const parentAuthorCache = new Map<string, { pubkey: string | null; ts: number }>();
 const parentAuthorInflight = new Map<string, Promise<string | null>>();
-
-function resolveProfileName(pubkey: string): Promise<ProfileResult | null> {
-  // Check positive cache (with TTL)
-  const cached = profileNameCache.get(pubkey);
-  if (cached && Date.now() - cached.ts < POSITIVE_TTL_MS) return Promise.resolve(cached);
-
-  // Check negative cache (TTL-based)
-  const negTs = profileNegativeCache.get(pubkey);
-  if (negTs && Date.now() - negTs < NEGATIVE_TTL_MS) {
-    try {
-      return Promise.resolve({ display: shortenNpub(nip19.npubEncode(pubkey)), isNpubFallback: true });
-    } catch { return Promise.resolve(null); }
-  }
-
-  // Dedupe in-flight requests
-  const inflight = profileInflight.get(pubkey);
-  if (inflight) return inflight;
-
-  const promise = (async (): Promise<ProfileResult | null> => {
-    try {
-      const user = new NDKUser({ pubkey });
-      user.ndk = ndk;
-      try { await user.fetchProfile(); } catch {}
-      const profile = user.profile as { display?: string; displayName?: string; name?: string } | undefined;
-      const display = profile?.displayName || profile?.display || profile?.name || '';
-      if (display) {
-        const result: ProfileResult = { display, isNpubFallback: false };
-        if (profileNameCache.size >= CACHE_MAX) {
-          const firstKey = profileNameCache.keys().next().value;
-          if (firstKey) profileNameCache.delete(firstKey);
-        }
-        profileNameCache.set(pubkey, { ...result, ts: Date.now() });
-        return result;
-      }
-      // No display name — negative cache + npub fallback
-      if (profileNegativeCache.size >= CACHE_MAX) {
-        const firstKey = profileNegativeCache.keys().next().value;
-        if (firstKey) profileNegativeCache.delete(firstKey);
-      }
-      profileNegativeCache.set(pubkey, Date.now());
-      try {
-        return { display: shortenNpub(nip19.npubEncode(pubkey)), isNpubFallback: true };
-      } catch { return null; }
-    } catch {
-      if (profileNegativeCache.size >= CACHE_MAX) {
-        const firstKey = profileNegativeCache.keys().next().value;
-        if (firstKey) profileNegativeCache.delete(firstKey);
-      }
-      profileNegativeCache.set(pubkey, Date.now());
-      try {
-        return { display: shortenNpub(nip19.npubEncode(pubkey)), isNpubFallback: true };
-      } catch { return null; }
-    } finally {
-      profileInflight.delete(pubkey);
-    }
-  })();
-
-  profileInflight.set(pubkey, promise);
-  return promise;
-}
 
 // --- Component ---
 

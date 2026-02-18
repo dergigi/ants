@@ -124,10 +124,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           const display = profile?.displayName || profile?.display || profile?.name || '';
           const npubVal = nip19.npubEncode(pubkeyHex);
           setNpub(npubVal);
-          setLabel(display || `npub:${shortenNpub(npubVal)}`);
+          setLabel(display || `${shortenNpub(npubVal)}`);
         } catch {
           if (!isMounted) return;
-          setLabel(`npub:${shortenNpub(nip19.npubEncode(pubkeyHex))}`);
+          setLabel(`${shortenNpub(nip19.npubEncode(pubkeyHex))}`);
         }
       })();
       return () => { isMounted = false; };
