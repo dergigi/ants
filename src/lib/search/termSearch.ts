@@ -1,10 +1,9 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
-import { resolveAuthor } from '../vertex';
 import { SEARCH_DEFAULT_KINDS } from '../constants';
 import { Nip50Extensions, buildSearchQueryWithExtensions } from './searchUtils';
 import { extractKindFilter, normalizeResidualSearchText } from './queryParsing';
 import { subscribeAndCollect } from './subscriptions';
+import { resolveAuthorTokens } from './authorResolve';
 
 // Max concurrent term searches to avoid overwhelming relays
 const MAX_CONCURRENT_TERMS = 8;
@@ -73,42 +72,14 @@ export async function searchByAnyTerms(
       }
 
       if (byMatches.length > 0) {
-        const authors: string[] = [];
-        const resolvedAuthors: string[] = [];
+        const resolvedPubkeys = await resolveAuthorTokens(byMatches);
 
-        for (const author of byMatches) {
-          if (/^npub1[0-9a-z]+$/i.test(author)) {
-            authors.push(author);
-            resolvedAuthors.push(author);
-          } else {
-            try {
-              const resolved = await resolveAuthor(author);
-              if (resolved.pubkeyHex) {
-                const npub = nip19.npubEncode(resolved.pubkeyHex);
-                authors.push(npub);
-                resolvedAuthors.push(npub);
-              } else {
-                console.warn(`Failed to resolve author: ${author}`);
-              }
-            } catch (error) {
-              console.warn(`Error resolving author ${author}:`, error);
-            }
-          }
-        }
-
-        // Only skip if we couldn't resolve ANY authors
-        if (authors.length === 0) {
+        if (resolvedPubkeys.length === 0) {
           console.warn(`No authors could be resolved for term: ${normalizedTerm}`);
           return [];
         }
 
-        // Log which authors were resolved vs which failed
-        if (resolvedAuthors.length < byMatches.length) {
-          const failedAuthors = byMatches.filter(author => !resolvedAuthors.includes(author));
-          console.warn(`Some authors failed to resolve: ${failedAuthors.join(', ')}`);
-        }
-
-        filter.authors = Array.from(new Set(authors.map((a) => nip19.decode(a).data as string)));
+        filter.authors = resolvedPubkeys;
       }
       const residualRaw = preprocessedTerm
         .replace(/\bkind:[^\s]+/gi, ' ')
