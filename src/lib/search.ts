@@ -516,11 +516,12 @@ export async function searchEvents(
           abortSignal
         })
       : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
-    // Enforce AND: must match text and contain requested media
-    const filtered = results.filter((e, idx, arr) => {
-      // dedupe by id while mapping
-      const firstIdx = arr.findIndex((x) => x.id === e.id);
-      return firstIdx === idx;
+    // Dedupe by event id using Set for O(n) instead of O(n^2) findIndex
+    const seen = new Set<string>();
+    const filtered = results.filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
     });
 
     return sortEventsNewestFirst(filtered).slice(0, limit);
