@@ -1,53 +1,47 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { resolveAuthor } from '../../vertex';
 import { RELAYS } from '../../relays';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { expandParenthesizedOr } from '../queryTransforms';
 import { subscribeAndCollect } from '../subscriptions';
 import { searchByAnyTerms } from '../termSearch';
+import { resolveAuthorTokens } from '../authorResolve';
 import { getBroadRelaySet, getOutboxSearchCapableRelays } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
 
 /**
  * Handle author filter queries (by:<author>)
+ * Supports multiple by: tokens (e.g., "bitcoin by:alice by:bob")
  * Returns null if the query is not an author search
  */
 export async function tryHandleAuthorSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  console.log('na')
-
   const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
 
-  const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-  if (!authorMatch) {
+  // Extract ALL by: tokens with a global regex
+  const byMatches = Array.from(cleanedQuery.matchAll(/\bby:(\S+)/gi));
+  if (byMatches.length === 0) {
     return null;
   }
 
-  const [, author] = authorMatch;
-  // Extract search terms by removing the author filter
-  const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
+  const authorTokens = Array.from(new Set(byMatches.map(m => m[1]).filter(Boolean)));
+  // Strip all by: tokens cleanly to get the residual search text
+  const terms = cleanedQuery.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
 
-  let pubkey: string | null = null;
-  try {
-    // Unified resolver handles npub, nip05, and username with a single DVM attempt
-    const resolved = await resolveAuthor(author);
-    pubkey = resolved.pubkeyHex;
-  } catch (error) {
-    console.error('Error resolving author:', error);
-  }
+  // Resolve deduplicated author tokens to hex pubkeys in parallel
+  const pubkeys = await resolveAuthorTokens(authorTokens);
 
-  if (!pubkey) {
+  if (pubkeys.length === 0) {
     return [];
   }
 
   const filters: NDKFilter = applyDateFilter({
     kinds: effectiveKinds,
-    authors: [pubkey],
+    authors: pubkeys,
     limit: Math.max(limit, 200)
   }, dateFilter) as NDKFilter;
 
@@ -62,18 +56,24 @@ export async function tryHandleAuthorSearch(
     }
   }
 
-  // Get author-specific relays that support NIP-50 for better search results
+  // Get author-specific relays that support NIP-50 in parallel for all authors
   const authorRelaySet = chosenRelaySet;
   try {
-    for (const relay of await getOutboxSearchCapableRelays(pubkey)) {
-      authorRelaySet.addRelay(new NDKRelay(relay, undefined, ndk));
+    const outboxResults = await Promise.allSettled(
+      pubkeys.map(pk => getOutboxSearchCapableRelays(pk))
+    );
+    for (const result of outboxResults) {
+      if (result.status === 'fulfilled') {
+        for (const relay of result.value) {
+          authorRelaySet.addRelay(new NDKRelay(relay, undefined, ndk));
+        }
+      }
     }
   } catch (error) {
     console.warn('Failed to get author-specific relays, using chosen relay set:', error);
-    // Fall back to the original chosenRelaySet
   }
 
-  // Fetch by base terms if any, restricted to author
+  // Fetch by base terms if any, restricted to resolved authors
   let res: NDKEvent[] = [];
   if (terms) {
     const seedExpansions3 = expandParenthesizedOr(terms);
@@ -84,7 +84,7 @@ export async function tryHandleAuthorSearch(
           const searchQuery = nip50Extensions
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
-          const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
+          const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
           const r = await subscribeAndCollect(f, 8000, authorRelaySet, abortSignal);
           for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
         } catch {}
@@ -115,7 +115,7 @@ export async function tryHandleAuthorSearch(
          authorRelaySet,
          abortSignal,
          nip50Extensions,
-         applyDateFilter({ authors: [pubkey], kinds: effectiveKinds }, dateFilter),
+         applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter),
          () => getBroadRelaySet()
        );
       res = [...res, ...seeded];
@@ -125,7 +125,6 @@ export async function tryHandleAuthorSearch(
   const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
   const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
   if (res.length === 0) {
-    // First try with author relays, then fallback to broader set
     try {
       res = await subscribeAndCollect(filters, 10000, authorRelaySet, abortSignal);
     } catch (error) {
@@ -140,11 +139,11 @@ export async function tryHandleAuthorSearch(
   const termStr = terms.trim();
   const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
   if (res.length === 0 && termStr) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   } else if (res.length === 0 && hasShortToken) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   }

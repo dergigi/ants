@@ -185,7 +185,8 @@ export async function discoverUserRelays(pubkey: string): Promise<{
       sub.on('event', (event: NDKEvent) => {
         const blocked = new Set<string>();
         for (const tag of event.tags) {
-          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+          // NIP-51 specifies 'relay' tags for kind 10006; also accept 'r' for compat
+          if (Array.isArray(tag) && (tag[0] === 'relay' || tag[0] === 'r') && tag[1]) {
             const raw = tag[1];
             const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
             blocked.add(normalized);
@@ -226,7 +227,8 @@ export async function discoverUserRelays(pubkey: string): Promise<{
       sub.on('event', (event: NDKEvent) => {
         const search = new Set<string>();
         for (const tag of event.tags) {
-          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+          // NIP-51 specifies 'relay' tags for kind 10007; also accept 'r' for compat
+          if (Array.isArray(tag) && (tag[0] === 'relay' || tag[0] === 'r') && tag[1]) {
             const raw = tag[1];
             const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
             search.add(normalized);
@@ -528,15 +530,28 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
     }
   });
 
-  // If we have very few NIP-50 relays, include some known good relays as fallback
+  // If we have very few NIP-50 relays, try known relays as fallback candidates
+  // but only add them after verifying NIP-50 support
   if (supportedRelays.length < 3) {
-    const fallbackRelays = [
+    const candidates = [
       'wss://relay.primal.net',
-      'wss://relay.snort.social', 
+      'wss://relay.snort.social',
       'wss://relay.ditto.pub'
     ].filter(url => !supportedRelays.includes(url) && !rejectedRelays.includes(url));
-    
-    supportedRelays.push(...fallbackRelays);
+
+    if (candidates.length > 0) {
+      const fallbackResults = await Promise.allSettled(
+        candidates.map(async (url) => {
+          const nip50Info = await checkNip50Support(url);
+          return { url, supported: nip50Info.supportsNip50 };
+        })
+      );
+      for (const result of fallbackResults) {
+        if (result.status === 'fulfilled' && result.value.supported) {
+          supportedRelays.push(result.value.url);
+        }
+      }
+    }
   }
 
   return supportedRelays;
