@@ -1,8 +1,8 @@
-import { NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
+import { NDKUser } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { shortenNpub } from '../utils';
 import { ndk } from '../ndk';
-import { RELAYS } from '../relays';
+import { relaySets } from '../relays';
 
 export function getDisplayName(user: NDKUser): string {
   if (!user) return '';
@@ -65,9 +65,10 @@ export function resolveProfileName(pubkey: string): Promise<ProfileResult | null
       let display = profile?.displayName || profile?.display || profile?.name || '';
 
       // If default relays didn't have the profile, try profile-specific relays
+      // Uses relaySets.profileSearch() which respects user's blocked relay list
       if (!display) {
         try {
-          const profileRelaySet = NDKRelaySet.fromRelayUrls(RELAYS.PROFILE_SEARCH, ndk);
+          const profileRelaySet = await relaySets.profileSearch();
           await user.fetchProfile({ relaySet: profileRelaySet });
           profile = user.profile as { display?: string; displayName?: string; name?: string } | undefined;
           display = profile?.displayName || profile?.display || profile?.name || '';

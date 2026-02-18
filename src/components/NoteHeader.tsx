@@ -164,10 +164,22 @@ export default function NoteHeader({
           if (!fetchPromise) {
             fetchPromise = (async () => {
               try {
-                // Use relay hint from e-tag if available for better fetch success
-                const relayUrls = replyRelayHint ? [replyRelayHint] : undefined;
-                const relaySet = relayUrls ? NDKRelaySet.fromRelayUrls(relayUrls, ndk) : undefined;
-                const evt = await ndk.fetchEvent({ ids: [replyEventId] }, {}, relaySet);
+                // Race the fetch against a timeout to avoid hanging
+                const timeoutMs = 6000;
+                const fetchWithTimeout = (relaySet?: NDKRelaySet): Promise<NDKEvent | null> =>
+                  Promise.race([
+                    ndk.fetchEvent({ ids: [replyEventId] }, {}, relaySet),
+                    new Promise<null>(r => setTimeout(() => r(null), timeoutMs))
+                  ]);
+
+                // Try relay hint first if available, then fall back to default relays
+                let evt: NDKEvent | null = null;
+                if (replyRelayHint) {
+                  evt = await fetchWithTimeout(NDKRelaySet.fromRelayUrls([replyRelayHint], ndk));
+                }
+                if (!evt) {
+                  evt = await fetchWithTimeout();
+                }
                 const authorPk = evt?.pubkey ?? null;
                 if (parentAuthorCache.size >= CACHE_MAX) {
                   const firstKey = parentAuthorCache.keys().next().value;
