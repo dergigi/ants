@@ -5,7 +5,7 @@ import { reduceFilters } from './utils/filterReduce';
 import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
-import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';
+import { RELAY_MONITORING_INTERVAL } from './constants';
 
 let lastReducedFilters: NDKFilter[] = [];
 export const getLastReducedFilters = (): NDKFilter[] => lastReducedFilters;
@@ -229,82 +229,14 @@ const updateConnectionStatus = (status: ConnectionStatus) => {
 // Track recent relay activity (last event timestamp per relay)
 const recentRelayActivity: Map<string, number> = new Map();
 
-// Track relay ping times
-const relayPings: Map<string, number> = new Map();
-
 // Public helper to record relay activity when an event is received
 export function markRelayActivity(relayUrl: string): void {
   if (!relayUrl) return;
   recentRelayActivity.set(relayUrl, Date.now());
 }
 
-// Measure ping time for a specific relay
-async function measureRelayPing(relayUrl: string): Promise<number> {
-  try {
-    const relay = ndk.pool?.relays?.get(relayUrl);
-    if (!relay || relay.status !== 1) {
-      return -1; // Not connected
-    }
-
-    const startTime = performance.now();
-    
-    // Send a simple REQ message and wait for EOSE
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve(-1); // Timeout
-      }, RELAY_PING_TIMEOUT);
-
-      const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
-        closeOnEose: true,
-        cacheUsage: 'ONLY_RELAY' as const
-      });
-
-      if (sub) {
-        sub.on('eose', () => {
-          clearTimeout(timeout);
-          const pingTime = Math.round(performance.now() - startTime);
-          relayPings.set(relayUrl, pingTime);
-          resolve(pingTime);
-        });
-
-        sub.on('closed', () => {
-          clearTimeout(timeout);
-          resolve(-1);
-        });
-
-        // Start the subscription
-        sub.start();
-      } else {
-        clearTimeout(timeout);
-        resolve(-1);
-      }
-    });
-  } catch {
-    return -1;
-  }
-}
-
-// Measure ping times for all connected relays
-async function measureAllRelayPings(): Promise<Map<string, number>> {
-  const connectedRelays = Array.from(ndk.pool?.relays?.keys() || [])
-    .filter(url => ndk.pool?.relays?.get(url)?.status === 1);
-
-  const pingPromises = connectedRelays.map(async (url) => {
-    const ping = await measureRelayPing(url);
-    return { url, ping };
-  });
-
-  const results = await Promise.all(pingPromises);
-  const pingMap = new Map<string, number>();
-  
-  results.forEach(({ url, ping }) => {
-    if (ping > 0) {
-      pingMap.set(url, ping);
-    }
-  });
-
-  return pingMap;
-}
+// Relay ping measurement (scoped to individual relays)
+import { measureAllRelayPings as _measureAllRelayPings } from './relayPing';
 
 const ACTIVITY_WINDOW_MS = 15 * 60 * 1000; // consider relays active if they delivered events in the last 15min
 
@@ -355,8 +287,8 @@ const checkRelayStatus = async (): Promise<ConnectionStatus> => {
     }
   }
   
-  // Measure ping times for connected relays
-  const relayPings = connectedRelays.length > 0 ? await measureAllRelayPings() : new Map();
+  // Measure ping times for connected relays (scoped to individual relays)
+  const relayPings = connectedRelays.length > 0 ? await _measureAllRelayPings({ ndk, safeSubscribe }) : new Map();
   
   return {
     success: connectedRelays.length > 0,
