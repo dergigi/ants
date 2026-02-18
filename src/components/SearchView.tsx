@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
+import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRelayFilters } from '@/lib/search/queryParsing';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -90,6 +91,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
+  const [executedQuery, setExecutedQuery] = useState('');
   const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
@@ -127,6 +129,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
+  const clearResults = useCallback(() => {
+    setResults([]);
+    setExecutedQuery('');
+  }, []);
   const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
@@ -267,7 +273,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('kinds', 'Loading kind shortcuts...'));
       setTopExamples(null);
       setHelpCommands(null);
-      setResults([]);
+      clearResults();
       setKindsLoading(true);
       setKindsError(null);
       try {
@@ -733,7 +739,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
     if (!searchQuery.trim()) {
-      setResults([]);
+      clearResults();
       setResolvingAuthor(false);
       return;
     }
@@ -763,7 +769,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopExamples(null);
         setKindsRules(null);
         setShowExternalButton(false);
-        setResults([]);
+        clearResults();
         setLoading(false);
         setResolvingAuthor(false);
 
@@ -805,7 +811,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setKindsRules(null);
       setShowExternalButton(false);
     }
-    setResults([]);
+    clearResults();
     setLoading(true);
     
     
@@ -815,8 +821,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]);
-    
+    const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
+    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
+      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
+
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
     }
@@ -861,6 +869,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
       }
 
+      // Pre-resolve mentions:<author> to npub (if needed) BEFORE searching
+      if (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1])) {
+        const author = (mentionsMatch[1] || '').trim();
+        let resolvedNpub: string | null = null;
+        try {
+          const TIMEOUT_MS = 2500;
+          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
+          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
+        } catch {}
+        if (resolvedNpub) {
+          effectiveQuery = effectiveQuery.replace(/(^|\s)mentions:(\S+)(?=\s|$)/i, (m, pre) => `${pre}mentions:${resolvedNpub}`);
+        }
+        setResolvingAuthor(false);
+      }
+
       const expanded = effectiveQuery;
       const currentProfileNpub = getCurrentProfileNpub(pathname);
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
@@ -885,6 +908,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
+      setExecutedQuery(searchQuery);
       setResults(filtered);
 
       // Track relays that returned events for this search
@@ -910,7 +934,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return;
       }
       console.error('Search error:', error);
-      setResults([]);
+      clearResults();
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
@@ -1195,10 +1219,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setQuery(raw);
       updateUrlForSearch(raw);
       // Clear prior results immediately before async search
-      setResults([]);
+      clearResults();
       setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
       if (raw) handleSearch(raw);
-      else setResults([]);
+      else clearResults();
       return;
     } else {
       // Clear any previous command card for non-command searches
@@ -1225,11 +1249,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
         router.replace(`?${params.toString()}`);
-        setResults([]);
+        clearResults();
       }
     } else {
       if (displayVal) handleSearch(displayVal);
-      else setResults([]);
+      else clearResults();
     }
   };
 
@@ -1281,6 +1305,39 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Use the utility function from urlUtils
 
+  const highlightTerms = useMemo(() => {
+    if (!executedQuery) return [];
+    let cleaned = extractNip50Extensions(executedQuery).cleaned;
+    cleaned = extractKindFilter(cleaned).cleaned;
+    cleaned = extractDateFilter(cleaned).cleaned;
+    cleaned = stripRelayFilters(cleaned);
+    cleaned = cleaned.replace(/\bby:\S+/gi, '');
+    cleaned = cleaned.replace(/\bmentions:\S+/gi, '');
+    cleaned = cleaned.replace(/#(\w+)/g, '$1');
+    cleaned = cleaned.replace(/[()"/]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!cleaned) return [];
+    const orParts = cleaned.split(/\s+OR\s+/i);
+    const terms: string[] = [];
+    for (const part of orParts) {
+      for (const word of part.trim().split(/\s+/)) {
+        if (word.length >= 2 && !/^(AND|NOT|OR)$/i.test(word)) terms.push(word);
+      }
+    }
+    return [...new Set(terms)];
+  }, [executedQuery]);
+
+  const highlightSearchTerms = useCallback((text: string): React.ReactNode => {
+    if (!highlightTerms.length || !text) return text;
+    const escaped = highlightTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      i % 2 === 1
+        ? <mark key={i} className="bg-blue-500/[.69] text-inherit rounded-sm px-0.5">{part}</mark>
+        : part
+    );
+  }, [highlightTerms]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => {
     const strippedContent = stripAllUrls(content, successfulPreviews);
@@ -1391,7 +1448,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   onClick={() => handleContentSearch(hashtagPart)}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
-                  {hashtagPart}
+                  {highlightSearchTerms(hashtagPart)}
                 </button>
               );
             } else if (hashtagPart && hashtagPart.trim()) {
@@ -1399,7 +1456,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               const emojiSplit = hashtagPart.split(emojiRx);
               const emojis = hashtagPart.match(emojiRx) || [];
               emojiSplit.forEach((emojiPart, emojiIndex) => {
-                if (emojiPart) finalNodes.push(emojiPart);
+                if (emojiPart) finalNodes.push(highlightSearchTerms(emojiPart));
                 if (emojis[emojiIndex]) {
                   finalNodes.push(
                     <button
@@ -1413,11 +1470,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 }
               });
             } else {
-              finalNodes.push(hashtagPart);
+              finalNodes.push(highlightSearchTerms(hashtagPart));
             }
           });
         }
-        
+
         // Add nostr token if it exists
         if (nostrTokens[partIndex]) {
           const token = nostrTokens[partIndex];
@@ -1448,7 +1505,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [successfulPreviews, handleContentSearch, goToProfile]);
+  }, [successfulPreviews, handleContentSearch, goToProfile, highlightSearchTerms]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1560,7 +1617,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
     currentSearchId.current++;
     setQuery('');
-    setResults([]);
+    clearResults();
     setLoading(false);
     setResolvingAuthor(false);
     setTopCommandText(null);
@@ -1568,7 +1625,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setKindsRules(null);
     // Always reset to root path when clearing
     router.replace('/');
-  }, [router]);
+  }, [router, clearResults]);
 
   // Register clear handler for favicon click
   useEffect(() => {
