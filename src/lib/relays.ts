@@ -185,7 +185,8 @@ export async function discoverUserRelays(pubkey: string): Promise<{
       sub.on('event', (event: NDKEvent) => {
         const blocked = new Set<string>();
         for (const tag of event.tags) {
-          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+          // NIP-51 specifies 'relay' tags for kind 10006; also accept 'r' for compat
+          if (Array.isArray(tag) && (tag[0] === 'relay' || tag[0] === 'r') && tag[1]) {
             const raw = tag[1];
             const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
             blocked.add(normalized);
@@ -226,7 +227,8 @@ export async function discoverUserRelays(pubkey: string): Promise<{
       sub.on('event', (event: NDKEvent) => {
         const search = new Set<string>();
         for (const tag of event.tags) {
-          if (Array.isArray(tag) && tag[0] === 'r' && tag[1]) {
+          // NIP-51 specifies 'relay' tags for kind 10007; also accept 'r' for compat
+          if (Array.isArray(tag) && (tag[0] === 'relay' || tag[0] === 'r') && tag[1]) {
             const raw = tag[1];
             const normalized = /^wss?:\/\//i.test(raw) ? raw : `wss://${raw}`;
             search.add(normalized);
