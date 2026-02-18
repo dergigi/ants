@@ -117,6 +117,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
+  const [visibleCount, setVisibleCount] = useState(50);
+  const lastPaginationQueryRef = useRef<string>('');
   
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
@@ -387,6 +389,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return () => { cancelled = true; };
   }, [results]);
 
+
+  // Reset pagination when the search query changes, not when results mutate
+  useEffect(() => {
+    if (query !== lastPaginationQueryRef.current) {
+      lastPaginationQueryRef.current = query;
+      setVisibleCount(50);
+    }
+  }, [query]);
 
   const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
 
@@ -1810,7 +1820,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 searchType={detectSearchType(query)}
               />
             )}
-            {finalResults.map((event, idx) => {
+            {finalResults.slice(0, visibleCount).map((event, idx) => {
               // Check if this note has any parent chain blocks rendered above it
               const hasExpandedParents = (() => {
                 let currentEvent = event;
@@ -1963,9 +1973,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 </div>
               );
             })}
+            {visibleCount < finalResults.length && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount(prev => prev + 50)}
+                className="w-full py-3 text-sm text-gray-400 hover:text-gray-200 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg hover:bg-[#3d3d3d] transition-colors"
+              >
+                Show more ({finalResults.length - visibleCount} remaining)
+              </button>
+            )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
     </div>
   );
 }
