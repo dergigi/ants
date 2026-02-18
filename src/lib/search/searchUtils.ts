@@ -15,9 +15,12 @@ export function sortEventsNewestFirst(events: NDKEvent[]): NDKEvent[] {
 }
 
 // Build search query with NIP-50 extensions
+// When baseQuery is empty but extensions exist, produces extension-only strings
 export function buildSearchQueryWithExtensions(baseQuery: string, extensions: Nip50Extensions): string {
-  if (!baseQuery.trim()) return baseQuery;
-  
+  const hasExtensions = extensions.domain || extensions.language || extensions.sentiment
+    || extensions.nsfw !== undefined || extensions.includeSpam;
+  if (!baseQuery.trim() && !hasExtensions) return baseQuery;
+
   let query = baseQuery;
   
   // Add domain filter

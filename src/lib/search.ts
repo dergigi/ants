@@ -499,8 +499,9 @@ export async function searchEvents(
   // Regular search without author filter
   try {
     let results: NDKEvent[] = [];
-    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-    const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
+    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery;
+    // Build search query even when baseSearch is empty — extensions alone are valid NIP-50 queries
+    const searchQuery = buildSearchQueryWithExtensions(baseSearch || '', nip50Extensions) || undefined;
     // Create the filter object that will be sent to NDK
     const searchFilter = applyDateFilter({
       kinds: effectiveKinds,
