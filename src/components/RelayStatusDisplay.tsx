@@ -5,6 +5,7 @@ import { faMagnifyingGlass, faServer } from '@fortawesome/free-solid-svg-icons';
 import { getRelayLists } from '@/lib/relayCounts';
 import { relayInfoCache } from '@/lib/relays';
 import { normalizeRelayUrl } from '@/lib/urlUtils';
+import { getRelayMonitorEntry } from '@/lib/nip66';
 
 type RelayInfo = ReturnType<typeof getRelayLists>;
 
@@ -80,6 +81,7 @@ export default function RelayStatusDisplay({
             const ping = connectionDetails?.relayPings?.get?.(relay.url);
             const pingDisplay = ping && ping > 0 ? ` (${ping}ms)` : '';
             const normalizedUrl = normalizeRelayUrl(relay.url);
+            const monitorEntry = getRelayMonitorEntry(relay.url);
             const isActive = activeRelays.has(normalizedUrl);
             // Blue icon only if this relay provided results for current search
             const providedResults = activeRelays.has(normalizedUrl);
@@ -160,6 +162,17 @@ export default function RelayStatusDisplay({
                       </button>
                     ) : (
                       <span>{normalizedUrl}{pingDisplay}</span>
+                    )}
+                    {monitorEntry && (
+                      monitorEntry.isAlive ? (
+                        <span className="text-green-400 ml-1" title={`Monitor: alive${monitorEntry.rttOpen ? `, RTT ${monitorEntry.rttOpen}ms` : ''}`}>
+                          [{monitorEntry.rttOpen ? `${monitorEntry.rttOpen}ms` : 'alive'}]
+                        </span>
+                      ) : (
+                        <span className="text-red-400 ml-1" title="Monitor: dead">
+                          [dead]
+                        </span>
+                      )
                     )}
                   </div>
                   
