@@ -6,6 +6,7 @@ import { RELAYS } from './relays';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
 import { RELAY_MONITORING_INTERVAL } from './constants';
+import { ensureNip66Data, startNip66Refresh, stopNip66Refresh } from './nip66';
 
 let lastReducedFilters: NDKFilter[] = [];
 export const getLastReducedFilters = (): NDKFilter[] => lastReducedFilters;
@@ -305,7 +306,9 @@ let relayMonitorInterval: NodeJS.Timeout | null = null;
 
 export const startRelayMonitoring = () => {
   if (relayMonitorInterval) return; // Already monitoring
-  
+
+  startNip66Refresh();
+
   relayMonitorInterval = setInterval(async () => {
     try {
       const currentStatus = await checkRelayStatus();
@@ -334,6 +337,7 @@ export const stopRelayMonitoring = () => {
     clearInterval(relayMonitorInterval);
     relayMonitorInterval = null;
   }
+  stopNip66Refresh();
 };
 
 export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatus> => {
@@ -354,7 +358,10 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Check which relays actually connected
     const status = await checkRelayStatus();
     // Do not change the example on connect; keep current selection
-    
+
+    // Fire-and-forget NIP-66 data fetch (non-blocking, populates cache for search)
+    ensureNip66Data().catch(() => {});
+
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false, status.relayPings);
   } catch (error) {
     console.warn('NDK connection failed or timed out:', error);
@@ -363,7 +370,10 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Check which relays we can still access
     const status = await checkRelayStatus();
     // Do not change the example on failed connect either
-    
+
+    // Fire-and-forget NIP-66 data fetch even on partial connect
+    ensureNip66Data().catch(() => {});
+
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout, status.relayPings);
   }
 };

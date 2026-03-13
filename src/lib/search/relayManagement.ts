@@ -2,6 +2,7 @@ import { NDKEvent, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit
 import { ndk, safeSubscribe } from '../ndk';
 import { relaySets as predefinedRelaySets, RELAYS, extendWithUserAndPremium, getRelayInfo } from '../relays';
 import { getUserRelayAdditions } from '../storage';
+import { filterDeadRelays } from '../nip66';
 
 // Use a search-capable relay set explicitly for NIP-50 queries (lazy, async)
 let searchRelaySetPromise: Promise<NDKRelaySet> | null = null;
@@ -20,8 +21,9 @@ export async function getSearchRelaySet(): Promise<NDKRelaySet> {
 export async function getBroadRelaySet(): Promise<NDKRelaySet> {
   const base = await extendWithUserAndPremium([...RELAYS.DEFAULT, ...RELAYS.SEARCH]);
   const manual = getUserRelayAdditions();
-  const combined = new Set<string>([...base, ...manual]);
-  return NDKRelaySet.fromRelayUrls(Array.from(combined), ndk);
+  const combined = Array.from(new Set<string>([...base, ...manual]));
+  const live = filterDeadRelays(combined);
+  return NDKRelaySet.fromRelayUrls(live, ndk);
 }
 
 /**
@@ -71,8 +73,11 @@ export async function getOutboxSearchCapableRelays(authorPubkey: string): Promis
       sub.start();
     });
 
+    // Pre-filter dead relays before expensive NIP-11 probing
+    const liveCandidates = filterDeadRelays(candidateRelays);
+
     // Test each candidate relay for NIP-50 support using NIP-11
-    const relayCheckPromises = candidateRelays.map(async (relayUrl: string) => {
+    const relayCheckPromises = liveCandidates.map(async (relayUrl: string) => {
       try {
         const relayInfo = await getRelayInfo(relayUrl);
         const supportsNip50 = relayInfo.supportedNips?.includes(50) || false;
