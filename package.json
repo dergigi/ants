@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint && tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "bench:nip66": "tsx bench/nip66.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
@@ -45,6 +46,7 @@
     "jest": "^30.0.5",
     "tailwindcss": "^4",
     "ts-jest": "^29.1.2",
+    "tsx": "^4",
     "typescript": "^5"
   }
 }
