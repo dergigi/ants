@@ -12,7 +12,7 @@ The current version is not very performant and will probably crash often.
 
 But it's useful to at least one person already, which is [me](https://ants.sh/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
 
-You can follow ants on nostr: [ants.sh/p/ants@dergigi.com](https://ants.sh/p/ants@dergigi.com)
+You can follow ants on nostr: [ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td](https://ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td)
 
 ## Search Examples
 
