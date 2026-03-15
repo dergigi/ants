@@ -10,6 +10,8 @@ const NIP05_DATA = {
       'wss://relay.primal.net',
       'wss://nos.lol',
       'wss://purplepag.es',
+      'wss://haven.dergigi.com',
+      'wss://wot.dergigi.com',
     ],
   },
 };
