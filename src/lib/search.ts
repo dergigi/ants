@@ -1,7 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { connectWithTimeout, resetLastReducedFilters } from './ndk';
-import { searchProfilesFullText, resolveAuthor } from './vertex';
-import { nip19 } from 'nostr-tools';
+import { searchProfilesFullText } from './vertex';
 import { getNip50SearchRelaySet } from './relays';
 import { SEARCH_DEFAULT_KINDS } from './constants';
 
@@ -45,6 +44,7 @@ import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy'
 
 // Import term search utilities
 import { searchByAnyTerms } from './search/termSearch';
+import { resolveAuthorTokens } from './search/authorResolve';
 
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
@@ -124,23 +124,8 @@ async function maybeOptimizeByOnlyOrSeeds(
     return null;
   }
 
-  // Resolve all tokens to hex pubkeys
-  const resolvedPubkeys: string[] = [];
-  for (const authorToken of uniqueByTokens) {
-    try {
-      if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
-        const hex = nip19.decode(authorToken).data as string;
-        resolvedPubkeys.push(hex);
-      } else {
-        const resolved = await resolveAuthor(authorToken);
-        if (resolved.pubkeyHex) {
-          resolvedPubkeys.push(resolved.pubkeyHex);
-        }
-      }
-    } catch (error) {
-      console.warn(`Failed to resolve author ${authorToken}:`, error);
-    }
-  }
+  // Resolve all tokens to hex pubkeys in parallel
+  const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
 
   if (resolvedPubkeys.length === 0) {
     return null; // No pubkeys could be resolved
@@ -285,23 +270,8 @@ export async function searchEvents(
         const allByTokens = expandedSeeds.flatMap(extractByTokens);
         const uniqueByTokens = Array.from(new Set(allByTokens));
 
-        // Resolve all authors to pubkeys
-        const resolvedPubkeys: string[] = [];
-        for (const authorToken of uniqueByTokens) {
-          try {
-            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
-              const hex = nip19.decode(authorToken).data as string;
-              resolvedPubkeys.push(hex);
-            } else {
-              const resolved = await resolveAuthor(authorToken);
-              if (resolved.pubkeyHex) {
-                resolvedPubkeys.push(resolved.pubkeyHex);
-              }
-            }
-          } catch (error) {
-            console.warn(`Failed to resolve author ${authorToken}:`, error);
-          }
-        }
+        // Resolve all authors to pubkeys in parallel
+        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
 
         if (resolvedPubkeys.length > 0) {
           // Build single filter with all authors
@@ -365,23 +335,8 @@ export async function searchEvents(
 
         const uniqueByTokens = Array.from(new Set(allByTokens));
 
-        // Resolve all authors to pubkeys
-        const resolvedPubkeys: string[] = [];
-        for (const authorToken of uniqueByTokens) {
-          try {
-            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
-              const hex = nip19.decode(authorToken).data as string;
-              resolvedPubkeys.push(hex);
-            } else {
-              const resolved = await resolveAuthor(authorToken);
-              if (resolved.pubkeyHex) {
-                resolvedPubkeys.push(resolved.pubkeyHex);
-              }
-            }
-          } catch (error) {
-            console.warn(`Failed to resolve author ${authorToken}:`, error);
-          }
-        }
+        // Resolve all authors to pubkeys in parallel
+        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
 
         if (resolvedPubkeys.length > 0 && allTags.size > 0) {
           const { applySimpleReplacements } = await import('./search/replacements');
@@ -544,8 +499,9 @@ export async function searchEvents(
   // Regular search without author filter
   try {
     let results: NDKEvent[] = [];
-    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-    const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
+    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery;
+    // Build search query even when baseSearch is empty — extensions alone are valid NIP-50 queries
+    const searchQuery = buildSearchQueryWithExtensions(baseSearch || '', nip50Extensions) || undefined;
     // Create the filter object that will be sent to NDK
     const searchFilter = applyDateFilter({
       kinds: effectiveKinds,
@@ -561,11 +517,12 @@ export async function searchEvents(
           abortSignal
         })
       : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
-    // Enforce AND: must match text and contain requested media
-    const filtered = results.filter((e, idx, arr) => {
-      // dedupe by id while mapping
-      const firstIdx = arr.findIndex((x) => x.id === e.id);
-      return firstIdx === idx;
+    // Dedupe by event id using Set for O(n) instead of O(n^2) findIndex
+    const seen = new Set<string>();
+    const filtered = results.filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
     });
 
     return sortEventsNewestFirst(filtered).slice(0, limit);

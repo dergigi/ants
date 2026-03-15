@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { nip19 } from 'nostr-tools';
 import { NDKEvent, NDKRelaySet, type NDKFilter } from '@nostr-dev-kit/ndk';
-import { NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe } from '@/lib/ndk';
 import { shortenNpub } from '@/lib/utils';
+import { resolveProfileName } from '@/lib/utils/profileUtils';
 import { TEXT_MAX_LENGTH } from '@/lib/constants';
 import { NOSTR_TOKEN_PARSE_REGEX } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -102,18 +102,15 @@ export default function InlineNostrToken({
           } else {
             pubkey = decoded.data as string;
           }
-          
-          const user = new NDKUser({ pubkey });
-          user.ndk = ndk;
-          try { await user.fetchProfile(); } catch {}
-          
+
+          const result = await resolveProfileName(pubkey);
           if (!isMounted) return;
-          
-          type UserProfileLike = { display?: string; displayName?: string; name?: string } | undefined;
-          const profile = user.profile as UserProfileLike;
-          const display = profile?.displayName || profile?.display || profile?.name || '';
+
           const npubVal = nip19.npubEncode(pubkey);
-          
+          const displayText = result
+            ? (result.isNpubFallback ? result.display : `@${result.display.replace(/^@/, '')}`)
+            : shortenNpub(npubVal);
+
           setContent(
             <button
               type="button"
@@ -121,7 +118,7 @@ export default function InlineNostrToken({
               title={token}
               onClick={() => onProfileClick(npubVal)}
             >
-              {display || `npub:${shortenNpub(npubVal)}`}
+              {displayText}
             </button>
           );
           return;
