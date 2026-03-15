@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-03-15
+
+### Added
+- `by:@me` modifier — search your own notes (requires login)
+- `mentions:@me` modifier — find notes that tag you (requires login)
+- Login-filtered examples — `@me` examples only show when logged in
+- README documentation for `@me` modifiers
+
+### Fixed
+- Scoped `@me` detection to `by:`/`mentions:` tokens only (won't trigger on bare `@me` in text)
+- Reset UI state on early return when not logged in (prevents stuck spinner)
+
 ## [0.2.9] - 2026-03-15
 
 ### Added
