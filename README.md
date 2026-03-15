@@ -204,7 +204,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 - [dergigi](https://github.com/dergigi) · [nostr](https://ants.sh/?q=p%3Adergigi.com)
 - [alltheseas](https://github.com/alltheseas) · [nostr](https://ants.sh/p/npub1zafcms4xya5ap9zr7xxr0jlrtrattwlesytn2s42030lzu0dwlzqpd26k5)
-- [fiatjaf](https://github.com/fiatjaf) · [nostr](https://ants.sh/?q=p%3Afiatjaf)
+- [fiatjaf](https://github.com/fiatjaf) · [nostr](https://ants.sh/p/npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6)
 
 ## Contributing
 
