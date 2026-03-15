@@ -122,7 +122,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           const result = await resolveProfileName(pubkeyHex);
           if (!isMounted) return;
           if (result) {
-            setLabel(result.isNpubFallback ? result.display : result.display);
+            setLabel(result.display);
           } else {
             setLabel(shortenNpub(npubVal));
           }
