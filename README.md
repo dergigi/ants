@@ -202,9 +202,9 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 [![Contributors](https://contrib.rocks/image?repo=dergigi/ants)](https://github.com/dergigi/ants/graphs/contributors)
 
-- [dergigi](https://ants.sh/p/dergigi.com)
-- [alltheseas](https://ants.sh/p/elsat@habla.news)
-- [fiatjaf](https://ants.sh/p/fiatjaf.com)
+- [ants.sh/p/dergigi.com](https://ants.sh/p/dergigi.com)
+- [ants.sh/p/elsat@habla.news](https://ants.sh/p/elsat@habla.news)
+- [ants.sh/p/fiatjaf.com](https://ants.sh/p/fiatjaf.com)
 
 ## Contributing
 
