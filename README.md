@@ -12,6 +12,8 @@ The current version is not very performant and will probably crash often.
 
 But it's useful to at least one person already, which is [me](https://ants.sh/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
 
+You can follow ants on nostr: [ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td](https://ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td)
+
 ## Search Examples
 
 ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by making good use of [NIP-05](https://ants.sh/?q=nip%3A05), [NIP-50](https://ants.sh/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
@@ -197,6 +199,18 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - NIP-50: [https://github.com/nostr-protocol/nips/blob/master/50.md](https://github.com/nostr-protocol/nips/blob/master/50.md)
 - NIP-51: [https://github.com/nostr-protocol/nips/blob/master/51.md](https://github.com/nostr-protocol/nips/blob/master/51.md)
 - Vertex: [https://vertexlab.io/docs/algos/](https://vertexlab.io/docs/algos/)
+
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=dergigi/ants)](https://github.com/dergigi/ants/graphs/contributors)
+
+- [ants.sh/p/dergigi.com](https://ants.sh/p/dergigi.com)
+- [ants.sh/p/elsat@habla.news](https://ants.sh/p/elsat@habla.news)
+- [ants.sh/p/fiatjaf.com](https://ants.sh/p/fiatjaf.com)
+
+## Contributing
+
+If you make a contribution (always welcome!) please publicly tag [@dergigi](https://njump.me/_@dergigi.com) on nostr so that we know something happened here. GitHub notifications are rekt.
 
 ## License
 
