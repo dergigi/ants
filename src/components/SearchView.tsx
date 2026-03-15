@@ -67,7 +67,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
-import { isLoggedIn, login, logout } from '@/lib/nip07';
+import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
@@ -133,7 +133,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setResults([]);
     setExecutedQuery('');
   }, []);
-  const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
+  const { triggerLogin, onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
@@ -819,6 +819,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
     
+    // Expand by:@me / mentions:@me to the logged-in user's npub
+    const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
+    if (atMePattern.test(searchQuery)) {
+      const storedPubkey = getStoredPubkey();
+      if (storedPubkey) {
+        const myNpub = nip19.npubEncode(storedPubkey);
+        searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
+      } else {
+        // Not logged in — trigger login flow
+        triggerLogin();
+        setLoading(false);
+        setResolvingAuthor(false);
+        return;
+      }
+    }
+
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
