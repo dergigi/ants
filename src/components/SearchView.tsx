@@ -819,17 +819,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
     
-    // Expand @me to the logged-in user's npub (for by:@me and mentions:@me)
-    // Expand @me to the logged-in user's npub
-    if (/@me\b/i.test(searchQuery)) {
+    // Expand by:@me / mentions:@me to the logged-in user's npub
+    const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
+    if (atMePattern.test(searchQuery)) {
       const storedPubkey = getStoredPubkey();
       if (storedPubkey) {
         const myNpub = nip19.npubEncode(storedPubkey);
         searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
       } else {
-        // Not logged in — trigger login flow and bail
+        // Not logged in — trigger login flow
         triggerLogin();
         setLoading(false);
+        setResolvingAuthor(false);
         return;
       }
     }
