@@ -198,6 +198,14 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - NIP-51: [https://github.com/nostr-protocol/nips/blob/master/51.md](https://github.com/nostr-protocol/nips/blob/master/51.md)
 - Vertex: [https://vertexlab.io/docs/algos/](https://vertexlab.io/docs/algos/)
 
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=dergigi/ants)](https://github.com/dergigi/ants/graphs/contributors)
+
+## Contributing
+
+If you make a contribution (always welcome!) please publicly tag [@dergigi](https://njump.me/_@dergigi.com) on nostr so that we know something happened here. GitHub notifications are rekt.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
