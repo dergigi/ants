@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-03-15
+
+### Added
+- NIP-66 relay monitor integration — discovers NIP-50 relays beyond hardcoded list (7 → 58)
+- "Replying to @username" display in note headers
+- Search term highlighting in results
+- `mentions:` search filter for #p tag queries
+- Incremental pagination (show 50 results, "show more" button)
+- NIP-66 liveness indicator in relay status display
+- Shared profile resolver with relay fallback
+- NIP-66 before/after benchmark (`npm run bench:nip66`)
+
+### Changed
+- Parallel OR term search via `Promise.allSettled`
+- Parallel author resolution via `Promise.all`
+- Scoped relay ping measurement (per relay, not global)
+- O(n) Set-based deduplication replacing O(n²) findIndex
+- Fallback relays now verify NIP-50 support before injection
+- NIP-66 pre-filtering skips dead relays before HTTP probing (48% fewer probes)
+- NIP-66 fast-path skips HTTP probes for relays with confirmed NIP-50 support
+
+### Fixed
+- NIP-51 tag parsing: kinds 10006/10007 now correctly parse `relay` tags (per spec)
+- Extension-only queries (`language:en`) no longer drop search field when base query is empty
+- Dead ternary in EventCard profile resolution
+- Improved parent event resolution reliability
+
 ## [0.2.8] - 2025-01-27
 
 ### Added
