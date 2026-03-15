@@ -203,7 +203,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 [![Contributors](https://contrib.rocks/image?repo=dergigi/ants)](https://github.com/dergigi/ants/graphs/contributors)
 
 - [dergigi](https://github.com/dergigi) · [nostr](https://ants.sh/?q=p%3Adergigi.com)
-- [alltheseas](https://github.com/alltheseas)
+- [alltheseas](https://github.com/alltheseas) · [nostr](https://ants.sh/p/npub1zafcms4xya5ap9zr7xxr0jlrtrattwlesytn2s42030lzu0dwlzqpd26k5)
 - [fiatjaf](https://github.com/fiatjaf) · [nostr](https://ants.sh/?q=p%3Afiatjaf)
 
 ## Contributing
