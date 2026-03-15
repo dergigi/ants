@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - master
+  path_filters:
+    - "!**/.next/**"
+    - "!**/node_modules/**"
+    - "!**/public/ndk/**"
+    - "!**/*.lock"
+  path_instructions:
+    - path: "src/lib/search/**"
+      instructions: |
+        This is the core search engine. Pay close attention to:
+        - NIP-50 relay search compliance
+        - Query parsing correctness (boolean OR, modifiers like by:, has:, is:, site:, mentions:)
+        - Relay management and deduplication
+        - Performance: avoid O(n²), prefer Set-based dedup, parallel fetches
+        - Graceful degradation when relays are unreachable
+    - path: "src/lib/nip66.ts"
+      instructions: |
+        NIP-66 relay monitor integration. Review for:
+        - Correct parsing of kind 30166 monitor events
+        - Safety valve logic (don't over-filter relays)
+        - Cache staleness handling
+    - path: "src/lib/ndk.ts"
+      instructions: |
+        NDK connection setup. Review for:
+        - Proper relay configuration
+        - NIP-66 data loading on connect
+        - No leaked subscriptions or connections
+    - path: "src/app/.well-known/**"
+      instructions: |
+        NIP-05 identity endpoint. Ensure:
+        - CORS headers are set (Access-Control-Allow-Origin: *)
+        - Response matches NIP-05 spec (names + relays objects)
+        - Pubkeys are lowercase hex
+chat:
+  auto_reply: true
