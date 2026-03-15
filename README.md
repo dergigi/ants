@@ -202,6 +202,10 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 
 [![Contributors](https://contrib.rocks/image?repo=dergigi/ants)](https://github.com/dergigi/ants/graphs/contributors)
 
+- [dergigi](https://github.com/dergigi) · [nostr](https://ants.sh/?q=p%3Adergigi.com)
+- [alltheseas](https://github.com/alltheseas)
+- [fiatjaf](https://github.com/fiatjaf) · [nostr](https://ants.sh/?q=p%3Afiatjaf)
+
 ## Contributing
 
 If you make a contribution (always welcome!) please publicly tag [@dergigi](https://njump.me/_@dergigi.com) on nostr so that we know something happened here. GitHub notifications are rekt.
