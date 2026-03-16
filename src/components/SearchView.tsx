@@ -261,7 +261,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     },
     onTutorial: () => {
-      const tutorialNevent = 'nevent1qqstgekdlmaeu3n6gf3ss7nnlq4f0hfx3nm3nmy0pf84xs7e98wyt2ssw5p34';
+      const tutorialNevent = 'nevent1qqsqnndhkz4u26m4v4gut2xjsun8hzfxn75spzcr8337a06g66zwzespzamhxue69uhksctkv4hzuer9wfnkjemf9e3k7mgehz685';
       setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
       setTopExamples(null);
       setHelpCommands(null);
