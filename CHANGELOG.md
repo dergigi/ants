@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-03-16
+
+### Added
+- NIP-05 well-known endpoint for `_@ants.sh`
+- Haven and WoT relays in NIP-05 response
+- Contributors and Contributing sections in README with nostr profile links
+
+### Changed
+- Video player now uses native browser controls (play/pause, seek, volume, fullscreen, playback speed) replacing custom overlay
+- Tutorial `/tutorial` command points to haven.dergigi.com hosted video
+
+### Fixed
+- Video error handler sets error state immediately, preventing infinite loading spinner on codec/decode failures
+
+### Chores
+- Added CodeRabbit configuration with path filters and search-specific review instructions
+
 ## [0.2.10] - 2026-03-15
 
 ### Added
