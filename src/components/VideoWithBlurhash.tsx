@@ -112,20 +112,14 @@ export default function VideoWithBlurhash({
         }}
         onLoadedData={() => { setVideoLoaded(true); setStatusCode(200); }}
         onError={() => {
-          try {
-            fetch(src, { method: 'HEAD' }).then((res) => {
+          setVideoError(true);
+          fetch(src, { method: 'HEAD' })
+            .then((res) => {
               setStatusCode(res.status || null);
-              if (res.status >= 400) {
-                setVideoError(true);
-              }
-            }).catch(() => {
+            })
+            .catch(() => {
               setStatusCode(null);
-              setVideoError(true);
             });
-          } catch { 
-            setStatusCode(null);
-            setVideoError(true);
-          }
         }}
       >
         <source src={src} />
