@@ -2,6 +2,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchByNip19Identifier } from './idLookup';
 import { getSearchRelaySet } from './relayManagement';
 import { tryHandleUrlSearch } from './strategies/urlSearchStrategy';
+import { tryHandleSpellSearch } from './strategies/spellSearchStrategy';
 import { tryHandleLicenseSearch } from './strategies/licenseSearchStrategy';
 import { tryHandleHashtagSearch } from './strategies/hashtagSearchStrategy';
 import { tryHandleATagSearch } from './strategies/aTagSearchStrategy';
@@ -34,6 +35,11 @@ export async function runSearchStrategies(
     abortSignal
   );
   if (urlResults) return urlResults;
+
+  // Spell execution: if the query is a nevent/note/naddr pointing to a kind:777 spell,
+  // parse and execute it as a search filter (NIP-A7)
+  const spellResults = await tryHandleSpellSearch(extCleanedQuery, context);
+  if (spellResults) return spellResults;
 
   // nevent/note/naddr bech32: fetch by NIP-19 identifier
   const nip19Results = await searchByNip19Identifier(extCleanedQuery, abortSignal, getSearchRelaySet);
