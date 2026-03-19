@@ -132,6 +132,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [spellsList, setSpellsList] = useState<Array<{ neventId: string; name: string; description: string; cmd: string; fromContact: boolean }> | null>(null);
   const [spellsLoading, setSpellsLoading] = useState(false);
   const [spellsError, setSpellsError] = useState<string | null>(null);
+  const spellsRequestIdRef = useRef(0);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const clearResults = useCallback(() => {
     setResults([]);
@@ -300,6 +301,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     },
     onSpells: async () => {
+      const requestId = ++spellsRequestIdRef.current;
       setTopCommandText(buildCli('spells', 'Loading spells from relays...'));
       setTopExamples(null);
       setHelpCommands(null);
@@ -310,6 +312,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setSpellsError(null);
       try {
         const spells = await fetchSpellSummaries(30);
+        if (requestId !== spellsRequestIdRef.current) return;
         setSpellsList(spells.map(s => ({ neventId: s.neventId, name: s.name, description: s.description, cmd: s.cmd, fromContact: s.fromContact })));
         const contactCount = spells.filter(s => s.fromContact).length;
         const label = contactCount > 0
@@ -317,11 +320,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           : `${spells.length} spells found`;
         setTopCommandText(buildCli('spells', label));
       } catch (error) {
+        if (requestId !== spellsRequestIdRef.current) return;
         const errorMsg = error instanceof Error ? error.message : 'Failed to load spells';
         setSpellsError(errorMsg);
         setTopCommandText(buildCli('spells', `Error: ${errorMsg}`));
       } finally {
-        setSpellsLoading(false);
+        if (requestId === spellsRequestIdRef.current) setSpellsLoading(false);
       }
     }
   }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
