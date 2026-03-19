@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
-import { ndk, safeExecuteWithCacheFallback } from './ndk';
+import { ndk, safeExecuteWithCacheFallback, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { SPELL_KIND } from './spells';
 import { subscribeAndCollect } from './search/subscriptions';
@@ -91,6 +91,8 @@ export async function fetchSpellSummaries(limit = 50): Promise<SpellSummary[]> {
 }
 
 async function fetchSpellSummariesInner(limit: number): Promise<SpellSummary[]> {
+  // Ensure NDK cache is ready before any relay queries
+  await ensureCacheInitialized();
   const contactPubkeys = await getContactPubkeys();
   const relaySet = await getBroadRelaySet();
   const seen = new Set<string>();
