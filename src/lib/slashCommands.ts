@@ -11,6 +11,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { key: 'help', label: '/help', description: 'Show this help' },
   { key: 'examples', label: '/examples', description: 'List example queries' },
   { key: 'kinds', label: '/kinds', description: 'List kind mappings' },
+  { key: 'spells', label: '/spells', description: 'Browse saved searches (kind:777)' },
   { key: 'login', label: '/login', description: 'Connect with NIP-07' },
   { key: 'logout', label: '/logout', description: 'Clear session' },
   { key: 'clear', label: '/clear', description: 'Clear all caches' },
@@ -25,6 +26,7 @@ export interface SlashCommandHandlers {
   onClear: () => Promise<void>;
   onTutorial: () => void;
   onKinds: () => Promise<void>;
+  onSpells: () => Promise<void>;
 }
 
 export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
@@ -63,6 +65,11 @@ export function createSlashCommandRunner(handlers: SlashCommandHandlers) {
     
     if (cmd === 'kinds') {
       handlers.onKinds();
+      return;
+    }
+    
+    if (cmd === 'spells') {
+      handlers.onSpells();
       return;
     }
     

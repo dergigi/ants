@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
+import { fetchSpellSummaries } from '@/lib/spellDiscovery';
 import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRelayFilters } from '@/lib/search/queryParsing';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
@@ -128,6 +129,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsRules, setKindsRules] = useState<Array<{ token: string; expansion: string }> | null>(null);
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
+  const [spellsList, setSpellsList] = useState<Array<{ neventId: string; name: string; description: string; cmd: string; fromContact: boolean }> | null>(null);
+  const [spellsLoading, setSpellsLoading] = useState(false);
+  const [spellsError, setSpellsError] = useState<string | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const clearResults = useCallback(() => {
     setResults([]);
@@ -183,6 +187,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setHelpCommands(commands);
       setTopExamples(null);
       setKindsRules(null);
+      setSpellsList(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
@@ -190,6 +195,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('--help examples'));
       setHelpCommands(null);
       setKindsRules(null);
+      setSpellsList(null);
     },
     onLogin: async () => {
       setLoginState('logging-in');
@@ -197,6 +203,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
+      setSpellsList(null);
       try {
         const user = await login();
         if (user) {
@@ -247,12 +254,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
+      setSpellsList(null);
     },
     onClear: async () => {
       setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
+      setSpellsList(null);
       try {
         await executeClearCommand();
         setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
@@ -266,6 +275,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
+      setSpellsList(null);
       setQuery(tutorialNevent);
       updateSearchQuery(searchParams, router, tutorialNevent);
     },
@@ -274,6 +284,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       clearResults();
+      setSpellsList(null);
       setKindsLoading(true);
       setKindsError(null);
       try {
@@ -286,6 +297,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('kinds', `Error: ${errorMsg}`));
       } finally {
         setKindsLoading(false);
+      }
+    },
+    onSpells: async () => {
+      setTopCommandText(buildCli('spells', 'Loading spells from relays...'));
+      setTopExamples(null);
+      setHelpCommands(null);
+      setKindsRules(null);
+      setSpellsList(null);
+      clearResults();
+      setSpellsLoading(true);
+      setSpellsError(null);
+      try {
+        const spells = await fetchSpellSummaries(30);
+        setSpellsList(spells.map(s => ({ neventId: s.neventId, name: s.name, description: s.description, cmd: s.cmd, fromContact: s.fromContact })));
+        const contactCount = spells.filter(s => s.fromContact).length;
+        const label = contactCount > 0
+          ? `${spells.length} spells found (${contactCount} from contacts)`
+          : `${spells.length} spells found`;
+        setTopCommandText(buildCli('spells', label));
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to load spells';
+        setSpellsError(errorMsg);
+        setTopCommandText(buildCli('spells', `Error: ${errorMsg}`));
+      } finally {
+        setSpellsLoading(false);
       }
     }
   }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
@@ -768,6 +804,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(null);
         setTopExamples(null);
         setKindsRules(null);
+      setSpellsList(null);
         setShowExternalButton(false);
         clearResults();
         setLoading(false);
@@ -809,6 +846,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(null);
       setTopExamples(null);
       setKindsRules(null);
+      setSpellsList(null);
       setShowExternalButton(false);
     }
     clearResults();
@@ -1005,6 +1043,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
               setTopExamples(null);
               setKindsRules(null);
+      setSpellsList(null);
             }
             handleSearch(initialQueryRef.current);
           } else {
@@ -1132,6 +1171,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
+      setSpellsList(null);
       }
     });
     return cleanup;
@@ -1212,6 +1252,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
+      setSpellsList(null);
       }
       return;
     }
@@ -1231,6 +1272,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
+      setSpellsList(null);
       }
       setQuery(raw);
       updateUrlForSearch(raw);
@@ -1245,6 +1287,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(null);
       setTopExamples(null);
       setKindsRules(null);
+      setSpellsList(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     let displayVal = raw;
@@ -1639,6 +1682,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setTopCommandText(null);
     setTopExamples(null);
     setKindsRules(null);
+      setSpellsList(null);
     // Always reset to root path when clearing
     router.replace('/');
   }, [router, clearResults]);
@@ -1868,6 +1912,39 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                             <div>&nbsp;</div>
                             <div className="text-red-400">Error: {kindsError}</div>
                           </>
+                        ) : spellsList && spellsList.length > 0 ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            {spellsList.map((spell, idx) => (
+                              <div key={`spell-${idx}`}>
+                                <button
+                                  type="button"
+                                  className="text-left w-full hover:underline"
+                                  onClick={() => handleContentSearch(spell.neventId)}
+                                >
+                                  {spell.fromContact && <span className="text-yellow-400" title="From contacts">★ </span>}
+                                  <span className="font-mono text-blue-400">{spell.name}</span>
+                                  {spell.description && spell.description !== spell.name && (
+                                    <span className="text-gray-400">{' — '}{spell.description.slice(0, 80)}</span>
+                                  )}
+                                  <span className="text-gray-500 ml-2">[{spell.cmd}]</span>
+                                </button>
+                              </div>
+                            ))}
+                          </>
+                        ) : spellsLoading ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            <div>Loading spells from relays...</div>
+                          </>
+                        ) : spellsError ? (
+                          <>
+                            <div>{topCommandText.split('\n')[0]}</div>
+                            <div>&nbsp;</div>
+                            <div className="text-red-400">Error: {spellsError}</div>
+                          </>
                         ) : (
                           <>
                             {tokens.map((line, i) => (
@@ -2057,7 +2134,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, spellsList, spellsLoading, spellsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
     </div>
   );
 }
