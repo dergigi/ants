@@ -811,8 +811,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
 
         if (firstIdentifier.type === 'nevent' || firstIdentifier.type === 'note' || firstIdentifier.type === 'naddr') {
-          // Only redirect if we're not already on the /e/[id] page
-          if (!pathname?.startsWith('/e/')) {
+          // If this looks like a spell (kind:777), skip redirect and let
+          // the search pipeline execute it via spellSearchStrategy
+          const isSpellRef = (firstIdentifier.type === 'nevent' && firstIdentifier.kind === 777)
+            || (firstIdentifier.type === 'naddr' && firstIdentifier.kind === 777);
+          if (isSpellRef) {
+            // Fall through to normal search so the spell strategy can execute it
+          } else if (!pathname?.startsWith('/e/')) {
+            // Only redirect if we're not already on the /e/[id] page
             lastIdentifierRedirectRef.current = identifierLower;
             router.push(`/e/${identifierLower}`);
             return;
