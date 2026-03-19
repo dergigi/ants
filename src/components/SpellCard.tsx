@@ -221,15 +221,21 @@ export default function SpellCard({ event, spellData, onCastSpell }: SpellCardPr
         )}
       </div>
 
-      {/* Cast Spell button */}
-      <button
-        type="button"
-        onClick={() => onCastSpell(neventId)}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-md text-purple-300 hover:text-purple-200 text-sm font-medium transition-colors"
-      >
-        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-xs" />
-        Cast Spell
-      </button>
+      {/* Cast Spell button or COUNT notice */}
+      {spellData.cmd === 'COUNT' ? (
+        <div className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600/20 border border-gray-500/30 rounded-md text-gray-400 text-sm">
+          COUNT spells are not yet supported
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onCastSpell(neventId)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-md text-purple-300 hover:text-purple-200 text-sm font-medium transition-colors"
+        >
+          <FontAwesomeIcon icon={faWandMagicSparkles} className="text-xs" />
+          Cast Spell
+        </button>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { SPELL_KIND } from './spells';
 import { subscribeAndCollect } from './search/subscriptions';
 import { getBroadRelaySet } from './search/relayManagement';
 import { sortEventsNewestFirst } from './utils/searchUtils';
+import { getEventRelaySources } from './eventRelayTracking';
 import { nip19 } from 'nostr-tools';
 
 /** Spell summary for display in the /spells list */
@@ -46,11 +47,13 @@ function summarizeSpell(event: NDKEvent, contactPubkeys: Set<string>): SpellSumm
   const name = nameTag?.[1] || (event.content ? event.content.slice(0, 60) : 'Unnamed spell');
   const description = event.content || '';
 
-  // Encode as nevent for execution
+  // Encode as nevent with relay hints for more reliable execution
+  const relaySources = getEventRelaySources(event);
   const neventId = nip19.neventEncode({
     id: event.id,
     author: event.pubkey,
     kind: SPELL_KIND,
+    relays: relaySources.length > 0 ? relaySources.slice(0, 3) : undefined,
   });
 
   return {

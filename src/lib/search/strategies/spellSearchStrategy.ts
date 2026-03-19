@@ -107,10 +107,16 @@ export async function tryHandleSpellSearch(
     return null;
   }
 
-  // COUNT spells: we don't execute them as search results (no events to show)
+  // COUNT spells: return the spell event itself so SpellCard can render it
+  // with a "not yet supported" message instead of falling through to raw display
   if (parsed.cmd === 'COUNT') {
-    console.info('COUNT spells are not yet supported for search execution');
-    return null;
+    lastSpellResult = {
+      results: [spellEvent],
+      spellName: parsed.name,
+      spellDescription: parsed.description,
+      spellEvent,
+    };
+    return [spellEvent];
   }
 
   // Determine relay set for execution
