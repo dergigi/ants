@@ -8,9 +8,6 @@ import { subscribeAndStream, subscribeAndCollect } from '../subscriptions';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
 
-/**
- * Result from spell execution, includes parsed metadata for UI display
- */
 export interface SpellExecutionResult {
   results: NDKEvent[];
   spellName?: string;
@@ -18,7 +15,6 @@ export interface SpellExecutionResult {
   spellEvent: NDKEvent;
 }
 
-// Store last spell execution result for UI access
 let lastSpellResult: SpellExecutionResult | null = null;
 export function getLastSpellResult(): SpellExecutionResult | null {
   return lastSpellResult;
@@ -27,12 +23,20 @@ export function clearLastSpellResult(): void {
   lastSpellResult = null;
 }
 
+/** Validate a relay URL without throwing */
+function isValidRelayUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'wss:' || parsed.protocol === 'ws:';
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Try to handle a query that is a NIP-19 identifier pointing to a kind:777 spell.
- * If the query decodes to a nevent/note/naddr referencing a spell, fetch it,
- * parse the spell, and execute the filter.
- *
- * Returns null if the query is not a spell reference.
+ * Try to handle a query as a kind:777 spell reference.
+ * Only fetches the event if kind hint confirms it's 777 (nevent/naddr).
+ * Returns null for non-spell references without fetching.
  */
 export async function tryHandleSpellSearch(
   query: string,
@@ -40,13 +44,11 @@ export async function tryHandleSpellSearch(
 ): Promise<NDKEvent[] | null> {
   const { isStreaming, streamingOptions, abortSignal } = context;
 
-  // Only handle bare NIP-19 identifiers (nevent1..., note1..., naddr1...)
   const trimmed = query.trim();
-  if (!trimmed.match(/^(nevent1|note1|naddr1)[0-9a-z]+$/i)) {
+  if (!trimmed.match(/^(nevent1|naddr1)[0-9a-z]+$/i)) {
     return null;
   }
 
-  // Decode the NIP-19 identifier
   let decoded;
   try {
     decoded = nip19.decode(trimmed);
@@ -54,33 +56,31 @@ export async function tryHandleSpellSearch(
     return null;
   }
 
-  // Fetch the referenced event
   let spellEvent: NDKEvent | null = null;
 
   if (decoded.type === 'nevent') {
     const data = decoded.data as { id: string; relays?: string[]; kind?: number };
-    // If kind hint is present and it's not 777, bail early
-    if (data.kind !== undefined && data.kind !== 777) {
-      return null;
-    }
+    // Only proceed if kind hint is explicitly 777 — avoids double-fetch
+    if (data.kind !== 777) return null;
     const events = await fetchEventByIdentifier(
       { id: data.id, relayHints: data.relays },
       abortSignal,
       getSearchRelaySet
     );
     spellEvent = events[0] || null;
-  } else if (decoded.type === 'note') {
-    const id = decoded.data as string;
-    const events = await fetchEventByIdentifier({ id }, abortSignal, getSearchRelaySet);
-    spellEvent = events[0] || null;
   } else if (decoded.type === 'naddr') {
-    const data = decoded.data as { pubkey: string; identifier: string; kind: number; relays?: string[] };
-    if (data.kind !== 777) {
-      return null;
-    }
+    const data = decoded.data as {
+      pubkey: string; identifier: string; kind: number; relays?: string[];
+    };
+    if (data.kind !== 777) return null;
     const events = await fetchEventByIdentifier(
       {
-        filter: { kinds: [data.kind as number], authors: [data.pubkey], '#d': [data.identifier], limit: 1 },
+        filter: {
+          kinds: [data.kind as number],
+          authors: [data.pubkey],
+          '#d': [data.identifier],
+          limit: 1,
+        },
         relayHints: data.relays,
       },
       abortSignal,
@@ -91,12 +91,8 @@ export async function tryHandleSpellSearch(
     return null;
   }
 
-  // If we didn't find an event or it's not a spell, bail
-  if (!spellEvent || !isSpellEvent(spellEvent)) {
-    return null;
-  }
+  if (!spellEvent || !isSpellEvent(spellEvent)) return null;
 
-  // Parse the spell
   let parsed;
   try {
     parsed = await parseSpell(spellEvent);
@@ -107,8 +103,7 @@ export async function tryHandleSpellSearch(
     return null;
   }
 
-  // COUNT spells: return the spell event itself so SpellCard can render it
-  // with a "not yet supported" message instead of falling through to raw display
+  // COUNT spells: return spell event itself for SpellCard rendering
   if (parsed.cmd === 'COUNT') {
     lastSpellResult = {
       results: [spellEvent],
@@ -119,17 +114,18 @@ export async function tryHandleSpellSearch(
     return [spellEvent];
   }
 
-  // Determine relay set for execution
+  // Build relay set with URL validation
   let relaySet: NDKRelaySet;
   if (parsed.relays && parsed.relays.length > 0) {
-    relaySet = NDKRelaySet.fromRelayUrls(parsed.relays, ndk);
+    const validRelays = parsed.relays.filter(isValidRelayUrl);
+    relaySet = validRelays.length > 0
+      ? NDKRelaySet.fromRelayUrls(validRelays, ndk)
+      : await getSearchRelaySet();
   } else {
     relaySet = await getSearchRelaySet();
   }
 
-  // Execute the filter
   const filter = parsed.filter;
-
   let results: NDKEvent[];
   if (isStreaming) {
     results = await subscribeAndStream(filter, {
@@ -144,7 +140,6 @@ export async function tryHandleSpellSearch(
     results = await subscribeAndCollect(filter, timeout, relaySet, abortSignal);
   }
 
-  // Store spell metadata for UI
   lastSpellResult = {
     results,
     spellName: parsed.name,
