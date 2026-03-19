@@ -108,20 +108,22 @@ async function fetchSpellSummariesInner(limit: number): Promise<SpellSummary[]> 
     const contactAuthors = Array.from(contactPubkeys);
     // Fetch in batches to avoid overly large author arrays
     const batchSize = 200;
-    for (let i = 0; i < contactAuthors.length && summaries.length < limit; i += batchSize) {
+    const allContactEvents: NDKEvent[] = [];
+    for (let i = 0; i < contactAuthors.length; i += batchSize) {
       const batch = contactAuthors.slice(i, i + batchSize);
       const filter: NDKFilter = {
         kinds: [SPELL_KIND as number],
         authors: batch,
-        limit: Math.min(limit, 100),
+        limit: 100,
       };
       const events = await subscribeAndCollect(filter, 8000, relaySet);
-      for (const event of events) {
-        if (!seen.has(event.id)) {
-          seen.add(event.id);
-          const summary = summarizeSpell(event, contactPubkeys);
-          if (summary) summaries.push(summary);
-        }
+      allContactEvents.push(...events);
+    }
+    for (const event of sortEventsNewestFirst(allContactEvents)) {
+      if (!seen.has(event.id)) {
+        seen.add(event.id);
+        const summary = summarizeSpell(event, contactPubkeys);
+        if (summary) summaries.push(summary);
       }
     }
   }
