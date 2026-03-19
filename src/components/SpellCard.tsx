@@ -5,6 +5,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { SPELL_KIND } from '@/lib/spells';
+import { nip19 } from 'nostr-tools';
 
 /** Parsed spell display data extracted from event tags */
 export interface SpellDisplayData {
@@ -138,7 +139,12 @@ function kindLabel(k: number): string {
 }
 
 export default function SpellCard({ event, spellData, onCastSpell }: SpellCardProps) {
-  const searchQuery = spellToSearchQuery(spellData, event);
+  // Encode as nevent so the spell strategy executes the real filter
+  const neventId = nip19.neventEncode({
+    id: event.id,
+    author: event.pubkey,
+    kind: SPELL_KIND,
+  });
 
   return (
     <div className="space-y-3">
@@ -218,7 +224,7 @@ export default function SpellCard({ event, spellData, onCastSpell }: SpellCardPr
       {/* Cast Spell button */}
       <button
         type="button"
-        onClick={() => onCastSpell(searchQuery)}
+        onClick={() => onCastSpell(neventId)}
         className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-md text-purple-300 hover:text-purple-200 text-sm font-medium transition-colors"
       >
         <FontAwesomeIcon icon={faWandMagicSparkles} className="text-xs" />
