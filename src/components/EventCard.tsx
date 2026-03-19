@@ -77,6 +77,7 @@ function parseFollowPackTags(event: NDKEvent): FollowPackData | null {
 type Props = {
   event: NDKEvent;
   onAuthorClick?: (npub: string) => void;
+  onSearch?: (query: string) => void;
   renderContent: (content: string) => React.ReactNode;
   variant?: 'card' | 'inline';
   mediaRenderer?: (content: string) => React.ReactNode;
@@ -87,7 +88,7 @@ type Props = {
 
 // No local media helpers; media should be rendered by the provided mediaRenderer prop to keep this component generic.
 
-export default function EventCard({ event, onAuthorClick, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
+export default function EventCard({ event, onAuthorClick, onSearch, renderContent, variant = 'card', mediaRenderer, footerRight, className, showFooter = true }: Props) {
   const baseContainerClasses = variant === 'inline'
     ? 'flex w-full max-w-full flex-col gap-1 px-3 py-2 rounded-md bg-[#1f1f1f] border border-[#3d3d3d]'
     : 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg';
@@ -391,7 +392,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             <SpellCard
               event={event}
               spellData={spellData}
-              onCastSpell={(query) => navigateToSearch(query)}
+              onCastSpell={(query) => (onSearch || navigateToSearch)(query)}
             />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>

@@ -1360,9 +1360,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
     event,
     onAuthorClick: goToProfile,
+    onSearch: handleContentSearch,
     className,
     footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} exactDate={event.created_at ? formatExactDate(event.created_at) : undefined} />
-  }), [goToProfile, NeventSearchButton]);
+  }), [goToProfile, handleContentSearch, NeventSearchButton]);
 
 
 
