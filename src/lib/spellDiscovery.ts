@@ -1,9 +1,9 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
-import { ndk } from './ndk';
+import { ndk, safeExecuteWithCacheFallback } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { SPELL_KIND } from './spells';
 import { subscribeAndCollect } from './search/subscriptions';
-import { getSearchRelaySet, getBroadRelaySet } from './search/relayManagement';
+import { getBroadRelaySet } from './search/relayManagement';
 import { sortEventsNewestFirst } from './utils/searchUtils';
 import { nip19 } from 'nostr-tools';
 
@@ -74,13 +74,11 @@ async function getContactPubkeys(): Promise<Set<string>> {
   const pubkey = getStoredPubkey();
   if (!pubkey) return new Set();
 
-  try {
+  return safeExecuteWithCacheFallback(async () => {
     const user = ndk.getUser({ pubkey });
     const follows = await user.follows();
     return new Set(Array.from(follows).map((u) => u.pubkey));
-  } catch {
-    return new Set();
-  }
+  }, new Set<string>());
 }
 
 /**
@@ -89,6 +87,10 @@ async function getContactPubkeys(): Promise<Set<string>> {
  * If not logged in: recent public spells only.
  */
 export async function fetchSpellSummaries(limit = 50): Promise<SpellSummary[]> {
+  return safeExecuteWithCacheFallback(() => fetchSpellSummariesInner(limit), []);
+}
+
+async function fetchSpellSummariesInner(limit: number): Promise<SpellSummary[]> {
   const contactPubkeys = await getContactPubkeys();
   const relaySet = await getBroadRelaySet();
   const seen = new Set<string>();
