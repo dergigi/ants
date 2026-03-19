@@ -49,6 +49,9 @@ import { resolveAuthorTokens } from './search/authorResolve';
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
 
+// Import NIP-45 COUNT
+import { fireNip45Count } from './search/nip45Count';
+
 
 // Note: We no longer inject properties into NDKEvent objects
 // Instead, we use the eventRelayTracking system to track relay sources
@@ -507,6 +510,15 @@ export async function searchEvents(
       kinds: effectiveKinds,
       search: searchQuery
     }, dateFilter) as NDKFilter;
+
+    // Fire NIP-45 COUNT in parallel (non-blocking)
+    const onRelayCount = (options as StreamingSearchOptions | undefined)?.onRelayCount;
+    if (onRelayCount && chosenRelaySet) {
+      const urls = Array.from(chosenRelaySet.relays).map(r => r.url);
+      fireNip45Count(searchFilter, urls, { timeoutMs: 5000, abortSignal })
+        .then(onRelayCount)
+        .catch(() => {});
+    }
 
     results = isStreaming
       ? await subscribeAndStream(searchFilter, {

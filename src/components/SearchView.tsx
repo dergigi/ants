@@ -8,6 +8,7 @@ import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRela
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import type { AggregateCount } from '@/lib/search/nip45Count';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -118,6 +119,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
+  const [relayCount, setRelayCount] = useState<AggregateCount | null>(null);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [visibleCount, setVisibleCount] = useState(50);
   const lastPaginationQueryRef = useRef<string>('');
@@ -812,6 +814,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setShowExternalButton(false);
     }
     clearResults();
+    setRelayCount(null);
     setLoading(true);
     
     
@@ -916,7 +919,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         relaySet = await getNip50SearchRelaySet();
       }
 
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
+      const searchResults = await searchEvents(scopedQuery, 200, {
+        onRelayCount: (aggregate) => {
+          // Guard against stale callbacks from previous searches
+          if (currentSearchId.current === searchId) {
+            setRelayCount(aggregate);
+          }
+        },
+      }, relaySet, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -1737,6 +1747,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
                 filteredCount={fuseFilteredResults.length}
                 resultCount={results.length}
+                relayCount={relayCount}
                 onExpand={() => setShowFilterDetails(!showFilterDetails)}
                 isExpanded={showFilterDetails}
               />
