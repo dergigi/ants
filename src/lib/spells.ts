@@ -62,7 +62,9 @@ export async function parseSpell(event: NDKEvent): Promise<ParsedSpell> {
   const tagFilters = tags.filter((t) => t[0] === 'tag' && t[1] && t.length >= 3);
   for (const tf of tagFilters) {
     const resolved = await resolveVariables(tf.slice(2).filter(Boolean));
-    (filter as Record<string, string[]>)[`#${tf[1]}`] = resolved;
+    const key = `#${tf[1]}`;
+    const existing = (filter as Record<string, string[]>)[key];
+    (filter as Record<string, string[]>)[key] = existing ? [...existing, ...resolved] : resolved;
   }
 
   const searchTag = tags.find((t) => t[0] === 'search' && t[1]);
@@ -85,8 +87,14 @@ export async function parseSpell(event: NDKEvent): Promise<ParsedSpell> {
   const nameTag = tags.find((t) => t[0] === 'name' && t[1]);
   const closeOnEose = tags.some((t) => t[0] === 'close-on-eose');
 
-  const hasFilter = filter.kinds || filter.authors || filter.ids || filter.search ||
-    filter.since || filter.until || filter.limit ||
+  const hasFilter =
+    (Array.isArray(filter.kinds) && filter.kinds.length > 0) ||
+    (Array.isArray(filter.authors) && filter.authors.length > 0) ||
+    (Array.isArray(filter.ids) && filter.ids.length > 0) ||
+    filter.search !== undefined ||
+    filter.since !== undefined ||
+    filter.until !== undefined ||
+    filter.limit !== undefined ||
     Object.keys(filter).some((k) => k.startsWith('#'));
   if (!hasFilter) throw new SpellError('Spell has no filter tags');
 

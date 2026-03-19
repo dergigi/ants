@@ -38,6 +38,8 @@ function summarizeSpell(event: NDKEvent, contactPubkeys: Set<string>): SpellSumm
 
   const cmdTag = tags.find((t) => t[0] === 'cmd');
   if (!cmdTag || !cmdTag[1]) return null;
+  const cmdUpper = cmdTag[1].toUpperCase();
+  if (cmdUpper !== 'REQ' && cmdUpper !== 'COUNT') return null;
 
   const nameTag = tags.find((t) => t[0] === 'name' && t[1]);
   const kindTags = tags.filter((t) => t[0] === 'k' && t[1]);
@@ -60,7 +62,7 @@ function summarizeSpell(event: NDKEvent, contactPubkeys: Set<string>): SpellSumm
     neventId,
     name,
     description,
-    cmd: cmdTag[1].toUpperCase(),
+    cmd: cmdUpper,
     kinds: kindTags.map((t) => parseInt(t[1], 10)).filter((n) => !isNaN(n)),
     hasSearch: !!searchTag,
     author: event.pubkey,
