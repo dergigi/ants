@@ -6,9 +6,9 @@
  */
 
 import { NDKFilter } from '@nostr-dev-kit/ndk';
-import { getRelayInfo } from '../relays';
+import { relayInfoCache } from '../relays';
 import { getRelayMonitorEntry } from '../nip66';
-import { NIP45_COUNT_TIMEOUT, NIP45_BENCHMARK_LOG } from '../constants';
+import { NIP45_COUNT_TIMEOUT, NIP45_BENCHMARK_LOG, RELAY_INFO_CACHE_DURATION } from '../constants';
 
 export interface CountResult {
   relayUrl: string;
@@ -23,19 +23,27 @@ export interface AggregateCount {
   totalMs: number;
 }
 
+/** Max relays to send COUNT to (avoid opening dozens of WebSocket connections) */
+const MAX_COUNT_RELAYS = 5;
+
 /**
- * Check if a relay supports NIP-45 via cached NIP-66 data or relay info cache.
+ * Check if a relay supports NIP-45 using ONLY cached data (instant, no network).
+ * Returns false if no cached info is available — never blocks on HTTP probes.
  */
-async function supportsNip45(relayUrl: string): Promise<boolean> {
-  // Fast path: NIP-66 monitor data (no network request)
+function supportsNip45Cached(relayUrl: string): boolean {
+  // Fast path: NIP-66 monitor data
   const monitorEntry = getRelayMonitorEntry(relayUrl);
   if (monitorEntry?.isAlive && monitorEntry.supportedNips.includes(45)) {
     return true;
   }
 
-  // Fallback: cached relay info (may trigger HTTP NIP-11 probe)
-  const info = await getRelayInfo(relayUrl);
-  return info.supportedNips?.includes(45) ?? false;
+  // Check relay info cache (already populated by getNip50SearchRelaySet)
+  const cached = relayInfoCache.get(relayUrl);
+  if (cached && (Date.now() - cached.timestamp) < RELAY_INFO_CACHE_DURATION) {
+    return cached.supportedNips?.includes(45) ?? false;
+  }
+
+  return false;
 }
 
 /**
@@ -139,11 +147,11 @@ function countFromRelay(
 }
 
 /**
- * Fire NIP-45 COUNT requests to qualifying relays in parallel.
+ * Fire NIP-45 COUNT requests to qualifying relays.
  *
- * Pre-filters relays for NIP-45 support. If none qualify, resolves
- * immediately with total: 0. Takes the max count across relays
- * (since relay data overlaps; summing would overcount).
+ * Resolves as soon as the FIRST relay responds with count > 0 (race pattern).
+ * Falls back to allSettled after timeout. Caps relay count to avoid
+ * opening dozens of WebSocket connections.
  */
 export async function fireNip45Count(
   filter: NDKFilter,
@@ -153,47 +161,58 @@ export async function fireNip45Count(
   const timeoutMs = options.timeoutMs ?? NIP45_COUNT_TIMEOUT;
   const start = performance.now();
 
-  // Pre-filter for NIP-45 support
-  const checks = await Promise.allSettled(
-    relayUrls.map(async (url) => ({ url, supported: await supportsNip45(url) })),
-  );
+  // Normalize URLs (strip trailing slashes to match cache keys)
+  const normalized = relayUrls.map(u => u.replace(/\/+$/, ''));
 
-  const qualifyingRelays = checks
-    .filter((r): r is PromiseFulfilledResult<{ url: string; supported: boolean }> =>
-      r.status === 'fulfilled' && r.value.supported,
-    )
-    .map((r) => r.value.url);
+  // Pre-filter for NIP-45 support (cache-only, instant — no HTTP probes)
+  // Prioritize relays that are also in relayInfoCache (already HTTP-probed, more reliable)
+  const qualifying = normalized.filter(supportsNip45Cached);
+  const cachedFirst = qualifying.sort((a, b) => {
+    const aCached = relayInfoCache.has(a) ? 0 : 1;
+    const bCached = relayInfoCache.has(b) ? 0 : 1;
+    return aCached - bCached;
+  });
+  const targets = cachedFirst.slice(0, MAX_COUNT_RELAYS);
 
-  if (qualifyingRelays.length === 0) {
+  if (NIP45_BENCHMARK_LOG) {
+    console.log(`[NIP-45] ${new Date().toISOString()} firing COUNT to ${targets.length} relays (${qualifying.length} qualified of ${normalized.length}): ${targets.join(', ')}`);
+  }
+
+  if (targets.length === 0) {
     return { total: 0, perRelay: [], totalMs: performance.now() - start };
   }
 
-  // Send COUNT to all qualifying relays in parallel
-  const results = await Promise.allSettled(
-    qualifyingRelays.map((url) =>
-      countFromRelay(url, filter, timeoutMs, options.abortSignal),
-    ),
-  );
-
+  // Race: resolve as soon as first relay returns count > 0
   const perRelay: CountResult[] = [];
-  for (const result of results) {
-    if (result.status === 'fulfilled' && result.value) {
-      perRelay.push(result.value);
-    }
-  }
+  const promises = targets.map((url) => countFromRelay(url, filter, timeoutMs, options.abortSignal));
 
-  // Take max count across relays (overlapping data; sum would overcount)
-  const total = perRelay.reduce((max, r) => Math.max(max, r.count), 0);
-  const totalMs = performance.now() - start;
+  // Use Promise.any-like pattern: resolve on first successful count
+  const result = await new Promise<AggregateCount>((resolve) => {
+    let pending = promises.length;
+    let resolved = false;
 
-  // Benchmark logging
-  if (NIP45_BENCHMARK_LOG && perRelay.length > 0) {
-    for (const r of perRelay) {
-      console.log(
-        `[NIP-45] ${r.relayUrl}: ${r.count.toLocaleString()}${r.approximate ? ' (approximate)' : ''} in ${Math.round(r.latencyMs)}ms`,
-      );
-    }
-  }
+    promises.forEach((p) => {
+      p.then((r) => {
+        if (r) perRelay.push(r);
+        // Resolve immediately on first count > 0
+        if (r && r.count > 0 && !resolved) {
+          resolved = true;
+          const total = r.count;
+          const totalMs = performance.now() - start;
+          if (NIP45_BENCHMARK_LOG) {
+            console.log(`[NIP-45] ${new Date().toISOString()} ${r.relayUrl}: ${r.count.toLocaleString()}${r.approximate ? ' (approximate)' : ''} in ${Math.round(r.latencyMs)}ms`);
+          }
+          resolve({ total, perRelay: [r], totalMs });
+        }
+        pending--;
+        if (pending === 0 && !resolved) {
+          // All settled, none had count > 0
+          const total = perRelay.reduce((max, cr) => Math.max(max, cr.count), 0);
+          resolve({ total, perRelay, totalMs: performance.now() - start });
+        }
+      });
+    });
+  });
 
-  return { total, perRelay, totalMs };
+  return result;
 }

@@ -1,9 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { Nip50Extensions } from './searchUtils';
-import type { AggregateCount } from './nip45Count';
-
-// Callback for NIP-45 COUNT results
-export type OnRelayCount = (aggregate: AggregateCount) => void;
 
 // Streaming search options
 export interface StreamingSearchOptions {
@@ -12,7 +8,6 @@ export interface StreamingSearchOptions {
   maxResults?: number;
   timeoutMs?: number;
   onResults?: (results: NDKEvent[], isComplete: boolean) => void;
-  onRelayCount?: OnRelayCount;
 }
 
 // Context passed to search strategies

@@ -8,7 +8,9 @@ import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRela
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import { fireNip45Count } from '@/lib/search/nip45Count';
 import type { AggregateCount } from '@/lib/search/nip45Count';
+import { RELAYS } from '@/lib/relays';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -56,7 +58,7 @@ import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, SEARCH_DEFAULT_KINDS } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
@@ -816,8 +818,21 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     clearResults();
     setRelayCount(null);
     setLoading(true);
-    
-    
+    console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
+
+    // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
+    // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
+    const countFilter = { search: searchQuery, kinds: SEARCH_DEFAULT_KINDS } as import('@nostr-dev-kit/ndk').NDKFilter;
+    fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal })
+      .then((aggregate) => {
+        console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
+        if (currentSearchId.current === searchId) {
+          setRelayCount(aggregate);
+        }
+      })
+      .catch(() => {});
+
+
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
@@ -919,14 +934,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         relaySet = await getNip50SearchRelaySet();
       }
 
-      const searchResults = await searchEvents(scopedQuery, 200, {
-        onRelayCount: (aggregate) => {
-          // Guard against stale callbacks from previous searches
-          if (currentSearchId.current === searchId) {
-            setRelayCount(aggregate);
-          }
-        },
-      }, relaySet, abortController.signal);
+      const searchResults = await searchEvents(scopedQuery, 200, {}, relaySet, abortController.signal);
       
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
@@ -934,6 +942,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
+      console.log(`[NIP-45 UI] results arrived: ${filtered.length} events at ${new Date().toISOString()}`);
       setExecutedQuery(searchQuery);
       setResults(filtered);
 
