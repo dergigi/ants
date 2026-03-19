@@ -2,7 +2,7 @@ import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { connectWithTimeout, resetLastReducedFilters } from './ndk';
 import { searchProfilesFullText } from './vertex';
 import { getNip50SearchRelaySet } from './relays';
-import { SEARCH_DEFAULT_KINDS } from './constants';
+import { SEARCH_DEFAULT_KINDS, NIP45_COUNT_TIMEOUT } from './constants';
 
 // Import shared utilities
 import {
@@ -49,6 +49,8 @@ import { resolveAuthorTokens } from './search/authorResolve';
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
 
+// Import NIP-45 COUNT
+import { fireNip45Count } from './search/nip45Count';
 
 // Note: We no longer inject properties into NDKEvent objects
 // Instead, we use the eventRelayTracking system to track relay sources
@@ -507,6 +509,16 @@ export async function searchEvents(
       kinds: effectiveKinds,
       search: searchQuery
     }, dateFilter) as NDKFilter;
+
+    // Fire NIP-45 COUNT in parallel (non-blocking) — uses the exact same
+    // filter and relay set as the REQ subscription below.
+    const onRelayCount = (options as StreamingSearchOptions | undefined)?.onRelayCount;
+    if (onRelayCount && chosenRelaySet) {
+      const urls = Array.from(chosenRelaySet.relays).map(r => r.url);
+      fireNip45Count(searchFilter, urls, { timeoutMs: NIP45_COUNT_TIMEOUT, abortSignal })
+        .then(onRelayCount)
+        .catch((err) => { console.debug('[NIP-45] COUNT failed:', err); });
+    }
 
     results = isStreaming
       ? await subscribeAndStream(searchFilter, {

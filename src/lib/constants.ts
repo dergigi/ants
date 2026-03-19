@@ -106,6 +106,12 @@ export const UI_CONFIG = {
     NIP66_SAFETY_THRESHOLD: 0.8,         // skip filter if >80% would be removed
     NIP66_DEAD_ENTRY_MAX_AGE: 86400000,  // 24 hours — dead entries older than this degrade to 'unknown'
   },
+
+  // NIP-45 COUNT settings
+  NIP45: {
+    COUNT_TIMEOUT: 5000,       // 5s timeout per relay for COUNT requests
+    BENCHMARK_LOG: true,       // Log COUNT results to console
+  },
   
   // UI refresh intervals
   UI_REFRESH: {
@@ -155,6 +161,10 @@ export const RELAY_HTTP_REQUEST_TIMEOUT = UI_CONFIG.RELAYS.HTTP_REQUEST_TIMEOUT;
 export const RELAY_PING_TIMEOUT = UI_CONFIG.RELAYS.PING_TIMEOUT;
 export const RELAY_INFO_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_CACHE_DURATION;
 export const RELAY_USER_RELAY_CACHE_DURATION = UI_CONFIG.RELAYS.USER_RELAY_CACHE_DURATION;
+
+// NIP-45 constants
+export const NIP45_COUNT_TIMEOUT = UI_CONFIG.NIP45.COUNT_TIMEOUT;
+export const NIP45_BENCHMARK_LOG = UI_CONFIG.NIP45.BENCHMARK_LOG;
 
 // NIP-66 constants
 export const NIP66_CACHE_DURATION = UI_CONFIG.RELAYS.NIP66_CACHE_DURATION;
