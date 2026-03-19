@@ -63,7 +63,7 @@ export default function SpellCard({ event, spellData, onCastSpell }: SpellCardPr
         {(spellData.hasSince || spellData.hasUntil) && (
           <div><span className="text-gray-500">time:</span> <span className="text-gray-300">{spellData.sinceRaw && `since ${spellData.sinceRaw}`}{spellData.sinceRaw && spellData.untilRaw && ' — '}{spellData.untilRaw && `until ${spellData.untilRaw}`}</span></div>
         )}
-        {spellData.limit && (
+        {spellData.limit !== undefined && (
           <div><span className="text-gray-500">limit:</span> <span className="text-gray-300">{spellData.limit}</span></div>
         )}
         {spellData.hasRelays && (

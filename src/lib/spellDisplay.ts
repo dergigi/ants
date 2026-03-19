@@ -44,6 +44,8 @@ export function parseSpellDisplay(event: NDKEvent): SpellDisplayData | null {
   const allValues = [
     ...(authorsTag ? authorsTag.slice(1) : []),
     ...tagFilters.flatMap((t) => t.slice(2)),
+    ...(sinceTag ? [sinceTag[1]] : []),
+    ...(untilTag ? [untilTag[1]] : []),
   ];
   const variables = allValues.filter((v) => v.startsWith('$'));
   const name = nameTag?.[1] || (event.content ? event.content.slice(0, 80) : 'Unnamed spell');
@@ -63,7 +65,7 @@ export function parseSpellDisplay(event: NDKEvent): SpellDisplayData | null {
     hasUntil: !!untilTag,
     sinceRaw: sinceTag?.[1],
     untilRaw: untilTag?.[1],
-    limit: limitTag ? parseInt(limitTag[1], 10) || undefined : undefined,
+    limit: limitTag ? (Number.isNaN(parseInt(limitTag[1], 10)) ? undefined : parseInt(limitTag[1], 10)) : undefined,
     tagFilters: tagFilters.map((t) => ({ letter: t[1], values: t.slice(2) })),
   };
 }
