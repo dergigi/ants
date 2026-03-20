@@ -148,9 +148,6 @@ export const searchExamples = [
   // Long-form Articles
   'is:article bitcoin',
   'is:longform by:dergigi',
-  'is:blogpost by:fiatjaf',
-  'is:article (bitcoin OR lightning)',
-  'is:longform by:odell',
 
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
