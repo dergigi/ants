@@ -74,6 +74,7 @@ import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
+import { deduplicateReplaceableEvents } from '@/lib/search/searchUtils';
 import packageJson from '../../package.json';
 
 type Props = {
@@ -436,9 +437,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
+    const deduplicated = deduplicateReplaceableEvents(filteredResults);
     const q = (shouldEnableFilters && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
-    if (!q) return filteredResults;
-    const fuse = new Fuse(filteredResults, {
+    if (!q) return deduplicated;
+    const fuse = new Fuse(deduplicated, {
       includeScore: false,
       threshold: 0.35,
       ignoreLocation: true,
