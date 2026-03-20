@@ -23,23 +23,36 @@ export default function FilterCollapsed({
   isExpanded = false
 }: FilterCollapsedProps) {
   // Build count display:
-  //   "200"                 — no relay count (today's behavior)
-  //   "200 / ~203,873"     — with relay count
-  //   "50/200 / ~203,873"  — with active filters + relay count
+  //   "200 results"                          — no relay count
+  //   "200 results / ~203,873 on relays"     — with relay count
+  //   "50/200 results / ~203,873 on relays"  — with active filters + relay count
   let countText: string;
   if (hasActiveFilters) {
     countText = `${filteredCount}/${resultCount}`;
   } else {
     countText = `${resultCount}`;
   }
+  countText += ' results';
 
   if (relayCount && relayCount.total > resultCount) {
-    countText += ` / ~${relayCount.total.toLocaleString()}`;
+    countText += ` / ~${relayCount.total.toLocaleString()} on relays`;
+  }
+
+  // Build tooltip
+  let tooltip: string;
+  if (hasActiveFilters) {
+    tooltip = `${filteredCount} shown after filters, ${resultCount} fetched`;
+  } else {
+    tooltip = `${resultCount} results fetched`;
+  }
+  if (relayCount && relayCount.total > resultCount) {
+    tooltip += `. Relays report ~${relayCount.total.toLocaleString()} total matching events (NIP-45 COUNT)`;
   }
 
   return (
     <button
       onClick={onExpand}
+      title={tooltip}
       className={`flex items-center gap-2 text-sm transition-colors ${
         filtersAreActive
           ? 'text-blue-400 hover:text-blue-300'
