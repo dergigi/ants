@@ -24,6 +24,7 @@
     "fathom-client": "^3.7.2",
     "fetch-opengraph": "^1.0.36",
     "fuse.js": "7.1.0",
+    "mdast-util-find-and-replace": "^3.0.2",
     "next": "15.5.14",
     "prism-react-renderer": "2.4.1",
     "prism-themes": "^1.9.0",

@@ -1,6 +1,7 @@
 'use client';
 
 import Markdown from 'react-markdown';
+import remarkNostrLinks from '@/lib/remarkNostrLinks';
 
 interface ArticleMarkdownProps {
   content: string;
@@ -14,17 +15,21 @@ export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
   return (
     <div className="article-markdown prose prose-invert prose-sm max-w-none">
       <Markdown
+        remarkPlugins={[remarkNostrLinks]}
         components={{
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 hover:underline"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const isInternal = href?.startsWith('/');
+            return (
+              <a
+                href={href}
+                target={isInternal ? undefined : '_blank'}
+                rel={isInternal ? undefined : 'noopener noreferrer'}
+                className="text-blue-400 hover:text-blue-300 hover:underline"
+              >
+                {children}
+              </a>
+            );
+          },
           h1: ({ children }) => (
             <h1 className="text-xl font-bold text-gray-100 mt-4 mb-2">{children}</h1>
           ),
