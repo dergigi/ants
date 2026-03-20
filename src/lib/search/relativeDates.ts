@@ -36,6 +36,7 @@ function relativeToAbsoluteDate(input: string): string | null {
   if (!match) return null;
 
   const amount = parseInt(match[1], 10);
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 3650) return null;
   const unit = match[2].toLowerCase();
   const now = new Date();
 
