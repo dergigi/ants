@@ -111,6 +111,14 @@ export const searchExamples = [
   'https://dergigi.com/vew', // URL
   'dergigi.com', // NIP-05
 
+  // Date filter examples
+  'bitcoin since:2w',
+  'is:article bitcoin since:2w',
+  'GM by:dergigi since:7d',
+  'since:2026-03-01',
+  'until:2026-01-01',
+  'bitcoin since:1m until:1w',
+
   // Kinds filter examples
   'is:zap by:marty',
   'is:bookmark by:hzrd',

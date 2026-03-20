@@ -15,6 +15,7 @@ import {
   buildSearchQueryWithExtensions
 } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
+import { extractDateFilters, type DateFilters } from './search/queryParsing';
 
 // Note: We no longer inject properties into NDKEvent objects
 // Instead, we use the eventRelayTracking system to track relay sources
@@ -344,7 +345,8 @@ async function searchByAnyTerms(
   abortSignal?: AbortSignal,
   nip50Extensions?: Nip50Extensions,
   baseFilter?: Partial<NDKFilter>,
-  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>
+  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>,
+  dateFilters?: DateFilters
 ): Promise<NDKEvent[]> {
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
@@ -387,6 +389,14 @@ async function searchByAnyTerms(
         kinds: effectiveKinds,
         limit: Math.max(limit, 200)
       };
+
+      // Apply date filters if present
+      if (dateFilters?.since) {
+        filter.since = dateFilters.since;
+      }
+      if (dateFilters?.until) {
+        filter.until = dateFilters.until;
+      }
 
       if (tagMatches.length > 0) {
         filter['#t'] = Array.from(new Set(tagMatches.map((tag) => tag.toLowerCase())));
@@ -746,6 +756,10 @@ export async function searchEvents(
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
   
+  // Extract date filters (since: and until:)
+  const dateExtraction = extractDateFilters(nip50Extraction.cleaned);
+  const dateFilters = dateExtraction.filters;
+  
   // Remove legacy relay filters and choose the default search relay set
   let chosenRelaySet: NDKRelaySet;
   if (relaySetOverride) {
@@ -761,7 +775,7 @@ export async function searchEvents(
   }
 
   // Strip legacy relay filters but keep the rest of the query intact
-  const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
+  const extCleanedQuery = stripRelayFilters(dateExtraction.cleaned);
   
   // Apply simple replacements to expand is: patterns to kind: patterns
   const { applySimpleReplacements } = await import('./search/replacements');
@@ -825,7 +839,8 @@ export async function searchEvents(
         abortSignal,
         nip50Extensions,
         { kinds: effectiveKinds },
-        () => getBroadRelaySet()
+        () => getBroadRelaySet(),
+        dateFilters
       );
       
       
@@ -874,13 +889,20 @@ export async function searchEvents(
         abortSignal,
         nip50Extensions,
         filters,
-        () => getBroadRelaySet()
+        () => getBroadRelaySet(),
+        dateFilters
       );
 
       if (res.length === 0) {
         const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
         const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-        const authorOnlyFilter: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) };
+        const authorOnlyFilter: NDKFilter = { 
+          kinds: effectiveKinds, 
+          authors: [pubkey], 
+          limit: Math.max(limit, 600),
+          ...(dateFilters?.since && { since: dateFilters.since }),
+          ...(dateFilters?.until && { until: dateFilters.until })
+        };
         let authorOnly = await subscribeAndCollect(authorOnlyFilter, 10000, broadRelaySet, abortSignal);
         const trimmed = terms.trim();
         if (trimmed) {
@@ -958,13 +980,14 @@ export async function searchEvents(
       abortSignal,
       nip50Extensions,
       { kinds: effectiveKinds },
-      () => getBroadRelaySet()
+      () => getBroadRelaySet(),
+      dateFilters
     );
     
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
       const broadRelaySet = await getBroadRelaySet();
-      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds });
+      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, { kinds: effectiveKinds }, undefined, dateFilters);
     }
     
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
@@ -1027,7 +1050,13 @@ export async function searchEvents(
     const nonLicenseRemainder = cleanedQuery.replace(/\blicense:[^\s)]+/gi, '').trim();
     if (licenseMatches.length > 0 && nonLicenseRemainder.length === 0) {
       const licenses = Array.from(new Set(licenseMatches.map((v) => v.toUpperCase())));
-      const licenseFilter: NDKFilter & { '#license'?: string[] } = { kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) } as NDKFilter & { '#license'?: string[] };
+      const licenseFilter: NDKFilter & { '#license'?: string[] } = { 
+        kinds: effectiveKinds, 
+        '#license': licenses, 
+        limit: Math.max(limit, 500),
+        ...(dateFilters?.since && { since: dateFilters.since }),
+        ...(dateFilters?.until && { until: dateFilters.until })
+      } as NDKFilter & { '#license'?: string[] };
       const tagRelaySet = await getBroadRelaySet();
       const results = isStreaming
         ? await subscribeAndStream(licenseFilter, {
@@ -1184,7 +1213,9 @@ export async function searchEvents(
     const filters: NDKFilter = {
       kinds: effectiveKinds,
       authors: [pubkey],
-      limit: Math.max(limit, 200)
+      limit: Math.max(limit, 200),
+      ...(dateFilters?.since && { since: dateFilters.since }),
+      ...(dateFilters?.until && { until: dateFilters.until })
     };
 
     // Add search term to the filter if present
@@ -1207,7 +1238,14 @@ export async function searchEvents(
           const seen = new Set<string>();
           for (const seed of seedExpansions3) {
             try {
-              const f: NDKFilter = { kinds: effectiveKinds, authors: [pubkey], search: buildSearchQueryWithExtensions(seed, nip50Extensions), limit: Math.max(limit, 200) };
+              const f: NDKFilter = { 
+                kinds: effectiveKinds, 
+                authors: [pubkey], 
+                search: buildSearchQueryWithExtensions(seed, nip50Extensions), 
+                limit: Math.max(limit, 200),
+                ...(dateFilters?.since && { since: dateFilters.since }),
+                ...(dateFilters?.until && { until: dateFilters.until })
+              };
               const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
               for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
             } catch {}
@@ -1239,7 +1277,8 @@ export async function searchEvents(
             abortSignal,
             nip50Extensions,
             { authors: [pubkey], kinds: effectiveKinds },
-            () => getBroadRelaySet()
+            () => getBroadRelaySet(),
+            dateFilters
           );
           res = [...res, ...seeded];
         } catch {}
