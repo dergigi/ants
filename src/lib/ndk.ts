@@ -362,17 +362,27 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
     // Fire-and-forget NIP-66 data fetch (non-blocking, populates cache for search)
     ensureNip66Data().catch(() => {});
 
+    // Pre-warm WebSocket connections for search relays so first search is instant
+    for (const url of RELAYS.SEARCH) {
+      ndk.pool.getRelay(url, true, false);
+    }
+
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false, status.relayPings);
   } catch (error) {
     console.warn('NDK connection failed or timed out:', error);
     timeout = true;
-    
+
     // Check which relays we can still access
     const status = await checkRelayStatus();
     // Do not change the example on failed connect either
 
     // Fire-and-forget NIP-66 data fetch even on partial connect
     ensureNip66Data().catch(() => {});
+
+    // Pre-warm WebSocket connections for search relays even on partial connect
+    for (const url of RELAYS.SEARCH) {
+      ndk.pool.getRelay(url, true, false);
+    }
 
     return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout, status.relayPings);
   }
