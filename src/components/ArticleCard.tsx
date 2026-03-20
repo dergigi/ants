@@ -92,7 +92,13 @@ function ArticleHeader({
       <div className="flex items-start gap-2">
         <FontAwesomeIcon icon={faNewspaper} className="text-blue-400 mt-1 flex-shrink-0" />
         <h3 className="text-lg font-semibold text-gray-100 leading-tight">
-          {meta.title || 'Untitled Article'}
+          {meta.naddr ? (
+            <a href={`/e/${meta.naddr}`} className="hover:text-blue-300 hover:underline">
+              {meta.title || 'Untitled Article'}
+            </a>
+          ) : (
+            meta.title || 'Untitled Article'
+          )}
         </h3>
       </div>
 
