@@ -94,7 +94,7 @@ export const UI_CONFIG = {
     PING_TIMEOUT: 5000, // 5 seconds
     
     // Cache duration for relay info (milliseconds)
-    INFO_CACHE_DURATION: 60000, // 1 minute
+    INFO_CACHE_DURATION: 43200000, // 12 hours
     
     // User relay cache duration (milliseconds)
     USER_RELAY_CACHE_DURATION: 3600000, // 1 hour
