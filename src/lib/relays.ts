@@ -601,3 +601,13 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   return createRelaySet(nip50Relays);
 }
 
+// Instant (synchronous) NIP-50 relay set for fast search startup.
+// Skips expensive discovery (user relays, NIP-11 HTTP probes) in favor
+// of hardcoded + NIP-66 cached relays that are known to support NIP-50.
+export function getQuickNip50SearchRelaySet(): NDKRelaySet {
+  const allRelays = [...RELAYS.SEARCH, ...getMonitoredNip50Relays()];
+  const unique = [...new Set(allRelays)];
+  const live = filterDeadRelays(unique);
+  return NDKRelaySet.fromRelayUrls(live, ndk);
+}
+

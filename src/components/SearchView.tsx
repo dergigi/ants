@@ -52,7 +52,7 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { relaySets, getNip50SearchRelaySet, getQuickNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
@@ -930,8 +930,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         // Direct queries (NIP-19): use all relays
         relaySet = await relaySets.default();
       } else {
-        // Search queries (NIP-50): use NIP-50 capable relays only
-        relaySet = await getNip50SearchRelaySet();
+        // Search queries (NIP-50): use instant relay set (no async discovery)
+        relaySet = getQuickNip50SearchRelaySet();
+        // Fire-and-forget full discovery to warm cache for subsequent searches
+        getNip50SearchRelaySet().catch(() => {});
       }
 
       const searchResults = await searchEvents(scopedQuery, 200, {}, relaySet, abortController.signal);
