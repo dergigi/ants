@@ -161,8 +161,8 @@ export async function fireNip45Count(
   const timeoutMs = options.timeoutMs ?? NIP45_COUNT_TIMEOUT;
   const start = performance.now();
 
-  // Normalize URLs (strip trailing slashes to match cache keys)
-  const normalized = relayUrls.map(u => u.replace(/\/+$/, ''));
+  // Normalize and deduplicate URLs (strip trailing slashes to match cache keys)
+  const normalized = Array.from(new Set(relayUrls.map(u => u.replace(/\/+$/, ''))));
 
   // Pre-filter for NIP-45 support (cache-only, instant — no HTTP probes)
   // Prioritize relays that are also in relayInfoCache (already HTTP-probed, more reliable)

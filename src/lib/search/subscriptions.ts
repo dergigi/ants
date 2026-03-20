@@ -155,12 +155,14 @@ export async function subscribeAndStream(
         const graceMs = allConnected ? POST_EOSE_GRACE_MS : POST_EOSE_SLOW_RELAY_MS;
 
         clearTimeout(timer);
+        // If aborted during grace period, clean up the grace timer too
+        let graceAbortHandler: (() => void) | null = null;
         const graceTimer = setTimeout(() => {
           if (isComplete) return;
           isComplete = true;
           try { sub.stop(); } catch {}
-          if (abortSignal) {
-            try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
+          if (abortSignal && graceAbortHandler) {
+            try { abortSignal.removeEventListener('abort', graceAbortHandler); } catch {}
           }
           const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
           if (onResults) {
@@ -168,10 +170,9 @@ export async function subscribeAndStream(
           }
           resolve(sortedResults);
         }, graceMs);
-        // If aborted during grace period, clean up the grace timer too
         if (abortSignal) {
           const originalAbortHandler = abortHandler;
-          const graceAbortHandler = () => {
+          graceAbortHandler = () => {
             clearTimeout(graceTimer);
             originalAbortHandler();
           };

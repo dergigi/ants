@@ -822,7 +822,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     clearResults();
     setRelayCount(null);
     setLoading(true);
-    console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
+    if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
 
     // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
     // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
