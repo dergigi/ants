@@ -110,7 +110,7 @@ export const UI_CONFIG = {
   // NIP-45 COUNT settings
   NIP45: {
     COUNT_TIMEOUT: 5000,       // 5s timeout per relay for COUNT requests
-    BENCHMARK_LOG: true,       // Log COUNT results to console
+    BENCHMARK_LOG: process.env.NODE_ENV === 'development',  // Log COUNT results in dev only
   },
   
   // UI refresh intervals

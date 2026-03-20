@@ -822,14 +822,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     clearResults();
     setRelayCount(null);
     setLoading(true);
-    console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
+    if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
 
     // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
     // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
     const countFilter = { search: searchQuery, kinds: SEARCH_DEFAULT_KINDS } as import('@nostr-dev-kit/ndk').NDKFilter;
     fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal })
       .then((aggregate) => {
-        console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
+        if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
         if (currentSearchId.current === searchId) {
           setRelayCount(aggregate);
         }
