@@ -16,11 +16,14 @@ export default function RelayCollapsed({
   onExpand,
   isExpanded = false
 }: RelayCollapsedProps) {
+  const tooltip = `${connectedCount} of ${totalCount} relays returned results`;
+
   return (
     <button
       type="button"
       className="flex items-center gap-2 text-sm transition-colors touch-manipulation text-gray-400 hover:text-gray-300"
       onClick={onExpand}
+      title={tooltip}
     >
       <FontAwesomeIcon 
         icon={faServer} 
@@ -29,7 +32,7 @@ export default function RelayCollapsed({
         }`} 
       />
       <span className={`text-xs ${connectedCount > 0 ? 'text-blue-400' : ''}`}>
-        {connectedCount}/{totalCount}
+        {connectedCount}/{totalCount} relays
       </span>
       <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
     </button>
