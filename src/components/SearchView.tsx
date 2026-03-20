@@ -65,6 +65,7 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
+import ArticleCard from '@/components/ArticleCard';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
@@ -2009,6 +2010,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         );
                       }}
                     />
+                  ) : event.kind === 30023 ? (
+                    <ArticleCard
+                      event={event}
+                      onAuthorClick={(npub) => goToProfile(npub, event)}
+                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
+                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
+                      defaultExpanded={isDirectQuery}
+                    />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
@@ -2057,7 +2066,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount, NeventSearchButton])}
     </div>
   );
 }
