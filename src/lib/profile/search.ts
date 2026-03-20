@@ -15,6 +15,7 @@ import {
   LIGHTNING_FLAGS 
 } from './lightning';
 import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
+import { warmUsernameCache } from './username-cache';
 
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 
@@ -71,7 +72,9 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
   }
 
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
-  const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) });
+  // Use a shorter timeout for single-author resolution (limit=1) since we only need one match
+  const relayTimeout = limit === 1 ? 3000 : 8000;
+  const candidates = await subscribeAndCollectProfiles({ kinds: [0], search: query, limit: Math.max(limit, 200) }, relayTimeout);
   if (candidates.length === 0) {
     setCachedProfileSearch(cacheKey, []);
     return [];
@@ -223,6 +226,9 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
   for (const row of enriched) {
     pushIfNew(row.event);
   }
+
+  // Warm the username cache so future by: queries for these profiles are instant
+  warmUsernameCache(ordered);
 
   setCachedProfileSearch(cacheKey, ordered);
   return ordered.slice(0, limit);

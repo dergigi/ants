@@ -63,6 +63,38 @@ function loadUsernameCacheFromStorage(): void {
 // Initialize persistent username cache on module load (browser only)
 loadUsernameCacheFromStorage();
 
+// Warm the username cache from an array of kind-0 profile events.
+// Extracts name/display_name and populates the cache so future
+// resolveAuthor calls for these usernames are instant.
+export function warmUsernameCache(events: NDKEvent[]): void {
+  let changed = false;
+  for (const evt of events) {
+    try {
+      const content = JSON.parse(evt.content || '{}');
+      const names: string[] = [];
+      if (typeof content.name === 'string' && content.name.trim()) {
+        names.push(content.name.trim().toLowerCase());
+      }
+      if (typeof content.display_name === 'string' && content.display_name.trim()) {
+        names.push(content.display_name.trim().toLowerCase());
+      }
+      if (typeof content.displayName === 'string' && content.displayName.trim()) {
+        names.push(content.displayName.trim().toLowerCase());
+      }
+      for (const nameLower of names) {
+        // Only populate if not already cached (don't overwrite better results)
+        if (!USERNAME_CACHE.has(nameLower)) {
+          USERNAME_CACHE.set(nameLower, { profileEvent: evt, timestamp: Date.now() });
+          changed = true;
+        }
+      }
+    } catch {
+      // skip malformed events
+    }
+  }
+  if (changed) saveUsernameCacheToStorage();
+}
+
 export function clearUsernameCache(): void {
   USERNAME_CACHE.clear();
   saveUsernameCacheToStorage();

@@ -6,6 +6,9 @@ import { getCachedUsername, setCachedUsername } from './username-cache';
 import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 import { searchProfilesFullText } from './search';
 
+// In-flight promise deduplication for username resolution (mirrors nip05.ts pattern)
+const usernameInFlight = new Map<string, Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }>>();
+
 // Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
 export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> {
   try {
@@ -57,20 +60,33 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
       return { pubkeyHex, profileEvent: cachedProfile };
     }
 
-    let profileEvt: NDKEvent | null = null;
+    // Dedupe concurrent resolutions for the same username (mirrors nip05.ts pattern)
+    const inFlight = usernameInFlight.get(usernameLower);
+    if (inFlight) return inFlight;
+
+    const promise = (async (): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> => {
+      let profileEvt: NDKEvent | null = null;
+      try {
+        const profiles = await searchProfilesFullText(input, 1);
+        profileEvt = profiles[0] || null;
+      } catch {}
+
+      setCachedUsername(usernameLower, profileEvt);
+      if (profileEvt?.pubkey) setCachedProfileEvent(profileEvt.pubkey, profileEvt, { username: usernameLower });
+
+      if (!profileEvt) {
+        return { pubkeyHex: null, profileEvent: null };
+      }
+      const pubkeyHex = profileEvt.author?.pubkey || profileEvt.pubkey || null;
+      return { pubkeyHex, profileEvent: profileEvt };
+    })();
+
+    usernameInFlight.set(usernameLower, promise);
     try {
-      const profiles = await searchProfilesFullText(input, 1);
-      profileEvt = profiles[0] || null;
-    } catch {}
-
-    setCachedUsername(usernameLower, profileEvt);
-    if (profileEvt?.pubkey) setCachedProfileEvent(profileEvt.pubkey, profileEvt, { username: usernameLower });
-
-    if (!profileEvt) {
-      return { pubkeyHex: null, profileEvent: null };
+      return await promise;
+    } finally {
+      usernameInFlight.delete(usernameLower);
     }
-    const pubkeyHex = profileEvt.author?.pubkey || profileEvt.pubkey || null;
-    return { pubkeyHex, profileEvent: profileEvt };
   } catch {
     return { pubkeyHex: null, profileEvent: null };
   }

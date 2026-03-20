@@ -23,9 +23,10 @@ export {
   setCachedNip05Result, 
   invalidateNip05Cache
 } from './cache';
-export { 
+export {
   getCachedUsername,
-  setCachedUsername
+  setCachedUsername,
+  warmUsernameCache
 } from './username-cache';
 export {
   getCachedLightningFlag,
