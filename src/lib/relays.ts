@@ -601,13 +601,79 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   return createRelaySet(nip50Relays);
 }
 
+// Synchronous NIP-50 check using cached NIP-11 info or NIP-66 monitor data.
+// Returns true if we have cached evidence of NIP-50 support, false otherwise.
+function hasCachedNip50Support(url: string): boolean {
+  const normalized = normalizeRelayUrlInternal(url);
+  // Check NIP-66 monitor cache
+  const monitorEntry = getRelayMonitorEntry(normalized);
+  if (monitorEntry?.isAlive && monitorEntry.supportedNips.includes(50)) {
+    return true;
+  }
+  // Check NIP-11 relay info cache
+  const info = relayInfoCache.get(normalized);
+  if (info && (Date.now() - info.timestamp) < CACHE_DURATION_MS && info.supportedNips?.includes(50)) {
+    return true;
+  }
+  return false;
+}
+
 // Instant (synchronous) NIP-50 relay set for fast search startup.
-// Skips expensive discovery (user relays, NIP-11 HTTP probes) in favor
-// of hardcoded + NIP-66 cached relays that are known to support NIP-50.
+// Uses hardcoded + NIP-66 cached relays, and synchronously reads the
+// userRelayCache to include user/manual/premium/search relays with
+// cached NIP-50 verification and blocked relay removal.
 export function getQuickNip50SearchRelaySet(): NDKRelaySet {
-  const allRelays = [...RELAYS.SEARCH, ...getMonitoredNip50Relays()];
-  const unique = [...new Set(allRelays)];
-  const live = filterDeadRelays(unique);
+  const relaySet = new Set<string>();
+  const addRelay = (url: string, blocked: Set<string>) => {
+    const normalized = normalizeRelayUrlInternal(url);
+    if (!normalized || blocked.has(normalized)) return;
+    relaySet.add(normalized);
+  };
+  // Only add enrichment relays that have cached NIP-50 confirmation
+  const addNip50Relay = (url: string, blocked: Set<string>) => {
+    const normalized = normalizeRelayUrlInternal(url);
+    if (!normalized || blocked.has(normalized)) return;
+    if (hasCachedNip50Support(normalized)) {
+      relaySet.add(normalized);
+    }
+  };
+
+  // Start with hardcoded search + NIP-66 monitored relays (known NIP-50)
+  const baseRelays = [...RELAYS.SEARCH, ...getMonitoredNip50Relays()];
+  const emptyBlocked = new Set<string>();
+  for (const url of baseRelays) {
+    addRelay(url, emptyBlocked);
+  }
+
+  // Synchronously enrich from userRelayCache if available
+  const pubkey = getStoredPubkey();
+  const manualRelays = getUserRelayAdditions();
+
+  if (pubkey) {
+    const cached = userRelayCache.get(pubkey);
+    if (cached && (Date.now() - cached.timestamp) < USER_RELAY_CACHE_DURATION_MS) {
+      const blockedSet = new Set(cached.blockedRelays.map(normalizeRelayUrlInternal));
+
+      // Remove blocked relays from the base set
+      for (const blocked of blockedSet) {
+        relaySet.delete(blocked);
+      }
+
+      // Gate enrichment relays on cached NIP-50 support
+      cached.searchRelays.forEach((relay) => addNip50Relay(relay, blockedSet));
+      cached.userRelays.forEach((relay) => addNip50Relay(relay, blockedSet));
+      manualRelays.forEach((relay) => addNip50Relay(relay, blockedSet));
+      RELAYS.PREMIUM.forEach((relay) => addNip50Relay(relay, blockedSet));
+    } else {
+      // Cache cold — still add manual + premium if they have cached NIP-50 proof
+      manualRelays.forEach((relay) => addNip50Relay(relay, emptyBlocked));
+      RELAYS.PREMIUM.forEach((relay) => addNip50Relay(relay, emptyBlocked));
+    }
+  } else {
+    manualRelays.forEach((relay) => addNip50Relay(relay, emptyBlocked));
+  }
+
+  const live = filterDeadRelays(Array.from(relaySet));
   return NDKRelaySet.fromRelayUrls(live, ndk);
 }
 
