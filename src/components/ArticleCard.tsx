@@ -136,10 +136,12 @@ function ArticleBody({
   expanded: boolean;
   setExpanded: (v: boolean) => void;
 }) {
+  const [imgError, setImgError] = useState(false);
+
   return (
     <>
       {/* Cover image */}
-      {meta.image && (
+      {meta.image && !imgError && (
         <div className="rounded overflow-hidden">
           <Image
             src={meta.image}
@@ -148,6 +150,7 @@ function ArticleBody({
             height={256}
             className="w-full max-h-64 object-cover rounded"
             unoptimized
+            onError={() => setImgError(true)}
           />
         </div>
       )}
@@ -187,12 +190,13 @@ function ArticleTopics({ topics }: { topics: string[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {topics.map((tag, idx) => (
-        <span
+        <a
           key={`${tag}-${idx}`}
-          className="px-2 py-0.5 text-xs rounded-full bg-[#3d3d3d] text-gray-300"
+          href={`/t/${encodeURIComponent(tag)}`}
+          className="px-2 py-0.5 text-xs rounded-full bg-[#3d3d3d] text-gray-300 hover:bg-[#4d4d4d] hover:text-gray-100 transition-colors"
         >
           #{tag}
-        </span>
+        </a>
       ))}
     </div>
   );
