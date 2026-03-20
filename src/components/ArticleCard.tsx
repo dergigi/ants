@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp, faNewspaper } from '@fortawesome/free-solid-svg-icons';
 import AuthorBadge from '@/components/AuthorBadge';
+import Nip05Display from '@/components/Nip05Display';
 import CardActions from '@/components/CardActions';
 import RawEventJson from '@/components/RawEventJson';
+import Image from 'next/image';
 import { extractArticleMetadata, formatArticleDate } from '@/lib/utils/articleUtils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 
@@ -62,13 +64,22 @@ export default function ArticleCard({
         </div>
       )}
       {showFooter && (
-        <CardActions
-          event={event}
-          onShowRaw={() => setShowRaw(!showRaw)}
-          showingRaw={showRaw}
-          eventKind={event.kind}
-          footerRight={footerRight}
-        />
+        <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg">
+          <div className="flex items-center gap-2 min-h-[1rem]">
+            {event.author && <Nip05Display user={event.author} compact={true} />}
+            <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {footerRight}
+            <CardActions
+              eventId={event?.id}
+              profilePubkey={event?.author?.pubkey}
+              eventKind={event?.kind}
+              showRaw={showRaw}
+              onToggleRaw={() => setShowRaw((v) => !v)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -134,11 +145,13 @@ function ArticleBody({
       {/* Cover image */}
       {meta.image && (
         <div className="rounded overflow-hidden">
-          <img
+          <Image
             src={meta.image}
             alt={meta.title || 'Article cover'}
+            width={800}
+            height={256}
             className="w-full max-h-64 object-cover rounded"
-            loading="lazy"
+            unoptimized
           />
         </div>
       )}

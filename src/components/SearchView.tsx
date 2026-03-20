@@ -65,6 +65,7 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
+import ArticleCard from '@/components/ArticleCard';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
@@ -2008,6 +2009,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
+                    />
+                  ) : event.kind === 30023 ? (
+                    <ArticleCard
+                      event={event}
+                      onAuthorClick={(npub) => goToProfile(npub, event)}
+                      renderContent={(text) => renderContentWithClickableHashtags(text, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
+                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
