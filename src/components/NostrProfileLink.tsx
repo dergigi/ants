@@ -23,6 +23,7 @@ export default function NostrProfileLink({ token, href }: NostrProfileLinkProps)
   useEffect(() => {
     let mounted = true;
     const clean = token.replace(/^nostr:/i, '');
+    setDisplayName(clean.length > 20 ? `${clean.slice(0, 10)}…${clean.slice(-6)}` : clean);
 
     try {
       const decoded = nip19.decode(clean);
