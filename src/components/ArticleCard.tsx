@@ -7,6 +7,7 @@ import { faChevronDown, faChevronUp, faNewspaper } from '@fortawesome/free-solid
 import AuthorBadge from '@/components/AuthorBadge';
 import Nip05Display from '@/components/Nip05Display';
 import CardActions from '@/components/CardActions';
+import ArticleMarkdown from '@/components/ArticleMarkdown';
 import Image from 'next/image';
 import { extractArticleMetadata, formatArticleDate } from '@/lib/utils/articleUtils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -15,7 +16,6 @@ import { ndk } from '@/lib/ndk';
 interface ArticleCardProps {
   event: NDKEvent;
   onAuthorClick?: (npub: string) => void;
-  renderContent: (content: string) => React.ReactNode;
   className?: string;
   showFooter?: boolean;
   footerRight?: React.ReactNode;
@@ -24,7 +24,6 @@ interface ArticleCardProps {
 export default function ArticleCard({
   event,
   onAuthorClick,
-  renderContent,
   className,
   showFooter = true,
   footerRight,
@@ -56,7 +55,6 @@ export default function ArticleCard({
           shouldTruncate={shouldTruncate}
           expanded={expanded}
           setExpanded={setExpanded}
-          renderContent={renderContent}
         />
         <ArticleTopics topics={meta.topics} />
       </div>
@@ -126,14 +124,12 @@ function ArticleBody({
   shouldTruncate,
   expanded,
   setExpanded,
-  renderContent,
 }: {
   meta: ReturnType<typeof extractArticleMetadata>;
   displayContent: string;
   shouldTruncate: boolean;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
-  renderContent: (content: string) => React.ReactNode;
 }) {
   return (
     <>
@@ -154,10 +150,8 @@ function ArticleBody({
       {/* Content preview */}
       {displayContent && (
         <div className="relative">
-          <div className={`text-gray-100 whitespace-pre-wrap break-words ${
-            shouldTruncate && !expanded ? 'relative' : ''
-          }`}>
-            {renderContent(displayContent)}
+          <div className={shouldTruncate && !expanded ? 'relative' : ''}>
+            <ArticleMarkdown content={displayContent} />
             {shouldTruncate && !expanded && (
               <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#2d2d2d] to-transparent pointer-events-none" />
             )}

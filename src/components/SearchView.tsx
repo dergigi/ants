@@ -2014,7 +2014,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <ArticleCard
                       event={event}
                       onAuthorClick={(npub) => goToProfile(npub, event)}
-                      renderContent={(text) => renderContentWithClickableHashtags(text, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                       className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
                       footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
                     />
