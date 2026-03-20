@@ -23,7 +23,8 @@ export function extractArticleMetadata(event: NDKEvent): ArticleMetadata {
   const summary = getTag('summary');
   const image = getTag('image');
   const publishedAtStr = getTag('published_at');
-  const publishedAt = publishedAtStr ? parseInt(publishedAtStr, 10) : null;
+  const parsedTimestamp = publishedAtStr ? parseInt(publishedAtStr, 10) : NaN;
+  const publishedAt = Number.isFinite(parsedTimestamp) ? parsedTimestamp : null;
 
   const topics = (event.tags ?? [])
     .filter((t) => t[0] === 't' && t[1])

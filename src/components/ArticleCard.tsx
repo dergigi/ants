@@ -10,6 +10,7 @@ import CardActions from '@/components/CardActions';
 import Image from 'next/image';
 import { extractArticleMetadata, formatArticleDate } from '@/lib/utils/articleUtils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
+import { ndk } from '@/lib/ndk';
 
 interface ArticleCardProps {
   event: NDKEvent;
@@ -30,7 +31,9 @@ export default function ArticleCard({
 }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const meta = extractArticleMetadata(event);
-  const user = new NDKUser({ pubkey: event.pubkey });
+  const fallbackUser = new NDKUser({ pubkey: event.pubkey });
+  fallbackUser.ndk = ndk;
+  const user = event.author ?? fallbackUser;
 
   const contentPreview = event.content || '';
   const shouldTruncate = contentPreview.length > 600;
@@ -61,7 +64,7 @@ export default function ArticleCard({
         <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg">
           <div className="flex items-center gap-2 min-h-[1rem]">
             {event.author && <Nip05Display user={event.author} compact={true} />}
-            <AuthorBadge user={event.author} onAuthorClick={onAuthorClick} />
+            <AuthorBadge user={event.author ?? user} onAuthorClick={onAuthorClick} />
           </div>
           <div className="ml-auto flex items-center gap-2">
             {footerRight}
@@ -184,9 +187,9 @@ function ArticleTopics({ topics }: { topics: string[] }) {
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {topics.map((tag) => (
+      {topics.map((tag, idx) => (
         <span
-          key={tag}
+          key={`${tag}-${idx}`}
           className="px-2 py-0.5 text-xs rounded-full bg-[#3d3d3d] text-gray-300"
         >
           #{tag}
