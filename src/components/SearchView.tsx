@@ -9,6 +9,7 @@ import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { fireNip45Count } from '@/lib/search/nip45Count';
+import { extractContentSearchTerms, filterByContent } from '@/lib/search/contentFilter';
 import type { AggregateCount } from '@/lib/search/nip45Count';
 import { RELAYS } from '@/lib/relays';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
@@ -943,6 +944,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       // For NIP-50 text searches, stream results progressively
       const useStreaming = !isDirectQuery;
       streamingFirstResultRef.current = false;
+      // Pre-compute content search terms for streaming filter
+      const streamingContentTerms = useStreaming ? extractContentSearchTerms(scopedQuery) : null;
 
       const searchResults = await searchEvents(scopedQuery, useStreaming ? 1000 : 200, {
         ...(useStreaming ? {
@@ -951,7 +954,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           maxResults: 1000,
           onResults: (events: NDKEvent[]) => {
             if (currentSearchId.current !== searchId) return;
-            const filtered = applyClientFilters(events, [], new Set<string>());
+            // Apply content filter to streaming results so unrelated
+            // events from non-NIP-50 relays don't appear progressively
+            const contentFiltered = streamingContentTerms
+              ? filterByContent(events, streamingContentTerms)
+              : events;
+            const filtered = applyClientFilters(contentFiltered, [], new Set<string>());
             setResults(filtered);
 
             if (!streamingFirstResultRef.current && filtered.length > 0) {
@@ -976,7 +984,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return;
       }
 
-      // For non-streaming or when onResults never fired (zero results), update state from final results
+      // Only apply final results if streaming never fired (e.g. OR queries,
+      // author searches, or zero-result searches that bypass streaming).
+      // When streaming DID fire, the callbacks already set filtered results —
+      // overwriting them here would replace content-filtered results with a
+      // set that may still contain junk from non-NIP-50 relays.
       if (!streamingFirstResultRef.current) {
         const filtered = applyClientFilters(searchResults, [], new Set<string>());
         if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] results arrived: ${filtered.length} events at ${new Date().toISOString()}`);

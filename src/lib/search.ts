@@ -45,6 +45,7 @@ import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy'
 // Import term search utilities
 import { searchByAnyTerms } from './search/termSearch';
 import { resolveAuthorTokens } from './search/authorResolve';
+import { extractContentSearchTerms, filterByContent } from './search/contentFilter';
 
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
@@ -520,11 +521,17 @@ export async function searchEvents(
       : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
     // Dedupe by event id using Set for O(n) instead of O(n^2) findIndex
     const seen = new Set<string>();
-    const filtered = results.filter(e => {
+    let filtered = results.filter(e => {
       if (seen.has(e.id)) return false;
       seen.add(e.id);
       return true;
     });
+
+    // Client-side content filtering: verify events actually contain search terms
+    const terms = extractContentSearchTerms(cleanedQuery);
+    if (terms) {
+      filtered = filterByContent(filtered, terms);
+    }
 
     return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
