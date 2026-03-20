@@ -174,6 +174,7 @@ export async function subscribeAndStream(
           const originalAbortHandler = abortHandler;
           graceAbortHandler = () => {
             clearTimeout(graceTimer);
+            try { abortSignal!.removeEventListener('abort', graceAbortHandler!); } catch {}
             originalAbortHandler();
           };
           abortSignal.removeEventListener('abort', abortHandler);

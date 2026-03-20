@@ -829,7 +829,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const countFilter = { search: searchQuery, kinds: SEARCH_DEFAULT_KINDS } as import('@nostr-dev-kit/ndk').NDKFilter;
     fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal })
       .then((aggregate) => {
-        console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
+        if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
         if (currentSearchId.current === searchId) {
           setRelayCount(aggregate);
         }
