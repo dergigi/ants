@@ -2,6 +2,7 @@
 
 import Markdown from 'react-markdown';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
+import NostrProfileLink from '@/components/NostrProfileLink';
 
 interface ArticleMarkdownProps {
   content: string;
@@ -17,7 +18,11 @@ export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
       <Markdown
         remarkPlugins={[remarkNostrLinks]}
         components={{
-          a: ({ href, children }) => {
+          a: ({ href, title, children }) => {
+            const isProfile = href?.startsWith('/p/');
+            if (isProfile && title && href) {
+              return <NostrProfileLink token={title} href={href} />;
+            }
             const isInternal = href?.startsWith('/');
             return (
               <a
