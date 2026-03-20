@@ -2016,6 +2016,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       onAuthorClick={(npub) => goToProfile(npub, event)}
                       className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
                       footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
+                      defaultExpanded={isDirectQuery}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard

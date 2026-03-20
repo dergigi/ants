@@ -19,6 +19,7 @@ interface ArticleCardProps {
   className?: string;
   showFooter?: boolean;
   footerRight?: React.ReactNode;
+  defaultExpanded?: boolean;
 }
 
 export default function ArticleCard({
@@ -27,8 +28,9 @@ export default function ArticleCard({
   className,
   showFooter = true,
   footerRight,
+  defaultExpanded = false,
 }: ArticleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const meta = extractArticleMetadata(event);
   const fallbackUser = new NDKUser({ pubkey: event.pubkey });
   fallbackUser.ndk = ndk;
