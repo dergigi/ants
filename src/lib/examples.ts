@@ -145,6 +145,10 @@ export const searchExamples = [
   '#penisbutter or #⭕️',
   '#pugstr or #horsestr or #goatstr',
 
+  // Long-form Articles
+  'is:article bitcoin',
+  'is:longform by:dergigi',
+
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
 
