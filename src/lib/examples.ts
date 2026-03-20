@@ -56,6 +56,7 @@ export const searchExamples = [
   'is:muted by:fiatjaf',
 
   // Date Filters
+  'bitcoin since:2w',
   'until:2023-01-01',
   'hello since:2021-01-01 until:2021-12-31',
   'GM by:dergigi until:2024-06-06',
