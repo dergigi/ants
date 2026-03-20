@@ -7,7 +7,6 @@ import { faChevronDown, faChevronUp, faNewspaper } from '@fortawesome/free-solid
 import AuthorBadge from '@/components/AuthorBadge';
 import Nip05Display from '@/components/Nip05Display';
 import CardActions from '@/components/CardActions';
-import RawEventJson from '@/components/RawEventJson';
 import Image from 'next/image';
 import { extractArticleMetadata, formatArticleDate } from '@/lib/utils/articleUtils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -29,7 +28,6 @@ export default function ArticleCard({
   showFooter = true,
   footerRight,
 }: ArticleCardProps) {
-  const [showRaw, setShowRaw] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const meta = extractArticleMetadata(event);
   const user = new NDKUser({ pubkey: event.pubkey });
@@ -47,22 +45,18 @@ export default function ArticleCard({
 
   return (
     <div className={containerClasses}>
-      {showRaw ? (
-        <RawEventJson event={event} />
-      ) : (
-        <div className="space-y-3">
-          <ArticleHeader meta={meta} user={user} onAuthorClick={onAuthorClick} />
-          <ArticleBody
-            meta={meta}
-            displayContent={displayContent}
-            shouldTruncate={shouldTruncate}
-            expanded={expanded}
-            setExpanded={setExpanded}
-            renderContent={renderContent}
-          />
-          <ArticleTopics topics={meta.topics} />
-        </div>
-      )}
+      <div className="space-y-3">
+        <ArticleHeader meta={meta} user={user} onAuthorClick={onAuthorClick} />
+        <ArticleBody
+          meta={meta}
+          displayContent={displayContent}
+          shouldTruncate={shouldTruncate}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          renderContent={renderContent}
+        />
+        <ArticleTopics topics={meta.topics} />
+      </div>
       {showFooter && (
         <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg">
           <div className="flex items-center gap-2 min-h-[1rem]">
@@ -75,8 +69,6 @@ export default function ArticleCard({
               eventId={event?.id}
               profilePubkey={event?.author?.pubkey}
               eventKind={event?.kind}
-              showRaw={showRaw}
-              onToggleRaw={() => setShowRaw((v) => !v)}
             />
           </div>
         </div>
