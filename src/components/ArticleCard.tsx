@@ -9,7 +9,7 @@ import Nip05Display from '@/components/Nip05Display';
 import CardActions from '@/components/CardActions';
 import ArticleMarkdown from '@/components/ArticleMarkdown';
 import Image from 'next/image';
-import { extractArticleMetadata, formatArticleDate } from '@/lib/utils/articleUtils';
+import { extractArticleMetadata, formatArticleDate, truncateMarkdown } from '@/lib/utils/articleUtils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from '@/lib/ndk';
 
@@ -35,10 +35,9 @@ export default function ArticleCard({
   const user = event.author ?? fallbackUser;
 
   const contentPreview = event.content || '';
-  const shouldTruncate = contentPreview.length > 600;
-  const displayContent = expanded || !shouldTruncate
-    ? contentPreview
-    : contentPreview.slice(0, 600);
+  const truncated = truncateMarkdown(contentPreview);
+  const shouldTruncate = truncated.length < contentPreview.length;
+  const displayContent = expanded ? contentPreview : truncated;
 
   const baseClasses = 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d]';
   const containerClasses = className

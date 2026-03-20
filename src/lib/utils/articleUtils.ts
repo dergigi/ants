@@ -47,6 +47,28 @@ export function extractArticleMetadata(event: NDKEvent): ArticleMetadata {
 }
 
 /**
+ * Truncate markdown content at a clean boundary (paragraph or line break).
+ * Avoids cutting inside links, code blocks, or bold spans.
+ */
+export function truncateMarkdown(content: string, target = 600): string {
+  if (content.length <= target) return content;
+
+  // Look for a paragraph break (double newline) near the target
+  const paragraphBreak = content.lastIndexOf('\n\n', target);
+  if (paragraphBreak > target * 0.4) return content.slice(0, paragraphBreak);
+
+  // Fall back to a single line break
+  const lineBreak = content.lastIndexOf('\n', target);
+  if (lineBreak > target * 0.4) return content.slice(0, lineBreak);
+
+  // Last resort: break at a space to avoid splitting words
+  const spaceBreak = content.lastIndexOf(' ', target);
+  if (spaceBreak > target * 0.4) return content.slice(0, spaceBreak);
+
+  return content.slice(0, target);
+}
+
+/**
  * Format a unix timestamp as a readable date string
  */
 export function formatArticleDate(timestamp: number): string {
