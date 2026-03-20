@@ -8,6 +8,9 @@ import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRela
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
+import { fireNip45Count } from '@/lib/search/nip45Count';
+import type { AggregateCount } from '@/lib/search/nip45Count';
+import { RELAYS } from '@/lib/relays';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -49,13 +52,13 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { relaySets, getNip50SearchRelaySet, getQuickNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
@@ -103,6 +106,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
   const initialSearchDoneRef = useRef(false);
+  const streamingFirstResultRef = useRef(false);
   const normalizedInitialQuery = initialQuery.trim() || null;
   const bootstrapInitial = !manageUrl ? normalizedInitialQuery : null;
   const initialQueryNormalizedRef = useRef<string | null>(normalizedInitialQuery);
@@ -120,6 +124,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
+  const [relayCount, setRelayCount] = useState<AggregateCount | null>(null);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [visibleCount, setVisibleCount] = useState(50);
   const lastPaginationQueryRef = useRef<string>('');
@@ -815,9 +820,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setShowExternalButton(false);
     }
     clearResults();
+    setRelayCount(null);
     setLoading(true);
-    
-    
+    console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
+
+    // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
+    // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
+    const countFilter = { search: searchQuery, kinds: SEARCH_DEFAULT_KINDS } as import('@nostr-dev-kit/ndk').NDKFilter;
+    fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal })
+      .then((aggregate) => {
+        console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
+        if (currentSearchId.current === searchId) {
+          setRelayCount(aggregate);
+        }
+      })
+      .catch(() => {});
+
+
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
@@ -915,38 +934,68 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         // Direct queries (NIP-19): use all relays
         relaySet = await relaySets.default();
       } else {
-        // Search queries (NIP-50): use NIP-50 capable relays only
-        relaySet = await getNip50SearchRelaySet();
+        // Search queries (NIP-50): use instant relay set (no async discovery)
+        relaySet = getQuickNip50SearchRelaySet();
+        // Fire-and-forget full discovery to warm cache for subsequent searches
+        getNip50SearchRelaySet().catch(() => {});
       }
 
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
-      
+      // For NIP-50 text searches, stream results progressively
+      const useStreaming = !isDirectQuery;
+      streamingFirstResultRef.current = false;
+
+      const searchResults = await searchEvents(scopedQuery, useStreaming ? 1000 : 200, {
+        ...(useStreaming ? {
+          streaming: true,
+          timeoutMs: 30000,
+          maxResults: 1000,
+          onResults: (events: NDKEvent[]) => {
+            if (currentSearchId.current !== searchId) return;
+            const filtered = applyClientFilters(events, [], new Set<string>());
+            setResults(filtered);
+
+            if (!streamingFirstResultRef.current && filtered.length > 0) {
+              streamingFirstResultRef.current = true;
+              setLoading(false);
+              setExecutedQuery(searchQuery);
+            }
+
+            // Update relay tracking incrementally
+            const relayUrls: string[] = [];
+            events.forEach(evt => {
+              relayUrls.push(...extractRelaySourcesFromEvent(evt));
+            });
+            const relays = createRelaySet(relayUrls);
+            setSuccessfullyActiveRelays(relays);
+            setToggledRelays(relays);
+          },
+        } : {}),
+      }, relaySet, abortController.signal);
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
         return;
       }
 
-      const filtered = applyClientFilters(searchResults, [], new Set<string>());
-      setExecutedQuery(searchQuery);
-      setResults(filtered);
+      // For non-streaming or when onResults never fired (zero results), update state from final results
+      if (!streamingFirstResultRef.current) {
+        const filtered = applyClientFilters(searchResults, [], new Set<string>());
+        if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] results arrived: ${filtered.length} events at ${new Date().toISOString()}`);
+        setExecutedQuery(searchQuery);
+        setResults(filtered);
 
-      // Track relays that returned events for this search
-      const relayUrls: string[] = [];
-      
-      searchResults.forEach(evt => {
-        const relaySources = extractRelaySourcesFromEvent(evt);
-        relayUrls.push(...relaySources);
-      });
-      
-      const relays = createRelaySet(relayUrls);
-      setSuccessfullyActiveRelays(relays);
-      
-      // Initialize toggled relays to include all relays that provided results
-      setToggledRelays(relays);
-      
+        // Track relays that returned events for this search
+        const relayUrls: string[] = [];
+        searchResults.forEach(evt => {
+          relayUrls.push(...extractRelaySourcesFromEvent(evt));
+        });
+        const relays = createRelaySet(relayUrls);
+        setSuccessfullyActiveRelays(relays);
+        setToggledRelays(relays);
+      }
+
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
-      setShowExternalButton(isUrlQueryResult && filtered.length === 0);
+      setShowExternalButton(isUrlQueryResult && searchResults.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -1740,6 +1789,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
                 filteredCount={fuseFilteredResults.length}
                 resultCount={results.length}
+                relayCount={relayCount}
                 onExpand={() => setShowFilterDetails(!showFilterDetails)}
                 isExpanded={showFilterDetails}
               />

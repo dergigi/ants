@@ -1,4 +1,4 @@
-import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscriptionCacheUsage, NDKRelay, NDKRelayStatus } from '@nostr-dev-kit/ndk';
 import { safeSubscribe, isValidFilter, markRelayActivity } from '../ndk';
 import { normalizeRelayUrl } from '../urlUtils';
 import { trackEventRelay } from '../eventRelayTracking';
@@ -39,6 +39,8 @@ export async function subscribeAndStream(
     let isComplete = false;
     let lastEmitTime = 0;
     const emitInterval = 500; // Emit results every 500ms
+    const POST_EOSE_GRACE_MS = 2000; // Grace after EOSE when all relays connected
+    const POST_EOSE_SLOW_RELAY_MS = 8000; // Grace after EOSE when some relays still connecting
 
     // Remove limit from filter for streaming - we'll handle it ourselves
     const streamingFilter = { ...filter };
@@ -112,7 +114,7 @@ export async function subscribeAndStream(
       if (relayUrl !== 'unknown') {
         try { markRelayActivity(relayUrl); } catch {}
       }
-      
+
       if (!collected.has(event.id)) {
         // Track this event's relay source
         trackEventRelay(event, relayUrl);
@@ -140,7 +142,43 @@ export async function subscribeAndStream(
     });
 
     sub.on('eose', () => {
-      // Keep streaming after EOSE
+      // NDK fires aggregated eose based on relays that were connected at
+      // subscription time. search.ts starts searching before all relays
+      // connect, so NDK may only track a subset. If zero results so far,
+      // pick a grace period based on how many relays have actually connected:
+      //   - All connected → EOSE is reliable, short grace for in-flight events
+      //   - Some still connecting → longer grace for slow relays to deliver
+      if (collected.size === 0 && !isComplete) {
+        const allConnected = Array.from(rs.relays).every(
+          r => r.status >= NDKRelayStatus.CONNECTED
+        );
+        const graceMs = allConnected ? POST_EOSE_GRACE_MS : POST_EOSE_SLOW_RELAY_MS;
+
+        clearTimeout(timer);
+        const graceTimer = setTimeout(() => {
+          if (isComplete) return;
+          isComplete = true;
+          try { sub.stop(); } catch {}
+          if (abortSignal) {
+            try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
+          }
+          const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
+          if (onResults) {
+            onResults(sortedResults, true);
+          }
+          resolve(sortedResults);
+        }, graceMs);
+        // If aborted during grace period, clean up the grace timer too
+        if (abortSignal) {
+          const originalAbortHandler = abortHandler;
+          const graceAbortHandler = () => {
+            clearTimeout(graceTimer);
+            originalAbortHandler();
+          };
+          abortSignal.removeEventListener('abort', abortHandler);
+          abortSignal.addEventListener('abort', graceAbortHandler);
+        }
+      }
     });
     
     sub.start();

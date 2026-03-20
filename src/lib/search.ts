@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { connectWithTimeout, resetLastReducedFilters } from './ndk';
+import { resetLastReducedFilters, ndk, ensureCacheInitialized } from './ndk';
 import { searchProfilesFullText } from './vertex';
 import { getNip50SearchRelaySet } from './relays';
 import { SEARCH_DEFAULT_KINDS } from './constants';
@@ -156,15 +156,17 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
-  // Ensure we're connected before issuing any queries (with timeout)
-  try {
-    await connectWithTimeout(5000); // Increased timeout
-  } catch (e) {
-    console.warn('NDK connect failed or timed out:', e);
-    // Continue anyway - search might still work with cached connections
+  // Ensure WASM cache is ready (fast no-op after first call)
+  await ensureCacheInitialized();
+
+  // Non-blocking: kick off relay connections if not already up.
+  // NDK will queue REQs and send them as relays connect.
+  const hasConnectedRelays = Array.from(ndk.pool?.relays?.values() ?? []).some(r => r.status === 1);
+  if (!hasConnectedRelays) {
+    ndk.connect().catch(() => {});
   }
 
-  // Check if aborted after connection
+  // Check if aborted
   if (abortSignal?.aborted) {
     throw new Error('Search aborted');
   }
@@ -190,7 +192,6 @@ export async function searchEvents(
       chosenRelaySet = await getBroadRelaySet();
     }
   }
-
   // Strip legacy relay filters but keep the rest of the query intact
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
 
