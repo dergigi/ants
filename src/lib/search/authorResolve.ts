@@ -25,5 +25,5 @@ export async function resolveAuthorTokens(tokens: string[]): Promise<string[]> {
       }
     })
   );
-  return results.flat();
+  return [...new Set(results.flat())];
 }

@@ -77,7 +77,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
           let replacement = core;
           
           // Preserve @me and @contacts as-is (they're resolved at search time)
-          const isSpecialToken = core === '@me' || core === '@contacts';
+          const isSpecialToken = /^@(me|contacts)$/i.test(core);
           if (!skipAuthorResolution && !isSpecialToken && !/^npub1[0-9a-z]+$/i.test(core)) {
             // Check cache first
             if (authorResolutionCache.current.has(core)) {

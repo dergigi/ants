@@ -904,8 +904,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
+    const isSpecialAuthorToken = (v: string) => /^@(me|contacts)$/i.test(v);
+    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]) && !isSpecialAuthorToken(byMatch[1]))
+      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]) && !isSpecialAuthorToken(mentionsMatch[1]));
 
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
