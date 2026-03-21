@@ -9,7 +9,7 @@ type TagAFilter = NDKFilter & { '#a'?: string[] };
 
 /** Resolve a ref: token to an NIP-33 coordinate (raw or naddr1...). */
 function resolveATagCoordinate(token: string): string | null {
-  if (/^\d+:[0-9a-f]{64}:/.test(token)) return token;
+  if (/^\d+:[0-9a-f]{64}:/i.test(token)) return token.toLowerCase();
   try {
     const decoded = nip19.decode(token);
     if (decoded.type === 'naddr') {
