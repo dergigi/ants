@@ -146,7 +146,7 @@ function ArticleBody({
       {meta.image && !imgError && (
         <div className="rounded overflow-hidden">
           <Image
-            src={meta.image}
+            src={meta.image.trim()}
             alt={meta.title || 'Article cover'}
             width={800}
             height={256}
