@@ -1,7 +1,8 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
-import { SearchContext } from '../types';
-import { fetchDedupeAndSort } from './strategyUtils';
+import { subscribeAndCollect } from '../subscriptions';
+import { getBroadRelaySet } from '../relayManagement';
+import { sortEventsNewestFirst } from '../../utils/searchUtils';
 
 /** Resolve an id: token to a hex event ID (hex, note1..., nevent1...). */
 function resolveEventId(token: string): string | null {
@@ -16,16 +17,15 @@ function resolveEventId(token: string): string | null {
 
 /**
  * Handle id: filter queries (id:<event-id>)
- * Fetches specific events by their ID.
+ * Fetches specific events by their ID directly — no kind/date/relay pipeline.
  * Returns null if the query does not contain id: tokens.
  */
-export async function tryHandleIdSearch(
-  cleanedQuery: string,
-  context: SearchContext
+export async function handleIdLookup(
+  query: string,
+  abortSignal?: AbortSignal,
+  limit: number = 200
 ): Promise<NDKEvent[] | null> {
-  const { chosenRelaySet, abortSignal, limit } = context;
-
-  const matches = Array.from(cleanedQuery.matchAll(/\bid:(\S+)/gi));
+  const matches = Array.from(query.matchAll(/\bid:(\S+)/gi));
   if (matches.length === 0) return null;
 
   const eventIds = Array.from(
@@ -34,6 +34,17 @@ export async function tryHandleIdSearch(
   if (eventIds.length === 0) return [];
 
   const filter: NDKFilter = { ids: eventIds };
+  const relaySet = await getBroadRelaySet();
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, false, abortSignal, limit);
+  let results: NDKEvent[];
+  try {
+    results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
+  } catch {
+    results = [];
+  }
+
+  const dedupe = new Map<string, NDKEvent>();
+  for (const e of results) if (!dedupe.has(e.id)) dedupe.set(e.id, e);
+
+  return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
 }

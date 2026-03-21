@@ -13,7 +13,6 @@ import { tryHandleReplySearch } from './strategies/replySearchStrategy';
 import { tryHandleRefSearch } from './strategies/refSearchStrategy';
 import { tryHandleLinkSearch } from './strategies/linkSearchStrategy';
 import { tryHandleDTagSearch } from './strategies/dTagSearchStrategy';
-import { tryHandleIdSearch } from './strategies/idSearchStrategy';
 import { SearchContext } from './types';
 
 /**
@@ -27,9 +26,7 @@ export async function runSearchStrategies(
 ): Promise<NDKEvent[] | null> {
   const { isStreaming, streamingOptions, chosenRelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
 
-  // Direct event ID lookup (id:<hex>, id:<note1...>, id:<nevent1...>)
-  const idResults = await tryHandleIdSearch(cleanedQuery, context);
-  if (idResults) return idResults;
+  // Note: id: lookups are handled early in search.ts, before the orchestrator.
 
   // URL search: strip protocol and search for domain/path content
   const urlResults = await tryHandleUrlSearch(

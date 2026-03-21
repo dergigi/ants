@@ -47,6 +47,9 @@ import { searchByAnyTerms } from './search/termSearch';
 import { resolveAuthorTokens } from './search/authorResolve';
 import { extractContentSearchTerms, filterByContent } from './search/contentFilter';
 
+// Import id lookup for early bypass
+import { handleIdLookup } from './search/strategies/idSearchStrategy';
+
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
 
@@ -170,6 +173,12 @@ export async function searchEvents(
   // Check if aborted
   if (abortSignal?.aborted) {
     throw new Error('Search aborted');
+  }
+
+  // Early bypass: id: queries skip the full pipeline (no relay discovery, no kind/date parsing)
+  if (/\bid:\S+/i.test(query)) {
+    const idResults = await handleIdLookup(query, abortSignal, limit);
+    if (idResults) return idResults;
   }
 
   // Check if this is a streaming search
