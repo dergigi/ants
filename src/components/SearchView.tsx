@@ -60,7 +60,7 @@ import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, LISTING_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
@@ -71,6 +71,7 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
 import ArticleCard from '@/components/ArticleCard';
+import ListingCard from '@/components/ListingCard';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
@@ -2179,6 +2180,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                           </div>
                         );
                       }}
+                    />
+                  ) : event.kind === LISTING_KIND ? (
+                    <ListingCard
+                      event={event}
+                      onAuthorClick={(npub) => goToProfile(npub, event)}
+                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
+                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
                     />
                   ) : event.kind === 30023 ? (
                     <ArticleCard
