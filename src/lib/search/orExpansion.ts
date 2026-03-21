@@ -8,6 +8,8 @@ import { getBroadRelaySet } from './relayManagement';
 import { searchByAnyTerms } from './termSearch';
 import { resolveAuthorTokens } from './authorResolve';
 import { applyContentFilter } from './contentFilter';
+
+const SUBSCRIBE_TIMEOUT_MS = 10000;
 import { searchProfilesFullText } from '../vertex';
 
 /** Extract all by: tokens from a seed string */
@@ -47,7 +49,7 @@ export async function maybeOptimizeByOnlyOrSeeds(
     dateFilter
   ) as NDKFilter;
 
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  const results = await subscribeAndCollect(filter, SUBSCRIBE_TIMEOUT_MS, chosenRelaySet, abortSignal);
   return sortEventsNewestFirst(results).slice(0, limit);
 }
 
@@ -133,7 +135,7 @@ async function collectAndFilter(
   filter: NDKFilter, chosenRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
 ): Promise<NDKEvent[]> {
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  const results = await subscribeAndCollect(filter, SUBSCRIBE_TIMEOUT_MS, chosenRelaySet, abortSignal);
   return sortEventsNewestFirst(applyContentFilter(results, cleanedQuery)).slice(0, limit);
 }
 
