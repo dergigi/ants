@@ -50,6 +50,12 @@ import { extractContentSearchTerms, filterByContent } from './search/contentFilt
 // Import id lookup for early bypass
 import { handleIdLookup } from './search/strategies/idSearchStrategy';
 
+/** Apply content-term filtering to results for a given query. Returns results unchanged if no content terms. */
+function applyContentFilter(results: NDKEvent[], query: string): NDKEvent[] {
+  const terms = extractContentSearchTerms(query);
+  return terms ? filterByContent(results, terms) : results;
+}
+
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
 
@@ -312,10 +318,8 @@ export async function searchEvents(
               : residual;
           }
 
-          let results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-          const contentTerms = extractContentSearchTerms(cleanedQuery);
-          if (contentTerms) results = filterByContent(results, contentTerms);
-          return sortEventsNewestFirst(results).slice(0, limit);
+          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          return sortEventsNewestFirst(applyContentFilter(results, cleanedQuery)).slice(0, limit);
         }
       }
 
@@ -378,10 +382,8 @@ export async function searchEvents(
               : residual;
           }
 
-          let results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-          const contentTerms = extractContentSearchTerms(cleanedQuery);
-          if (contentTerms) results = filterByContent(results, contentTerms);
-          return sortEventsNewestFirst(results).slice(0, limit);
+          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          return sortEventsNewestFirst(applyContentFilter(results, cleanedQuery)).slice(0, limit);
         }
       }
 
@@ -407,11 +409,11 @@ export async function searchEvents(
       );
 
 
-      const seedContentTerms = extractContentSearchTerms(cleanedQuery);
-      const filteredSeedResults = seedContentTerms
-        ? filterByContent(seedResults, seedContentTerms)
-        : seedResults;
-      return sortEventsNewestFirst(filteredSeedResults).slice(0, limit);
+      // Note: no global content filter here. Each seed may have different content
+      // terms (e.g. "bitcoin OR #nostr"), so filtering is done per-seed inside
+      // searchByAnyTerms/termSearch. A global filter would incorrectly drop results
+      // from content-free branches like pure hashtag or author queries.
+      return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
   }
 
@@ -545,10 +547,7 @@ export async function searchEvents(
     });
 
     // Client-side content filtering: verify events actually contain search terms
-    const terms = extractContentSearchTerms(cleanedQuery);
-    if (terms) {
-      filtered = filterByContent(filtered, terms);
-    }
+    filtered = applyContentFilter(filtered, cleanedQuery);
 
     return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
