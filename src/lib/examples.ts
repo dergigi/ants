@@ -32,6 +32,7 @@ export const searchExamples = [
   'by:@me has:image',
   'by:@contacts',
   'bitcoin by:@contacts',
+  'is:highlight by:@contacts',
 
   // Combined
   'GM by:dergigi',
@@ -175,6 +176,7 @@ const loginRequiredExamples = [
   'by:@me has:image',
   'by:@contacts',
   'bitcoin by:@contacts',
+  'is:highlight by:@contacts',
 ] as const;
 
 // Get examples filtered by login status
