@@ -39,6 +39,15 @@ export function extractContentSearchTerms(query: string): string[] | null {
 }
 
 /**
+ * Convenience: extract content terms from a query and filter results.
+ * Returns results unchanged if no content terms exist in the query.
+ */
+export function applyContentFilter(results: NDKEvent[], query: string): NDKEvent[] {
+  const terms = extractContentSearchTerms(query);
+  return terms ? filterByContent(results, terms) : results;
+}
+
+/**
  * Filter events whose content doesn't contain ANY of the given terms (case-insensitive).
  * Events with empty content are kept (they may be media-only kinds like reposts).
  */
