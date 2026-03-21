@@ -1,9 +1,8 @@
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
-import { Event, getEventHash } from 'nostr-tools';
-import { RelatrClient } from '@/ctxcn/RelatrClient';
 import { ndk } from '../ndk';
 import { getCachedDvm, setCachedDvm } from './cache';
 import { queryVertexDVM } from './dvm-core';
+import { buildProfileStubEvent, searchRelatrProfiles } from './relatr';
 
 export type ProfileLookupProvider = 'vertex' | 'relatr' | 'relay';
 
@@ -44,18 +43,7 @@ function buildProfileEvent(pubkey: string, rank: number): NDKEvent {
   const user = new NDKUser({ pubkey });
   user.ndk = ndk;
 
-  const plain: Event = {
-    kind: 0,
-    created_at: Math.floor(Date.now() / 1000),
-    content: JSON.stringify(user.profile || {}),
-    pubkey,
-    tags: [],
-    id: '',
-    sig: ''
-  };
-  plain.id = getEventHash(plain);
-
-  const event = new NDKEvent(ndk, plain);
+  const event = buildProfileStubEvent(pubkey, JSON.stringify(user.profile || {}));
   event.author = user;
   (event as NDKEvent & { debugScore?: string }).debugScore = `Provider-ranked result (#${rank + 1})`;
   return event;
@@ -68,10 +56,8 @@ async function queryRelatrProfiles(query: string, limit: number): Promise<NDKEve
     return (cached || []).slice(0, Math.max(0, limit));
   }
 
-  const client = new RelatrClient();
-
   try {
-    const response = await client.SearchProfiles(query, Math.max(1, limit), true);
+    const response = await searchRelatrProfiles(query, Math.max(1, limit), true);
     const events = (response.results || [])
       .slice(0, Math.max(1, limit))
       .map((result, index) => buildProfileEvent(result.pubkey, index));
@@ -86,8 +72,6 @@ async function queryRelatrProfiles(query: string, limit: number): Promise<NDKEve
   } catch (error) {
     setCachedDvm(key, null);
     throw error;
-  } finally {
-    await client.disconnect().catch(() => undefined);
   }
 }
 
@@ -103,4 +87,27 @@ export async function queryProviderProfiles(
 
   const events = await queryRelatrProfiles(query, limit);
   return { events, provider };
+}
+
+// Try all configured providers in order; returns first successful result or null
+export async function tryQueryProviders(
+  query: string,
+  limit: number,
+  loggedIn: boolean
+): Promise<NDKEvent[] | null> {
+  const providerOrder = getProfileLookupProviderOrder(loggedIn);
+  for (const provider of providerOrder) {
+    if (provider === 'relay') break;
+    try {
+      const providerEvents = await queryProviderProfiles(query, Math.min(10, limit), provider);
+      for (const [index, event] of providerEvents.events.entries()) {
+        const label = providerEvents.provider === 'vertex' ? 'Vertex-ranked result' : 'relatr-ranked result';
+        (event as unknown as { debugScore?: string }).debugScore = `${label} #${index + 1}`;
+      }
+      if (providerEvents.events.length > 0) return providerEvents.events;
+    } catch (e) {
+      console.warn(`${provider} profile aggregation failed, falling back:`, e);
+    }
+  }
+  return null;
 }

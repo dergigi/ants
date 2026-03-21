@@ -33,18 +33,19 @@ export async function lookupVertexProfile(query: string, fallbackLookup: (userna
     return null;
   });
 
-  // Helper to suppress null resolutions so Promise.race yields the first non-null
-  const firstNonNull = <T,>(p: Promise<T | null>) => p.then((v) => (v !== null ? v : new Promise<never>(() => {})));
+  const nonNullOrReject = <T,>(promise: Promise<T | null>) => promise.then((value) => {
+    if (value === null) throw new Error('no result');
+    return value;
+  });
 
   try {
-    const first = await Promise.race([
-      ...providerPromises.map((promise) => firstNonNull(promise)),
-      firstNonNull(fallbackPromise)
-    ]);
-    if (first) return first;
+    return await Promise.any(providerPromises.map((promise) => nonNullOrReject(promise)));
   } catch {}
 
-  // If neither produced a non-null quickly, await both and return whichever is available
+  // Providers produced no usable result; rely on fallback before giving up.
+  const fallbackResult = await fallbackPromise;
+  if (fallbackResult) return fallbackResult;
+
   const providerResults = await Promise.all(providerPromises);
-  return providerResults.find(Boolean) || await fallbackPromise;
+  return providerResults.find(Boolean) || null;
 }
