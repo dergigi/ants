@@ -1,59 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetch as fetchOpengraph } from 'fetch-opengraph';
-import { isIP } from 'net';
+import { validateAndResolveIp } from './ssrf';
+import { fetchOgData, isHttpUrl, type OgResult } from './fetch-og';
 
 // Runtime hint: nodejs for network requests
 export const runtime = 'nodejs';
-
-type OgResult = {
-  url: string;
-  title?: string;
-  description?: string;
-  image?: string;
-  siteName?: string;
-  type?: string;
-  favicon?: string;
-};
-
-function isHttpUrl(u: URL): boolean {
-  return u.protocol === 'http:' || u.protocol === 'https:';
-}
 
 function isBlockedHostname(hostname: string): boolean {
   const lower = hostname.toLowerCase();
   if (lower === 'localhost' || lower.endsWith('.localhost') || lower.endsWith('.local')) return true;
   if (lower === '0.0.0.0') return true;
   return false;
-}
-
-function isPrivateIp(ip: string): boolean {
-  // IPv4 ranges
-  const parts = ip.split('.').map((x) => parseInt(x, 10));
-  if (parts.length === 4 && parts.every((n) => !Number.isNaN(n))) {
-    const [a, b] = parts;
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 127) return true; // 127.0.0.0/8 loopback
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
-    if (a === 0) return true; // 0.0.0.0/8
-  }
-  // IPv6
-  if (ip === '::1') return true; // loopback
-  if (ip.startsWith('fe80:') || ip.startsWith('fe80::')) return true; // link-local
-  if (ip.startsWith('fc') || ip.startsWith('fd')) return true; // unique local
-  return false;
-}
-
-function resolveUrlMaybe(base: URL, value?: string | null): string | undefined {
-  if (!value) return undefined;
-  try {
-    const absolute = new URL(value, base);
-    if (!isHttpUrl(absolute)) return undefined;
-    return absolute.toString();
-  } catch {
-    return undefined;
-  }
 }
 
 function getYouTubeIdFromUrl(urlString: string): string | null {
@@ -65,7 +21,6 @@ function getYouTubeIdFromUrl(urlString: string): string | null {
       return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
     }
     if (host.endsWith('youtube.com')) {
-      // /watch?v=, /shorts/<id>, /embed/<id>
       if (u.searchParams.get('v')) {
         const id = u.searchParams.get('v') || '';
         return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
@@ -85,7 +40,6 @@ function getYouTubeIdFromUrl(urlString: string): string | null {
 async function fetchYouTubeOg(url: string): Promise<OgResult> {
   const id = getYouTubeIdFromUrl(url);
   const siteName = 'YouTube';
-  // Try oEmbed first for title/author/thumbnail
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
     const res = await globalThis.fetch(oembedUrl, { cache: 'no-store' });
@@ -104,8 +58,6 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
   } catch {
     // ignore and fall back
   }
-
-  // Fallback: construct minimal preview if ID known
   if (id) {
     return {
       url,
@@ -117,55 +69,6 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
     };
   }
   throw new Error('YouTube metadata unavailable');
-}
-
-async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
-  // Try common favicon locations first with a lightweight HEAD request
-  const candidatePaths = [
-    '/favicon.ico',
-    '/favicon.png',
-    '/favicon-32x32.png',
-    '/apple-touch-icon.png',
-    '/apple-touch-icon-precomposed.png',
-    '/icons/icon-192x192.png',
-  ];
-  for (const path of candidatePaths) {
-    const href = resolveUrlMaybe(urlObj, path);
-    if (!href) continue;
-    try {
-      const head = await globalThis.fetch(href, { method: 'HEAD', cache: 'no-store' });
-      if (head.ok) return href;
-    } catch {
-      // ignore and try next
-    }
-  }
-  // Fallback to a reliable favicon service
-  return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
-}
-
-async function fetchOgData(url: string): Promise<OgResult> {
-  const ogData = await fetchOpengraph(url);
-  const urlObj = new URL(url);
-  
-  // Extract data from fetch-opengraph response
-  const title = ogData['og:title'] || ogData['twitter:title'] || ogData.title || undefined;
-  const description = ogData['og:description'] || ogData['twitter:description'] || ogData.description || undefined;
-  const image = ogData['og:image'] || ogData['twitter:image:src'] || ogData.image || undefined;
-  const siteName = ogData['og:site_name'] || urlObj.hostname;
-  const type = ogData['og:type'] || undefined;
-  
-  // Resolve favicon with fallbacks
-  const favicon = await resolveFavicon(urlObj);
-  
-  return {
-    url: ogData.url || url,
-    title,
-    description,
-    image,
-    siteName,
-    type,
-    favicon
-  };
 }
 
 export async function GET(req: NextRequest) {
@@ -185,8 +88,12 @@ export async function GET(req: NextRequest) {
   if (isBlockedHostname(u.hostname)) {
     return NextResponse.json({ error: 'Blocked host' }, { status: 400 });
   }
-  if (isIP(u.hostname) && isPrivateIp(u.hostname)) {
-    return NextResponse.json({ error: 'Blocked IP' }, { status: 400 });
+
+  let pinnedIp: string;
+  try {
+    pinnedIp = await validateAndResolveIp(u.hostname);
+  } catch {
+    return NextResponse.json({ error: 'Blocked host' }, { status: 400 });
   }
 
   try {
@@ -196,19 +103,15 @@ export async function GET(req: NextRequest) {
       try {
         data = await fetchYouTubeOg(u.toString());
       } catch {
-        data = await fetchOgData(u.toString());
+        data = await fetchOgData(u.toString(), pinnedIp);
       }
     } else {
-      data = await fetchOgData(u.toString());
+      data = await fetchOgData(u.toString(), pinnedIp);
     }
-    // Short cache headers (10 minutes) to reduce repeated fetches
     const res = NextResponse.json(data, { status: 200 });
     res.headers.set('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400');
     return res;
-  } catch (e: unknown) {
-    const errorMessage = e instanceof Error ? e.message : 'Fetch failed';
-    return NextResponse.json({ error: errorMessage }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch metadata' }, { status: 502 });
   }
 }
-
-
