@@ -2075,11 +2075,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
+                        <TruncatedText
+                          content={text}
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                  renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                          searchTerms={highlightTerms}
+                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
@@ -2170,15 +2171,17 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                       className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
                       footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
                       defaultExpanded={isDirectQuery}
+                      searchTerms={highlightTerms}
                     />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
+                        <TruncatedText
+                          content={text}
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
+                          searchTerms={highlightTerms}
                           renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
@@ -2188,10 +2191,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
+                        <TruncatedText
+                          content={text}
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
+                          searchTerms={highlightTerms}
                           renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}

@@ -20,6 +20,7 @@ interface ArticleCardProps {
   showFooter?: boolean;
   footerRight?: React.ReactNode;
   defaultExpanded?: boolean;
+  searchTerms?: string[];
 }
 
 export default function ArticleCard({
@@ -29,6 +30,7 @@ export default function ArticleCard({
   showFooter = true,
   footerRight,
   defaultExpanded = false,
+  searchTerms,
 }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const meta = extractArticleMetadata(event);
@@ -37,7 +39,7 @@ export default function ArticleCard({
   const user = event.author ?? fallbackUser;
 
   const contentPreview = event.content || '';
-  const truncated = truncateMarkdown(contentPreview);
+  const { text: truncated, isSnippet } = truncateMarkdown(contentPreview, 600, searchTerms);
   const shouldTruncate = truncated.length < contentPreview.length;
   const displayContent = expanded ? contentPreview : truncated;
 
@@ -56,6 +58,8 @@ export default function ArticleCard({
           shouldTruncate={shouldTruncate}
           expanded={expanded}
           setExpanded={setExpanded}
+          isSnippet={isSnippet}
+          searchTerms={searchTerms}
         />
         <ArticleTopics topics={meta.topics} />
       </div>
@@ -131,12 +135,16 @@ function ArticleBody({
   shouldTruncate,
   expanded,
   setExpanded,
+  isSnippet = false,
+  searchTerms,
 }: {
   meta: ReturnType<typeof extractArticleMetadata>;
   displayContent: string;
   shouldTruncate: boolean;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
+  isSnippet?: boolean;
+  searchTerms?: string[];
 }) {
   const [imgError, setImgError] = useState(false);
   const trimmedImage = meta.image.trim();
@@ -162,7 +170,8 @@ function ArticleBody({
       {displayContent && (
         <div className="relative">
           <div className={shouldTruncate && !expanded ? 'relative' : ''}>
-            <ArticleMarkdown content={displayContent} />
+            {isSnippet && !expanded && <span className="text-gray-400">… </span>}
+            <ArticleMarkdown content={displayContent} searchTerms={searchTerms} />
             {shouldTruncate && !expanded && (
               <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#2d2d2d] to-transparent pointer-events-none" />
             )}
