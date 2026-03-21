@@ -183,7 +183,7 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - [x] don't do so many requests, lots of requests can be merged into one
 - [x] add a `/kinds` command that shows all substitutions
 - [x] implement streaming search aka "live" mode
-- [ ] support relatr in addition to vertex (see [#182](https://github.com/dergigi/ants/issues/182))
+- [ ] support relatr in addition to vertex (see [#183](https://github.com/dergigi/ants/issues/183))
 - [ ] be nice to relays (respect limits etc)
 - [x] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
