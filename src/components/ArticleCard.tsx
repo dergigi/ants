@@ -139,14 +139,15 @@ function ArticleBody({
   setExpanded: (v: boolean) => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const trimmedImage = meta.image.trim();
 
   return (
     <>
       {/* Cover image */}
-      {meta.image && !imgError && (
+      {trimmedImage && !imgError && (
         <div className="rounded overflow-hidden">
           <Image
-            src={meta.image.trim()}
+            src={trimmedImage}
             alt={meta.title || 'Article cover'}
             width={800}
             height={256}
