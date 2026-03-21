@@ -10,12 +10,12 @@ function escapeRegex(s: string): string {
  * These correspond to NIP-50 extensions, filter operators, and special syntax the app supports.
  */
 const STRUCTURED_TOKEN_PATTERN =
-  /\b(?:by|kind|kinds|since|until|mentions|reply|ref|link|id|d|a|domain|language|sentiment|nsfw|include|is|p):\S+|#[A-Za-z0-9_]+/gi;
+  /\b(?:by|kind|kinds|since|until|mentions|reply|ref|link|id|d|a|domain|language|sentiment|nsfw|include|is|has|site|p):\S+|#[A-Za-z0-9_]+/gi;
 
 /**
  * Parse a search query, strip all structured tokens (by:, kind:, #hashtag, etc.),
- * and return the remaining content search terms.
- * Returns null if no content terms remain.
+ * boolean operators (AND/OR/NOT), and grouping punctuation.
+ * Returns the remaining content search terms, or null if none remain.
  */
 export function extractContentSearchTerms(query: string): string[] | null {
   // Extract quoted phrases first, before stripping structured tokens
@@ -28,6 +28,8 @@ export function extractContentSearchTerms(query: string): string[] | null {
 
   const stripped = withoutQuotes
     .replace(STRUCTURED_TOKEN_PATTERN, ' ')
+    .replace(/[()"]/g, ' ')
+    .replace(/\b(?:AND|OR|NOT)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -45,13 +47,7 @@ export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[]
 
   const lowerTerms = terms.map((t) => t.toLowerCase());
 
-  // Kinds where content is not the primary data (reposts, reactions, zaps)
-  const CONTENT_EXEMPT_KINDS = new Set([6, 7, 16, 9735]);
-
   return events.filter((event) => {
-    // Reposts, reactions, zaps — content is not meaningful text
-    if (CONTENT_EXEMPT_KINDS.has(event.kind ?? -1)) return true;
-
     // Build searchable text from content + visible tag values
     const parts: string[] = [];
     if (event.content) parts.push(event.content);

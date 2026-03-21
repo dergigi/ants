@@ -312,7 +312,9 @@ export async function searchEvents(
               : residual;
           }
 
-          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          let results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          const contentTerms = extractContentSearchTerms(cleanedQuery);
+          if (contentTerms) results = filterByContent(results, contentTerms);
           return sortEventsNewestFirst(results).slice(0, limit);
         }
       }
@@ -376,7 +378,9 @@ export async function searchEvents(
               : residual;
           }
 
-          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          let results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+          const contentTerms = extractContentSearchTerms(cleanedQuery);
+          if (contentTerms) results = filterByContent(results, contentTerms);
           return sortEventsNewestFirst(results).slice(0, limit);
         }
       }
@@ -403,7 +407,11 @@ export async function searchEvents(
       );
 
 
-      return sortEventsNewestFirst(seedResults).slice(0, limit);
+      const seedContentTerms = extractContentSearchTerms(cleanedQuery);
+      const filteredSeedResults = seedContentTerms
+        ? filterByContent(seedResults, seedContentTerms)
+        : seedResults;
+      return sortEventsNewestFirst(filteredSeedResults).slice(0, limit);
     }
   }
 

@@ -38,11 +38,38 @@ describe('extractContentSearchTerms', () => {
   it('handles multiple content terms with structured tokens interspersed', () => {
     expect(extractContentSearchTerms('foo by:alice bar #tag baz')).toEqual(['foo', 'bar', 'baz']);
   });
+
+  it('strips boolean operators (OR/AND/NOT)', () => {
+    expect(extractContentSearchTerms('foo OR bar')).toEqual(['foo', 'bar']);
+    expect(extractContentSearchTerms('foo AND bar')).toEqual(['foo', 'bar']);
+    expect(extractContentSearchTerms('foo NOT bar')).toEqual(['foo', 'bar']);
+  });
+
+  it('strips parentheses from grouped boolean queries', () => {
+    expect(extractContentSearchTerms('(GM OR GN) by:dergigi')).toEqual(['GM', 'GN']);
+  });
+
+  it('returns null for pure has: query', () => {
+    expect(extractContentSearchTerms('has:image')).toBeNull();
+  });
+
+  it('returns null for pure site: query', () => {
+    expect(extractContentSearchTerms('site:example.com')).toBeNull();
+  });
+
+  it('returns null for combined modifier-only queries', () => {
+    expect(extractContentSearchTerms('has:image site:yt by:dergigi')).toBeNull();
+    expect(extractContentSearchTerms('is:highlight has:video')).toBeNull();
+  });
+
+  it('extracts content from mixed modifier + boolean queries', () => {
+    expect(extractContentSearchTerms('bitcoin OR lightning by:dergigi has:image')).toEqual(['bitcoin', 'lightning']);
+  });
 });
 
 describe('filterByContent', () => {
-  function makeEvent(content: string): NDKEvent {
-    return { content } as unknown as NDKEvent;
+  function makeEvent(content: string, opts?: { kind?: number; tags?: string[][] }): NDKEvent {
+    return { content, kind: opts?.kind, tags: opts?.tags ?? [] } as unknown as NDKEvent;
   }
 
   it('keeps events that match any term', () => {
@@ -99,11 +126,17 @@ describe('filterByContent', () => {
     expect(result[0].content).toBe('has bitcoin');
   });
 
-  it('keeps reposts/reactions with empty content (exempt kinds)', () => {
+  it('filters reposts/reactions with empty content (no longer exempt)', () => {
     const repost = { content: '', kind: 6, tags: [] } as unknown as NDKEvent;
     const reaction = { content: '', kind: 7, tags: [] } as unknown as NDKEvent;
     const result = filterByContent([repost, reaction], ['bitcoin']);
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(0);
+  });
+
+  it('keeps reposts/reactions when content matches', () => {
+    const reaction = { content: 'bitcoin!', kind: 7, tags: [] } as unknown as NDKEvent;
+    const result = filterByContent([reaction], ['bitcoin']);
+    expect(result).toHaveLength(1);
   });
 
   it('matches terms in tag values (title, description, summary)', () => {
