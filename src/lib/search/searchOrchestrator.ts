@@ -17,8 +17,8 @@ import { tryHandleIdSearch } from './strategies/idSearchStrategy';
 import { SearchContext } from './types';
 
 /**
- * Run search strategies in order and return the first non-null/non-empty result
- * Returns null if no strategy matches
+ * Run search strategies in order and return the first non-null result.
+ * Returns null if no strategy matches (empty arrays are valid results).
  */
 export async function runSearchStrategies(
   extCleanedQuery: string,

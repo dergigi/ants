@@ -2,22 +2,14 @@ import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
-import { subscribeAndCollect } from '../subscriptions';
-import { getBroadRelaySet } from '../relayManagement';
-import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
+import { fetchDedupeAndSort } from './strategyUtils';
 
 type TagAFilter = NDKFilter & { '#a'?: string[] };
 
-/**
- * Resolve a ref: token to an NIP-33 `a` tag coordinate.
- * Accepts: raw coordinates (kind:pubkey:d-tag) or naddr1... bech32.
- */
+/** Resolve a ref: token to an NIP-33 coordinate (raw or naddr1...). */
 function resolveATagCoordinate(token: string): string | null {
-  // Raw coordinate format: kind:pubkey:d-tag
   if (/^\d+:[0-9a-f]{64}:/.test(token)) return token;
-
-  // Bech32 naddr
   try {
     const decoded = nip19.decode(token);
     if (decoded.type === 'naddr') {
@@ -25,14 +17,12 @@ function resolveATagCoordinate(token: string): string | null {
       return `${kind}:${pubkey}:${identifier}`;
     }
   } catch {}
-
   return null;
 }
 
 /**
  * Handle ref: filter queries (ref:<coordinate-or-naddr>)
- * Finds events that reference a specific replaceable event via #a tags.
- * Supports multiple ref: tokens and optional search terms.
+ * Finds events that reference a replaceable event via #a tags.
  * Returns null if the query does not contain ref: tokens.
  */
 export async function tryHandleRefSearch(
@@ -41,39 +31,23 @@ export async function tryHandleRefSearch(
 ): Promise<NDKEvent[] | null> {
   const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
 
-  const refMatches = Array.from(cleanedQuery.matchAll(/\bref:(\S+)/gi));
-  if (refMatches.length === 0) return null;
+  const matches = Array.from(cleanedQuery.matchAll(/\bref:(\S+)/gi));
+  if (matches.length === 0) return null;
 
-  const tokens = Array.from(new Set(refMatches.map((m) => m[1]).filter(Boolean)));
-  const coordinates = tokens.map(resolveATagCoordinate).filter(Boolean) as string[];
-  if (coordinates.length === 0) return [];
+  const tokens = Array.from(new Set(matches.map((m) => m[1]).filter(Boolean)));
+  const coords = tokens.map(resolveATagCoordinate).filter((c): c is string => Boolean(c));
+  if (coords.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\bref:\S+/gi, '').replace(/\s+/g, ' ').trim();
 
   const filter: TagAFilter = applyDateFilter({
-    kinds: effectiveKinds,
-    '#a': coordinates,
-    limit: Math.max(limit, 500)
+    kinds: effectiveKinds, '#a': coords, limit: Math.max(limit, 500)
   }, dateFilter) as TagAFilter;
 
   if (residual) {
     (filter as NDKFilter).search = nip50Extensions
-      ? buildSearchQueryWithExtensions(residual, nip50Extensions)
-      : residual;
+      ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
   }
 
-  const hasSearchTerm = Boolean((filter as NDKFilter).search);
-  const relaySet = hasSearchTerm ? chosenRelaySet : await getBroadRelaySet();
-
-  let results: NDKEvent[];
-  try {
-    results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
-  } catch {
-    results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-  }
-
-  const dedupe = new Map<string, NDKEvent>();
-  for (const e of results) if (!dedupe.has(e.id)) dedupe.set(e.id, e);
-
-  return sortEventsNewestFirst(Array.from(dedupe.values())).slice(0, limit);
+  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean((filter as NDKFilter).search), abortSignal, limit);
 }
