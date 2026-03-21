@@ -9,9 +9,7 @@ import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRela
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
-import { fireNip45Count } from '@/lib/search/nip45Count';
 import { extractContentSearchTerms, filterByContent } from '@/lib/search/contentFilter';
-import type { AggregateCount } from '@/lib/search/nip45Count';
 import { RELAYS } from '@/lib/relays';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
@@ -126,7 +124,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [relayCount, setRelayCount] = useState<AggregateCount | null>(null);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   const [visibleCount, setVisibleCount] = useState(50);
   const lastPaginationQueryRef = useRef<string>('');
@@ -862,32 +859,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setShowExternalButton(false);
     }
     clearResults();
-    setRelayCount(null);
     setLoading(true);
     if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
-
-    // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
-    // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
-    // Expand is: shortcuts (e.g. is:highlight → kind:9802) so the COUNT filter
-    // uses the correct kinds instead of always sending SEARCH_DEFAULT_KINDS.
-    applySimpleReplacements(searchQuery).then((expandedQuery) => {
-      const { kinds: parsedKinds, cleaned } = extractKindFilter(expandedQuery);
-      const countKinds = (parsedKinds && parsedKinds.length > 0) ? parsedKinds : SEARCH_DEFAULT_KINDS;
-      // Use the cleaned query (without kind: tokens) as the search text
-      const searchText = cleaned.trim() || undefined;
-      const countFilter = {
-        ...(searchText ? { search: searchText } : {}),
-        kinds: countKinds,
-      } as import('@nostr-dev-kit/ndk').NDKFilter;
-      return fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal });
-    }).then((aggregate) => {
-        if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
-        if (currentSearchId.current === searchId) {
-          setRelayCount(aggregate);
-        }
-      })
-      .catch(() => {});
-
 
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
@@ -1867,7 +1840,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 hasActiveFilters={filterSettings.maxEmojis !== null || filterSettings.maxHashtags !== null || filterSettings.maxMentions !== null || filterSettings.hideLinks || filterSettings.hideBridged || filterSettings.hideBots || filterSettings.hideNsfw || filterSettings.verifiedOnly || (filterSettings.fuzzyEnabled && (filterSettings.resultFilter || '').trim().length > 0)}
                 filteredCount={fuseFilteredResults.length}
                 resultCount={results.length}
-                relayCount={relayCount}
                 onExpand={() => setShowFilterDetails(!showFilterDetails)}
                 isExpanded={showFilterDetails}
               />
