@@ -89,6 +89,7 @@ export async function searchByAnyTerms(
         .replace(/\ba:[^\s]+/gi, ' ')
         .replace(/\bsince:[^\s]+/gi, ' ')
         .replace(/\buntil:[^\s]+/gi, ' ')
+        .replace(/\bg:[^\s]+/gi, ' ')
         .replace(/#[A-Za-z0-9_]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();

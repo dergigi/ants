@@ -14,6 +14,7 @@ export interface StreamingSearchOptions {
 export interface SearchContext {
   effectiveKinds: number[];
   dateFilter?: { since?: number; until?: number };
+  geoFilter?: { geohash?: string; nearMe?: boolean };
   nip50Extensions?: Nip50Extensions;
   chosenRelaySet: NDKRelaySet;
   relaySetOverride?: NDKRelaySet;
@@ -24,6 +25,6 @@ export interface SearchContext {
   extensionFilters?: Array<(content: string) => boolean>;
 }
 
-// Extend filter type to include tag queries for "t" (hashtags) and "a" (replaceable events)
-export type TagTFilter = NDKFilter & { '#t'?: string[]; '#a'?: string[]; '#license'?: string[] };
+// Extend filter type to include tag queries for "t" (hashtags), "a" (replaceable events), "g" (geohash)
+export type TagTFilter = NDKFilter & { '#t'?: string[]; '#a'?: string[]; '#license'?: string[]; '#g'?: string[] };
 

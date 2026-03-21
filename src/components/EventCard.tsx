@@ -22,6 +22,7 @@ import { resolveProfileName } from '@/lib/utils/profileUtils';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
+import { decode as decodeGeohash, approximateArea } from '@/lib/geohash';
 
 // Helper function for search navigation
 const navigateToSearch = (query: string) => {
@@ -393,6 +394,34 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
           {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
+          {/* Geo location display from g tag or location tag */}
+          {(() => {
+            const locationTag = event.tags.find(t => Array.isArray(t) && t[0] === 'location' && t[1]);
+            const gTag = event.tags.find(t => Array.isArray(t) && t[0] === 'g' && t[1]);
+            const locationText = locationTag?.[1];
+            const geohash = gTag?.[1];
+
+            if (!locationText && !geohash) return null;
+
+            let geoLabel = '';
+            if (geohash) {
+              const { lat, lon } = decodeGeohash(geohash);
+              geoLabel = `${lat.toFixed(2)}, ${lon.toFixed(2)} (${approximateArea(geohash)})`;
+            }
+
+            return (
+              <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                <span className="text-gray-500">&#x1f4cd;</span>
+                {locationText && <span>{locationText}</span>}
+                {(locationText) && geohash && <span className="text-gray-600">·</span>}
+                {geohash && (
+                  <SearchButton query={`g:${geohash}`} className="text-gray-400 hover:text-gray-300 hover:underline">
+                    {geoLabel}
+                  </SearchButton>
+                )}
+              </div>
+            );
+          })()}
         </>
       )}
       {showFooter && (

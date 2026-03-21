@@ -899,6 +899,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     }
 
+    // Resolve near:me to g:<geohash> using browser Geolocation API
+    if (/(?:^|\s)near:me(?:\s|$)/i.test(searchQuery)) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 300000 });
+        });
+        const { encode: encodeGeohash } = await import('@/lib/geohash');
+        // Precision 5 ≈ 5km box — good default for local discovery
+        const hash = encodeGeohash(pos.coords.latitude, pos.coords.longitude, 5);
+        searchQuery = searchQuery.replace(/(?:^|\s)near:me(?=\s|$)/gi, ` g:${hash}`).trim();
+      } catch (err) {
+        console.warn('Geolocation unavailable for near:me:', err);
+        // Strip near:me so it doesn't pollute the text search
+        searchQuery = searchQuery.replace(/(?:^|\s)near:me(?=\s|$)/gi, ' ').trim();
+      }
+    }
+
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);

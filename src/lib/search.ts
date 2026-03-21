@@ -93,13 +93,20 @@ export async function searchEvents(
   const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
 
   const parsedQuery = parseSearchQuery(preprocessedQuery, SEARCH_DEFAULT_KINDS);
-  const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters } = parsedQuery;
+  const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters, geoFilter } = parsedQuery;
 
   const searchContext: SearchContext = {
-    effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet,
+    effectiveKinds, dateFilter, geoFilter, nip50Extensions, chosenRelaySet,
     relaySetOverride, isStreaming: isStreaming || false, streamingOptions,
     abortSignal, limit, extensionFilters
   };
+
+  // EARLY: Geo search — must run before OR expansion to avoid losing the #g filter
+  if (geoFilter?.geohash) {
+    const { tryHandleGeoSearch } = await import('./search/strategies/geoSearchStrategy');
+    const geoResults = await tryHandleGeoSearch(cleanedQuery, searchContext);
+    if (geoResults) return geoResults;
+  }
 
   // 1. Try parenthesized OR expansion: "(GM OR GN) by:dergigi"
   const parenOrResult = await handleParenthesizedOr(

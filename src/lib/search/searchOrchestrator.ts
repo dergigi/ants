@@ -13,6 +13,7 @@ import { tryHandleReplySearch } from './strategies/replySearchStrategy';
 import { tryHandleRefSearch } from './strategies/refSearchStrategy';
 import { tryHandleLinkSearch } from './strategies/linkSearchStrategy';
 import { tryHandleDTagSearch } from './strategies/dTagSearchStrategy';
+import { tryHandleGeoSearch } from './strategies/geoSearchStrategy';
 import { SearchContext } from './types';
 
 /**
@@ -27,6 +28,10 @@ export async function runSearchStrategies(
   const { isStreaming, streamingOptions, chosenRelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
 
   // Note: id: lookups are handled early in search.ts, before the orchestrator.
+
+  // Geo search: g:<geohash> queries via #g tag filters
+  const geoResults = await tryHandleGeoSearch(cleanedQuery, context);
+  if (geoResults) return geoResults;
 
   // URL search: strip protocol and search for domain/path content
   const urlResults = await tryHandleUrlSearch(

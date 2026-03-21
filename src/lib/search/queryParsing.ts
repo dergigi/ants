@@ -153,6 +153,32 @@ export function normalizeResidualSearchText(input: string): string {
 }
 
 /**
+ * Extract geohash filter from query string: g:<geohash> or near:me
+ */
+export function extractGeoFilter(rawQuery: string): { cleaned: string; geohash?: string; nearMe?: boolean } {
+  let cleaned = rawQuery;
+  let geohash: string | undefined;
+  let nearMe = false;
+
+  // near:me — browser geolocation (resolved upstream in UI layer)
+  const nearMeRegex = /(?:^|\s)near:me(?:\s|$)/gi;
+  if (nearMeRegex.test(cleaned)) {
+    nearMe = true;
+    cleaned = cleaned.replace(nearMeRegex, ' ');
+  }
+
+  // g:<geohash> — direct geohash filter (base32 chars: 0-9 b-h j-n p r-z)
+  const geoRegex = /(?:^|\s)g:([0-9b-hjkmnp-z]+)(?:\s|$)/gi;
+  cleaned = cleaned.replace(geoRegex, (_, hash: string) => {
+    const value = (hash || '').trim().toLowerCase();
+    if (value.length >= 1) geohash = value;
+    return ' ';
+  });
+
+  return { cleaned: cleaned.trim(), geohash, nearMe };
+}
+
+/**
  * Parsed query structure containing all extracted information
  */
 export interface ParsedQuery {
@@ -163,6 +189,7 @@ export interface ParsedQuery {
   hasTopLevelOr: boolean;
   topLevelOrParts: string[];
   extensionFilters: Array<(content: string) => boolean>;
+  geoFilter?: { geohash?: string; nearMe?: boolean };
 }
 
 /**
@@ -186,8 +213,14 @@ export function parseSearchQuery(
   // Extract date filters
   const dateExtraction = extractDateFilter(dateResolvedQuery);
   const dateFilter = { since: dateExtraction.since, until: dateExtraction.until };
-  const cleanedQuery = dateExtraction.cleaned;
-  
+
+  // Extract geo filters (g:<geohash>, near:me)
+  const geoExtraction = extractGeoFilter(dateExtraction.cleaned);
+  const geoFilter = (geoExtraction.geohash || geoExtraction.nearMe)
+    ? { geohash: geoExtraction.geohash, nearMe: geoExtraction.nearMe }
+    : undefined;
+  const cleanedQuery = geoExtraction.cleaned;
+
   const extensionFilters: Array<(content: string) => boolean> = [];
   const topLevelOrParts = parseOrQuery(cleanedQuery);
   const hasTopLevelOr = topLevelOrParts.length > 1;
@@ -199,7 +232,8 @@ export function parseSearchQuery(
     dateTranslation,
     hasTopLevelOr,
     topLevelOrParts,
-    extensionFilters
+    extensionFilters,
+    geoFilter
   };
 }
 
