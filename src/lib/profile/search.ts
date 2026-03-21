@@ -6,7 +6,6 @@ import {
   extractProfileFields, 
   computeMatchScore 
 } from './utils';
-import { queryVertexDVM } from './dvm-core';
 import { verifyNip05, isRootNip05 } from './nip05';
 import { getCachedNip05Result } from './cache';
 import { 
@@ -15,29 +14,12 @@ import {
   LIGHTNING_FLAGS 
 } from './lightning';
 import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
-
-type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
-
-const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
-
-function makeProfileSearchCacheKey(query: string, loggedIn: boolean): string {
-  return `${loggedIn ? '1' : '0'}|${query.toLowerCase()}`;
-}
-
-function getCachedProfileSearch(key: string): NDKEvent[] | null {
-  const entry = profileSearchCache.get(key);
-  if (!entry) return null;
-  if ((Date.now() - entry.timestamp) > PROFILE_SEARCH_CACHE_TTL_MS) {
-    profileSearchCache.delete(key);
-    return null;
-  }
-  return entry.events.slice();
-}
-
-function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
-  profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
-}
+import { tryQueryProviders } from './providers';
+import {
+  getCachedProfileSearch,
+  makeProfileSearchCacheKey,
+  setCachedProfileSearch
+} from './search-cache';
 
 // Full-text profile search with ranking
 export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS): Promise<NDKEvent[]> {
@@ -48,26 +30,13 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
   const loggedIn = Boolean(storedPubkey);
   const cacheKey = makeProfileSearchCacheKey(query, loggedIn);
   const cached = getCachedProfileSearch(cacheKey);
-  if (cached) {
-    return cached.slice(0, limit);
-  }
+  if (cached) return cached.slice(0, limit);
 
-  // Step 0: try Vertex DVM for top ranked results (only when logged in)
-  if (loggedIn) {
-    try {
-      const vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
-      for (const v of vertexEvents) {
-        (v as unknown as { debugScore?: string }).debugScore = 'DVM-ranked result';
-      }
-      if (vertexEvents.length > 0) {
-        setCachedProfileSearch(cacheKey, vertexEvents);
-        return vertexEvents.slice(0, limit);
-      }
-    } catch (e) {
-      if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
-        console.warn('Vertex aggregation failed, falling back to relay search:', e);
-      }
-    }
+  // Step 0: try configured providers before relay-based ranking
+  const providerResult = await tryQueryProviders(query, limit, loggedIn);
+  if (providerResult) {
+    setCachedProfileSearch(cacheKey, providerResult);
+    return providerResult.slice(0, limit);
   }
 
   // Step 1: fetch candidate profiles from NIP-50 capable relay(s)
@@ -112,61 +81,32 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     if (!evt.author && pubkey) {
       const user = new NDKUser({ pubkey });
       user.ndk = evt.ndk;
-      (user as NDKUser & { profile: NDKUserProfile }).profile = {
-        name: name,
-        displayName: display,
-        about,
-        nip05: nip05Value,
-        image
-      };
+      (user as NDKUser & { profile: NDKUserProfile }).profile = { name, displayName: display, about, nip05: nip05Value, image };
       evt.author = user;
-    } else if (evt.author) {
-      // Populate minimal profile if missing
-      if (!evt.author.profile) {
-        (evt.author as NDKUser & { profile: NDKUserProfile }).profile = {
-          name: name,
-          displayName: display,
-          about,
-          nip05: nip05Value,
-          image
-        };
-      }
+    } else if (evt.author && !evt.author.profile) {
+      (evt.author as NDKUser & { profile: NDKUserProfile }).profile = { name, displayName: display, about, nip05: nip05Value, image };
     }
 
     const baseScore = computeMatchScore(termLower, name, display, about, nip05Value);
     const isFriend = storedPubkey ? follows.has(pubkey) : false;
-
     const cachedZap = getCachedLightningFlag(pubkey, LIGHTNING_FLAGS.ZAP);
     const cachedNutzap = getCachedLightningFlag(pubkey, LIGHTNING_FLAGS.NUTZAP);
 
-    if (
-      pubkey &&
-      idx < verificationLimit &&
-      (cachedZap === undefined || cachedNutzap === undefined)
-    ) {
+    if (pubkey && idx < verificationLimit && (cachedZap === undefined || cachedNutzap === undefined)) {
       void prefetchLightningRealness(pubkey).catch(() => undefined);
     }
 
     let verifyPromise: Promise<boolean> | null = null;
-    // Use cached result immediately for scoring, and schedule background verification for a subset
     const cached = pubkey && nip05Value ? getCachedNip05Result(pubkey, nip05Value) : null;
     if (idx < verificationLimit && cached === null && pubkey && nip05Value) {
-      // Fire and forget; don't await in ranking path
       verifyPromise = verifyNip05(pubkey, nip05Value);
       verifications.push(verifyPromise.catch(() => false));
     }
 
     return {
-      event: evt,
-      pubkey,
-      name: nameForAuthor,
-      baseScore,
-      isFriend,
-      nip05: nip05Value,
-      verifyPromise,
-      verifyHint: nip05VerifiedHint,
-      hasZap: cachedZap ?? false,
-      hasNutzap: cachedNutzap ?? false
+      event: evt, pubkey, name: nameForAuthor, baseScore, isFriend,
+      nip05: nip05Value, verifyPromise, verifyHint: nip05VerifiedHint,
+      hasZap: cachedZap ?? false, hasNutzap: cachedNutzap ?? false
     };
   });
 
@@ -174,12 +114,9 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
 
   // Step 4: assign final score and sort
   for (const row of enriched) {
-    const verified = row.verifyHint === true
-      ? true
-      : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
+    const verified = row.verifyHint === true ? true : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
     let score = row.baseScore;
     if (verified) score += 100;
-    // Additional bonus for verified root NIP-05s (double checkmark)
     if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
     const updatedNutzap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.NUTZAP) : undefined;
     const updatedZap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.ZAP) : undefined;
@@ -198,7 +135,6 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     const as = a.finalScore || 0;
     const bs = b.finalScore || 0;
     if (as !== bs) return bs - as;
-    // Tie-breakers: friend first, then name lexicographically
     if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
     return (a.name || '').localeCompare(b.name || '');
   });
@@ -220,9 +156,7 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     ordered.push(evt);
   };
 
-  for (const row of enriched) {
-    pushIfNew(row.event);
-  }
+  for (const row of enriched) pushIfNew(row.event);
 
   setCachedProfileSearch(cacheKey, ordered);
   return ordered.slice(0, limit);
