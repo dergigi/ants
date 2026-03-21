@@ -110,21 +110,20 @@ export async function handleParenthesizedOr(
   return sortEventsNewestFirst(seedResults).slice(0, limit);
 }
 
-async function handleProfileSeeds(expandedSeeds: string[], limit: number): Promise<NDKEvent[]> {
-  const pTerms = expandedSeeds.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
+export async function handleProfileSeeds(pSeeds: string[], limit: number): Promise<NDKEvent[]> {
+  const pTerms = pSeeds.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
+  const profileResults = await Promise.allSettled(pTerms.map((term) => searchProfilesFullText(term)));
   const mergedProfiles: NDKEvent[] = [];
   const seenPubkeys = new Set<string>();
-  for (const term of pTerms) {
-    try {
-      const profiles = await searchProfilesFullText(term);
-      for (const evt of profiles) {
-        const pk = evt.pubkey || evt.author?.pubkey || '';
-        if (pk && !seenPubkeys.has(pk)) {
-          seenPubkeys.add(pk);
-          mergedProfiles.push(evt);
-        }
+  for (const result of profileResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const evt of result.value) {
+      const pk = evt.pubkey || evt.author?.pubkey || '';
+      if (pk && !seenPubkeys.has(pk)) {
+        seenPubkeys.add(pk);
+        mergedProfiles.push(evt);
       }
-    } catch {}
+    }
   }
   return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
 }

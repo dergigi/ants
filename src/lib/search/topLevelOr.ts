@@ -5,8 +5,7 @@ import { applyDateFilter } from './queryParsing';
 import { expandParenthesizedOr } from './queryTransforms';
 import { getBroadRelaySet } from './relayManagement';
 import { searchByAnyTerms } from './termSearch';
-import { searchProfilesFullText } from '../vertex';
-import { maybeOptimizeByOnlyOrSeeds } from './orExpansion';
+import { maybeOptimizeByOnlyOrSeeds, handleProfileSeeds } from './orExpansion';
 
 /**
  * Handle top-level OR queries: "bitcoin OR lightning" or "by:alice OR by:bob".
@@ -44,22 +43,7 @@ export async function handleTopLevelOr(
   // Profile search: all parts are p:<term>
   const isPClause = (s: string) => /^p:\S+/i.test(s);
   if (normalizedParts.length > 0 && normalizedParts.every(isPClause)) {
-    const pTerms = normalizedParts.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
-    const mergedProfiles: NDKEvent[] = [];
-    const seenPubkeys = new Set<string>();
-    for (const term of pTerms) {
-      try {
-        const profiles = await searchProfilesFullText(term);
-        for (const evt of profiles) {
-          const pk = evt.pubkey || evt.author?.pubkey || '';
-          if (pk && !seenPubkeys.has(pk)) {
-            seenPubkeys.add(pk);
-            mergedProfiles.push(evt);
-          }
-        }
-      } catch {}
-    }
-    return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
+    return handleProfileSeeds(normalizedParts, limit);
   }
 
   // General OR search via searchByAnyTerms

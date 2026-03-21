@@ -49,7 +49,8 @@ export function applyContentFilter(results: NDKEvent[], query: string): NDKEvent
 
 /**
  * Filter events whose content doesn't contain ANY of the given terms (case-insensitive).
- * Events with empty content are kept (they may be media-only kinds like reposts).
+ * Events with no searchable text (content + relevant tags like title/description/summary/alt)
+ * are filtered out. Media-only events without these tags will not pass the filter.
  */
 export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[] {
   if (terms.length === 0) return events;
