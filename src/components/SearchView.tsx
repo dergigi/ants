@@ -885,11 +885,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Expand by:@me / mentions:@me to the logged-in user's npub
     const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    if (atMePattern.test(searchQuery)) {
+    const atContactsPattern = /(?:^|\s)(?:by|mentions):@contacts\b/i;
+    if (atMePattern.test(searchQuery) || atContactsPattern.test(searchQuery)) {
       const storedPubkey = getStoredPubkey();
       if (storedPubkey) {
         const myNpub = nip19.npubEncode(storedPubkey);
         searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
+        // @contacts is resolved downstream in resolveAuthorTokens, just need login check here
       } else {
         // Not logged in — trigger login flow
         triggerLogin();
