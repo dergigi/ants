@@ -8,7 +8,6 @@ interface FilterCollapsedProps {
   hasActiveFilters: boolean;
   filteredCount: number;
   resultCount: number;
-  relayCount?: { total: number } | null;
   onExpand: () => void;
   isExpanded?: boolean;
 }
@@ -18,24 +17,12 @@ export default function FilterCollapsed({
   hasActiveFilters,
   filteredCount,
   resultCount,
-  relayCount,
   onExpand,
   isExpanded = false
 }: FilterCollapsedProps) {
-  // Build count display:
-  //   "200"                 — no relay count (today's behavior)
-  //   "200 / ~203,873"     — with relay count
-  //   "50/200 / ~203,873"  — with active filters + relay count
-  let countText: string;
-  if (hasActiveFilters) {
-    countText = `${filteredCount}/${resultCount}`;
-  } else {
-    countText = `${resultCount}`;
-  }
-
-  if (relayCount && relayCount.total > resultCount) {
-    countText += ` / ~${relayCount.total.toLocaleString()}`;
-  }
+  const countText = hasActiveFilters
+    ? `${filteredCount}/${resultCount}`
+    : `${resultCount}`;
 
   return (
     <button
