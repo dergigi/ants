@@ -153,6 +153,10 @@ export const searchExamples = [
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
 
+  // Tag filters
+  'reply:note1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdpumft',
+  'link:https://github.com/nostr-protocol/nips',
+
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
   'proof-of-work by:npub1satsv3728d65nenvkmzthrge0aduj8088dvwkxk70rydm407cl4s87sfhu',
