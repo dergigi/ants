@@ -76,7 +76,9 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
           const suffix = (match && match[2]) || '';
           let replacement = core;
           
-          if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
+          // Preserve @me and @contacts as-is (they're resolved at search time)
+          const isSpecialToken = core === '@me' || core === '@contacts';
+          if (!skipAuthorResolution && !isSpecialToken && !/^npub1[0-9a-z]+$/i.test(core)) {
             // Check cache first
             if (authorResolutionCache.current.has(core)) {
               replacement = authorResolutionCache.current.get(core) || core;
