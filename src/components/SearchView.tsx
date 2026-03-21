@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
-import { getIsKindRules } from '@/lib/search/replacements';
+import { getIsKindRules, applySimpleReplacements } from '@/lib/search/replacements';
 import { fetchSpellSummaries } from '@/lib/spellDiscovery';
 import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRelayFilters } from '@/lib/search/queryParsing';
 import { resolveAuthorToNpub } from '@/lib/vertex';
@@ -868,9 +868,19 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
     // Fire NIP-45 COUNT immediately at T+0 — before relay discovery, author resolution, etc.
     // Uses hardcoded RELAYS.SEARCH to avoid waiting for async relay set building.
-    const countFilter = { search: searchQuery, kinds: SEARCH_DEFAULT_KINDS } as import('@nostr-dev-kit/ndk').NDKFilter;
-    fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal })
-      .then((aggregate) => {
+    // Expand is: shortcuts (e.g. is:highlight → kind:9802) so the COUNT filter
+    // uses the correct kinds instead of always sending SEARCH_DEFAULT_KINDS.
+    applySimpleReplacements(searchQuery).then((expandedQuery) => {
+      const { kinds: parsedKinds, cleaned } = extractKindFilter(expandedQuery);
+      const countKinds = (parsedKinds && parsedKinds.length > 0) ? parsedKinds : SEARCH_DEFAULT_KINDS;
+      // Use the cleaned query (without kind: tokens) as the search text
+      const searchText = cleaned.trim() || undefined;
+      const countFilter = {
+        ...(searchText ? { search: searchText } : {}),
+        kinds: countKinds,
+      } as import('@nostr-dev-kit/ndk').NDKFilter;
+      return fireNip45Count(countFilter, [...RELAYS.SEARCH], { timeoutMs: 5000, abortSignal: abortController.signal });
+    }).then((aggregate) => {
         if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] ${new Date().toISOString()} count callback: total=${aggregate.total}, totalMs=${Math.round(aggregate.totalMs)}ms`);
         if (currentSearchId.current === searchId) {
           setRelayCount(aggregate);
