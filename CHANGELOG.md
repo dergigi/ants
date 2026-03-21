@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-03-21
+
+### Added
+- **NIP-A7 spell integration** -- `/spells` command browses kind:777 saved searches from contacts and public relays, translates spell filters to ants query strings, and executes them through the existing search pipeline (#212)
+- `SpellCard` component renders kind:777 events with spell details, translated query preview, and a "Cast Spell" button
+- `/spells` added to examples list
+- `AGENTS.md` contributor guidelines for AI agents (#208)
+- Playwright e2e regression tests for streaming search stability (#170, @alltheseas)
+
+### Fixed
+- Streaming search closes subscription after EOSE to prevent unfiltered late results (#170, @alltheseas)
+- Streaming callback guards against `isComplete` to avoid stale updates (#170, @alltheseas)
+- Spell translator uses `kind:N` directly for kinds without `is:` shortcuts (e.g. kind:1 instead of nonexistent `is:note`)
+- Multiple tag values in spell translation use OR grouping to match Nostr REQ array semantics
+
 ## [0.3.1] - 2026-03-21
 
 ### Added
