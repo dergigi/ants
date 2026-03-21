@@ -14,6 +14,8 @@ import Nip05Display from '@/components/Nip05Display';
 import FollowPackCard, { type FollowPackData } from '@/components/FollowPackCard';
 import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
+import SpellCard, { parseSpellDisplay } from '@/components/SpellCard';
+import { SPELL_KIND } from '@/lib/spellTranslate';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
 import { resolveProfileName } from '@/lib/utils/profileUtils';
@@ -107,6 +109,10 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   // Check if this is a follow pack event
   const isFollowPack = event.kind === FOLLOW_PACK_KIND;
   const followPack = isFollowPack ? parseFollowPackTags(event) : null;
+
+  // Check if this is a spell event
+  const isSpell = event.kind === SPELL_KIND;
+  const spellData = isSpell ? parseSpellDisplay(event) : null;
 
   // Inline component to render author like a mention
   function InlineAuthor({ pubkeyHex }: { pubkeyHex: string }) {
@@ -381,6 +387,8 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
               }}
               renderContent={renderContent}
             />
+          ) : isSpell && spellData ? (
+            <SpellCard event={event} spellData={spellData} onCastSpell={navigateToSearch} />
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
