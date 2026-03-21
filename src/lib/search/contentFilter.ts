@@ -57,11 +57,18 @@ export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[]
 
   const lowerTerms = terms.map((t) => t.toLowerCase());
 
+  // Pre-compile boundary regexes for short terms (avoids re-creating per event)
+  const shortTermRegexes = lowerTerms
+    .filter((t) => t.length <= 3)
+    .map((term) => new RegExp(
+      `(?:^|[\\s,.!?;:'"()\\[\\]{}#@/\\\\—–-])${escapeRegex(term)}(?:$|[\\s,.!?;:'"()\\[\\]{}#@/\\\\—–-])`, 'i'
+    ));
+  const longTerms = lowerTerms.filter((t) => t.length > 3);
+
   return events.filter((event) => {
     // Build searchable text from content + visible tag values
     const parts: string[] = [];
     if (event.content) parts.push(event.content);
-    // Include tag values that contribute to visible display (description, title, summary, alt)
     for (const tag of event.tags || []) {
       if (tag[0] === 'description' || tag[0] === 'title' || tag[0] === 'summary' || tag[0] === 'alt' || tag[0] === 'name') {
         if (tag[1]) parts.push(tag[1]);
@@ -69,17 +76,10 @@ export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[]
     }
 
     const searchable = parts.join(' ');
-    if (searchable.length === 0) return false; // No text at all — filter out
+    if (searchable.length === 0) return false;
 
     const lowerSearchable = searchable.toLowerCase();
-    return lowerTerms.some((term) => {
-      // Short terms (<=3 chars) use word-boundary matching to avoid
-      // false positives like "designer" matching "GN"
-      if (term.length <= 3) {
-        const boundary = new RegExp(`(?:^|[\\s,.!?;:'"()\\[\\]{}#@/\\\\—–-])${escapeRegex(term)}(?:$|[\\s,.!?;:'"()\\[\\]{}#@/\\\\—–-])`, 'i');
-        return boundary.test(searchable);
-      }
-      return lowerSearchable.includes(term);
-    });
+    return shortTermRegexes.some((regex) => regex.test(searchable)) ||
+      longTerms.some((term) => lowerSearchable.includes(term));
   });
 }
