@@ -23,6 +23,7 @@ import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
 import { decode as decodeGeohash, approximateArea } from '@/lib/geohash';
+import { locationLabel } from '@/lib/reverseGeo';
 
 // Helper function for search navigation
 const navigateToSearch = (query: string) => {
@@ -404,16 +405,19 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
             if (!locationText && !geohash) return null;
 
             let geoLabel = '';
+            let cityLabel = '';
             if (geohash) {
               const { lat, lon } = decodeGeohash(geohash);
               geoLabel = `${lat.toFixed(2)}, ${lon.toFixed(2)} (${approximateArea(geohash)})`;
+              cityLabel = locationLabel(lat, lon);
             }
 
             return (
               <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
                 <span className="text-gray-500">&#x1f4cd;</span>
                 {locationText && <span>{locationText}</span>}
-                {(locationText) && geohash && <span className="text-gray-600">·</span>}
+                {!locationText && cityLabel && <span>{cityLabel}</span>}
+                {(locationText || cityLabel) && geohash && <span className="text-gray-600">·</span>}
                 {geohash && (
                   <SearchButton query={`g:${geohash}`} className="text-gray-400 hover:text-gray-300 hover:underline">
                     {geoLabel}

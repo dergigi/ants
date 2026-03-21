@@ -9,6 +9,8 @@ import { applySimpleReplacements } from '@/lib/search/replacements';
 import { resolveRelativeDates } from '@/lib/search/relativeDates';
 import { nip19 } from 'nostr-tools';
 import { getLastReducedFilters } from '@/lib/ndk';
+import { decode as decodeGeohash } from '@/lib/geohash';
+import { locationLabel } from '@/lib/reverseGeo';
 
 interface QueryTranslationProps {
   query: string;
@@ -144,7 +146,17 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       // Don't split further if we already have multiple distributed queries
       if (distributed.length > 1) {
         // We have parenthesized OR expansion - show all expanded queries
-        const preview = withPResolved.join('\n');
+        let preview = withPResolved.join('\n');
+        // Annotate g:<geohash> tokens with human-readable city name
+        preview = preview.replace(/\bg:([0-9b-hjkmnp-z]+)\b/gi, (match, hash: string) => {
+          try {
+            const { lat, lon } = decodeGeohash(hash.toLowerCase());
+            const label = locationLabel(lat, lon);
+            return label ? `${match} (${label})` : match;
+          } catch {
+            return match;
+          }
+        });
         return preview;
       }
 
@@ -161,7 +173,19 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       const finalQueries = Array.from(finalQueriesSet);
 
       // Format compact preview
-      const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+      let preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+
+      // Annotate g:<geohash> tokens with human-readable city name
+      preview = preview.replace(/\bg:([0-9b-hjkmnp-z]+)\b/gi, (match, hash: string) => {
+        try {
+          const { lat, lon } = decodeGeohash(hash.toLowerCase());
+          const label = locationLabel(lat, lon);
+          return label ? `${match} (${label})` : match;
+        } catch {
+          return match;
+        }
+      });
+
       return preview;
     } catch {
       return '';

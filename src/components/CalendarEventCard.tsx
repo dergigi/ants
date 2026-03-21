@@ -15,6 +15,7 @@ import {
   calendarEventStatus,
 } from '@/lib/utils/calendarUtils';
 import { decode as decodeGeohash, approximateArea } from '@/lib/geohash';
+import { locationLabel } from '@/lib/reverseGeo';
 import { ndk } from '@/lib/ndk';
 
 interface CalendarEventCardProps {
@@ -143,7 +144,12 @@ export default function CalendarEventCard({
           <div className="text-xs text-gray-400 flex items-center gap-1">
             <span className="text-gray-500">&#x1f4cd;</span>
             {meta.location && <span>{meta.location}</span>}
-            {meta.location && meta.geohash && <span className="text-gray-600">·</span>}
+            {!meta.location && meta.geohash && (() => {
+              const { lat, lon } = decodeGeohash(meta.geohash);
+              const city = locationLabel(lat, lon);
+              return city ? <span>{city}</span> : null;
+            })()}
+            {(meta.location || meta.geohash) && meta.geohash && <span className="text-gray-600">·</span>}
             {meta.geohash && (() => {
               const { lat, lon } = decodeGeohash(meta.geohash);
               return (
