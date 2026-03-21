@@ -8,6 +8,7 @@ import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { resolveRelativeDates } from '@/lib/search/relativeDates';
 import { nip19 } from 'nostr-tools';
+import { getStoredPubkey } from '@/lib/nip07';
 import { getLastReducedFilters } from '@/lib/ndk';
 
 interface QueryTranslationProps {
@@ -76,9 +77,13 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
           const suffix = (match && match[2]) || '';
           let replacement = core;
           
-          // Preserve @me and @contacts as-is (they're resolved at search time)
-          const isSpecialToken = /^@(me|contacts)$/i.test(core);
-          if (!skipAuthorResolution && !isSpecialToken && !/^npub1[0-9a-z]+$/i.test(core)) {
+          // Resolve @me to the logged-in user's npub directly
+          if (/^@me$/i.test(core)) {
+            const pk = getStoredPubkey();
+            if (pk) replacement = nip19.npubEncode(pk);
+          } else if (/^@contacts$/i.test(core)) {
+            // Preserve @contacts as-is (expanded at search time to full follow list)
+          } else if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
             // Check cache first
             if (authorResolutionCache.current.has(core)) {
               replacement = authorResolutionCache.current.get(core) || core;
