@@ -11,8 +11,7 @@ import { test, expect } from '@playwright/test';
  *   - Search not triggering on page load with query params
  */
 
-// Result cards have bg-[#2d2d2d] styling — match any element with that class
-const RESULT_CARD = '[class*="bg-[#2d2d2d]"]';
+const RESULT_CARD = '[data-testid="search-result-card"]';
 
 test.describe('Search result stability (issue #165)', () => {
 
@@ -22,7 +21,7 @@ test.describe('Search result stability (issue #165)', () => {
     // Wait for relay connections to establish
     await page.waitForTimeout(5000);
 
-    const searchInput = page.locator('input').first();
+    const searchInput = page.locator('[data-testid="search-input"]');
     await searchInput.fill('nostr');
     await searchInput.press('Enter');
 
@@ -37,7 +36,7 @@ test.describe('Search result stability (issue #165)', () => {
     await page.goto('/');
     await page.waitForTimeout(5000);
 
-    const searchInput = page.locator('input').first();
+    const searchInput = page.locator('[data-testid="search-input"]');
     await searchInput.fill('bitcoin');
     await searchInput.press('Enter');
 

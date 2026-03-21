@@ -185,7 +185,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   };
 
   return (
-    <div className={containerClasses}>
+    <div className={containerClasses} data-testid="search-result-card">
       {showRaw ? (
         <div className="mt-0">
           <RawEventJson event={event} />
