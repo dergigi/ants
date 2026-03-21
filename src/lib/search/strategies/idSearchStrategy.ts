@@ -34,7 +34,13 @@ export async function handleIdLookup(
   if (eventIds.length === 0) return [];
 
   const filter: NDKFilter = { ids: eventIds };
-  const relaySet = await getBroadRelaySet();
+
+  let relaySet;
+  try {
+    relaySet = await getBroadRelaySet();
+  } catch {
+    return [];
+  }
 
   let results: NDKEvent[];
   try {
