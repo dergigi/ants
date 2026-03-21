@@ -12,6 +12,7 @@ import { tryHandleMentionsSearch } from './strategies/mentionsSearchStrategy';
 import { tryHandleReplySearch } from './strategies/replySearchStrategy';
 import { tryHandleRefSearch } from './strategies/refSearchStrategy';
 import { tryHandleLinkSearch } from './strategies/linkSearchStrategy';
+import { tryHandleDTagSearch } from './strategies/dTagSearchStrategy';
 import { SearchContext } from './types';
 
 /**
@@ -77,6 +78,10 @@ export async function runSearchStrategies(
   // Check for link filter (link:<url> → #r tag search)
   const linkResults = await tryHandleLinkSearch(cleanedQuery, context);
   if (linkResults) return linkResults;
+
+  // Check for dtag filter (dtag:<identifier> → #d tag search)
+  const dtagResults = await tryHandleDTagSearch(cleanedQuery, context);
+  if (dtagResults) return dtagResults;
 
   // Check for author filter
   const authorResults = await tryHandleAuthorSearch(cleanedQuery, context);
