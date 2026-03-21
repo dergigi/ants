@@ -895,11 +895,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     
     // Expand by:@me / mentions:@me to the logged-in user's npub
     const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    if (atMePattern.test(searchQuery)) {
+    const atContactsPattern = /(?:^|\s)(?:by|mentions):@contacts\b/i;
+    if (atMePattern.test(searchQuery) || atContactsPattern.test(searchQuery)) {
       const storedPubkey = getStoredPubkey();
       if (storedPubkey) {
         const myNpub = nip19.npubEncode(storedPubkey);
         searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
+        // @contacts is resolved downstream in resolveAuthorTokens, just need login check here
       } else {
         // Not logged in — trigger login flow
         triggerLogin();
@@ -912,8 +914,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
+    const isSpecialAuthorToken = (v: string) => /^@(me|contacts)$/i.test(v);
+    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]) && !isSpecialAuthorToken(byMatch[1]))
+      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]) && !isSpecialAuthorToken(mentionsMatch[1]));
 
     if (needsAuthorResolution) {
       setResolvingAuthor(true);

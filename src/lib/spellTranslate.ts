@@ -114,6 +114,7 @@ function translateTagFilter(letter: string, value: string): string {
  */
 function formatAuthor(value: string): string {
   if (value === '$me') return '@me';
+  if (value === '$contacts') return '@contacts';
   if (/^[0-9a-f]{64}$/i.test(value)) {
     try {
       return nip19.npubEncode(value);
