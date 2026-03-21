@@ -9,10 +9,10 @@ import { SearchContext } from '../types';
 type TagDFilter = NDKFilter & { '#d'?: string[] };
 
 /**
- * Handle dtag: filter queries (dtag:<identifier>)
+ * Handle d: filter queries (d:<identifier>)
  * Finds replaceable events by their d-tag identifier.
- * Supports multiple dtag: tokens and optional search terms.
- * Returns null if the query does not contain dtag: tokens.
+ * Supports multiple d: tokens and optional search terms.
+ * Returns null if the query does not contain d: tokens.
  */
 export async function tryHandleDTagSearch(
   cleanedQuery: string,
@@ -20,13 +20,13 @@ export async function tryHandleDTagSearch(
 ): Promise<NDKEvent[] | null> {
   const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
 
-  const dtagMatches = Array.from(cleanedQuery.matchAll(/\bdtag:(\S+)/gi));
-  if (dtagMatches.length === 0) return null;
+  const dMatches = Array.from(cleanedQuery.matchAll(/\bd:(\S+)/gi));
+  if (dMatches.length === 0) return null;
 
-  const identifiers = Array.from(new Set(dtagMatches.map((m) => m[1]).filter(Boolean)));
+  const identifiers = Array.from(new Set(dMatches.map((m) => m[1]).filter(Boolean)));
   if (identifiers.length === 0) return [];
 
-  const residual = cleanedQuery.replace(/\bdtag:\S+/gi, '').replace(/\s+/g, ' ').trim();
+  const residual = cleanedQuery.replace(/\bd:\S+/gi, '').replace(/\s+/g, ' ').trim();
 
   const filter: TagDFilter = applyDateFilter({
     kinds: effectiveKinds,

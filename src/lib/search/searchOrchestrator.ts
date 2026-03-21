@@ -79,9 +79,9 @@ export async function runSearchStrategies(
   const linkResults = await tryHandleLinkSearch(cleanedQuery, context);
   if (linkResults) return linkResults;
 
-  // Check for dtag filter (dtag:<identifier> → #d tag search)
-  const dtagResults = await tryHandleDTagSearch(cleanedQuery, context);
-  if (dtagResults) return dtagResults;
+  // Check for d: filter (d:<identifier> → #d tag search)
+  const dResults = await tryHandleDTagSearch(cleanedQuery, context);
+  if (dResults) return dResults;
 
   // Check for author filter
   const authorResults = await tryHandleAuthorSearch(cleanedQuery, context);

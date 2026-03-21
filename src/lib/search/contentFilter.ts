@@ -10,7 +10,7 @@ function escapeRegex(s: string): string {
  * These correspond to NIP-50 extensions, filter operators, and special syntax the app supports.
  */
 const STRUCTURED_TOKEN_PATTERN =
-  /\b(?:by|kind|kinds|since|until|mentions|reply|ref|link|dtag|a|domain|language|sentiment|nsfw|include|is|p):\S+|#[A-Za-z0-9_]+/gi;
+  /\b(?:by|kind|kinds|since|until|mentions|reply|ref|link|id|d|a|domain|language|sentiment|nsfw|include|is|p):\S+|#[A-Za-z0-9_]+/gi;
 
 /**
  * Parse a search query, strip all structured tokens (by:, kind:, #hashtag, etc.),
