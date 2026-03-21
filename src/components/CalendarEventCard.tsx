@@ -10,7 +10,6 @@ import CardActions from '@/components/CardActions';
 import Image from 'next/image';
 import {
   extractCalendarEventMetadata,
-  extractCalendarMetadata,
   formatCalendarDate,
   calendarEventStatus,
 } from '@/lib/utils/calendarUtils';
@@ -33,7 +32,6 @@ export default function CalendarEventCard({
   showFooter = true,
   footerRight,
 }: CalendarEventCardProps) {
-  const isCalendarCollection = event.kind === 31924;
   const [imgError, setImgError] = useState(false);
   const fallbackUser = new NDKUser({ pubkey: event.pubkey });
   fallbackUser.ndk = ndk;
@@ -43,35 +41,6 @@ export default function CalendarEventCard({
   const containerClasses = className
     ? `${baseClasses} ${className}`
     : `${baseClasses} rounded-lg`;
-
-  if (isCalendarCollection) {
-    const cal = extractCalendarMetadata(event);
-    return (
-      <div className={containerClasses}>
-        <div className="space-y-3">
-          <div className="flex items-start gap-2">
-            <FontAwesomeIcon icon={faCalendarDays} className="text-purple-400 mt-1 flex-shrink-0" />
-            <h3 className="text-lg font-semibold text-gray-100 leading-tight">
-              {cal.title || 'Untitled Calendar'}
-            </h3>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <AuthorBadge user={user} onAuthorClick={onAuthorClick} />
-            <span>·</span>
-            <span>{cal.eventRefs.length} event{cal.eventRefs.length !== 1 ? 's' : ''}</span>
-          </div>
-          {event.content && (
-            <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
-              {event.content}
-            </p>
-          )}
-        </div>
-        {showFooter && <CardFooter event={event} user={user} onAuthorClick={onAuthorClick} footerRight={footerRight} />}
-      </div>
-    );
-  }
-
-  // Kind 31922 or 31923
   const meta = extractCalendarEventMetadata(event);
   const dateDisplay = formatCalendarDate(meta);
   const status = calendarEventStatus(meta);

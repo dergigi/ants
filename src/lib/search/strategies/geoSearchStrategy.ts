@@ -8,7 +8,7 @@ import { prefixes } from '../../geohash';
 import { SEARCH_DEFAULT_KINDS } from '../../constants';
 
 // Kinds that commonly carry g tags — NIP-99 listings, NIP-52 calendar events
-const GEO_AWARE_KINDS = [30402, 31922, 31923, 31924];
+const GEO_AWARE_KINDS = [30402, 31922, 31923];
 
 /**
  * Check if an event's g tag falls within the search geohash area.
