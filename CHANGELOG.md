@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-21
+
+### Added
+- **Relatr integration** -- alternative profile lookup provider using native Nostr events (kind 25910) instead of Vertex DVM (#187, @ContextVM-org)
+- **Tag query keywords** -- `reply:`, `ref:`, `link:`, `d:` for filtering by #e, #a, #r, #d tags; `id:` for direct event lookup bypassing the full search pipeline (#202)
+- All tag strategies support `by:` combinations via shared `parseResidual()` helper
+
+### Fixed
+- Content filter now strips URLs and `nostr:` refs before matching, preventing false negatives on notes containing bech32 identifiers (#190, @alltheseas)
+- Content filter hardened with regex pre-compilation, empty-term guard, and stripped structured tokens (#186)
+- `getBroadRelaySet()` guarded in `id:` lookup path for graceful degradation when relay discovery fails (#205)
+- Relatr integration hardened: bounded profile cache (max 500 entries), logged `sub.stop()` errors, fallback publish timer with cleanup guard, consistent limit floor (#209)
+
 ## [0.3.0] - 2026-03-21
 
 ### Added
