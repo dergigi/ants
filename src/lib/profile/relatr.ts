@@ -100,11 +100,13 @@ export async function searchRelatrProfiles(
     }, RELATR_TIMEOUT_MS);
 
     let settled = false;
+    const timers = { fallback: undefined as ReturnType<typeof setTimeout> | undefined };
 
     const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
+      if (timers.fallback) clearTimeout(timers.fallback);
       fn();
     };
 
@@ -123,10 +125,21 @@ export async function searchRelatrProfiles(
       return;
     }
 
+    let publishAttempted = false;
+    const tryPublish = async () => {
+      if (publishAttempted || settled) return;
+      publishAttempted = true;
+      const publishSuccess = await safePublish(requestEvent, relaySet);
+      if (!publishSuccess) {
+        try { sub.stop(); } catch (e) { console.debug('[relatr] sub.stop error:', e); }
+        finish(() => reject(new Error('failed to publish relatr request')));
+      }
+    };
+
     sub.on('event', (event: NDKEvent) => {
       if (event.pubkey !== RELATR_SERVER_PUBKEY) return;
 
-      try { sub.stop(); } catch {}
+      try { sub.stop(); } catch (e) { console.debug('[relatr] sub.stop error:', e); }
       try {
         const response = unwrapRelatrResponse(event.content);
         finish(() => resolve(response));
@@ -135,13 +148,9 @@ export async function searchRelatrProfiles(
       }
     });
 
-    sub.on('eose', async () => {
-      const published = await safePublish(requestEvent, relaySet);
-      if (!published) {
-        try { sub.stop(); } catch {}
-        finish(() => reject(new Error('failed to publish relatr request')));
-      }
-    });
+    sub.on('eose', tryPublish);
+    // Fallback: publish after 2s if EOSE never fires
+    timers.fallback = setTimeout(tryPublish, 2000);
 
     sub.start();
   });

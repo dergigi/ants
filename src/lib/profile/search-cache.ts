@@ -3,6 +3,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 
 const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PROFILE_SEARCH_CACHE_MAX_SIZE = 500;
 const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
 
 export function makeProfileSearchCacheKey(query: string, loggedIn: boolean): string {
@@ -20,5 +21,9 @@ export function getCachedProfileSearch(key: string): NDKEvent[] | null {
 }
 
 export function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
+  if (profileSearchCache.size >= PROFILE_SEARCH_CACHE_MAX_SIZE) {
+    const oldest = profileSearchCache.keys().next().value;
+    if (oldest) profileSearchCache.delete(oldest);
+  }
   profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
 }
