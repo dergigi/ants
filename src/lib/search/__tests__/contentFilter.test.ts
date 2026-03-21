@@ -163,4 +163,39 @@ describe('filterByContent', () => {
     // no content, no matching tags => filtered out
     expect(result).toHaveLength(0);
   });
+
+  it('does not match nostr: protocol references as visible text', () => {
+    const events = [
+      makeEvent('replying to nostr:npub1abc123 with a meme'),
+      makeEvent('check this out nostr:nevent1xyz789'),
+      makeEvent('I love nostr, the protocol!'),
+    ];
+    const result = filterByContent(events, ['nostr']);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toBe('I love nostr, the protocol!');
+  });
+
+  it('does not match terms found only in URLs', () => {
+    const events = [
+      makeEvent('https://i.nostr.build/xhveCTCBuX1jf8og.jpg'),
+      makeEvent('Check out https://image.nostr.build/abc.png cool right'),
+      makeEvent('I love nostr and here is a pic https://example.com/img.jpg'),
+    ];
+    const result = filterByContent(events, ['nostr']);
+    // First: only URL with "nostr" in domain — filtered out
+    // Second: text has no "nostr" outside the URL — filtered out
+    // Third: "nostr" appears in visible text — kept
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toBe('I love nostr and here is a pic https://example.com/img.jpg');
+  });
+
+  it('does not match terms found only in URLs within tag values', () => {
+    const event = {
+      content: 'hard #nipples of the day',
+      kind: 1,
+      tags: [['alt', 'A short note: hard #nipples of the day\n\nhttps://cdn.nostrcheck.me/abc.webp']],
+    } as unknown as NDKEvent;
+    const result = filterByContent([event], ['nostr']);
+    expect(result).toHaveLength(0);
+  });
 });

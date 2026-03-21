@@ -39,6 +39,14 @@ export function extractContentSearchTerms(query: string): string[] | null {
 }
 
 /**
+ * Strip URLs and nostr: protocol references — they render as
+ * embedded media/links/profiles, not visible text.
+ */
+function stripNonVisible(text: string): string {
+  return text.replace(/https?:\/\/\S+/gi, ' ').replace(/nostr:[a-z0-9]+/gi, ' ');
+}
+
+/**
  * Convenience: extract content terms from a query and filter results.
  * Returns results unchanged if no content terms exist in the query.
  */
@@ -68,10 +76,10 @@ export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[]
   return events.filter((event) => {
     // Build searchable text from content + visible tag values
     const parts: string[] = [];
-    if (event.content) parts.push(event.content);
+    if (event.content) parts.push(stripNonVisible(event.content));
     for (const tag of event.tags || []) {
       if (tag[0] === 'description' || tag[0] === 'title' || tag[0] === 'summary' || tag[0] === 'alt' || tag[0] === 'name') {
-        if (tag[1]) parts.push(tag[1]);
+        if (tag[1]) parts.push(stripNonVisible(tag[1]));
       }
     }
 
