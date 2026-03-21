@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Markdown from 'react-markdown';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
 import NostrProfileLink from '@/components/NostrProfileLink';
@@ -8,12 +9,6 @@ interface ArticleMarkdownProps {
   content: string;
   searchTerms?: string[];
 }
-
-/**
- * Renders markdown content for NIP-23 long-form articles.
- * Sanitizes links to open in new tabs and styles elements to match the app theme.
- */
-import React from 'react';
 
 function applyHighlights(children: React.ReactNode, terms: string[]): React.ReactNode {
   if (!terms.length) return children;
@@ -24,8 +19,9 @@ function applyHighlights(children: React.ReactNode, terms: string[]): React.Reac
     if (typeof child === 'string') {
       const parts = child.split(regex);
       if (parts.length === 1) return child;
+      // split(regex) with a capturing group places matches at odd indices
       return parts.map((part, i) =>
-        regex.test(part)
+        i % 2 === 1
           ? <mark key={i} className="bg-blue-500/[.69] text-inherit rounded-sm px-0.5">{part}</mark>
           : part
       );

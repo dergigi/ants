@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { extractNip19Identifiers } from '@/lib/utils/nostrIdentifiers';
 import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { findSearchSnippet } from '@/lib/utils/searchUtils';
 
 interface TruncatedTextProps {
   content: string;
@@ -53,34 +54,9 @@ export default function TruncatedText({
   const effectiveLength = calculateEffectiveLength(content);
   const shouldTruncate = effectiveLength > maxLength;
   
-  // For display, find the best snippet to show when truncated.
-  // If search terms exist and the first match is beyond the truncation window,
-  // center the snippet around the match so the highlighted term is visible.
-  const getDisplayText = (): { text: string; isSnippet: boolean } => {
-    if (isExpanded || !shouldTruncate) return { text: content, isSnippet: false };
-
-    if (searchTerms?.length) {
-      const lowerContent = content.toLowerCase();
-      let firstMatchIdx = -1;
-      for (const term of searchTerms) {
-        const idx = lowerContent.indexOf(term.toLowerCase());
-        if (idx !== -1 && (firstMatchIdx === -1 || idx < firstMatchIdx)) {
-          firstMatchIdx = idx;
-        }
-      }
-      // If match is beyond the default truncation window, show a snippet around it
-      if (firstMatchIdx > maxLength) {
-        const contextBefore = Math.floor(maxLength * 0.3);
-        const start = Math.max(0, firstMatchIdx - contextBefore);
-        const text = content.slice(start, start + maxLength);
-        return { text, isSnippet: start > 0 };
-      }
-    }
-
-    return { text: content.slice(0, maxLength), isSnippet: false };
-  };
-
-  const { text: displayText, isSnippet } = getDisplayText();
+  const { text: displayText, isSnippet } = (isExpanded || !shouldTruncate)
+    ? { text: content, isSnippet: false }
+    : findSearchSnippet(content, maxLength, searchTerms);
 
   return (
     <div className={`relative ${className}`}>

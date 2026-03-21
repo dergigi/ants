@@ -1,5 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
+import { findSearchSnippet } from './searchUtils';
 
 export interface ArticleMetadata {
   title: string;
@@ -61,28 +62,11 @@ export function truncateMarkdown(
 ): { text: string; isSnippet: boolean } {
   if (content.length <= target) return { text: content, isSnippet: false };
 
-  // Check if search terms appear beyond the default truncation window
-  if (searchTerms?.length) {
-    const lowerContent = content.toLowerCase();
-    let firstMatchIdx = -1;
-    for (const term of searchTerms) {
-      const idx = lowerContent.indexOf(term.toLowerCase());
-      if (idx !== -1 && (firstMatchIdx === -1 || idx < firstMatchIdx)) {
-        firstMatchIdx = idx;
-      }
-    }
-    if (firstMatchIdx > target) {
-      const contextBefore = Math.floor(target * 0.3);
-      const start = Math.max(0, firstMatchIdx - contextBefore);
-      const snippet = content.slice(start, start + target);
-      // Try to break at a clean boundary
-      const spaceBreak = snippet.lastIndexOf(' ', target);
-      const text = spaceBreak > target * 0.4 ? snippet.slice(0, spaceBreak) : snippet;
-      return { text, isSnippet: start > 0 };
-    }
-  }
+  // If search terms match beyond the truncation window, show a snippet
+  const snippet = findSearchSnippet(content, target, searchTerms);
+  if (snippet.isSnippet) return snippet;
 
-  // Default: truncate from the beginning at a clean boundary
+  // Default: truncate from the beginning at a clean markdown boundary
   const paragraphBreak = content.lastIndexOf('\n\n', target);
   if (paragraphBreak > target * 0.4) return { text: content.slice(0, paragraphBreak), isSnippet: false };
 
