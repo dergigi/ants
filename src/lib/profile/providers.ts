@@ -53,7 +53,7 @@ async function queryRelatrProfiles(query: string, limit: number): Promise<NDKEve
   const key = makeProviderCacheKey('relatr', query);
   const cached = getCachedDvm(key);
   if (cached !== undefined) {
-    return (cached || []).slice(0, Math.max(0, limit));
+    return (cached || []).slice(0, Math.max(1, limit));
   }
 
   try {
@@ -99,7 +99,7 @@ export async function tryQueryProviders(
   for (const provider of providerOrder) {
     if (provider === 'relay') break;
     try {
-      const providerEvents = await queryProviderProfiles(query, Math.min(10, limit), provider);
+      const providerEvents = await queryProviderProfiles(query, limit, provider);
       for (const [index, event] of providerEvents.events.entries()) {
         const label = providerEvents.provider === 'vertex' ? 'Vertex-ranked result' : 'relatr-ranked result';
         (event as unknown as { debugScore?: string }).debugScore = `${label} #${index + 1}`;
