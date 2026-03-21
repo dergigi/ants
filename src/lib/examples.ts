@@ -154,7 +154,6 @@ export const searchExamples = [
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
 
   // Tag filters
-  'reply:note1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdpumft',
   'link:https://github.com/nostr-protocol/nips',
   'd:ants is:article',
 
