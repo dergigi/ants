@@ -816,7 +816,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(null);
         setTopExamples(null);
         setKindsRules(null);
-      setSpellsList(null);
+        setSpellsList(null);
         setShowExternalButton(false);
         clearResults();
         setLoading(false);
@@ -1113,7 +1113,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
               setTopExamples(null);
               setKindsRules(null);
-      setSpellsList(null);
+              setSpellsList(null);
             }
             handleSearch(initialQueryRef.current);
           } else {
@@ -1241,7 +1241,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-      setSpellsList(null);
+        setSpellsList(null);
       }
     });
     return cleanup;
@@ -1325,7 +1325,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-      setSpellsList(null);
+        setSpellsList(null);
       }
       return;
     }
@@ -1345,7 +1345,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-      setSpellsList(null);
+        setSpellsList(null);
       }
       setQuery(raw);
       updateUrlForSearch(raw);
@@ -1755,7 +1755,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setTopCommandText(null);
     setTopExamples(null);
     setKindsRules(null);
-      setSpellsList(null);
+    setSpellsList(null);
     // Always reset to root path when clearing
     router.replace('/');
   }, [router, clearResults]);
@@ -2219,7 +2219,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount, NeventSearchButton])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, spellsList, spellsLoading, spellsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount, NeventSearchButton])}
     </div>
   );
 }
