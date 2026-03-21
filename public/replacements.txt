@@ -59,6 +59,8 @@ is:followpack => kind:39089
 is:listing => kind:30402
 is:classified => kind:30402
 is:craigslist => kind:30402
+is:event => (kind:31922 OR kind:31923)
+is:calendar => kind:31924
 
 # --- IS ---
 

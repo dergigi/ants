@@ -148,6 +148,9 @@ export const SEARCH_DEFAULT_KINDS = UI_CONFIG.SEARCH.DEFAULT_KINDS;
 // Event kind constants
 export const FOLLOW_PACK_KIND = 39089;
 export const LISTING_KIND = 30402;
+export const CALENDAR_DATE_EVENT_KIND = 31922;
+export const CALENDAR_TIME_EVENT_KIND = 31923;
+export const CALENDAR_KIND = 31924;
 
 // Profile constants
 export const PROFILE_SEARCH_MAX_RESULTS = UI_CONFIG.PROFILE.SEARCH_MAX_RESULTS;

@@ -60,7 +60,7 @@ import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, LISTING_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, LISTING_KIND, CALENDAR_DATE_EVENT_KIND, CALENDAR_TIME_EVENT_KIND, CALENDAR_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
@@ -72,6 +72,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
 import ArticleCard from '@/components/ArticleCard';
 import ListingCard from '@/components/ListingCard';
+import CalendarEventCard from '@/components/CalendarEventCard';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
@@ -2183,6 +2184,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     />
                   ) : event.kind === LISTING_KIND ? (
                     <ListingCard
+                      event={event}
+                      onAuthorClick={(npub) => goToProfile(npub, event)}
+                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
+                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
+                    />
+                  ) : event.kind === CALENDAR_DATE_EVENT_KIND || event.kind === CALENDAR_TIME_EVENT_KIND || event.kind === CALENDAR_KIND ? (
+                    <CalendarEventCard
                       event={event}
                       onAuthorClick={(npub) => goToProfile(npub, event)}
                       className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
