@@ -4,13 +4,21 @@ import { nip19 } from 'nostr-tools';
 /** Kind number for spell events (NIP-A7) */
 export const SPELL_KIND = 777;
 
-/** Known kind shortcuts in ants (is:note, is:article, etc.) */
+/**
+ * Kind shortcuts matching replacements.txt entries.
+ * Only includes tokens that actually exist in the replacement engine.
+ * Notably, kind:1 has no is: shortcut (is:tweet exists but is:note does not).
+ */
 const KIND_SHORTCUTS: Record<number, string> = {
   0: 'is:profile',
-  1: 'is:note',
   6: 'is:repost',
   7: 'is:reaction',
+  20: 'is:image',
+  1063: 'is:file',
   1337: 'is:code',
+  1617: 'is:patch',
+  1621: 'is:issue',
+  9321: 'is:nutzap',
   9735: 'is:zap',
   9802: 'is:highlight',
   30023: 'is:article',
@@ -62,12 +70,17 @@ export function spellToQuery(event: NDKEvent): string | null {
   }
 
   // tag filters → mapped to ants keywords
+  // Multiple values in a single tag array are OR in Nostr REQ semantics
   const tagFilters = tags.filter((t) => t[0] === 'tag' && t[1] && t.length >= 3);
   for (const tf of tagFilters) {
     const letter = tf[1];
     const values = tf.slice(2).filter(Boolean);
-    for (const val of values) {
-      parts.push(translateTagFilter(letter, val));
+    if (values.length === 0) continue;
+    const translated = values.map((val) => translateTagFilter(letter, val));
+    if (translated.length === 1) {
+      parts.push(translated[0]);
+    } else {
+      parts.push(`(${translated.join(' OR ')})`);
     }
   }
 
