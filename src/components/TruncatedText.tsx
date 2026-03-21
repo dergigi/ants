@@ -3,18 +3,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { extractNip19Identifiers } from '@/lib/utils/nostrIdentifiers';
 import { TEXT_MAX_LENGTH, TEXT_LINK_CHAR_COUNT } from '@/lib/constants';
+import { findSearchSnippet } from '@/lib/utils/searchUtils';
 
 interface TruncatedTextProps {
   content: string;
   maxLength?: number;
   className?: string;
+  searchTerms?: string[];
   renderContentWithClickableHashtags: (content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => React.ReactNode;
 }
 
-export default function TruncatedText({ 
-  content, 
-  maxLength = TEXT_MAX_LENGTH, 
+export default function TruncatedText({
+  content,
+  maxLength = TEXT_MAX_LENGTH,
   className = '',
+  searchTerms,
   renderContentWithClickableHashtags
 }: TruncatedTextProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -51,12 +54,14 @@ export default function TruncatedText({
   const effectiveLength = calculateEffectiveLength(content);
   const shouldTruncate = effectiveLength > maxLength;
   
-  // For display, we still need to truncate the actual text
-  const displayText = isExpanded || !shouldTruncate ? content : content.slice(0, maxLength);
-  
+  const { text: displayText, isSnippet } = (isExpanded || !shouldTruncate)
+    ? { text: content, isSnippet: false }
+    : findSearchSnippet(content, maxLength, searchTerms);
+
   return (
     <div className={`relative ${className}`}>
       <div className={shouldTruncate && !isExpanded ? 'relative' : ''}>
+        {isSnippet && !isExpanded && <span className="text-gray-400">…&nbsp;</span>}
         {renderContentWithClickableHashtags(displayText)}
         {shouldTruncate && !isExpanded && (
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#2d2d2d] to-transparent pointer-events-none" />

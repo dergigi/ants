@@ -1,5 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
+import { findSearchSnippet } from './searchUtils';
 
 export interface ArticleMetadata {
   title: string;
@@ -49,23 +50,33 @@ export function extractArticleMetadata(event: NDKEvent): ArticleMetadata {
 /**
  * Truncate markdown content at a clean boundary (paragraph or line break).
  * Avoids cutting inside links, code blocks, or bold spans.
+ *
+ * When searchTerms are provided and the first match is beyond the default
+ * truncation window, returns a snippet centered around the match with
+ * `isSnippet: true` so callers can prepend an ellipsis.
  */
-export function truncateMarkdown(content: string, target = 600): string {
-  if (content.length <= target) return content;
+export function truncateMarkdown(
+  content: string,
+  target = 600,
+  searchTerms?: string[],
+): { text: string; isSnippet: boolean } {
+  if (content.length <= target) return { text: content, isSnippet: false };
 
-  // Look for a paragraph break (double newline) near the target
+  // If search terms match beyond the truncation window, show a snippet
+  const snippet = findSearchSnippet(content, target, searchTerms);
+  if (snippet.isSnippet) return snippet;
+
+  // Default: truncate from the beginning at a clean markdown boundary
   const paragraphBreak = content.lastIndexOf('\n\n', target);
-  if (paragraphBreak > target * 0.4) return content.slice(0, paragraphBreak);
+  if (paragraphBreak > target * 0.4) return { text: content.slice(0, paragraphBreak), isSnippet: false };
 
-  // Fall back to a single line break
   const lineBreak = content.lastIndexOf('\n', target);
-  if (lineBreak > target * 0.4) return content.slice(0, lineBreak);
+  if (lineBreak > target * 0.4) return { text: content.slice(0, lineBreak), isSnippet: false };
 
-  // Last resort: break at a space to avoid splitting words
   const spaceBreak = content.lastIndexOf(' ', target);
-  if (spaceBreak > target * 0.4) return content.slice(0, spaceBreak);
+  if (spaceBreak > target * 0.4) return { text: content.slice(0, spaceBreak), isSnippet: false };
 
-  return content.slice(0, target);
+  return { text: content.slice(0, target), isSnippet: false };
 }
 
 /**

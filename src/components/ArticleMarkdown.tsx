@@ -1,18 +1,38 @@
 'use client';
 
+import React from 'react';
 import Markdown from 'react-markdown';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
 import NostrProfileLink from '@/components/NostrProfileLink';
 
 interface ArticleMarkdownProps {
   content: string;
+  searchTerms?: string[];
 }
 
-/**
- * Renders markdown content for NIP-23 long-form articles.
- * Sanitizes links to open in new tabs and styles elements to match the app theme.
- */
-export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
+function applyHighlights(children: React.ReactNode, terms: string[]): React.ReactNode {
+  if (!terms.length) return children;
+  const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string') {
+      const parts = child.split(regex);
+      if (parts.length === 1) return child;
+      // split(regex) with a capturing group places matches at odd indices
+      return parts.map((part, i) =>
+        i % 2 === 1
+          ? <mark key={i} className="bg-blue-500/[.69] text-inherit rounded-sm px-0.5">{part}</mark>
+          : part
+      );
+    }
+    return child;
+  });
+}
+
+export default function ArticleMarkdown({ content, searchTerms }: ArticleMarkdownProps) {
+  const terms = searchTerms ?? [];
+
   return (
     <div className="article-markdown prose prose-invert prose-sm max-w-none">
       <Markdown
@@ -36,16 +56,18 @@ export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
             );
           },
           h1: ({ children }) => (
-            <h1 className="text-xl font-bold text-gray-100 mt-4 mb-2">{children}</h1>
+            <h1 className="text-xl font-bold text-gray-100 mt-4 mb-2">{terms.length ? applyHighlights(children, terms) : children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-lg font-semibold text-gray-100 mt-3 mb-2">{children}</h2>
+            <h2 className="text-lg font-semibold text-gray-100 mt-3 mb-2">{terms.length ? applyHighlights(children, terms) : children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-base font-semibold text-gray-200 mt-3 mb-1">{children}</h3>
+            <h3 className="text-base font-semibold text-gray-200 mt-3 mb-1">{terms.length ? applyHighlights(children, terms) : children}</h3>
           ),
           p: ({ children }) => (
-            <p className="text-gray-100 mb-2 leading-relaxed">{children}</p>
+            <p className="text-gray-100 mb-2 leading-relaxed">
+              {terms.length ? applyHighlights(children, terms) : children}
+            </p>
           ),
           ul: ({ children }) => (
             <ul className="list-disc list-inside text-gray-100 mb-2 space-y-1">{children}</ul>
@@ -54,7 +76,7 @@ export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
             <ol className="list-decimal list-inside text-gray-100 mb-2 space-y-1">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="text-gray-100">{children}</li>
+            <li className="text-gray-100">{terms.length ? applyHighlights(children, terms) : children}</li>
           ),
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-gray-500 pl-3 my-2 text-gray-300 italic">
