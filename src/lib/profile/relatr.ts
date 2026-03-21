@@ -100,13 +100,13 @@ export async function searchRelatrProfiles(
     }, RELATR_TIMEOUT_MS);
 
     let settled = false;
-    let fallbackTimerId: ReturnType<typeof setTimeout> | undefined;
+    const timers = { fallback: undefined as ReturnType<typeof setTimeout> | undefined };
 
     const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
-      if (fallbackTimerId) clearTimeout(fallbackTimerId);
+      if (timers.fallback) clearTimeout(timers.fallback);
       fn();
     };
 
@@ -150,7 +150,7 @@ export async function searchRelatrProfiles(
 
     sub.on('eose', tryPublish);
     // Fallback: publish after 2s if EOSE never fires
-    fallbackTimerId = setTimeout(tryPublish, 2000);
+    timers.fallback = setTimeout(tryPublish, 2000);
 
     sub.start();
   });
