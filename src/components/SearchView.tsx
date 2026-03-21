@@ -952,8 +952,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           streaming: true,
           timeoutMs: 30000,
           maxResults: 1000,
-          onResults: (events: NDKEvent[]) => {
+          onResults: (events: NDKEvent[], isComplete: boolean) => {
             if (currentSearchId.current !== searchId) return;
+            // Skip the final emission — authoritative results are applied below
+            // after searchEvents() resolves with the complete set
+            if (isComplete) return;
             // Apply content filter to streaming results so unrelated
             // events from non-NIP-50 relays don't appear progressively
             const contentFiltered = streamingContentTerms
@@ -1204,6 +1207,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   useEffect(() => {
     if (!manageUrl) return;
+    // Wait for NDK to connect before triggering URL-based searches —
+    // searching before relays are connected returns empty results.
+    if (isConnecting) return;
     const urlQueryRaw = searchParams.get('q') || '';
     const decodedQuery = decodeUrlQuery(urlQueryRaw);
     const normalizedQuery = decodedQuery.trim();
@@ -1281,7 +1287,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
 
     executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
+  }, [manageUrl, isConnecting, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
