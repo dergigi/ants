@@ -1,14 +1,14 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
-import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { SearchContext } from '../types';
-import { fetchDedupeAndSort } from './strategyUtils';
+import { fetchDedupeAndSort, parseResidual } from './strategyUtils';
 
 type TagRFilter = NDKFilter & { '#r'?: string[] };
 
 /**
  * Handle link: filter queries (link:<url>)
  * Finds events that reference a specific URL via #r tags.
+ * Supports combining with by: and search terms.
  * Returns null if the query does not contain link: tokens.
  */
 export async function tryHandleLinkSearch(
@@ -24,15 +24,14 @@ export async function tryHandleLinkSearch(
   if (urls.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\blink:\S+/gi, '').replace(/\s+/g, ' ').trim();
+  const { authors, search } = await parseResidual(residual, nip50Extensions);
 
   const filter: TagRFilter = applyDateFilter({
-    kinds: effectiveKinds, '#r': urls, limit: Math.max(limit, 500)
+    kinds: effectiveKinds, '#r': urls, limit: Math.max(limit, 500),
+    ...(authors && { authors }),
   }, dateFilter) as TagRFilter;
 
-  if (residual) {
-    (filter as NDKFilter).search = nip50Extensions
-      ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
-  }
+  if (search) (filter as NDKFilter).search = search;
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean((filter as NDKFilter).search), abortSignal, limit);
+  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean(search), abortSignal, limit);
 }

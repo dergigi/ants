@@ -1,9 +1,8 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { applyDateFilter } from '../queryParsing';
-import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { SearchContext } from '../types';
-import { fetchDedupeAndSort } from './strategyUtils';
+import { fetchDedupeAndSort, parseResidual } from './strategyUtils';
 
 type TagEFilter = NDKFilter & { '#e'?: string[] };
 
@@ -21,6 +20,7 @@ function resolveEventId(token: string): string | null {
 /**
  * Handle reply: filter queries (reply:<event-id>)
  * Finds events that reference a specific event via #e tags.
+ * Supports combining with by: and search terms.
  * Returns null if the query does not contain reply: tokens.
  */
 export async function tryHandleReplySearch(
@@ -37,15 +37,14 @@ export async function tryHandleReplySearch(
   if (eventIds.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\breply:\S+/gi, '').replace(/\s+/g, ' ').trim();
+  const { authors, search } = await parseResidual(residual, nip50Extensions);
 
   const filter: TagEFilter = applyDateFilter({
-    kinds: effectiveKinds, '#e': eventIds, limit: Math.max(limit, 500)
+    kinds: effectiveKinds, '#e': eventIds, limit: Math.max(limit, 500),
+    ...(authors && { authors }),
   }, dateFilter) as TagEFilter;
 
-  if (residual) {
-    (filter as NDKFilter).search = nip50Extensions
-      ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
-  }
+  if (search) (filter as NDKFilter).search = search;
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean((filter as NDKFilter).search), abortSignal, limit);
+  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean(search), abortSignal, limit);
 }

@@ -1,14 +1,14 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
-import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { SearchContext } from '../types';
-import { fetchDedupeAndSort } from './strategyUtils';
+import { fetchDedupeAndSort, parseResidual } from './strategyUtils';
 
 type TagDFilter = NDKFilter & { '#d'?: string[] };
 
 /**
  * Handle d: filter queries (d:<identifier>)
  * Finds replaceable events by their d-tag identifier.
+ * Supports combining with by: and search terms.
  * Returns null if the query does not contain d: tokens.
  */
 export async function tryHandleDTagSearch(
@@ -24,15 +24,14 @@ export async function tryHandleDTagSearch(
   if (identifiers.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\bd:\S+/gi, '').replace(/\s+/g, ' ').trim();
+  const { authors, search } = await parseResidual(residual, nip50Extensions);
 
   const filter: TagDFilter = applyDateFilter({
-    kinds: effectiveKinds, '#d': identifiers, limit: Math.max(limit, 500)
+    kinds: effectiveKinds, '#d': identifiers, limit: Math.max(limit, 500),
+    ...(authors && { authors }),
   }, dateFilter) as TagDFilter;
 
-  if (residual) {
-    (filter as NDKFilter).search = nip50Extensions
-      ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
-  }
+  if (search) (filter as NDKFilter).search = search;
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean((filter as NDKFilter).search), abortSignal, limit);
+  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean(search), abortSignal, limit);
 }

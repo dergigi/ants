@@ -1,9 +1,8 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { applyDateFilter } from '../queryParsing';
-import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { SearchContext } from '../types';
-import { fetchDedupeAndSort } from './strategyUtils';
+import { fetchDedupeAndSort, parseResidual } from './strategyUtils';
 
 type TagAFilter = NDKFilter & { '#a'?: string[] };
 
@@ -23,6 +22,7 @@ function resolveATagCoordinate(token: string): string | null {
 /**
  * Handle ref: filter queries (ref:<coordinate-or-naddr>)
  * Finds events that reference a replaceable event via #a tags.
+ * Supports combining with by: and search terms.
  * Returns null if the query does not contain ref: tokens.
  */
 export async function tryHandleRefSearch(
@@ -39,15 +39,14 @@ export async function tryHandleRefSearch(
   if (coords.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\bref:\S+/gi, '').replace(/\s+/g, ' ').trim();
+  const { authors, search } = await parseResidual(residual, nip50Extensions);
 
   const filter: TagAFilter = applyDateFilter({
-    kinds: effectiveKinds, '#a': coords, limit: Math.max(limit, 500)
+    kinds: effectiveKinds, '#a': coords, limit: Math.max(limit, 500),
+    ...(authors && { authors }),
   }, dateFilter) as TagAFilter;
 
-  if (residual) {
-    (filter as NDKFilter).search = nip50Extensions
-      ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
-  }
+  if (search) (filter as NDKFilter).search = search;
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean((filter as NDKFilter).search), abortSignal, limit);
+  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean(search), abortSignal, limit);
 }
