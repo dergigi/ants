@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-21
+
+### Added
+- **NIP-45 COUNT** — instant relay event counts alongside search results (#152, @alltheseas)
+- **kind:30023 long-form articles** — full rendering with markdown, cover images, nostr profile links, topic tags (#155)
+- **Streaming search** — progressive result rendering with EOSE-based streaming (#157, @alltheseas)
+- **Relative date filters** — `since:2w`, `until:3d`, etc. with query translation UI (#167)
+- **Client-side content filtering** — verifies relay results actually contain search terms (#174, @alltheseas)
+- `is:article` / `is:longform` search aliases for kind:30023
+- Long-form article search examples
+- Remark plugin to make nostr identifiers clickable in article markdown
+
+### Changed
+- Search relay connections pre-warmed at bootstrap for faster first search
+- Instant relay set used for search, skipping expensive relay discovery
+- Relay info cache increased from 1 min to 12 hours
+- Deduplicate parameterized replaceable events (kinds 30000–39999) in search results
+- Refactored `search.ts` into focused modules: `orExpansion.ts`, `topLevelOr.ts`, `contentFilter.ts`
+- Content filter strips boolean operators (AND/OR/NOT), parentheses, `has:`, `site:` from term extraction
+- Profile search fetches parallelized with `Promise.allSettled`
+- README TODOs updated (streaming search ✅, blog posts ✅)
+
+### Fixed
+- EOSE grace listener leak and NIP-45 benchmark log guards (#162)
+- Article image URLs trimmed to prevent Next.js crash from trailing whitespace (#180, @alltheseas)
+- Whitespace-only image URLs no longer bypass the truthy check (#185)
+- NIP-45 COUNT fires at T+0 for instant relay counts
+- Profile display name reset on token change before resolving
+- Out-of-range relative date values rejected
+- Resolved absolute date shown in query translation UI
+
+### Security
+- Next.js bumped to 15.5.14 (CVE-2025-66478) (#156)
+
 ## [0.2.11] - 2026-03-16
 
 ### Added
