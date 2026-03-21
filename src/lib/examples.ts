@@ -3,6 +3,7 @@ export const searchExamples = [
 
   // Slash Commands
   '/help',
+  '/spells',
 
   // Basic
   'vibe coding',
