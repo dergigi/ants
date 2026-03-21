@@ -11,6 +11,7 @@
     "bench:nip66": "tsx bench/nip66.ts"
   },
   "dependencies": {
+    "@contextvm/sdk": "^0.7.4",
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-brands-svg-icons": "^6.7.2",
     "@fortawesome/free-regular-svg-icons": "6.7.2",
@@ -19,6 +20,7 @@
     "@nostr-dev-kit/ndk": "^2.14.33",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.5.15",
     "@nostr-dev-kit/ndk-cache-sqlite-wasm": "0.5.8",
+    "@playwright/test": "^1.58.2",
     "@types/string-similarity": "^4.0.2",
     "blurhash": "^2.0.5",
     "fathom-client": "^3.7.2",

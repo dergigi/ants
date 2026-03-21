@@ -6,7 +6,6 @@ import {
   extractProfileFields, 
   computeMatchScore 
 } from './utils';
-import { queryVertexDVM } from './dvm-core';
 import { verifyNip05, isRootNip05 } from './nip05';
 import { getCachedNip05Result } from './cache';
 import { 
@@ -15,6 +14,7 @@ import {
   LIGHTNING_FLAGS 
 } from './lightning';
 import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
+import { getProfileLookupProviderOrder, queryProviderProfiles } from './providers';
 
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 
@@ -52,21 +52,24 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     return cached.slice(0, limit);
   }
 
-  // Step 0: try Vertex DVM for top ranked results (only when logged in)
-  if (loggedIn) {
+  // Step 0: try configured providers before relay-based ranking
+  const providerOrder = getProfileLookupProviderOrder(loggedIn);
+  for (const provider of providerOrder) {
+    if (provider === 'relay') break;
     try {
-      const vertexEvents = await queryVertexDVM(query, Math.min(10, limit));
-      for (const v of vertexEvents) {
-        (v as unknown as { debugScore?: string }).debugScore = 'DVM-ranked result';
+      const providerEvents = await queryProviderProfiles(query, Math.min(10, limit), provider);
+      for (const [index, event] of providerEvents.events.entries()) {
+        const label = providerEvents.provider === 'vertex'
+          ? 'Vertex-ranked result'
+          : 'relatr-ranked result';
+        (event as unknown as { debugScore?: string }).debugScore = `${label} #${index + 1}`;
       }
-      if (vertexEvents.length > 0) {
-        setCachedProfileSearch(cacheKey, vertexEvents);
-        return vertexEvents.slice(0, limit);
+      if (providerEvents.events.length > 0) {
+        setCachedProfileSearch(cacheKey, providerEvents.events);
+        return providerEvents.events.slice(0, limit);
       }
     } catch (e) {
-      if ((e as Error)?.message !== 'VERTEX_NO_CREDITS') {
-        console.warn('Vertex aggregation failed, falling back to relay search:', e);
-      }
+      console.warn(`${provider} profile aggregation failed, falling back:`, e);
     }
   }
 
