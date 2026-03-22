@@ -26,7 +26,7 @@ export function clearUserRelayCache(): void {
  * Fetch relay URLs from a replaceable event (kind:10002, 10006, 10007).
  * Accepts the tag names to look for (e.g. ['r'] or ['r', 'relay']).
  */
-async function fetchRelayList(
+export async function fetchRelayList(
   pubkey: string,
   kind: number,
   tagNames: string[],
