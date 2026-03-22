@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { RELAYS } from '../../relays';
+
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { expandParenthesizedOr } from '../queryTransforms';
@@ -21,7 +21,7 @@ export async function tryHandleAuthorSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
 
   // Extract ALL by: tokens with a global regex
   const byMatches = Array.from(cleanedQuery.matchAll(/\bby:(\S+)/gi));
@@ -64,9 +64,13 @@ export async function tryHandleAuthorSearch(
     }
   }
 
-  // Clone the shared relay set so author-specific outbox relays don't pollute
-  // the context used by other strategies (#227)
-  const authorRelaySet = new NDKRelaySet(new Set(chosenRelaySet.relays), ndk);
+  // Determine whether this query needs NIP-50 search support
+  const needsNip50 = searchText.length > 0;
+
+  // Pick the right base relay set: NIP-50 for text search, broad for structured queries.
+  // Clone so author-specific outbox relays don't pollute the shared set (#227).
+  const baseRelaySet = needsNip50 ? nip50RelaySet : broadRelaySet;
+  const authorRelaySet = new NDKRelaySet(new Set(baseRelaySet.relays), ndk);
   try {
     const outboxResults = await Promise.allSettled(
       pubkeys.map(pk => getOutboxSearchCapableRelays(pk))
@@ -86,7 +90,6 @@ export async function tryHandleAuthorSearch(
   // Search queries (has searchText) → NIP-50 relays only.
   // Direct queries (no searchText, just authors/kinds/tags) → all relays.
   let res: NDKEvent[] = [];
-  const needsNip50 = searchText.length > 0;
 
   if (needsNip50) {
     // Text + author query: only use NIP-50 search relays (they honor the search field)
@@ -139,8 +142,6 @@ export async function tryHandleAuthorSearch(
     // Direct query (authors + kinds + tags, no search text): all relays are fine.
     res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
     if (res.length === 0) {
-      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
       res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
     }
   }

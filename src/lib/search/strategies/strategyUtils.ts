@@ -1,6 +1,5 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { subscribeAndCollect } from '../subscriptions';
-import { getBroadRelaySet } from '../relayManagement';
 import { resolveAuthorTokens } from '../authorResolve';
 import { buildSearchQueryWithExtensions, Nip50Extensions } from '../searchUtils';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
@@ -11,31 +10,19 @@ import { sortEventsNewestFirst } from '../../utils/searchUtils';
  */
 export async function fetchDedupeAndSort(
   filter: NDKFilter,
-  chosenRelaySet: NDKRelaySet,
+  nip50RelaySet: NDKRelaySet,
+  broadRelaySet: NDKRelaySet,
   hasSearchTerm: boolean,
   abortSignal: AbortSignal | undefined,
   limit: number
 ): Promise<NDKEvent[]> {
-  let relaySet: NDKRelaySet;
-  try {
-    relaySet = hasSearchTerm ? chosenRelaySet : await getBroadRelaySet();
-  } catch {
-    relaySet = chosenRelaySet;
-  }
+  const relaySet = hasSearchTerm ? nip50RelaySet : broadRelaySet;
 
   let results: NDKEvent[];
   try {
     results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
   } catch {
-    if (relaySet !== chosenRelaySet) {
-      try {
-        results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-      } catch {
-        results = [];
-      }
-    } else {
-      results = [];
-    }
+    results = [];
   }
 
   const dedupe = new Map<string, NDKEvent>();

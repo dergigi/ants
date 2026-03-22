@@ -77,14 +77,25 @@ export async function searchEvents(
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
 
-  let chosenRelaySet: NDKRelaySet;
+  // Build both relay sets in parallel: broad (structured queries) and NIP-50 (text search)
+  let nip50RelaySet: NDKRelaySet;
+  let broadRelaySet: NDKRelaySet;
   if (relaySetOverride) {
-    chosenRelaySet = relaySetOverride;
+    nip50RelaySet = relaySetOverride;
+    broadRelaySet = await getBroadRelaySet();
   } else {
-    try {
-      chosenRelaySet = await getNip50SearchRelaySet();
-    } catch {
-      chosenRelaySet = await getBroadRelaySet();
+    const [nip50Result, broadResult] = await Promise.allSettled([
+      getNip50SearchRelaySet(),
+      getBroadRelaySet()
+    ]);
+    broadRelaySet = broadResult.status === 'fulfilled' ? broadResult.value : await getBroadRelaySet();
+    if (nip50Result.status === 'fulfilled') {
+      nip50RelaySet = nip50Result.value;
+    } else {
+      // NIP-50 relay discovery failed. Use an empty set so text searches
+      // return nothing instead of hitting non-NIP-50 relays with garbage results.
+      console.warn('[search] NIP-50 relay set construction failed, text searches will return empty');
+      nip50RelaySet = NDKRelaySet.fromRelayUrls([], ndk);
     }
   }
 
@@ -96,14 +107,14 @@ export async function searchEvents(
   const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters } = parsedQuery;
 
   const searchContext: SearchContext = {
-    effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet,
+    effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, nip50RelaySet,
     relaySetOverride, isStreaming: isStreaming || false, streamingOptions,
     abortSignal, limit, extensionFilters
   };
 
   // 1. Try parenthesized OR expansion: "(GM OR GN) by:dergigi"
   const parenOrResult = await handleParenthesizedOr(
-    cleanedQuery, effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit
+    cleanedQuery, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit
   );
   if (parenOrResult) return parenOrResult;
 
@@ -117,7 +128,7 @@ export async function searchEvents(
   if (hasTopLevelOr) {
     const topOrResult = await handleTopLevelOr(
       topLevelOrParts, effectiveKinds, dateFilter, nip50Extensions,
-      chosenRelaySet, relaySetOverride, abortSignal, limit
+      nip50RelaySet, broadRelaySet, abortSignal, limit
     );
     if (topOrResult) return topOrResult;
   }
@@ -137,10 +148,10 @@ export async function searchEvents(
           timeoutMs: streamingOptions?.timeoutMs || 30000,
           maxResults: streamingOptions?.maxResults || 1000,
           onResults: streamingOptions?.onResults,
-          relaySet: chosenRelaySet,
+          relaySet: nip50RelaySet,
           abortSignal
         })
-      : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
+      : await subscribeAndCollect(searchFilter, 8000, nip50RelaySet, abortSignal);
 
     // Dedupe by event id
     const seen = new Set<string>();

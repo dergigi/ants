@@ -1,7 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
 import { subscribeAndStream, subscribeAndCollect } from '../subscriptions';
-import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext, TagTFilter } from '../types';
 
@@ -13,7 +12,7 @@ export async function tryHandleLicenseSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters } = context;
+  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters, broadRelaySet } = context;
   
   const licenseMatches = Array.from(query.match(/\blicense:([^\s)]+)\b/gi) || []).map((m) => m.split(':')[1]?.trim()).filter(Boolean) as string[];
   const nonLicenseRemainder = query.replace(/\blicense:[^\s)]+/gi, '').trim();
@@ -21,7 +20,8 @@ export async function tryHandleLicenseSearch(
   if (licenseMatches.length > 0 && nonLicenseRemainder.length === 0) {
     const licenses = Array.from(new Set(licenseMatches.map((v) => v.toUpperCase())));
     const licenseFilter: TagTFilter = applyDateFilter({ kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) }, dateFilter) as TagTFilter;
-    const tagRelaySet = await getBroadRelaySet();
+    // License tag searches are structural, no NIP-50 needed
+    const tagRelaySet = broadRelaySet;
     const results = isStreaming
       ? await subscribeAndStream(licenseFilter, {
           timeoutMs: streamingOptions?.timeoutMs || 30000,

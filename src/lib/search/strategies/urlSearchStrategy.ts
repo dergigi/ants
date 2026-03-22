@@ -14,7 +14,7 @@ export async function tryHandleUrlSearch(
   limit: number,
   isStreaming: boolean,
   streamingOptions: StreamingSearchOptions | undefined,
-  chosenRelaySet: NDKRelaySet,
+  nip50RelaySet: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[] | null> {
   try {
@@ -28,7 +28,7 @@ export async function tryHandleUrlSearch(
         limit,
         isStreaming,
         streamingOptions,
-        chosenRelaySet,
+        nip50RelaySet,
         abortSignal
       );
     }

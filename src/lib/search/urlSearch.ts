@@ -23,7 +23,7 @@ export async function searchUrlEvents(
   limit: number,
   isStreaming: boolean,
   streamingOptions: StreamingSearchOptions | undefined,
-  chosenRelaySet: NDKRelaySet,
+  nip50RelaySet: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
   // Search for the URL content (protocol stripping now handled by replacement rules)
@@ -37,14 +37,14 @@ export async function searchUrlEvents(
         timeoutMs: streamingOptions?.timeoutMs || 30000,
         maxResults: streamingOptions?.maxResults || 1000,
         onResults: streamingOptions?.onResults,
-        relaySet: chosenRelaySet,
+        relaySet: nip50RelaySet,
         abortSignal
       })
     : await subscribeAndCollect({
         kinds: effectiveKinds,
         search: searchQuery,
         limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet, abortSignal);
+      }, 8000, nip50RelaySet, abortSignal);
   
   return sortEventsNewestFirst(results).slice(0, limit);
 }

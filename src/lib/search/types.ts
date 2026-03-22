@@ -15,7 +15,10 @@ export interface SearchContext {
   effectiveKinds: number[];
   dateFilter?: { since?: number; until?: number };
   nip50Extensions?: Nip50Extensions;
-  chosenRelaySet: NDKRelaySet;
+  /** All reachable relays (default + user + premium + manual). For structured queries. */
+  broadRelaySet: NDKRelaySet;
+  /** Curated NIP-50 relays only. For any query containing free-text search terms. */
+  nip50RelaySet: NDKRelaySet;
   relaySetOverride?: NDKRelaySet;
   isStreaming: boolean;
   streamingOptions?: StreamingSearchOptions;
