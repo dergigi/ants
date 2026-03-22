@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-22
+
+### Fixed
+- Reverted `stripNonVisible()` from content filter -- stripping URLs and `nostr:` references broke GIF, filename, URL, and NIP-05 searches (#228, reverts #190)
+
 ## [0.3.2] - 2026-03-21
 
 ### Added
@@ -30,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All tag strategies support `by:` combinations via shared `parseResidual()` helper
 
 ### Fixed
-- Content filter now strips URLs and `nostr:` refs before matching, preventing false negatives on notes containing bech32 identifiers (#190, @alltheseas)
+- ~~Content filter now strips URLs and `nostr:` refs before matching (#190, @alltheseas)~~ — reverted in 0.3.3, broke GIF/URL/filename searches (#228)
 - Content filter hardened with regex pre-compilation, empty-term guard, and stripped structured tokens (#186)
 - `getBroadRelaySet()` guarded in `id:` lookup path for graceful degradation when relay discovery fails (#205)
 - Relatr integration hardened: bounded profile cache (max 500 entries), logged `sub.stop()` errors, fallback publish timer with cleanup guard, consistent limit floor (#209)
