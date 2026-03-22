@@ -64,8 +64,9 @@ export async function tryHandleAuthorSearch(
     }
   }
 
-  // Get author-specific relays that support NIP-50 in parallel for all authors
-  const authorRelaySet = chosenRelaySet;
+  // Clone the shared relay set so author-specific outbox relays don't pollute
+  // the context used by other strategies (#227)
+  const authorRelaySet = new NDKRelaySet(new Set(chosenRelaySet.relays), ndk);
   try {
     const outboxResults = await Promise.allSettled(
       pubkeys.map(pk => getOutboxSearchCapableRelays(pk))
