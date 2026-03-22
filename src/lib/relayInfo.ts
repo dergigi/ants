@@ -108,7 +108,12 @@ export async function getRelayInfo(relayUrl: string): Promise<RelayInfo> {
 
       // Fall back to HTTP NIP-11 detection
       const httpResult = await checkRelayInfoViaHttp(relayUrl);
-      if (httpResult.supportedNips?.length || httpResult.name || httpResult.description) {
+      // Cache any successful NIP-11 response, even with empty supported_nips.
+      // This avoids re-probing relays that explicitly report no NIP-50 support.
+      const hasData = httpResult.supportedNips !== undefined
+        || httpResult.name || httpResult.description
+        || httpResult.contact || httpResult.software || httpResult.version;
+      if (hasData) {
         relayInfoCache.set(relayUrl, { ...httpResult, timestamp: Date.now() });
         saveCacheToStorage();
         return httpResult;
