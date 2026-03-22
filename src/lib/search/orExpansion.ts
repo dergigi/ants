@@ -137,9 +137,13 @@ export async function handleProfileSeeds(pSeeds: string[], limit: number): Promi
 async function collectAndFilter(
   filter: NDKFilter, relaySet: NDKRelaySet, abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
 ): Promise<NDKEvent[]> {
-  return sortEventsNewestFirst(
-    applyContentFilter(dedupeEvents(await subscribeAndCollect(filter, 10000, relaySet, abortSignal)), cleanedQuery)
-  ).slice(0, limit);
+  let raw: NDKEvent[];
+  try {
+    raw = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
+  } catch {
+    return [];
+  }
+  return sortEventsNewestFirst(applyContentFilter(dedupeEvents(raw), cleanedQuery)).slice(0, limit);
 }
 
 /** Strip kind/hashtag tokens to get residual search text */
