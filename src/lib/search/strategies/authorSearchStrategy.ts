@@ -64,6 +64,9 @@ export async function tryHandleAuthorSearch(
     }
   }
 
+  // Determine whether this query needs NIP-50 search support
+  const needsNip50 = searchText.length > 0;
+
   // Pick the right base relay set: NIP-50 for text search, broad for structured queries.
   // Clone so author-specific outbox relays don't pollute the shared set (#227).
   const baseRelaySet = needsNip50 ? nip50RelaySet : broadRelaySet;
@@ -87,7 +90,6 @@ export async function tryHandleAuthorSearch(
   // Search queries (has searchText) → NIP-50 relays only.
   // Direct queries (no searchText, just authors/kinds/tags) → all relays.
   let res: NDKEvent[] = [];
-  const needsNip50 = searchText.length > 0;
 
   if (needsNip50) {
     // Text + author query: only use NIP-50 search relays (they honor the search field)
