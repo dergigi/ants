@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-03-22
+
+### Added
+- "Search local relays when logged in" checkbox in relay panel -- lets users opt in to searching their own private/LAN relays (#216)
+- `RelayRow` component extracted from `RelayStatusDisplay` for cleaner relay list rendering
+
+### Fixed
+- Private/LAN relay URLs (localhost, RFC 1918, link-local, IPv6 ULA) are now filtered before probing or connecting, preventing Chrome 147's Local Network Access prompt (#216)
+- Other users' local relays (discovered via `by:` searches) are always filtered; only the logged-in user's own relays respect the opt-in setting
+- Clone relay set in author search strategy to prevent shared state mutation across search strategies (#227)
+- `filterNip50Relays` index aligned with filtered relay list to avoid mismatched results
+- NIP-11 responses with empty `supported_nips` arrays are now cached, avoiding repeated probes
+- Relay latency indicators use blue instead of green; non-responsive relays show `[timeout]` in gray instead of `[dead]` in red (#232)
+- Relay toggle button has proper `aria-label` and `aria-pressed` for accessibility
+
+### Changed
+- Split `relays.ts` (693 lines) into focused modules: `relayConfig.ts`, `relayDiscovery.ts`, `relayInfo.ts`, `relaySets.ts` -- all under 210 lines, existing imports unchanged
+- `discoverUserRelays` uses shared `fetchRelayList` helper instead of three copy-pasted subscribe blocks
+- `getOutboxSearchCapableRelays` reuses `fetchRelayList`, down from 105 to 57 lines
+- Duplicated `addRelay` closures replaced by shared `addRelayToSet` from `relayConfig.ts`
+- Local relays setting scoped per pubkey to prevent cross-account leakage
+
 ## [0.3.3] - 2026-03-22
 
 ### Fixed
