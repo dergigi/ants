@@ -14,6 +14,26 @@ But it's useful to at least one person already, which is [me](https://ants.sh/p/
 
 You can follow ants on nostr: [ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td](https://ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td)
 
+### Ants Philosophy
+
+ants is highly opinionated. It was developed with the following goals in mind
+- Pretty, shareable, short URLs like [ants.sh/?q=search](https://ants.sh/?q=search), [ants.sh/t/asknostr](https://ants.sh/t/asknostr), and [ants.sh/p/ants.sh](https://ants.sh/p/ants.sh)
+- Works seamlessly on mobile (mobile-first) and can be installed as a PWA
+- There is [no global view](https://sovereignengineering.io/podcast/02---there-is-no-global) of nostr
+- Read-only
+
+And here are some things that ants will **NEVER** do:
+- Add a database to the backend
+- Build a centralized index
+- Have a backend
+
+In addition to the above, here's the opinions that make it opinionated:
+- It should work for [me](https://ants.sh/p/dergigi.com)
+- Performance is less important than results
+- Users should have to click as little as possible
+- Use sane defaults instead of customization and configuration
+- Absolutely minimal UI; show icons instead of text; most things are clickable
+
 ## Search Examples
 
 ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by making good use of [NIP-05](https://ants.sh/?q=nip%3A05), [NIP-50](https://ants.sh/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
