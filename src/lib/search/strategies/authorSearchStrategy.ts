@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { RELAYS } from '../../relays';
+
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { expandParenthesizedOr } from '../queryTransforms';
@@ -142,8 +142,6 @@ export async function tryHandleAuthorSearch(
     // Direct query (authors + kinds + tags, no search text): all relays are fine.
     res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
     if (res.length === 0) {
-      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
       res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
     }
   }
