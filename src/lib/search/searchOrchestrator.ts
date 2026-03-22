@@ -24,7 +24,7 @@ export async function runSearchStrategies(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { isStreaming, streamingOptions, chosenRelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
+  const { isStreaming, streamingOptions, nip50RelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
 
   // Note: id: lookups are handled early in search.ts, before the orchestrator.
 
@@ -36,7 +36,7 @@ export async function runSearchStrategies(
     limit,
     isStreaming || false,
     streamingOptions,
-    chosenRelaySet,
+    nip50RelaySet,
     abortSignal
   );
   if (urlResults) return urlResults;

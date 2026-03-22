@@ -4,7 +4,6 @@ import { buildSearchQueryWithExtensions, Nip50Extensions } from './searchUtils';
 import { extractKindFilter, applyDateFilter, normalizeResidualSearchText } from './queryParsing';
 import { expandParenthesizedOr } from './queryTransforms';
 import { subscribeAndCollect } from './subscriptions';
-import { getBroadRelaySet } from './relayManagement';
 import { searchByAnyTerms } from './termSearch';
 import { resolveAuthorTokens } from './authorResolve';
 import { applyContentFilter } from './contentFilter';
@@ -24,7 +23,7 @@ export function extractNonByContent(seed: string): string {
 /** Optimize pure by: OR queries into a single multi-author filter. Returns null if not applicable. */
 export async function maybeOptimizeByOnlyOrSeeds(
   seeds: string[], effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, chosenRelaySet: NDKRelaySet,
+  nip50Extensions: Nip50Extensions | undefined, broadRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined, limit: number
 ): Promise<NDKEvent[] | null> {
   const trimmedSeeds = seeds.map((s) => s.trim()).filter(Boolean);
@@ -47,14 +46,15 @@ export async function maybeOptimizeByOnlyOrSeeds(
     dateFilter
   ) as NDKFilter;
 
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  // Pure author query: no search text, use broad relays
+  const results = await subscribeAndCollect(filter, 10000, broadRelaySet, abortSignal);
   return sortEventsNewestFirst(results).slice(0, limit);
 }
 
 /** Handle parenthesized OR expansion: "(GM OR GN) by:dergigi" => multiple seeds. */
 export async function handleParenthesizedOr(
   cleanedQuery: string, effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, chosenRelaySet: NDKRelaySet,
+  nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined, limit: number
 ): Promise<NDKEvent[] | null> {
   const expandedSeeds = expandParenthesizedOr(cleanedQuery)
@@ -68,9 +68,9 @@ export async function handleParenthesizedOr(
     return handleProfileSeeds(expandedSeeds, limit);
   }
 
-  // Pure by: OR queries
+  // Pure by: OR queries (no search text, use broad relays)
   const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit
+    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit
   );
   if (byOnlyResults !== null) return byOnlyResults;
 
@@ -81,14 +81,14 @@ export async function handleParenthesizedOr(
 
   if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
     const result = await handleSameContentMultiAuthor(
-      expandedSeeds, firstNonBy, effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, cleanedQuery, limit
+      expandedSeeds, firstNonBy, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit
     );
     if (result) return result;
   }
 
   // Combined hashtag + author patterns
   const tagAuthorResult = await handleTagAuthorCombination(
-    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, cleanedQuery, limit
+    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit
   );
   if (tagAuthorResult) return tagAuthorResult;
 
@@ -101,9 +101,9 @@ export async function handleParenthesizedOr(
   });
 
   const seedResults = await searchByAnyTerms(
-    translatedSeeds, Math.max(limit, 500), chosenRelaySet, abortSignal,
+    translatedSeeds, Math.max(limit, 500), nip50RelaySet, abortSignal,
     nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => getBroadRelaySet()
+    () => Promise.resolve(broadRelaySet)
   );
 
   // No global content filter — per-seed filtering happens inside termSearch
@@ -130,10 +130,10 @@ export async function handleProfileSeeds(pSeeds: string[], limit: number): Promi
 
 /** Build filter, subscribe, apply content filter, and return sorted results. */
 async function collectAndFilter(
-  filter: NDKFilter, chosenRelaySet: NDKRelaySet,
+  filter: NDKFilter, relaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
 ): Promise<NDKEvent[]> {
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  const results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
   return sortEventsNewestFirst(applyContentFilter(results, cleanedQuery)).slice(0, limit);
 }
 
@@ -147,7 +147,7 @@ function extractResidual(preprocessed: string, normalize = false): string {
 async function handleSameContentMultiAuthor(
   expandedSeeds: string[], baseQuery: string,
   effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, chosenRelaySet: NDKRelaySet,
+  nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
 ): Promise<NDKEvent[] | null> {
   const resolvedPubkeys = await resolveAuthorTokens(
@@ -167,13 +167,14 @@ async function handleSameContentMultiAuthor(
   const residual = extractResidual(preprocessed);
   if (residual) filter.search = nip50Extensions ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
 
-  return collectAndFilter(filter, chosenRelaySet, abortSignal, cleanedQuery, limit);
+  const relaySet = filter.search ? nip50RelaySet : broadRelaySet;
+  return collectAndFilter(filter, relaySet, abortSignal, cleanedQuery, limit);
 }
 
 async function handleTagAuthorCombination(
   expandedSeeds: string[], effectiveKinds: number[],
   dateFilter: { since?: number; until?: number }, nip50Extensions: Nip50Extensions | undefined,
-  chosenRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined,
+  nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined,
   cleanedQuery: string, limit: number
 ): Promise<NDKEvent[] | null> {
   const extractTags = (s: string): string[] =>
@@ -204,5 +205,6 @@ async function handleTagAuthorCombination(
   const residual = extractResidual(preprocessed, true);
   if (residual) filter.search = nip50Extensions ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
 
-  return collectAndFilter(filter, chosenRelaySet, abortSignal, cleanedQuery, limit);
+  const relaySet = filter.search ? nip50RelaySet : broadRelaySet;
+  return collectAndFilter(filter, relaySet, abortSignal, cleanedQuery, limit);
 }

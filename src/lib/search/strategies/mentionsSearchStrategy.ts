@@ -3,7 +3,7 @@ import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { subscribeAndCollect } from '../subscriptions';
 import { resolveAuthorTokens } from '../authorResolve';
-import { getBroadRelaySet } from '../relayManagement';
+
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
 
@@ -19,7 +19,7 @@ export async function tryHandleMentionsSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
 
   const mentionsMatches = Array.from(cleanedQuery.matchAll(/\bmentions:(\S+)/gi));
   if (mentionsMatches.length === 0) {
@@ -68,18 +68,18 @@ export async function tryHandleMentionsSearch(
     }
   }
 
-  // When a search term is present, use NIP-50 relays (chosenRelaySet) so the
-  // `search` field is actually evaluated. Non-NIP-50 relays silently ignore it
-  // and return all #p matches, polluting results.
+  // When a search term is present, use NIP-50 relays so the `search` field is
+  // actually evaluated. Non-NIP-50 relays silently ignore it and return all
+  // #p matches, polluting results.
   const hasSearchTerm = Boolean((filters as NDKFilter).search);
-  const primaryRelaySet = hasSearchTerm ? chosenRelaySet : await getBroadRelaySet();
+  const primaryRelaySet = hasSearchTerm ? nip50RelaySet : broadRelaySet;
 
   let res: NDKEvent[];
   try {
     res = await subscribeAndCollect(filters, 10000, primaryRelaySet, abortSignal);
   } catch (error) {
-    // Fallback to chosen relay set (already NIP-50 capable)
-    res = await subscribeAndCollect(filters, 10000, chosenRelaySet, abortSignal);
+    // Fallback to NIP-50 relay set
+    res = await subscribeAndCollect(filters, 10000, nip50RelaySet, abortSignal);
   }
 
   // Dedupe

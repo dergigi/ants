@@ -27,7 +27,7 @@ export async function tryHandleReplySearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
 
   const matches = Array.from(cleanedQuery.matchAll(/\breply:(\S+)/gi));
   if (matches.length === 0) return null;
@@ -46,5 +46,5 @@ export async function tryHandleReplySearch(
 
   if (search) (filter as NDKFilter).search = search;
 
-  return fetchDedupeAndSort(filter, chosenRelaySet, Boolean(search), abortSignal, limit);
+  return fetchDedupeAndSort(filter, nip50RelaySet, broadRelaySet, Boolean(search), abortSignal, limit);
 }

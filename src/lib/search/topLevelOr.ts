@@ -3,7 +3,6 @@ import { sortEventsNewestFirst } from '../utils/searchUtils';
 import { Nip50Extensions } from './searchUtils';
 import { applyDateFilter } from './queryParsing';
 import { expandParenthesizedOr } from './queryTransforms';
-import { getBroadRelaySet } from './relayManagement';
 import { searchByAnyTerms } from './termSearch';
 import { maybeOptimizeByOnlyOrSeeds, handleProfileSeeds } from './orExpansion';
 
@@ -16,8 +15,8 @@ export async function handleTopLevelOr(
   effectiveKinds: number[],
   dateFilter: { since?: number; until?: number },
   nip50Extensions: Nip50Extensions | undefined,
-  chosenRelaySet: NDKRelaySet,
-  relaySetOverride: NDKRelaySet | undefined,
+  nip50RelaySet: NDKRelaySet,
+  broadRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined,
   limit: number
 ): Promise<NDKEvent[] | null> {
@@ -34,9 +33,9 @@ export async function handleTopLevelOr(
       return acc;
     }, []);
 
-  // Try optimizing pure by: OR queries
+  // Try optimizing pure by: OR queries (no search text, use broad relays)
   const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-    normalizedParts, effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit
+    normalizedParts, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit
   );
   if (byOnlyResults !== null) return byOnlyResults;
 
@@ -47,20 +46,11 @@ export async function handleTopLevelOr(
   }
 
   // General OR search via searchByAnyTerms
-  let orResults = await searchByAnyTerms(
-    normalizedParts, Math.max(limit, 500), chosenRelaySet, abortSignal,
+  const orResults = await searchByAnyTerms(
+    normalizedParts, Math.max(limit, 500), nip50RelaySet, abortSignal,
     nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => getBroadRelaySet()
+    () => Promise.resolve(broadRelaySet)
   );
-
-  // Retry with broader relay set if no results
-  if (orResults.length === 0 && !relaySetOverride) {
-    const broadRelaySet = await getBroadRelaySet();
-    orResults = await searchByAnyTerms(
-      normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal,
-      nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter)
-    );
-  }
 
   const filtered = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
   return sortEventsNewestFirst(filtered).slice(0, limit);
