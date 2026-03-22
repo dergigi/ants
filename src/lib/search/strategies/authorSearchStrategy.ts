@@ -104,7 +104,9 @@ export async function tryHandleAuthorSearch(
           }, dateFilter) as NDKFilter;
           const r = await subscribeAndCollect(f, 8000, authorRelaySet, abortSignal);
           for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-        } catch {}
+        } catch (err) {
+          console.warn('Author search seed fetch failed for:', seed, err);
+        }
       }
     } else {
       res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
@@ -128,7 +130,9 @@ export async function tryHandleAuthorSearch(
           applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter)
         );
         res = [...res, ...seeded];
-      } catch {}
+      } catch (err) {
+        console.warn('Author search OR seed fetch failed:', err);
+      }
     }
   } else {
     // Direct query (authors + kinds + tags, no search text): all relays are fine.
