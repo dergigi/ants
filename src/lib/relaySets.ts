@@ -1,7 +1,7 @@
 import { NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
-import { getUserRelayAdditions } from './storage';
+import { getUserRelayAdditions, getSearchLocalRelays } from './storage';
 import { RELAYS, normalizeRelayUrl, isPrivateRelay, addRelayToSet } from './relayConfig';
 import { discoverUserRelays, getUserRelayCacheEntry } from './relayDiscovery';
 import { relayInfoCache, checkNip50Support, RELAY_INFO_CACHE_DURATION } from './relayInfo';
@@ -30,14 +30,16 @@ export async function extendWithUserAndPremium(
 
   const { userRelays, blockedRelays, searchRelays } = await discoverUserRelays(pubkey);
   const blockedSet = new Set(blockedRelays.map(normalizeRelayUrl));
+  const allowPrivate = getSearchLocalRelays();
 
   for (const blocked of blockedSet) relaySet.delete(blocked);
 
-  userRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet));
-  manualRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet));
+  // User's own relays respect the "search local relays" setting
+  userRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet, allowPrivate));
+  manualRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet, allowPrivate));
   RELAYS.PREMIUM.forEach((r) => addRelayToSet(relaySet, r, blockedSet));
   if (includeSearchRelays) {
-    searchRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet));
+    searchRelays.forEach((r) => addRelayToSet(relaySet, r, blockedSet, allowPrivate));
   }
 
   return Array.from(relaySet);
@@ -168,9 +170,11 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
   const pubkey = getStoredPubkey();
   const manualRelays = getUserRelayAdditions();
 
-  const addNip50 = (url: string, blocked: Set<string>) => {
+  const allowPrivate = getSearchLocalRelays();
+  const addNip50 = (url: string, blocked: Set<string>, priv = false) => {
     const normalized = normalizeRelayUrl(url);
-    if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
+    if (!normalized || blocked.has(normalized)) return;
+    if (!priv && isPrivateRelay(normalized)) return;
     if (hasCachedNip50Support(normalized)) relaySet.add(normalized);
   };
 
@@ -179,16 +183,16 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
     if (cached) {
       const blockedSet = new Set(cached.blockedRelays.map(normalizeRelayUrl));
       for (const b of blockedSet) relaySet.delete(b);
-      cached.searchRelays.forEach((r) => addNip50(r, blockedSet));
-      cached.userRelays.forEach((r) => addNip50(r, blockedSet));
-      manualRelays.forEach((r) => addNip50(r, blockedSet));
+      cached.searchRelays.forEach((r) => addNip50(r, blockedSet, allowPrivate));
+      cached.userRelays.forEach((r) => addNip50(r, blockedSet, allowPrivate));
+      manualRelays.forEach((r) => addNip50(r, blockedSet, allowPrivate));
       RELAYS.PREMIUM.forEach((r) => addNip50(r, blockedSet));
     } else {
-      manualRelays.forEach((r) => addNip50(r, emptyBlocked));
+      manualRelays.forEach((r) => addNip50(r, emptyBlocked, allowPrivate));
       RELAYS.PREMIUM.forEach((r) => addNip50(r, emptyBlocked));
     }
   } else {
-    manualRelays.forEach((r) => addNip50(r, emptyBlocked));
+    manualRelays.forEach((r) => addNip50(r, emptyBlocked, allowPrivate));
   }
 
   return NDKRelaySet.fromRelayUrls(filterDeadRelays(Array.from(relaySet)), ndk);
