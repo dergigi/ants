@@ -50,14 +50,17 @@ export function isPrivateRelay(url: string): boolean {
 
 /**
  * Add a relay URL to a set, skipping blocked and private relays.
- * Shared helper used by relay set construction functions.
+ * Pass allowPrivate=true for the logged-in user's own relays when
+ * the "search local relays" setting is enabled.
  */
 export function addRelayToSet(
   relaySet: Set<string>,
   url: string,
-  blocked: Set<string>
+  blocked: Set<string>,
+  allowPrivate = false
 ): void {
   const normalized = normalizeRelayUrl(url);
-  if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
+  if (!normalized || blocked.has(normalized)) return;
+  if (!allowPrivate && isPrivateRelay(normalized)) return;
   relaySet.add(normalized);
 }
