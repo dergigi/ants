@@ -141,8 +141,7 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
     }
   }
 
-  const allRelays = await extendWithUserAndPremium(allSearchRelays);
-  return createRelaySet(await filterNip50Relays(allRelays));
+  return createRelaySet(await filterNip50Relays(allSearchRelays));
 }
 
 function hasCachedNip50Support(url: string): boolean {
