@@ -44,6 +44,8 @@ export default function RelayStatusDisplay({
   return (
     <div key={`relay-status-${allRelays.length}`}
       className="mt-2 p-3 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg text-xs w-full">
+      <LocalRelaysToggle />
+
       {allRelays.length > 0 ? (
         <div className="space-y-1">
           {allRelays.map((relay, idx) => {
@@ -69,12 +71,12 @@ export default function RelayStatusDisplay({
         <div className="text-gray-400">No relay connection information available</div>
       )}
 
-      {getStoredPubkey() && <LocalRelaysToggle />}
     </div>
   );
 }
 
 function LocalRelaysToggle() {
+  const isLoggedIn = !!getStoredPubkey();
   const [enabled, setEnabled] = useState(getSearchLocalRelays);
   const toggle = () => {
     const next = !enabled;
@@ -82,9 +84,15 @@ function LocalRelaysToggle() {
     setSearchLocalRelays(next);
   };
   return (
-    <label className="flex items-center gap-2 text-xs text-gray-400 mt-3 pt-2 border-t border-[#3d3d3d] cursor-pointer">
-      <input type="checkbox" checked={enabled} onChange={toggle} className="accent-[#4a4a4a]" />
-      <span>Search local relays</span>
+    <label className="flex items-center gap-2 text-xs text-gray-400 mb-3 pb-2 border-b border-[#3d3d3d] cursor-pointer">
+      <input
+        type="checkbox"
+        checked={isLoggedIn ? enabled : true}
+        onChange={toggle}
+        disabled={!isLoggedIn}
+        className="accent-[#4a4a4a]"
+      />
+      <span className={!isLoggedIn ? 'opacity-50' : ''}>Search local relays when logged in</span>
     </label>
   );
 }
