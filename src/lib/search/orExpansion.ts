@@ -8,6 +8,15 @@ import { searchByAnyTerms } from './termSearch';
 import { resolveAuthorTokens } from './authorResolve';
 import { applyContentFilter } from './contentFilter';
 import { searchProfilesFullText } from '../vertex';
+/** Deduplicate events by id */
+function dedupeEvents(events: NDKEvent[]): NDKEvent[] {
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+}
 
 /** Extract all by: tokens from a seed string */
 export function extractByTokens(seed: string): string[] {
@@ -20,12 +29,11 @@ export function extractNonByContent(seed: string): string {
   return seed.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-/** Optimize pure by: OR queries into a single multi-author filter. Returns null if not applicable. */
+/** Optimize pure by: OR queries into a single multi-author filter. */
 export async function maybeOptimizeByOnlyOrSeeds(
   seeds: string[], effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, limit: number
-): Promise<NDKEvent[] | null> {
+  _nip50Extensions: Nip50Extensions | undefined, broadRelaySet: NDKRelaySet,
+  abortSignal: AbortSignal | undefined, limit: number): Promise<NDKEvent[] | null> {
   const trimmedSeeds = seeds.map((s) => s.trim()).filter(Boolean);
   if (trimmedSeeds.length < 2) return null;
 
@@ -47,16 +55,21 @@ export async function maybeOptimizeByOnlyOrSeeds(
   ) as NDKFilter;
 
   // Pure author query: no search text, use broad relays
-  const results = await subscribeAndCollect(filter, 10000, broadRelaySet, abortSignal);
-  return sortEventsNewestFirst(results).slice(0, limit);
+  let results: NDKEvent[];
+  try {
+    results = await subscribeAndCollect(filter, 10000, broadRelaySet, abortSignal);
+  } catch {
+    return null; // Let caller fall back to searchByAnyTerms
+  }
+
+  return sortEventsNewestFirst(dedupeEvents(results)).slice(0, limit);
 }
 
 /** Handle parenthesized OR expansion: "(GM OR GN) by:dergigi" => multiple seeds. */
 export async function handleParenthesizedOr(
   cleanedQuery: string, effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, limit: number
-): Promise<NDKEvent[] | null> {
+  nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet,
+  broadRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined, limit: number): Promise<NDKEvent[] | null> {
   const expandedSeeds = expandParenthesizedOr(cleanedQuery)
     .map((seed) => seed.trim())
     .filter(Boolean);
@@ -74,10 +87,9 @@ export async function handleParenthesizedOr(
   );
   if (byOnlyResults !== null) return byOnlyResults;
 
-  // Same non-by content with different authors
   const firstNonBy = extractNonByContent(expandedSeeds[0]);
-  const allSameNonBy = expandedSeeds.every((seed) => extractNonByContent(seed) === firstNonBy);
-  const allHaveBy = expandedSeeds.every((seed) => /\bby:\S+/i.test(seed));
+  const allSameNonBy = expandedSeeds.every((s) => extractNonByContent(s) === firstNonBy);
+  const allHaveBy = expandedSeeds.every((s) => /\bby:\S+/i.test(s));
 
   if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
     const result = await handleSameContentMultiAuthor(
@@ -92,12 +104,11 @@ export async function handleParenthesizedOr(
   );
   if (tagAuthorResult) return tagAuthorResult;
 
-  // Fallback: search each seed via searchByAnyTerms
+  // Fallback: search each seed via searchByAnyTerms, prepend kind tokens if missing
+  const kindPrefix = effectiveKinds.map((k) => `kind:${k}`).join(' ');
   const translatedSeeds = expandedSeeds.map((seed) => {
-    const existingKind = extractKindFilter(seed);
-    if (existingKind.kinds && existingKind.kinds.length > 0) return seed;
-    const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
-    return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
+    if (extractKindFilter(seed).kinds?.length) return seed;
+    return kindPrefix ? `${kindPrefix} ${seed}`.trim() : seed;
   });
 
   const seedResults = await searchByAnyTerms(
@@ -112,32 +123,26 @@ export async function handleParenthesizedOr(
 
 export async function handleProfileSeeds(pSeeds: string[], limit: number): Promise<NDKEvent[]> {
   const pTerms = pSeeds.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
-  const profileResults = await Promise.allSettled(pTerms.map((term) => searchProfilesFullText(term)));
-  const mergedProfiles: NDKEvent[] = [];
-  const seenPubkeys = new Set<string>();
-  for (const result of profileResults) {
-    if (result.status !== 'fulfilled') continue;
-    for (const evt of result.value) {
+  const results = await Promise.allSettled(pTerms.map((t) => searchProfilesFullText(t)));
+  const seen = new Set<string>();
+  const merged = results.flatMap((r) => r.status === 'fulfilled' ? r.value : [])
+    .filter((evt) => {
       const pk = evt.pubkey || evt.author?.pubkey || '';
-      if (pk && !seenPubkeys.has(pk)) {
-        seenPubkeys.add(pk);
-        mergedProfiles.push(evt);
-      }
-    }
-  }
-  return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
+      return pk && !seen.has(pk) && (seen.add(pk), true);
+    });
+  return sortEventsNewestFirst(merged).slice(0, limit);
 }
 
-/** Build filter, subscribe, apply content filter, and return sorted results. */
+/** Subscribe, dedupe, content-filter, sort, and slice. */
 async function collectAndFilter(
-  filter: NDKFilter, relaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
+  filter: NDKFilter, relaySet: NDKRelaySet, abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
 ): Promise<NDKEvent[]> {
-  const results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
-  return sortEventsNewestFirst(applyContentFilter(results, cleanedQuery)).slice(0, limit);
+  return sortEventsNewestFirst(
+    applyContentFilter(dedupeEvents(await subscribeAndCollect(filter, 10000, relaySet, abortSignal)), cleanedQuery)
+  ).slice(0, limit);
 }
 
-/** Strip kind/hashtag tokens from preprocessed query to get residual search text */
+/** Strip kind/hashtag tokens to get residual search text */
 function extractResidual(preprocessed: string, normalize = false): string {
   const raw = preprocessed.replace(/\bkind:[^\s]+/gi, ' ').replace(/\bkinds:[^\s]+/gi, ' ')
     .replace(/#[A-Za-z0-9_]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -145,11 +150,10 @@ function extractResidual(preprocessed: string, normalize = false): string {
 }
 
 async function handleSameContentMultiAuthor(
-  expandedSeeds: string[], baseQuery: string,
-  effectiveKinds: number[], dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number
-): Promise<NDKEvent[] | null> {
+  expandedSeeds: string[], baseQuery: string, effectiveKinds: number[],
+  dateFilter: { since?: number; until?: number }, nip50Extensions: Nip50Extensions | undefined,
+  nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
+  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number): Promise<NDKEvent[] | null> {
   const resolvedPubkeys = await resolveAuthorTokens(
     Array.from(new Set(expandedSeeds.flatMap(extractByTokens)))
   );
@@ -174,9 +178,8 @@ async function handleSameContentMultiAuthor(
 async function handleTagAuthorCombination(
   expandedSeeds: string[], effectiveKinds: number[],
   dateFilter: { since?: number; until?: number }, nip50Extensions: Nip50Extensions | undefined,
-  nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined,
-  cleanedQuery: string, limit: number
-): Promise<NDKEvent[] | null> {
+  nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
+  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number): Promise<NDKEvent[] | null> {
   const extractTags = (s: string): string[] =>
     Array.from(s.matchAll(/#[A-Za-z0-9_]+/gi)).map((m) => (m[0] || '').slice(1).toLowerCase()).filter(Boolean);
   const extractCore = (s: string): string =>
