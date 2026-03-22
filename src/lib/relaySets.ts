@@ -2,7 +2,7 @@ import { NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk, ensureCacheInitialized } from './ndk';
 import { getStoredPubkey } from './nip07';
 import { getUserRelayAdditions } from './storage';
-import { RELAYS, normalizeRelayUrl, addRelayToSet } from './relayConfig';
+import { RELAYS, normalizeRelayUrl, isPrivateRelay, addRelayToSet } from './relayConfig';
 import { discoverUserRelays, getUserRelayCacheEntry } from './relayDiscovery';
 import { relayInfoCache, checkNip50Support, RELAY_INFO_CACHE_DURATION } from './relayInfo';
 import { filterDeadRelays, getRelayMonitorEntry, getMonitoredNip50Relays } from './nip66';
@@ -170,7 +170,7 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
 
   const addNip50 = (url: string, blocked: Set<string>) => {
     const normalized = normalizeRelayUrl(url);
-    if (!normalized || blocked.has(normalized)) return;
+    if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
     if (hasCachedNip50Support(normalized)) relaySet.add(normalized);
   };
 
