@@ -89,7 +89,14 @@ export async function searchEvents(
       getBroadRelaySet()
     ]);
     broadRelaySet = broadResult.status === 'fulfilled' ? broadResult.value : await getBroadRelaySet();
-    nip50RelaySet = nip50Result.status === 'fulfilled' ? nip50Result.value : broadRelaySet;
+    if (nip50Result.status === 'fulfilled') {
+      nip50RelaySet = nip50Result.value;
+    } else {
+      // NIP-50 relay discovery failed. Use an empty set so text searches
+      // return nothing instead of hitting non-NIP-50 relays with garbage results.
+      console.warn('[search] NIP-50 relay set construction failed, text searches will return empty');
+      nip50RelaySet = NDKRelaySet.fromRelayUrls([], ndk);
+    }
   }
 
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
