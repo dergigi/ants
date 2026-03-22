@@ -36,13 +36,17 @@ export function normalizeRelayUrl(url: string): string {
 // Private/LAN hostname patterns. Connecting to these from a public origin
 // is unreachable and triggers Chrome 147+ Local Network Access prompts (#216).
 const PRIVATE_HOST_RE = /^(?:localhost|.*\.local|.*\.lan|.*\.home|.*\.internal)$/i;
-const PRIVATE_IP_RE = /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?(?:::1|fe80:|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:))/i;
+// Match full IPv4 literals only (anchored with $) to avoid false positives on
+// DNS names like 10.example.com. Covers loopback, RFC 1918, link-local.
+const PRIVATE_IPV4_RE = /^(?:127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|169\.254(?:\.\d{1,3}){2}|0\.0\.0\.0)$/;
+// IPv6 loopback, link-local (fe80), and ULA (fc/fd) including compressed forms.
+const PRIVATE_IPV6_RE = /^\[?(?:::1|fe80:|f[cd][0-9a-f]{0,2}:)/i;
 
 /** Returns true if a relay URL points to a private/LAN address. */
 export function isPrivateRelay(url: string): boolean {
   try {
     const hostname = new URL(url.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:')).hostname;
-    return PRIVATE_HOST_RE.test(hostname) || PRIVATE_IP_RE.test(hostname);
+    return PRIVATE_HOST_RE.test(hostname) || PRIVATE_IPV4_RE.test(hostname) || PRIVATE_IPV6_RE.test(hostname);
   } catch {
     return false;
   }
