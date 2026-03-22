@@ -1,6 +1,6 @@
 import { NDKEvent, NDKRelaySet, NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe } from '../ndk';
-import { relaySets as predefinedRelaySets, RELAYS, extendWithUserAndPremium, getRelayInfo } from '../relays';
+import { relaySets as predefinedRelaySets, RELAYS, extendWithUserAndPremium, getRelayInfo, isPrivateRelay } from '../relays';
 import { getUserRelayAdditions } from '../storage';
 import { filterDeadRelays } from '../nip66';
 
@@ -73,8 +73,10 @@ export async function getOutboxSearchCapableRelays(authorPubkey: string): Promis
       sub.start();
     });
 
-    // Pre-filter dead relays before expensive NIP-11 probing
-    const liveCandidates = filterDeadRelays(candidateRelays);
+    // Pre-filter dead and private/LAN relays before expensive NIP-11 probing.
+    // Private relays are unreachable from a public origin and trigger
+    // Chrome's Local Network Access prompt (#216).
+    const liveCandidates = filterDeadRelays(candidateRelays).filter(url => !isPrivateRelay(url));
 
     // Test each candidate relay for NIP-50 support using NIP-11
     const relayCheckPromises = liveCandidates.map(async (relayUrl: string) => {

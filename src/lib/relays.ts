@@ -274,6 +274,20 @@ function normalizeRelayUrlInternal(url: string): string {
   return withScheme.replace(/\/+$/, '');
 }
 
+// Private/LAN hostname patterns. Connecting to these from a public origin
+// is unreachable and triggers Chrome 147+ Local Network Access prompts (#216).
+const PRIVATE_HOST_RE = /^(?:localhost|.*\.local|.*\.lan|.*\.home|.*\.internal)$/i;
+const PRIVATE_IP_RE = /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|0\.0\.0\.0|\[?::1\]?|\[?fe80:)/i;
+
+export function isPrivateRelay(url: string): boolean {
+  try {
+    const hostname = new URL(url.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:')).hostname;
+    return PRIVATE_HOST_RE.test(hostname) || PRIVATE_IP_RE.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function extendWithUserAndPremium(
   relayUrls: readonly string[],
   options: { includeSearchRelays?: boolean } = {}
@@ -282,7 +296,7 @@ export async function extendWithUserAndPremium(
   const relaySet = new Set<string>();
   const addRelay = (url: string, blocked: Set<string>) => {
     const normalized = normalizeRelayUrlInternal(url);
-    if (!normalized || blocked.has(normalized)) return;
+    if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
     relaySet.add(normalized);
   };
 
@@ -626,13 +640,13 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
   const relaySet = new Set<string>();
   const addRelay = (url: string, blocked: Set<string>) => {
     const normalized = normalizeRelayUrlInternal(url);
-    if (!normalized || blocked.has(normalized)) return;
+    if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
     relaySet.add(normalized);
   };
   // Only add enrichment relays that have cached NIP-50 confirmation
   const addNip50Relay = (url: string, blocked: Set<string>) => {
     const normalized = normalizeRelayUrlInternal(url);
-    if (!normalized || blocked.has(normalized)) return;
+    if (!normalized || blocked.has(normalized) || isPrivateRelay(normalized)) return;
     if (hasCachedNip50Support(normalized)) {
       relaySet.add(normalized);
     }
