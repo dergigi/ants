@@ -71,12 +71,12 @@ export default function RelayRow({
           )}
           {monitorEntry && (
             monitorEntry.isAlive ? (
-              <span className="text-green-400 ml-1"
+              <span className="text-blue-400 ml-1"
                 title={`Monitor: alive${monitorEntry.rttOpen ? `, RTT ${monitorEntry.rttOpen}ms` : ''}`}>
                 [{monitorEntry.rttOpen ? `${monitorEntry.rttOpen}ms` : 'alive'}]
               </span>
             ) : (
-              <span className="text-red-400 ml-1" title="Monitor: dead">[dead]</span>
+              <span className="text-gray-400 ml-1" title="Monitor: timed out">[timeout]</span>
             )
           )}
         </div>
