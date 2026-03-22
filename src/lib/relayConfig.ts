@@ -36,7 +36,7 @@ export function normalizeRelayUrl(url: string): string {
 // Private/LAN hostname patterns. Connecting to these from a public origin
 // is unreachable and triggers Chrome 147+ Local Network Access prompts (#216).
 const PRIVATE_HOST_RE = /^(?:localhost|.*\.local|.*\.lan|.*\.home|.*\.internal)$/i;
-const PRIVATE_IP_RE = /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|0\.0\.0\.0|\[?::1\]?|\[?fe80:)/i;
+const PRIVATE_IP_RE = /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?(?:::1|fe80:|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:))/i;
 
 export function isPrivateRelay(url: string): boolean {
   try {
