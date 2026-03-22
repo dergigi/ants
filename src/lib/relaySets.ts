@@ -5,7 +5,7 @@ import { getUserRelayAdditions, getSearchLocalRelays } from './storage';
 import { RELAYS, normalizeRelayUrl, isPrivateRelay, addRelayToSet } from './relayConfig';
 import { discoverUserRelays, getUserRelayCacheEntry } from './relayDiscovery';
 import { relayInfoCache, checkNip50Support, RELAY_INFO_CACHE_DURATION } from './relayInfo';
-import { filterDeadRelays, getRelayMonitorEntry, getMonitoredNip50Relays } from './nip66';
+import { filterDeadRelays, getRelayMonitorEntry } from './nip66';
 
 /** Build a relay URL list enriched with user, manual, and premium relays */
 export async function extendWithUserAndPremium(
@@ -130,7 +130,7 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 
 export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   const pubkey = getStoredPubkey();
-  const allSearchRelays: string[] = [...RELAYS.SEARCH, ...getMonitoredNip50Relays()];
+  const allSearchRelays: string[] = [...RELAYS.SEARCH];
 
   if (pubkey) {
     try {
@@ -163,7 +163,7 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
   const relaySet = new Set<string>();
   const emptyBlocked = new Set<string>();
 
-  for (const url of [...RELAYS.SEARCH, ...getMonitoredNip50Relays()]) {
+  for (const url of RELAYS.SEARCH) {
     addRelayToSet(relaySet, url, emptyBlocked);
   }
 
