@@ -29,6 +29,7 @@ And here are some things that ants will **NEVER** do:
 
 In addition to the above, here's the opinions that make it opinionated:
 - It should work for [me](https://ants.sh/p/dergigi.com)
+- Simple [`replacements.txt`](https://github.com/dergigi/ants/blob/master/public/replacements.txt) are at the core
 - Performance is less important than results
 - Users should have to click as little as possible
 - Use sane defaults instead of customization and configuration
