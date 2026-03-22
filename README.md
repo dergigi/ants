@@ -80,9 +80,13 @@ The `/t/` path supports multiple separators (comma, plus, and space).
 
 ## Relay Logic
 
-There is hardcoded relays for search (NIP-50) as well as for general use.
+There are hardcoded relays for search[^search-relays] (NIP-50), general use[^default-relays], and profile lookups[^profile-relays].
 
-Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition it to the hardcoded list of search relays.
+Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition to the hardcoded list of search relays.
+
+[^default-relays]: Default relays: `relay.primal.net`, `relay.snort.social`, `relay.ditto.pub`
+[^search-relays]: Search relays (NIP-50): `search.nos.today`, `relay.nostr.band`, `relay.ditto.pub`, `relay.davidebtc.me`, `relay.gathr.gives`, `nostr.polyserv.xyz`, `nostr.azzamo.net`, `search.nostrarchives.com`, `antiprimal.net`
+[^profile-relays]: Profile search relays: `purplepag.es`, `search.nos.today`, `relay.nostr.band`, `relay.ditto.pub`
 
 When connecting to a relay we retrieve the `supported_nips` as per NIP-11. The relay list as well as the supported NIPs are shown in the relay status indicator. Relays that returned one or more of the results that are currently shown on the page are shown in blue. Relays that support NIP-50 show a magnifying glass. The relay icon in the relay status display allows for relay-based client-side filtering of results.
 

@@ -14,6 +14,8 @@ export const RELAYS = {
     'wss://relay.gathr.gives',
     'wss://nostr.polyserv.xyz',
     'wss://nostr.azzamo.net',
+    'wss://search.nostrarchives.com',
+    'wss://antiprimal.net',
   ],
   PROFILE_SEARCH: [
     'wss://purplepag.es',
