@@ -21,6 +21,7 @@ export type RelayInfo = Omit<RelayInfoEntry, 'timestamp'>;
 
 // Cache for relay information (complete NIP-11 data)
 export const relayInfoCache = new Map<string, RelayInfoEntry>();
+export { RELAY_INFO_CACHE_DURATION };
 const CACHE_DURATION_MS = RELAY_INFO_CACHE_DURATION;
 const CACHE_STORAGE_KEY = 'ants_relay_info_cache';
 
