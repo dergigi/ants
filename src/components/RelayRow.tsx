@@ -49,7 +49,12 @@ export default function RelayRow({
     <div className="text-[11px] text-gray-400 font-mono flex items-start gap-1">
       <div className="flex items-start gap-1">
         {providedResults ? (
-          <button type="button" onClick={() => onToggleRelay?.(normalizedUrl)}>
+          <button
+            type="button"
+            aria-label={isToggled ? `Hide results from ${normalizedUrl}` : `Show only results from ${normalizedUrl}`}
+            aria-pressed={isToggled}
+            onClick={() => onToggleRelay?.(normalizedUrl)}
+          >
             {iconEl}
           </button>
         ) : iconEl}
