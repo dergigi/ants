@@ -5,6 +5,7 @@ import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } fr
 import { normalizePubkey } from './key-utils';
 import { clearProfileEventCache } from './profile-event-cache';
 import { clearUsernameCache } from './username-cache';
+import { clearProfileSearchCache } from './search-cache';
 export { getCachedProfileEvent, setCachedProfileEvent, clearProfileEventCache, configureProfileEventCache } from './profile-event-cache';
 
 // DVM Cache types and constants
@@ -171,6 +172,7 @@ export function invalidateNip05Cache(pubkeyHex: string, nip05: string): void {
 export function clearAllProfileCaches(): void {
   clearProfileEventCache();
   clearUsernameCache();
+  clearProfileSearchCache();
   DVM_CACHE.clear();
   nip05VerificationCache.clear();
   nip05PersistentCache.clear();

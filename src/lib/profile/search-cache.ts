@@ -1,5 +1,5 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storageCache';
+import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from '../storageCache';
 import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
 
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
@@ -32,6 +32,11 @@ export function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
   }
   profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
   saveProfileSearchCacheToStorage();
+}
+
+export function clearProfileSearchCache(): void {
+  profileSearchCache.clear();
+  clearStorageKey(PROFILE_SEARCH_CACHE_STORAGE_KEY);
 }
 
 function saveProfileSearchCacheToStorage(): void {
