@@ -7,8 +7,9 @@ import { expandParenthesizedOr } from '../queryTransforms';
 import { subscribeAndCollect } from '../subscriptions';
 import { searchByAnyTerms } from '../termSearch';
 import { resolveAuthorTokens } from '../authorResolve';
-import { getBroadRelaySet, getOutboxSearchCapableRelays } from '../relayManagement';
+import { getOutboxSearchCapableRelays } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
+import { applyContentFilter } from '../contentFilter';
 import { SearchContext } from '../types';
 
 /**
@@ -39,19 +40,26 @@ export async function tryHandleAuthorSearch(
     return [];
   }
 
+  // Extract hashtags from terms as #t tag filters (direct query, no NIP-50 needed)
+  const tagMatches = Array.from(terms.match(/#[A-Za-z0-9_]+/gi) || [])
+    .map((t) => t.slice(1).toLowerCase());
+  // Residual text after stripping hashtags — this is what actually needs NIP-50
+  const searchText = terms.replace(/#[A-Za-z0-9_]+/g, ' ').replace(/\s+/g, ' ').trim();
+
   const filters: NDKFilter = applyDateFilter({
     kinds: effectiveKinds,
     authors: pubkeys,
-    limit: Math.max(limit, 200)
+    limit: Math.max(limit, 200),
+    ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
   }, dateFilter) as NDKFilter;
 
-  // Add search term to the filter if present
-  if (terms) {
-    const seedExpansions2 = expandParenthesizedOr(terms);
+  // Add search term to the filter only if there's residual text (requires NIP-50)
+  if (searchText) {
+    const seedExpansions2 = expandParenthesizedOr(searchText);
     if (seedExpansions2.length === 1) {
       filters.search = nip50Extensions
-        ? buildSearchQueryWithExtensions(terms, nip50Extensions)
-        : terms;
+        ? buildSearchQueryWithExtensions(searchText, nip50Extensions)
+        : searchText;
       filters.limit = Math.max(limit, 200);
     }
   }
@@ -73,10 +81,15 @@ export async function tryHandleAuthorSearch(
     console.warn('Failed to get author-specific relays, using chosen relay set:', error);
   }
 
-  // Fetch by base terms if any, restricted to resolved authors
+  // Fetch events, restricted to resolved authors.
+  // Search queries (has searchText) → NIP-50 relays only.
+  // Direct queries (no searchText, just authors/kinds/tags) → all relays.
   let res: NDKEvent[] = [];
-  if (terms) {
-    const seedExpansions3 = expandParenthesizedOr(terms);
+  const needsNip50 = searchText.length > 0;
+
+  if (needsNip50) {
+    // Text + author query: only use NIP-50 search relays (they honor the search field)
+    const seedExpansions3 = expandParenthesizedOr(searchText);
     if (seedExpansions3.length > 1) {
       const seen = new Set<string>();
       for (const seed of seedExpansions3) {
@@ -84,76 +97,63 @@ export async function tryHandleAuthorSearch(
           const searchQuery = nip50Extensions
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
-          const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
+          const f: NDKFilter = applyDateFilter({
+            kinds: effectiveKinds, authors: pubkeys, search: searchQuery,
+            limit: Math.max(limit, 200),
+            ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
+          }, dateFilter) as NDKFilter;
           const r = await subscribeAndCollect(f, 8000, authorRelaySet, abortSignal);
           for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-        } catch {}
+        } catch (err) {
+          console.warn('Author search seed fetch failed for:', seed, err);
+        }
       }
     } else {
       res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
     }
-  } else {
-    res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
-  }
 
-  // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
-  const seedMatches = Array.from(terms.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
-  const seedTerms: string[] = [];
-  for (const m of seedMatches) {
-    const inner = (m[1] || '').trim();
-    if (!inner) continue;
-    inner.split(/\s+OR\s+/i).forEach((t) => {
-      const token = t.trim();
-      if (token) seedTerms.push(token);
-    });
-  }
-  if (seedTerms.length > 0) {
-    try {
-       const seeded = await searchByAnyTerms(
-         seedTerms,
-         limit,
-         authorRelaySet,
-         abortSignal,
-         nip50Extensions,
-         applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter),
-         () => getBroadRelaySet()
-       );
-      res = [...res, ...seeded];
-    } catch {}
-  }
-  // Fallback: if no results, try a broader relay set (default + search)
-  const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-  const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-  if (res.length === 0) {
-    try {
-      res = await subscribeAndCollect(filters, 10000, authorRelaySet, abortSignal);
-    } catch (error) {
-      console.warn('Author relay set fallback failed, using broad relay set:', error);
+    // Parenthesized OR seeds within the search text
+    const seedMatches = Array.from(searchText.matchAll(/\(([^)]+\s+OR\s+[^)]+)\)/gi));
+    const seedTerms: string[] = [];
+    for (const m of seedMatches) {
+      const inner = (m[1] || '').trim();
+      if (!inner) continue;
+      inner.split(/\s+OR\s+/i).forEach((t) => {
+        const token = t.trim();
+        if (token) seedTerms.push(token);
+      });
     }
+    if (seedTerms.length > 0) {
+      try {
+        const seeded = await searchByAnyTerms(
+          seedTerms, limit, authorRelaySet, abortSignal, nip50Extensions,
+          applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter)
+        );
+        res = [...res, ...seeded];
+      } catch (err) {
+        console.warn('Author search OR seed fetch failed:', err);
+      }
+    }
+  } else {
+    // Direct query (authors + kinds + tags, no search text): all relays are fine.
+    res = await subscribeAndCollect(filters, 8000, authorRelaySet, abortSignal);
     if (res.length === 0) {
+      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
+      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
       res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
     }
   }
-  // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
-  // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
-  const termStr = terms.trim();
-  const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
-  if (res.length === 0 && termStr) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
-    const needle = termStr.toLowerCase();
-    res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-  } else if (res.length === 0 && hasShortToken) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
-    const needle = termStr.toLowerCase();
-    res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-  }
-  let mergedResults: NDKEvent[] = res;
+
   // Dedupe
   const dedupe = new Map<string, NDKEvent>();
-  for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
-  mergedResults = Array.from(dedupe.values());
-  // Do not enforce additional client-side text match; rely on relay-side search
-  const filtered = mergedResults;
+  for (const e of res) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
+  let results = Array.from(dedupe.values());
 
-  return sortEventsNewestFirst(filtered).slice(0, limit);
+  // Apply client-side content filter when there's search text.
+  // Catches any relay that doesn't properly honor the search field.
+  if (needsNip50) {
+    results = applyContentFilter(results, searchText);
+  }
+
+  return sortEventsNewestFirst(results).slice(0, limit);
 }
