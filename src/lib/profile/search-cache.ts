@@ -1,11 +1,11 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { hasLocalStorage, loadMapFromStorage, saveMapToStorage } from '../storageCache';
+import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from '../storageCache';
 import { deserializeProfileEvent, serializeProfileEvent, StoredProfileEvent } from './eventStorage';
 
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 type StoredSearchCacheEntry = { events: StoredProfileEvent[]; timestamp: number };
 
-const PROFILE_SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (increased from 5 minutes)
+const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const PROFILE_SEARCH_CACHE_MAX_SIZE = 500;
 const PROFILE_SEARCH_CACHE_STORAGE_KEY = 'ants_profile_search_cache_v1';
 const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
@@ -32,6 +32,11 @@ export function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
   }
   profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
   saveProfileSearchCacheToStorage();
+}
+
+export function clearProfileSearchCache(): void {
+  profileSearchCache.clear();
+  clearStorageKey(PROFILE_SEARCH_CACHE_STORAGE_KEY);
 }
 
 function saveProfileSearchCacheToStorage(): void {
