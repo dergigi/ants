@@ -118,18 +118,6 @@ export async function tryHandleAuthorSearch(
       } catch {}
     }
 
-    // Short-term fallback: some relays need >=3 chars for NIP-50 search.
-    // Fetch author-only from broad relays and filter client-side.
-    if (res.length === 0) {
-      const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
-      const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
-      const authorOnly = await subscribeAndCollect(
-        applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter,
-        10000, broadRelaySet, abortSignal
-      );
-      const needle = terms.toLowerCase();
-      res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-    }
   } else {
     // Author-only query (no search terms): broad relays are fine since
     // there is no search field for them to ignore.
