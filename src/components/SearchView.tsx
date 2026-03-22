@@ -52,7 +52,7 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { relaySets, getNip50SearchRelaySet, getQuickNip50SearchRelaySet } from '@/lib/relays';
+import { relaySets, getQuickNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
@@ -956,16 +956,15 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
 
-      // Choose relay set based on query type
+      // Choose relay set: NIP-50 relays for text search, broad for direct lookups.
+      // searchEvents() builds both internally; we pass the NIP-50 set as the
+      // override for search queries so the quick (sync) set is used for instant
+      // results without waiting for async relay discovery.
       let relaySet: NDKRelaySet | undefined;
       if (isDirectQuery) {
-        // Direct queries (NIP-19): use all relays
         relaySet = await relaySets.default();
       } else {
-        // Search queries (NIP-50): use instant relay set (no async discovery)
         relaySet = getQuickNip50SearchRelaySet();
-        // Fire-and-forget full discovery to warm cache for subsequent searches
-        getNip50SearchRelaySet().catch(() => {});
       }
 
       // For NIP-50 text searches, stream results progressively
