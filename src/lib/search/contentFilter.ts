@@ -39,14 +39,6 @@ export function extractContentSearchTerms(query: string): string[] | null {
 }
 
 /**
- * Strip URLs and nostr: protocol references — they render as
- * embedded media/links/profiles, not visible text.
- */
-function stripNonVisible(text: string): string {
-  return text.replace(/https?:\/\/\S+/gi, ' ').replace(/nostr:[a-z0-9]+/gi, ' ');
-}
-
-/**
  * Convenience: extract content terms from a query and filter results.
  * Returns results unchanged if no content terms exist in the query.
  */
@@ -74,12 +66,16 @@ export function filterByContent(events: NDKEvent[], terms: string[]): NDKEvent[]
   const longTerms = lowerTerms.filter((t) => t.length > 3);
 
   return events.filter((event) => {
-    // Build searchable text from content + visible tag values
+    // Build searchable text from content + relevant tag values.
+    // We intentionally keep URLs and nostr: references in the searchable text.
+    // Stripping them broke GIF, filename, URL, and NIP-05 searches (#228).
+    // The relay already matched these events via NIP-50 — filtering them out
+    // client-side just throws away valid results.
     const parts: string[] = [];
-    if (event.content) parts.push(stripNonVisible(event.content));
+    if (event.content) parts.push(event.content);
     for (const tag of event.tags || []) {
       if (tag[0] === 'description' || tag[0] === 'title' || tag[0] === 'summary' || tag[0] === 'alt' || tag[0] === 'name') {
-        if (tag[1]) parts.push(stripNonVisible(tag[1]));
+        if (tag[1]) parts.push(tag[1]);
       }
     }
 
