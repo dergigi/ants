@@ -38,15 +38,8 @@ export function normalizeRelayUrl(url: string): string {
 const PRIVATE_HOST_RE = /^(?:localhost|.*\.local|.*\.lan|.*\.home|.*\.internal)$/i;
 const PRIVATE_IP_RE = /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?(?:::1|fe80:|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:))/i;
 
-/**
- * Returns true if a relay URL points to a private/LAN address.
- * Only filters when running on a public origin — local dev (localhost)
- * can reach local relays without triggering Chrome's LNA prompt.
- */
+/** Returns true if a relay URL points to a private/LAN address. */
 export function isPrivateRelay(url: string): boolean {
-  if (typeof window !== 'undefined' && PRIVATE_HOST_RE.test(window.location.hostname)) {
-    return false; // local origin can talk to local relays
-  }
   try {
     const hostname = new URL(url.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:')).hostname;
     return PRIVATE_HOST_RE.test(hostname) || PRIVATE_IP_RE.test(hostname);
