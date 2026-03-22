@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-03-22
+
+### Added
+- `search.nostrarchives.com` and `antiprimal.net` as search relays
+- Philosophy section in README
+- Hardcoded relay lists documented in README relay logic section
+
+### Fixed
+- Relay set architecture: replaced ambiguous `chosenRelaySet` with explicit `broadRelaySet` (for structured queries) and `nip50RelaySet` (for text search) in `SearchContext`, so non-NIP-50 relays no longer receive search queries they can't handle (#237, #238)
+- NIP-66 monitor data no longer injects discovered relays into search relay sets; NIP-66 is now used only for dead relay filtering and NIP support caching (#237)
+- `getNip50SearchRelaySet` no longer widens the NIP-50 set with unverified user/premium relays via `extendWithUserAndPremium`
+- Author strategy fallback reuses `context.broadRelaySet` instead of constructing a new relay set from hardcoded defaults
+- Mentions strategy fallback no longer incorrectly retries with NIP-50 relays when the primary was broad
+- OR expansion paths now deduplicate events by id before sorting and slicing
+- Graceful error handling in OR expansion and `collectAndFilter`: relay failures return empty results instead of propagating exceptions
+- NIP-50 relay set discovery failure returns an empty set instead of falling back to broad relays, preventing garbage results from non-NIP-50 relays
+
+### Changed
+- `SearchContext` carries `broadRelaySet` + `nip50RelaySet` instead of `chosenRelaySet`; every strategy picks the right set based on whether it has free-text search terms
+- `fetchDedupeAndSort` takes both relay sets explicitly
+- Hashtag, aTag, and license strategies use `context.broadRelaySet` directly instead of calling `getBroadRelaySet()` at runtime
+- Removed fire-and-forget `getNip50SearchRelaySet()` call from SearchView that could cause mid-search relay set mutations
+- NIP-50 and broad relay sets are now fetched in parallel via `Promise.allSettled`
+
 ## [0.3.4] - 2026-03-22
 
 ### Added
