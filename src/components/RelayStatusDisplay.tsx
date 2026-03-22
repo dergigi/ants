@@ -76,12 +76,13 @@ export default function RelayStatusDisplay({
 }
 
 function LocalRelaysToggle() {
-  const isLoggedIn = !!getStoredPubkey();
-  const [enabled, setEnabled] = useState(getSearchLocalRelays);
+  const pubkey = getStoredPubkey();
+  const isLoggedIn = !!pubkey;
+  const [enabled, setEnabled] = useState(() => getSearchLocalRelays(pubkey));
   const toggle = () => {
     const next = !enabled;
     setEnabled(next);
-    setSearchLocalRelays(next);
+    setSearchLocalRelays(pubkey, next);
   };
   return (
     <label className="flex items-center gap-2 text-xs text-gray-400 mb-3 pb-2 border-b border-[#3d3d3d] cursor-pointer">

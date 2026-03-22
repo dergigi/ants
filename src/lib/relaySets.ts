@@ -30,7 +30,7 @@ export async function extendWithUserAndPremium(
 
   const { userRelays, blockedRelays, searchRelays } = await discoverUserRelays(pubkey);
   const blockedSet = new Set(blockedRelays.map(normalizeRelayUrl));
-  const allowPrivate = getSearchLocalRelays();
+  const allowPrivate = getSearchLocalRelays(pubkey);
 
   for (const blocked of blockedSet) relaySet.delete(blocked);
 
@@ -170,7 +170,7 @@ export function getQuickNip50SearchRelaySet(): NDKRelaySet {
   const pubkey = getStoredPubkey();
   const manualRelays = getUserRelayAdditions();
 
-  const allowPrivate = getSearchLocalRelays();
+  const allowPrivate = getSearchLocalRelays(pubkey);
   const addNip50 = (url: string, blocked: Set<string>, priv = false) => {
     const normalized = normalizeRelayUrl(url);
     if (!normalized || blocked.has(normalized)) return;
