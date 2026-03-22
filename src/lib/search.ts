@@ -77,18 +77,20 @@ export async function searchEvents(
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
 
-  // Build both relay sets: broad (for structured queries) and NIP-50 (for text search)
+  // Build both relay sets in parallel: broad (structured queries) and NIP-50 (text search)
   let nip50RelaySet: NDKRelaySet;
+  let broadRelaySet: NDKRelaySet;
   if (relaySetOverride) {
     nip50RelaySet = relaySetOverride;
+    broadRelaySet = await getBroadRelaySet();
   } else {
-    try {
-      nip50RelaySet = await getNip50SearchRelaySet();
-    } catch {
-      nip50RelaySet = await getBroadRelaySet();
-    }
+    const [nip50Result, broadResult] = await Promise.allSettled([
+      getNip50SearchRelaySet(),
+      getBroadRelaySet()
+    ]);
+    broadRelaySet = broadResult.status === 'fulfilled' ? broadResult.value : await getBroadRelaySet();
+    nip50RelaySet = nip50Result.status === 'fulfilled' ? nip50Result.value : broadRelaySet;
   }
-  const broadRelaySet = await getBroadRelaySet();
 
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
   const { applySimpleReplacements } = await import('./search/replacements');
