@@ -94,10 +94,11 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
   const supported: string[] = [];
   const rejected: string[] = [];
   results.forEach((result, i) => {
+    const url = liveRelayUrls[i];
     if (result.status === 'fulfilled' && result.value.supportsNip50) {
-      supported.push(relayUrls[i]);
+      supported.push(url);
     } else {
-      rejected.push(relayUrls[i]);
+      rejected.push(url);
     }
   });
 
