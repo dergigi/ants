@@ -77,9 +77,8 @@ export async function tryHandleMentionsSearch(
   let res: NDKEvent[];
   try {
     res = await subscribeAndCollect(filters, 10000, primaryRelaySet, abortSignal);
-  } catch (error) {
-    // Fallback to NIP-50 relay set
-    res = await subscribeAndCollect(filters, 10000, nip50RelaySet, abortSignal);
+  } catch {
+    res = [];
   }
 
   // Dedupe
