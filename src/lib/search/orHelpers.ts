@@ -32,10 +32,16 @@ export async function collectAndFilter(
   return sortEventsNewestFirst(applyContentFilter(dedupeEvents(raw), cleanedQuery)).slice(0, limit);
 }
 
-/** Strip kind/hashtag tokens to get residual search text */
+/** Strip structured modifiers to get residual search text */
 function extractResidual(preprocessed: string, normalize = false): string {
-  const raw = preprocessed.replace(/\bkind:[^\s]+/gi, ' ').replace(/\bkinds:[^\s]+/gi, ' ')
-    .replace(/#[A-Za-z0-9_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const raw = preprocessed
+    .replace(/\bby:\S+/gi, ' ')
+    .replace(/\b(?:since|until):\d{4}-\d{2}-\d{2}\b/gi, ' ')
+    .replace(/\bkind:[^\s]+/gi, ' ')
+    .replace(/\bkinds:[^\s]+/gi, ' ')
+    .replace(/#[A-Za-z0-9_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   return normalize ? normalizeResidualSearchText(raw) : raw;
 }
 

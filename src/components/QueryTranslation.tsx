@@ -85,7 +85,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       const immediateResult = await generateTranslation(query, true);
       if (!cancelled) setTranslation(immediateResult);
 
-      if (query.includes('by:')) {
+      if (/(^|\s)by:/i.test(query)) {
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);

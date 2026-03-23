@@ -60,7 +60,7 @@ export function stripRelayFilters(rawQuery: string): string {
 export function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: number[] } {
   let cleaned = rawQuery;
   const kinds: number[] = [];
-  const kindRegex = /(?:^|\s)kind:([0-9,\s]+)(?=\s|$)/gi;
+  const kindRegex = /(?:^|\s)kind:([0-9]+(?:\s*,\s*[0-9]+)*)(?=\s|$)/gi;
   cleaned = cleaned.replace(kindRegex, (_, list: string) => {
     (list || '')
       .split(',')

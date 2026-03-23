@@ -52,14 +52,15 @@ export async function resolveByTokensInQuery(
     } else if (/^@contacts$/i.test(core)) {
       // Preserve as-is (expanded at search time)
     } else if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
-      if (authorResolutionCache.has(core)) {
-        replacement = authorResolutionCache.get(core) || core;
+      const cacheKey = `${ppProvider ?? 'default'}:${core.toLowerCase()}`;
+      if (authorResolutionCache.has(cacheKey)) {
+        replacement = authorResolutionCache.get(cacheKey) || core;
       } else {
         try {
           const npub = await resolveAuthorToNpub(core, ppProvider ?? undefined);
           if (npub) {
             replacement = npub;
-            authorResolutionCache.set(core, npub);
+            authorResolutionCache.set(cacheKey, npub);
           }
         } catch {}
       }
