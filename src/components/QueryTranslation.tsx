@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
-import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { resolveRelativeDates } from '@/lib/search/relativeDates';
-import { nip19 } from 'nostr-tools';
-import { getStoredPubkey } from '@/lib/nip07';
 import { getLastReducedFilters } from '@/lib/ndk';
+import {
+  getAdaptiveDebounceMs,
+  resolveByTokensInQuery,
+  resolvePTokensInQuery
+} from '@/lib/queryTranslationHelpers';
 
 interface QueryTranslationProps {
   query: string;
@@ -25,155 +27,41 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const resolutionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredSearchRef = useRef<boolean>(false);
 
-  // Determine an adaptive debounce based on device/network characteristics
-  const getAdaptiveDebounceMs = useCallback((): number => {
-    let delay = 700;
+  const generateTranslation = useCallback(async (q: string, skipAuthorResolution = false): Promise<string> => {
     try {
-      const nav: unknown = typeof navigator !== 'undefined' ? navigator : undefined;
-      // Hardware concurrency: fewer cores → longer debounce
-      const cores = (nav as { hardwareConcurrency?: number })?.hardwareConcurrency;
-      if (typeof cores === 'number') {
-        if (cores <= 2) delay += 300; // very low-end
-        else if (cores <= 4) delay += 150; // low-end
-      }
-      // Device memory: low memory → longer debounce
-      const deviceMemory = (nav as { deviceMemory?: number })?.deviceMemory as number | undefined;
-      if (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 4) {
-        delay += 100;
-      }
-      // Network quality: slower connections → slightly longer debounce
-      const anyNav = nav as { connection?: { effectiveType?: string } } | undefined;
-      const effectiveType = anyNav?.connection?.effectiveType || '';
-      if (typeof effectiveType === 'string') {
-        if (effectiveType.includes('2g') || effectiveType === 'slow-2g') delay += 200;
-        else if (effectiveType.includes('3g')) delay += 100;
-      }
-    } catch {}
-    // Clamp to 700–1000ms range
-    return Math.min(1000, Math.max(700, delay));
-  }, []);
-
-  const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
-    try {
-      // 0) Strip pp:<provider> keyword (shown separately, not part of query translation)
-      const ppMatch = query.match(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/i);
+      const ppMatch = q.match(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/i);
       const ppProvider = ppMatch ? ppMatch[1]?.toLowerCase() : null;
-      const withoutPp = query.replace(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi, ' ').trim();
+      const withoutPp = q.replace(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi, ' ').trim();
 
-      // 1) Resolve relative dates (since:2w → since:2026-03-06) then apply replacements
       const { resolved: dateResolved } = resolveRelativeDates(withoutPp);
       const afterReplacements = await applySimpleReplacements(dateResolved);
-
-      // 2) Recursive OR substitution (distribute parentheses)
       const distributed = expandParenthesizedOr(afterReplacements);
 
-      // Helper: resolve all by:<author> tokens within a single query string
-      const resolveByTokensInQuery = async (q: string): Promise<string> => {
-        const rx = /(^|\s)by:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          
-          // Resolve @me to the logged-in user's npub directly
-          if (/^@me$/i.test(core)) {
-            const pk = getStoredPubkey();
-            if (pk) replacement = nip19.npubEncode(pk);
-          } else if (/^@contacts$/i.test(core)) {
-            // Preserve @contacts as-is (expanded at search time to full follow list)
-          } else if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
-            // Check cache first
-            if (authorResolutionCache.current.has(core)) {
-              replacement = authorResolutionCache.current.get(core) || core;
-            } else {
-              try {
-                const npub = await resolveAuthorToNpub(core, ppProvider ?? undefined);
-                if (npub) {
-                  replacement = npub;
-                  authorResolutionCache.current.set(core, npub);
-                }
-              } catch {}
-            }
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}by:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
+      const resolvedDistributed = skipAuthorResolution
+        ? distributed
+        : await Promise.all(distributed.map((s) =>
+            resolveByTokensInQuery(s, false, authorResolutionCache.current, ppProvider)
+          ));
 
-      // Helper: normalize p:<token> where token may be hex, npub or nprofile
-      const resolvePTokensInQuery = (q: string): string => {
-        const rx = /(^|\s)p:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          if (/^[0-9a-fA-F]{64}$/.test(core)) {
-            try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
-          } else if (/^npub1[0-9a-z]+$/i.test(core)) {
-            replacement = core;
-          } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
-            try {
-              const decoded = nip19.decode(core);
-              if (decoded?.type === 'nprofile') {
-                const pk = (decoded.data as { pubkey: string }).pubkey;
-                replacement = nip19.npubEncode(pk);
-              }
-            } catch {}
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}p:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
+      const withPResolved = resolvedDistributed.map((s) => resolvePTokensInQuery(s));
 
-      // 3) Resolve authors inside each distributed branch (if not skipping)
-      const resolvedDistributed = skipAuthorResolution 
-        ? distributed 
-        : await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
-
-      const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
-
-      // 4) For parenthesized OR expansion, show all expanded queries
-      // Don't split further if we already have multiple distributed queries
       if (distributed.length > 1) {
-        // We have parenthesized OR expansion - show all expanded queries
         let preview = withPResolved.join('\n');
         if (ppProvider) preview = `[pp:${ppProvider}] ${preview}`;
         return preview;
       }
 
-      // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
       const finalQueriesSet = new Set<string>();
-      for (const q of withPResolved) {
-        const parts = parseOrQuery(q);
+      for (const s of withPResolved) {
+        const parts = parseOrQuery(s);
         if (parts.length > 1) {
-          parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
+          parts.forEach((p) => { const t = p.trim(); if (t) finalQueriesSet.add(t); });
         } else {
-          const s = q.trim(); if (s) finalQueriesSet.add(s);
+          const t = s.trim(); if (t) finalQueriesSet.add(t);
         }
       }
       const finalQueries = Array.from(finalQueriesSet);
 
-      // Format compact preview
       let preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
       if (ppProvider) preview = `[pp:${ppProvider}] ${preview}`;
       return preview;
@@ -182,66 +70,48 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
     }
   }, [authorResolutionCache]);
 
-  // Generate translation when query changes
   useEffect(() => {
     let cancelled = false;
     let debounceId: ReturnType<typeof setTimeout> | null = null;
-    
+
     if (!query.trim()) {
       setTranslation('');
       return;
     }
 
     const generateAndSetTranslation = async () => {
-      // Reset search trigger flag for new query
       hasTriggeredSearchRef.current = false;
-      
-      // Phase 1: Show expanded queries immediately (without author resolution)
-      const immediateResult = await generateTranslation(query, true);
-      if (!cancelled) {
-        setTranslation(immediateResult);
-      }
 
-      // Phase 2: Update with resolved authors (if any by: tokens exist)
+      const immediateResult = await generateTranslation(query, true);
+      if (!cancelled) setTranslation(immediateResult);
+
       if (query.includes('by:')) {
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);
-          
-          // Clear any existing timeout
-          if (resolutionTimeoutRef.current) {
-            clearTimeout(resolutionTimeoutRef.current);
-          }
-          
-          // Set a timeout to trigger search after resolution stabilizes
-          // This allows time for NIP-05 verification and re-ranking to complete
+          if (resolutionTimeoutRef.current) clearTimeout(resolutionTimeoutRef.current);
           resolutionTimeoutRef.current = setTimeout(() => {
             if (lastResolvedQueryRef.current !== query && !hasTriggeredSearchRef.current) {
               lastResolvedQueryRef.current = query;
               hasTriggeredSearchRef.current = true;
               onAuthorResolved?.();
             }
-          }, 2000); // Wait 2 seconds for final resolution
+          }, 2000);
         }
       }
     };
 
-    debounceId = setTimeout(() => {
-      generateAndSetTranslation();
-    }, getAdaptiveDebounceMs()); // Adaptive debounce to reduce typing lag on slower devices
+    debounceId = setTimeout(generateAndSetTranslation, getAdaptiveDebounceMs());
 
-    return () => { 
+    return () => {
       cancelled = true;
-      if (debounceId) {
-        clearTimeout(debounceId);
-        debounceId = null;
-      }
+      if (debounceId) clearTimeout(debounceId);
       if (resolutionTimeoutRef.current) {
         clearTimeout(resolutionTimeoutRef.current);
         resolutionTimeoutRef.current = null;
       }
     };
-  }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
+  }, [query, generateTranslation, onAuthorResolved]);
 
   const filtersJson = (() => {
     try {
@@ -259,26 +129,17 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const isLongTranslation = translation.split('\n').length > 4;
 
   return (
-    <div 
-      id="search-explanation" 
+    <div
+      id="search-explanation"
       className={`mt-1 text-[11px] text-gray-400 font-mono break-all whitespace-pre-wrap flex items-start gap-2 ${
         isLongTranslation ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
       }`}
-      onClick={() => {
-        if (isLongTranslation) {
-          setIsExplanationExpanded(!isExplanationExpanded);
-        }
-      }}
+      onClick={() => { if (isLongTranslation) setIsExplanationExpanded(!isExplanationExpanded); }}
     >
       <button
         type="button"
         className="mt-0.5 flex-shrink-0 text-xs text-gray-500 hover:text-gray-200"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (filtersJson) {
-            setShowFilters((prev) => !prev);
-          }
-        }}
+        onClick={(e) => { e.stopPropagation(); if (filtersJson) setShowFilters((prev) => !prev); }}
         aria-label="Show effective filters"
         aria-expanded={showFilters}
       >
@@ -287,7 +148,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       <div className="flex-1 min-w-0">
         {isLongTranslation && !isExplanationExpanded ? (
           <>
-            <div className="overflow-hidden" style={{ 
+            <div className="overflow-hidden" style={{
               display: '-webkit-box',
               WebkitLineClamp: 4,
               WebkitBoxOrient: 'vertical'
