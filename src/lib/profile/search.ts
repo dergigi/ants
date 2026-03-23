@@ -28,7 +28,7 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
 
   const storedPubkey = getStoredPubkey();
   const loggedIn = Boolean(storedPubkey);
-  const cacheKey = makeProfileSearchCacheKey(query, loggedIn);
+  const cacheKey = makeProfileSearchCacheKey(query, loggedIn) + (forcedProvider ? `:${forcedProvider}` : '');
   const cached = getCachedProfileSearch(cacheKey);
   if (cached) return cached.slice(0, limit);
 
