@@ -131,7 +131,8 @@ export async function tryHandleAuthorSearch(
       try {
         const seeded = await searchByAnyTerms(
           seedTerms, limit, authorRelaySet, abortSignal, nip50Extensions,
-          applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter)
+          applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter),
+          () => Promise.resolve(authorRelaySet), profileProvider
         );
         res = [...res, ...seeded];
       } catch (err) {

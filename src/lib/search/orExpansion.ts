@@ -115,7 +115,7 @@ export async function handleParenthesizedOr(
   const seedResults = await searchByAnyTerms(
     translatedSeeds, Math.max(limit, 500), nip50RelaySet, abortSignal,
     nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => Promise.resolve(broadRelaySet)
+    () => Promise.resolve(broadRelaySet), profileProvider
   );
 
   // No global content filter — per-seed filtering happens inside termSearch
