@@ -104,12 +104,12 @@ export async function searchEvents(
   const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
 
   const parsedQuery = parseSearchQuery(preprocessedQuery, SEARCH_DEFAULT_KINDS);
-  const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters } = parsedQuery;
+  const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters, profileProvider } = parsedQuery;
 
   const searchContext: SearchContext = {
     effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, nip50RelaySet,
     relaySetOverride, isStreaming: isStreaming || false, streamingOptions,
-    abortSignal, limit, extensionFilters
+    abortSignal, limit, extensionFilters, profileProvider
   };
 
   // 1. Try parenthesized OR expansion: "(GM OR GN) by:dergigi"

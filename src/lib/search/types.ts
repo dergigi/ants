@@ -25,6 +25,8 @@ export interface SearchContext {
   abortSignal?: AbortSignal;
   limit: number;
   extensionFilters?: Array<(content: string) => boolean>;
+  /** Force a specific profile lookup provider for by:/mentions: resolution (pp: keyword) */
+  profileProvider?: string;
 }
 
 // Extend filter type to include tag queries for "t" (hashtags) and "a" (replaceable events)
