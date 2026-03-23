@@ -55,8 +55,13 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
+      // 0) Strip pp:<provider> keyword (shown separately, not part of query translation)
+      const ppMatch = query.match(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/i);
+      const ppProvider = ppMatch ? ppMatch[1]?.toLowerCase() : null;
+      const withoutPp = query.replace(/(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi, ' ').trim();
+
       // 1) Resolve relative dates (since:2w → since:2026-03-06) then apply replacements
-      const { resolved: dateResolved } = resolveRelativeDates(query);
+      const { resolved: dateResolved } = resolveRelativeDates(withoutPp);
       const afterReplacements = await applySimpleReplacements(dateResolved);
 
       // 2) Recursive OR substitution (distribute parentheses)
@@ -89,7 +94,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
               replacement = authorResolutionCache.current.get(core) || core;
             } else {
               try {
-                const npub = await resolveAuthorToNpub(core);
+                const npub = await resolveAuthorToNpub(core, ppProvider ?? undefined);
                 if (npub) {
                   replacement = npub;
                   authorResolutionCache.current.set(core, npub);
@@ -151,7 +156,8 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       // Don't split further if we already have multiple distributed queries
       if (distributed.length > 1) {
         // We have parenthesized OR expansion - show all expanded queries
-        const preview = withPResolved.join('\n');
+        let preview = withPResolved.join('\n');
+        if (ppProvider) preview = `[pp:${ppProvider}] ${preview}`;
         return preview;
       }
 
@@ -168,7 +174,8 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       const finalQueries = Array.from(finalQueriesSet);
 
       // Format compact preview
-      const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+      let preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
+      if (ppProvider) preview = `[pp:${ppProvider}] ${preview}`;
       return preview;
     } catch {
       return '';
