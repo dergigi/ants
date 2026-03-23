@@ -89,13 +89,17 @@ export async function queryProviderProfiles(
   return { events, provider };
 }
 
-// Try all configured providers in order; returns first successful result or null
+// Try all configured providers in order; returns first successful result or null.
+// When forcedProvider is set (via pp: keyword), only that provider is tried.
 export async function tryQueryProviders(
   query: string,
   limit: number,
-  loggedIn: boolean
+  loggedIn: boolean,
+  forcedProvider?: string
 ): Promise<NDKEvent[] | null> {
-  const providerOrder = getProfileLookupProviderOrder(loggedIn);
+  const providerOrder = forcedProvider
+    ? [forcedProvider as ProfileLookupProvider]
+    : getProfileLookupProviderOrder(loggedIn);
   for (const provider of providerOrder) {
     if (provider === 'relay') break;
     try {

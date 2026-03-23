@@ -6,8 +6,9 @@ import { getCachedUsername, setCachedUsername } from './username-cache';
 import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 import { searchProfilesFullText } from './search';
 
-// Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
-export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> {
+// Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event.
+// Optional forcedProvider (from pp: keyword) is forwarded to searchProfilesFullText.
+export async function resolveAuthor(authorInput: string, forcedProvider?: string): Promise<{ pubkeyHex: string | null; profileEvent: NDKEvent | null }> {
   try {
     const input = (authorInput || '').trim();
     if (!input) return { pubkeyHex: null, profileEvent: null };
@@ -59,7 +60,7 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
 
     let profileEvt: NDKEvent | null = null;
     try {
-      const profiles = await searchProfilesFullText(input, 1);
+      const profiles = await searchProfilesFullText(input, 1, forcedProvider);
       profileEvt = profiles[0] || null;
     } catch {}
 
@@ -79,7 +80,7 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
 // Resolve a by:<author> token value (username, nip05, or npub) to an npub.
 // Returns the original input if it's already an npub, otherwise attempts Vertex DVM
 // and falls back to a NIP-50 profile search. Hard timebox externally when needed.
-export async function resolveAuthorToNpub(author: string): Promise<string | null> {
+export async function resolveAuthorToNpub(author: string, forcedProvider?: string): Promise<string | null> {
   try {
     const input = (author || '').trim();
     if (!input) return null;
@@ -87,7 +88,7 @@ export async function resolveAuthorToNpub(author: string): Promise<string | null
     if (/^[0-9a-fA-F]{64}$/.test(input)) {
       try { return nip19.npubEncode(input.toLowerCase()); } catch { return null; }
     }
-    const { pubkeyHex } = await resolveAuthor(input);
+    const { pubkeyHex } = await resolveAuthor(input, forcedProvider);
     if (!pubkeyHex) return null;
     try { return nip19.npubEncode(pubkeyHex); } catch { return null; }
   } catch {

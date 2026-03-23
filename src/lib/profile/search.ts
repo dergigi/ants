@@ -22,7 +22,7 @@ import {
 } from './search-cache';
 
 // Full-text profile search with ranking
-export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS): Promise<NDKEvent[]> {
+export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS, forcedProvider?: string): Promise<NDKEvent[]> {
   const query = term.trim();
   if (!query) return [];
 
@@ -33,7 +33,7 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
   if (cached) return cached.slice(0, limit);
 
   // Step 0: try configured providers before relay-based ranking
-  const providerResult = await tryQueryProviders(query, limit, loggedIn);
+  const providerResult = await tryQueryProviders(query, limit, loggedIn, forcedProvider);
   if (providerResult) {
     setCachedProfileSearch(cacheKey, providerResult);
     return providerResult.slice(0, limit);
