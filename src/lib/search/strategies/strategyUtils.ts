@@ -38,14 +38,15 @@ export async function fetchDedupeAndSort(
  */
 export async function parseResidual(
   residual: string,
-  nip50Extensions: Nip50Extensions | undefined
+  nip50Extensions: Nip50Extensions | undefined,
+  profileProvider?: string
 ): Promise<{ authors?: string[]; search?: string }> {
   const byMatches = Array.from(residual.matchAll(/\bby:(\S+)/gi));
   let authors: string[] | undefined;
 
   if (byMatches.length > 0) {
     const tokens = Array.from(new Set(byMatches.map((m) => m[1]).filter(Boolean)));
-    const resolved = await resolveAuthorTokens(tokens);
+    const resolved = await resolveAuthorTokens(tokens, profileProvider);
     if (resolved.length > 0) authors = resolved;
   }
 

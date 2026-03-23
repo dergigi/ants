@@ -21,7 +21,8 @@ export async function searchByAnyTerms(
   abortSignal?: AbortSignal,
   nip50Extensions?: Nip50Extensions,
   baseFilter?: Partial<NDKFilter>,
-  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>
+  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>,
+  profileProvider?: string
 ): Promise<NDKEvent[]> {
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
@@ -73,7 +74,7 @@ export async function searchByAnyTerms(
       }
 
       if (byMatches.length > 0) {
-        const resolvedPubkeys = await resolveAuthorTokens(byMatches);
+        const resolvedPubkeys = await resolveAuthorTokens(byMatches, profileProvider);
 
         if (resolvedPubkeys.length === 0) {
           console.warn(`No authors could be resolved for term: ${normalizedTerm}`);

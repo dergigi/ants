@@ -27,7 +27,7 @@ export async function tryHandleReplySearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider } = context;
 
   const matches = Array.from(cleanedQuery.matchAll(/\breply:(\S+)/gi));
   if (matches.length === 0) return null;
@@ -37,7 +37,7 @@ export async function tryHandleReplySearch(
   if (eventIds.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\breply:\S+/gi, '').replace(/\s+/g, ' ').trim();
-  const { authors, search } = await parseResidual(residual, nip50Extensions);
+  const { authors, search } = await parseResidual(residual, nip50Extensions, profileProvider);
 
   const filter: TagEFilter = applyDateFilter({
     kinds: effectiveKinds, '#e': eventIds, limit: Math.max(limit, 500),

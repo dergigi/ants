@@ -13,8 +13,7 @@ export async function tryHandleProfileSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  // Context parameter kept for strategy interface consistency
-  void context;
+  const { profileProvider } = context;
   const fullProfileMatch = query.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
@@ -56,7 +55,7 @@ export async function tryHandleProfileSearch(
     const domainLike = /^[^\s@]+\.[^\s@]+$/.test(term);
     if (domainLike) {
       try {
-        const profiles = await searchProfilesFullText(term);
+        const profiles = await searchProfilesFullText(term, undefined, profileProvider);
         if (profiles.length === 0) return [];
 
         const domainLower = term.toLowerCase();
@@ -75,7 +74,7 @@ export async function tryHandleProfileSearch(
 
     // Otherwise, do a general full-text profile search
     try {
-      const profiles = await searchProfilesFullText(term);
+      const profiles = await searchProfilesFullText(term, undefined, profileProvider);
       return profiles;
     } catch (error) {
       console.warn('Full-text profile search failed:', error);

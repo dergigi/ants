@@ -18,7 +18,8 @@ export async function handleTopLevelOr(
   nip50RelaySet: NDKRelaySet,
   broadRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined,
-  limit: number
+  limit: number,
+  profileProvider?: string
 ): Promise<NDKEvent[] | null> {
   const normalizedParts = topLevelOrParts
     .map((part) => part.trim())
@@ -35,21 +36,21 @@ export async function handleTopLevelOr(
 
   // Try optimizing pure by: OR queries (no search text, use broad relays)
   const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-    normalizedParts, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit
+    normalizedParts, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit, profileProvider
   );
   if (byOnlyResults !== null) return byOnlyResults;
 
   // Profile search: all parts are p:<term>
   const isPClause = (s: string) => /^p:\S+/i.test(s);
   if (normalizedParts.length > 0 && normalizedParts.every(isPClause)) {
-    return handleProfileSeeds(normalizedParts, limit);
+    return handleProfileSeeds(normalizedParts, limit, profileProvider);
   }
 
   // General OR search via searchByAnyTerms
   const orResults = await searchByAnyTerms(
     normalizedParts, Math.max(limit, 500), nip50RelaySet, abortSignal,
     nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => Promise.resolve(broadRelaySet)
+    () => Promise.resolve(broadRelaySet), profileProvider
   );
 
   const filtered = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));

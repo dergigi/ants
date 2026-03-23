@@ -19,7 +19,7 @@ export async function tryHandleMentionsSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider } = context;
 
   const mentionsMatches = Array.from(cleanedQuery.matchAll(/\bmentions:(\S+)/gi));
   if (mentionsMatches.length === 0) {
@@ -29,7 +29,7 @@ export async function tryHandleMentionsSearch(
   const mentionTokens = Array.from(new Set(mentionsMatches.map(m => m[1]).filter(Boolean)));
   const terms = cleanedQuery.replace(/\bmentions:\S+/gi, '').replace(/\s+/g, ' ').trim();
 
-  const pubkeys = await resolveAuthorTokens(mentionTokens);
+  const pubkeys = await resolveAuthorTokens(mentionTokens, profileProvider);
 
   if (pubkeys.length === 0) {
     return [];
@@ -53,7 +53,7 @@ export async function tryHandleMentionsSearch(
   const byMatches = Array.from(terms.matchAll(/\bby:(\S+)/gi));
   if (byMatches.length > 0) {
     const authorTokens = Array.from(new Set(byMatches.map(m => m[1]).filter(Boolean)));
-    const authorPubkeys = await resolveAuthorTokens(authorTokens);
+    const authorPubkeys = await resolveAuthorTokens(authorTokens, profileProvider);
     if (authorPubkeys.length > 0) {
       (filters as NDKFilter).authors = authorPubkeys;
     }

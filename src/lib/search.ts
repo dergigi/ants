@@ -114,7 +114,7 @@ export async function searchEvents(
 
   // 1. Try parenthesized OR expansion: "(GM OR GN) by:dergigi"
   const parenOrResult = await handleParenthesizedOr(
-    cleanedQuery, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit
+    cleanedQuery, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider
   );
   if (parenOrResult) return parenOrResult;
 
@@ -128,7 +128,7 @@ export async function searchEvents(
   if (hasTopLevelOr) {
     const topOrResult = await handleTopLevelOr(
       topLevelOrParts, effectiveKinds, dateFilter, nip50Extensions,
-      nip50RelaySet, broadRelaySet, abortSignal, limit
+      nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider
     );
     if (topOrResult) return topOrResult;
   }

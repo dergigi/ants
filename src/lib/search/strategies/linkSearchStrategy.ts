@@ -15,7 +15,7 @@ export async function tryHandleLinkSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider } = context;
 
   const matches = Array.from(cleanedQuery.matchAll(/\blink:(\S+)/gi));
   if (matches.length === 0) return null;
@@ -24,7 +24,7 @@ export async function tryHandleLinkSearch(
   if (urls.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\blink:\S+/gi, '').replace(/\s+/g, ' ').trim();
-  const { authors, search } = await parseResidual(residual, nip50Extensions);
+  const { authors, search } = await parseResidual(residual, nip50Extensions, profileProvider);
 
   const filter: TagRFilter = applyDateFilter({
     kinds: effectiveKinds, '#r': urls, limit: Math.max(limit, 500),

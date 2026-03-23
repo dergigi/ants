@@ -21,7 +21,7 @@ export async function tryHandleAuthorSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider } = context;
 
   // Extract ALL by: tokens with a global regex
   const byMatches = Array.from(cleanedQuery.matchAll(/\bby:(\S+)/gi));
@@ -34,7 +34,7 @@ export async function tryHandleAuthorSearch(
   const terms = cleanedQuery.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
 
   // Resolve deduplicated author tokens to hex pubkeys in parallel
-  const pubkeys = await resolveAuthorTokens(authorTokens);
+  const pubkeys = await resolveAuthorTokens(authorTokens, profileProvider);
 
   if (pubkeys.length === 0) {
     return [];

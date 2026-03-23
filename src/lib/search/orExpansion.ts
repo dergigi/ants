@@ -33,7 +33,7 @@ export function extractNonByContent(seed: string): string {
 export async function maybeOptimizeByOnlyOrSeeds(
   seeds: string[], effectiveKinds: number[], dateFilter: { since?: number; until?: number },
   _nip50Extensions: Nip50Extensions | undefined, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, limit: number): Promise<NDKEvent[] | null> {
+  abortSignal: AbortSignal | undefined, limit: number, profileProvider?: string): Promise<NDKEvent[] | null> {
   const trimmedSeeds = seeds.map((s) => s.trim()).filter(Boolean);
   if (trimmedSeeds.length < 2) return null;
 
@@ -46,7 +46,7 @@ export async function maybeOptimizeByOnlyOrSeeds(
   const uniqueByTokens = Array.from(new Set(allByTokens));
   if (uniqueByTokens.length === 0) return null;
 
-  const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
+  const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens, profileProvider);
   if (resolvedPubkeys.length === 0) return null;
 
   const filter: NDKFilter = applyDateFilter(
@@ -69,7 +69,8 @@ export async function maybeOptimizeByOnlyOrSeeds(
 export async function handleParenthesizedOr(
   cleanedQuery: string, effectiveKinds: number[], dateFilter: { since?: number; until?: number },
   nip50Extensions: Nip50Extensions | undefined, nip50RelaySet: NDKRelaySet,
-  broadRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined, limit: number): Promise<NDKEvent[] | null> {
+  broadRelaySet: NDKRelaySet, abortSignal: AbortSignal | undefined, limit: number,
+  profileProvider?: string): Promise<NDKEvent[] | null> {
   const expandedSeeds = expandParenthesizedOr(cleanedQuery)
     .map((seed) => seed.trim())
     .filter(Boolean);
@@ -78,12 +79,12 @@ export async function handleParenthesizedOr(
   // Profile search seeds (p:term OR p:term)
   const isPSeed = (s: string) => /^p:\S+/i.test(s.trim());
   if (expandedSeeds.every(isPSeed)) {
-    return handleProfileSeeds(expandedSeeds, limit);
+    return handleProfileSeeds(expandedSeeds, limit, profileProvider);
   }
 
   // Pure by: OR queries (no search text, use broad relays)
   const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit
+    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, broadRelaySet, abortSignal, limit, profileProvider
   );
   if (byOnlyResults !== null) return byOnlyResults;
 
@@ -93,14 +94,14 @@ export async function handleParenthesizedOr(
 
   if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
     const result = await handleSameContentMultiAuthor(
-      expandedSeeds, firstNonBy, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit
+      expandedSeeds, firstNonBy, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit, profileProvider
     );
     if (result) return result;
   }
 
   // Combined hashtag + author patterns
   const tagAuthorResult = await handleTagAuthorCombination(
-    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit
+    expandedSeeds, effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, cleanedQuery, limit, profileProvider
   );
   if (tagAuthorResult) return tagAuthorResult;
 
@@ -121,9 +122,9 @@ export async function handleParenthesizedOr(
   return sortEventsNewestFirst(seedResults).slice(0, limit);
 }
 
-export async function handleProfileSeeds(pSeeds: string[], limit: number): Promise<NDKEvent[]> {
+export async function handleProfileSeeds(pSeeds: string[], limit: number, profileProvider?: string): Promise<NDKEvent[]> {
   const pTerms = pSeeds.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
-  const results = await Promise.allSettled(pTerms.map((t) => searchProfilesFullText(t)));
+  const results = await Promise.allSettled(pTerms.map((t) => searchProfilesFullText(t, undefined, profileProvider)));
   const seen = new Set<string>();
   const merged = results.flatMap((r) => r.status === 'fulfilled' ? r.value : [])
     .filter((evt) => {
@@ -157,9 +158,10 @@ async function handleSameContentMultiAuthor(
   expandedSeeds: string[], baseQuery: string, effectiveKinds: number[],
   dateFilter: { since?: number; until?: number }, nip50Extensions: Nip50Extensions | undefined,
   nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number): Promise<NDKEvent[] | null> {
+  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number,
+  profileProvider?: string): Promise<NDKEvent[] | null> {
   const resolvedPubkeys = await resolveAuthorTokens(
-    Array.from(new Set(expandedSeeds.flatMap(extractByTokens)))
+    Array.from(new Set(expandedSeeds.flatMap(extractByTokens))), profileProvider
   );
   if (resolvedPubkeys.length === 0) return null;
 
@@ -183,7 +185,8 @@ async function handleTagAuthorCombination(
   expandedSeeds: string[], effectiveKinds: number[],
   dateFilter: { since?: number; until?: number }, nip50Extensions: Nip50Extensions | undefined,
   nip50RelaySet: NDKRelaySet, broadRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number): Promise<NDKEvent[] | null> {
+  abortSignal: AbortSignal | undefined, cleanedQuery: string, limit: number,
+  profileProvider?: string): Promise<NDKEvent[] | null> {
   const extractTags = (s: string): string[] =>
     Array.from(s.matchAll(/#[A-Za-z0-9_]+/gi)).map((m) => (m[0] || '').slice(1).toLowerCase()).filter(Boolean);
   const extractCore = (s: string): string =>
@@ -200,7 +203,7 @@ async function handleTagAuthorCombination(
     allByTokens.push(...extractByTokens(seed));
   }
 
-  const resolvedPubkeys = await resolveAuthorTokens(Array.from(new Set(allByTokens)));
+  const resolvedPubkeys = await resolveAuthorTokens(Array.from(new Set(allByTokens)), profileProvider);
   if (resolvedPubkeys.length === 0 || allTags.size === 0) return null;
 
   const { applySimpleReplacements } = await import('./replacements');

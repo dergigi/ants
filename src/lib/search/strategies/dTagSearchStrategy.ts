@@ -15,7 +15,7 @@ export async function tryHandleDTagSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, nip50RelaySet, broadRelaySet, abortSignal, limit, profileProvider } = context;
 
   const matches = Array.from(cleanedQuery.matchAll(/\bd:(\S+)/gi));
   if (matches.length === 0) return null;
@@ -24,7 +24,7 @@ export async function tryHandleDTagSearch(
   if (identifiers.length === 0) return [];
 
   const residual = cleanedQuery.replace(/\bd:\S+/gi, '').replace(/\s+/g, ' ').trim();
-  const { authors, search } = await parseResidual(residual, nip50Extensions);
+  const { authors, search } = await parseResidual(residual, nip50Extensions, profileProvider);
 
   const filter: TagDFilter = applyDateFilter({
     kinds: effectiveKinds, '#d': identifiers, limit: Math.max(limit, 500),
