@@ -153,6 +153,20 @@ export function normalizeResidualSearchText(input: string): string {
 }
 
 /**
+ * Extract pp:<provider> keyword from query string.
+ * Forces a specific profile lookup provider for by:/mentions: resolution.
+ * Valid values: vertex, relatr, relay
+ */
+export function extractProfileProvider(rawQuery: string): { cleaned: string; profileProvider?: string } {
+  const regex = /(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi;
+  const match = regex.exec(rawQuery);
+  if (!match) return { cleaned: rawQuery };
+  const provider = (match[1] || '').toLowerCase();
+  const cleaned = rawQuery.replace(regex, ' ').trim();
+  return { cleaned, profileProvider: provider };
+}
+
+/**
  * Parsed query structure containing all extracted information
  */
 export interface ParsedQuery {
@@ -163,6 +177,7 @@ export interface ParsedQuery {
   hasTopLevelOr: boolean;
   topLevelOrParts: string[];
   extensionFilters: Array<(content: string) => boolean>;
+  profileProvider?: string;
 }
 
 /**
@@ -173,8 +188,12 @@ export function parseSearchQuery(
   preprocessedQuery: string,
   defaultKinds: number[]
 ): ParsedQuery {
+  // Extract pp:<provider> keyword before other parsing
+  const ppExtraction = extractProfileProvider(preprocessedQuery);
+  const profileProvider = ppExtraction.profileProvider;
+
   // Extract kind filters and default to provided defaultKinds when not provided
-  const kindExtraction = extractKindFilter(preprocessedQuery);
+  const kindExtraction = extractKindFilter(ppExtraction.cleaned);
   const kindCleanedQuery = kindExtraction.cleaned;
   const effectiveKinds: number[] = (kindExtraction.kinds && kindExtraction.kinds.length > 0)
     ? kindExtraction.kinds
@@ -199,7 +218,8 @@ export function parseSearchQuery(
     dateTranslation,
     hasTopLevelOr,
     topLevelOrParts,
-    extensionFilters
+    extensionFilters,
+    profileProvider
   };
 }
 
