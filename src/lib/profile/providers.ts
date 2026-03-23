@@ -91,12 +91,20 @@ export async function queryProviderProfiles(
 
 // Try all configured providers in order; returns first successful result or null.
 // When forcedProvider is set (via pp: keyword), only that provider is tried.
+// pp:relay skips aggregators entirely, falling through to NIP-50 relay search.
 export async function tryQueryProviders(
   query: string,
   limit: number,
   loggedIn: boolean,
   forcedProvider?: string
 ): Promise<NDKEvent[] | null> {
+  const validProviders: ProfileLookupProvider[] = ['vertex', 'relatr', 'relay'];
+  if (forcedProvider && !validProviders.includes(forcedProvider as ProfileLookupProvider)) {
+    console.warn(`[pp] Invalid profile provider "${forcedProvider}", ignoring`);
+    forcedProvider = undefined;
+  }
+  // pp:relay means "skip all aggregators, use relay-based search only"
+  if (forcedProvider === 'relay') return null;
   const providerOrder = forcedProvider
     ? [forcedProvider as ProfileLookupProvider]
     : getProfileLookupProviderOrder(loggedIn);
