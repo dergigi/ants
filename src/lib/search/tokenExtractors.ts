@@ -114,11 +114,17 @@ export function extractByTokens(seed: string): string[] {
   return matches.map((m) => m[1] || '').filter(Boolean);
 }
 
-export function extractProfileProvider(rawQuery: string): { cleaned: string; profileProvider?: string } {
+export type ProfileProviderKeyword = 'vertex' | 'relatr' | 'relay';
+
+const VALID_PROFILE_PROVIDERS: readonly ProfileProviderKeyword[] = ['vertex', 'relatr', 'relay'] as const;
+
+export function extractProfileProvider(rawQuery: string): { cleaned: string; profileProvider?: ProfileProviderKeyword } {
   const regex = /(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi;
   const match = regex.exec(rawQuery);
   if (!match) return { cleaned: rawQuery };
-  const provider = (match[1] || '').toLowerCase();
+  const raw = (match[1] || '').toLowerCase();
+  const provider = VALID_PROFILE_PROVIDERS.find((p) => p === raw);
+  if (!provider) return { cleaned: rawQuery };
   const cleaned = rawQuery.replace(regex, ' ').trim();
   return { cleaned, profileProvider: provider };
 }
