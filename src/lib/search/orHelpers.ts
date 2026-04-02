@@ -85,7 +85,7 @@ export async function handleSameContentMultiAuthor(
     ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
   }, dateFilter) as NDKFilter;
 
-  const residual = extractResidual(preprocessed);
+  const residual = extractResidual(preprocessed, true);
   if (residual) {
     filter.search = nip50Extensions
       ? buildSearchQueryWithExtensions(residual, nip50Extensions) : residual;
