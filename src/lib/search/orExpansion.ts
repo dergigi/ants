@@ -6,6 +6,7 @@ import { expandParenthesizedOr } from './queryTransforms';
 import { subscribeAndCollect } from './subscriptions';
 import { searchByAnyTerms } from './termSearch';
 import { resolveAuthorTokens } from './authorResolve';
+import { extractByTokens } from './tokenExtractors';
 import {
   dedupeEvents,
   handleProfileSeeds,
@@ -15,12 +16,7 @@ import {
 
 // Re-export for consumers
 export { dedupeEvents, handleProfileSeeds } from './orHelpers';
-
-/** Extract all by: tokens from a seed string */
-export function extractByTokens(seed: string): string[] {
-  const matches = Array.from(seed.matchAll(/\bby:(\S+)/gi));
-  return matches.map((m) => m[1] || '').filter(Boolean);
-}
+export { extractByTokens } from './tokenExtractors';
 
 /** Extract content of a seed after removing all by: clauses */
 export function extractNonByContent(seed: string): string {

@@ -6,7 +6,7 @@ import { subscribeAndCollect } from './subscriptions';
 import { resolveAuthorTokens } from './authorResolve';
 import { applyContentFilter } from './contentFilter';
 import { searchProfilesFullText } from '../vertex';
-import { extractByTokens } from './orExpansion';
+import { extractByTokens } from './tokenExtractors';
 
 /** Deduplicate events by id */
 export function dedupeEvents(events: NDKEvent[]): NDKEvent[] {

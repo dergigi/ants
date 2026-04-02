@@ -108,6 +108,12 @@ export function extractDateFilter(rawQuery: string): { cleaned: string; since?: 
  * Forces a specific profile lookup provider for by:/mentions: resolution.
  * Valid values: vertex, relatr, relay
  */
+/** Extract all by: tokens from a string */
+export function extractByTokens(seed: string): string[] {
+  const matches = Array.from(seed.matchAll(/\bby:(\S+)/gi));
+  return matches.map((m) => m[1] || '').filter(Boolean);
+}
+
 export function extractProfileProvider(rawQuery: string): { cleaned: string; profileProvider?: string } {
   const regex = /(?:^|\s)pp:(vertex|relatr|relay)(?:\s|$)/gi;
   const match = regex.exec(rawQuery);
