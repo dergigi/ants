@@ -55,6 +55,20 @@ is:bookmark => kind:10003
 is:code => kind:1337
 is:followpack => kind:39089
 
+# Attestr / Trusted Lists / Trusted Assertions
+is:attestation => kind:31871
+is:attestation-request => kind:31872
+is:attestor-recommendation => kind:31873
+is:attestor-proficiency => kind:11871
+is:trusted-list => kind:30392
+is:trusted-list-topic => kind:30393
+is:trusted-list-dedup => kind:30394
+is:trusted-list-meta => kind:30395
+is:trusted-assertion-user => kind:30382
+is:trusted-assertion-event => kind:30383
+is:trusted-assertion-address => kind:30384
+is:trusted-service-providers => kind:10040
+
 # --- IS ---
 
 
