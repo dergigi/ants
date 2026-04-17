@@ -20,33 +20,29 @@ export default function FilterCollapsed({
   onExpand,
   isExpanded = false
 }: FilterCollapsedProps) {
-  const countText = hasActiveFilters
-    ? `${filteredCount}/${resultCount}`
-    : `${resultCount}`;
-
   return (
     <button
       onClick={onExpand}
       className={`flex items-center gap-2 text-sm transition-colors ${
-        filtersAreActive
-          ? 'text-blue-400 hover:text-blue-300'
+        filtersAreActive 
+          ? 'text-blue-400 hover:text-blue-300' 
           : 'text-gray-400 hover:text-gray-300'
       }`}
     >
-      <FontAwesomeIcon
-        icon={faFilter}
+      <FontAwesomeIcon 
+        icon={faFilter} 
         className={`w-3 h-3 ${
-          filtersAreActive
-            ? 'text-blue-400'
+          filtersAreActive 
+            ? 'text-blue-400' 
             : 'text-gray-500'
-        }`}
+        }`} 
       />
       <span className={`text-xs ${
-        filtersAreActive
-          ? 'text-blue-400'
+        filtersAreActive 
+          ? 'text-blue-400' 
           : 'text-gray-400'
       }`}>
-        {countText}
+        {hasActiveFilters ? `${filteredCount}/${resultCount}` : `${resultCount}`}
       </span>
       <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="w-3 h-3" />
     </button>

@@ -1,7 +1,6 @@
 import { NDKFilter } from '@nostr-dev-kit/ndk';
 import { Nip50Extensions } from './searchUtils';
 import { parseOrQuery } from './queryTransforms';
-import { resolveRelativeDates } from './relativeDates';
 
 /**
  * Extract NIP-50 extensions from the raw query string
@@ -159,7 +158,6 @@ export interface ParsedQuery {
   cleanedQuery: string;
   effectiveKinds: number[];
   dateFilter: { since?: number; until?: number };
-  dateTranslation: string | null;
   hasTopLevelOr: boolean;
   topLevelOrParts: string[];
   extensionFilters: Array<(content: string) => boolean>;
@@ -180,11 +178,8 @@ export function parseSearchQuery(
     ? kindExtraction.kinds
     : defaultKinds;
   
-  // Resolve relative dates (e.g., since:2w → since:2026-03-06) before parsing
-  const { resolved: dateResolvedQuery, translation: dateTranslation } = resolveRelativeDates(kindCleanedQuery);
-
   // Extract date filters
-  const dateExtraction = extractDateFilter(dateResolvedQuery);
+  const dateExtraction = extractDateFilter(kindCleanedQuery);
   const dateFilter = { since: dateExtraction.since, until: dateExtraction.until };
   const cleanedQuery = dateExtraction.cleaned;
   
@@ -196,7 +191,6 @@ export function parseSearchQuery(
     cleanedQuery,
     effectiveKinds,
     dateFilter,
-    dateTranslation,
     hasTopLevelOr,
     topLevelOrParts,
     extensionFilters

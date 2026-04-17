@@ -14,27 +14,6 @@ But it's useful to at least one person already, which is [me](https://ants.sh/p/
 
 You can follow ants on nostr: [ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td](https://ants.sh/p/npub1u5c0jv80kdhvrks0tujf457m3m03ndn82u9v4wqheqsct4tzazyscug8td)
 
-### Ants Philosophy
-
-ants is highly opinionated. It was developed with the following goals in mind
-- Pretty, shareable, short URLs like [ants.sh/?q=search](https://ants.sh/?q=search), [ants.sh/t/asknostr](https://ants.sh/t/asknostr), and [ants.sh/p/ants.sh](https://ants.sh/p/ants.sh)
-- Works seamlessly on mobile (mobile-first) and can be installed as a PWA
-- There is [no global view](https://sovereignengineering.io/podcast/02---there-is-no-global) of nostr
-- Read-only
-
-And here are some things that ants will **NEVER** do:
-- Add a database to the backend
-- Build a centralized index
-- Have a backend
-
-In addition to the above, here's the opinions that make it opinionated:
-- It should work for [me](https://ants.sh/p/dergigi.com)
-- Simple [`replacements.txt`](https://github.com/dergigi/ants/blob/master/public/replacements.txt) are at the core
-- Performance is less important than results
-- Users should have to click as little as possible
-- Use sane defaults instead of customization and configuration
-- Absolutely minimal UI; show icons instead of text; most things are clickable
-
 ## Search Examples
 
 ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by making good use of [NIP-05](https://ants.sh/?q=nip%3A05), [NIP-50](https://ants.sh/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
@@ -81,13 +60,9 @@ The `/t/` path supports multiple separators (comma, plus, and space).
 
 ## Relay Logic
 
-There are hardcoded relays for search[^search-relays] (NIP-50), general use[^default-relays], and profile lookups[^profile-relays].
+There is hardcoded relays for search (NIP-50) as well as for general use.
 
-Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition to the hardcoded list of search relays.
-
-[^default-relays]: Default relays: `relay.primal.net`, `relay.snort.social`, `relay.ditto.pub`
-[^search-relays]: Search relays (NIP-50): `search.nos.today`, `relay.nostr.band`, `relay.ditto.pub`, `relay.davidebtc.me`, `relay.gathr.gives`, `nostr.polyserv.xyz`, `nostr.azzamo.net`, `search.nostrarchives.com`, `antiprimal.net`
-[^profile-relays]: Profile search relays: `purplepag.es`, `search.nos.today`, `relay.nostr.band`, `relay.ditto.pub`
+Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition it to the hardcoded list of search relays.
 
 When connecting to a relay we retrieve the `supported_nips` as per NIP-11. The relay list as well as the supported NIPs are shown in the relay status indicator. Relays that returned one or more of the results that are currently shown on the page are shown in blue. Relays that support NIP-50 show a magnifying glass. The relay icon in the relay status display allows for relay-based client-side filtering of results.
 
@@ -119,22 +94,20 @@ None of these need search. (1) is simply `kind:9802` with `authors: [6e468422dfb
 
 However, if we have something like `has:video by:HODL` we will have to hit NIP-50 relays, because `has:video` expands to `.mp4 OR .webm OR .mov ...` and thus we'll have to do a full-text search.
 
-## Profile Lookups, Vertex, and relatr
+## Profile Lookups and Vertex Logic
 
-When resolving a `by:` or `p:` search, we try to do a best-effort profile lookup. Profile provider order is configurable, but the default is Vertex → relatr → relay-based ranking.
+When resolving a `by:` or `p:` search, we try to do a best-effort profile lookup. If the user is logged in we use the Vertex DVM to do the profile lookup, using `personalizedPagerank`.
 
 In short:
 
 ```python
-providers = configured_providers or ["vertex", "relatr", "relay"]
-
-for provider in providers:
-    profile = lookup_profile(provider, "search string")
-    if profile:
-        break
+if logged_in:
+    profile = get_profile_from_vertex("search string")
+else:
+    profile = get_profile_from_fallback("search string")
 ```
 
-The final fallback is still a NIP-50 search that attempts to do a "smart" ranking of profile results to figure out the most real (most relevant) profile. But it might be wrong.
+The fallback is a NIP-50 search that attempts to do a "smart" ranking of profile results to figure out the most real (most relevant) profile. But it might be wrong. For reliable results users should login and use Vertex.
 
 Profile searches might be a plaintext search like `gigi` or `dergigi`, npubs like `npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc` or NIP-05 identifiers like `me@dergigi.com`, or top-level NIP-05 identifiers like `dergigi.com` (which is equivalent to `@dergigi.com` or `_@dergigi.com`).
 
@@ -148,30 +121,15 @@ If it's a valid NIP-05 we should be able to get the hex of the npub straight up,
 ## Ranking behavior
 
 - When logged in and Vertex credits are available, profile lookups and author resolution use **personalizedPagerank** (your pubkey is sent as `source`).
-- When Vertex is unavailable or returns no results, ants tries relatr next.
-- When all remote providers are unavailable or disabled, relay-based ranking is used (see fallback below).
+- When logged out or Vertex is unavailable, relay-based ranking is used (see fallback below).
 
 This applies when resolving usernames like `by:john` or direct profile lookups like `p:john`. See the Vertex docs for details on parameters and response format: [`https://vertexlab.io/docs/services/search-profiles/`](https://vertexlab.io/docs/services/search-profiles/).
 
-relatr integration currently uses [`SearchProfiles()`](src/ctxcn/RelatrClient.ts:235) from [`RelatrClient`](src/ctxcn/RelatrClient.ts:140) and uses it as an alternative WoT-based ranking source.
-
-### Provider configuration
-
-Set [`NEXT_PUBLIC_PROFILE_LOOKUP_PROVIDERS`](README.md) to a comma-separated provider order:
-
-```bash
-NEXT_PUBLIC_PROFILE_LOOKUP_PROVIDERS=vertex,relatr,relay
-```
-
-Supported values are `vertex`, `relatr`, and `relay`.
-
-- Default: `vertex,relatr,relay`
-- Example relatr-first setup: `relatr,vertex,relay`
-- Example remote-provider bypass: `relay`
+Note that proper username resolution requires Vertex credits. See [Vertex pricing](https://vertexlab.io/pricing/) for details on credit costs and tiers.
 
 ### Fallback ranking
 
-If configured providers are unavailable, return nothing, or are disabled, we fall back to a relay search for `kind:0` profiles matching the username and rank candidates as follows:
+If Vertex is unavailable or credits are insufficient (or when logged out), we fall back to a relay search for `kind:0` profiles matching the username and rank candidates as follows:
 
 - Logged in: prioritize profiles that you directly follow; tiebreak by prefix match and name.
 - Not logged in: sort by the number of follower references (count of `kind:3` contacts that include the candidate pubkey), then prefix match and name.
@@ -224,10 +182,10 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - [x] add support for code snippets (`kind:1337`)
 - [x] don't do so many requests, lots of requests can be merged into one
 - [x] add a `/kinds` command that shows all substitutions
-- [x] implement streaming search aka "live" mode
-- [ ] support relatr in addition to vertex (see [#183](https://github.com/dergigi/ants/issues/183))
+- [ ] implement streaming search aka "live" mode
+- [ ] support relatr in addition to vertex
 - [ ] be nice to relays (respect limits etc)
-- [x] add proper support for blog posts (`kind:30023`)
+- [ ] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
 - [ ] explain what the different icons and symbols mean somehow
 - [ ] move some things around in the UI

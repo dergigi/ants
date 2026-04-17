@@ -1,6 +1,7 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
 import { subscribeAndStream, subscribeAndCollect } from '../subscriptions';
+import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext, TagTFilter } from '../types';
 
@@ -12,7 +13,7 @@ export async function tryHandleATagSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters, broadRelaySet } = context;
+  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters } = context;
   
   const aTagMatch = query.match(/^a:(.+)$/i);
   if (aTagMatch) {
@@ -20,8 +21,8 @@ export async function tryHandleATagSearch(
     if (aTagValue) {
       const aTagFilter: TagTFilter = applyDateFilter({ kinds: effectiveKinds, '#a': [aTagValue], limit: Math.max(limit, 500) }, dateFilter) as TagTFilter;
       
-      // #a tag searches are structural, no NIP-50 needed
-      const aTagRelaySet = broadRelaySet;
+      // Use broader relay set for a tag searches
+      const aTagRelaySet = await getBroadRelaySet();
 
       const results = isStreaming
         ? await subscribeAndStream(aTagFilter, {

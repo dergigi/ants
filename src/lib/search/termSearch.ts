@@ -4,7 +4,6 @@ import { Nip50Extensions, buildSearchQueryWithExtensions } from './searchUtils';
 import { extractKindFilter, normalizeResidualSearchText } from './queryParsing';
 import { subscribeAndCollect } from './subscriptions';
 import { resolveAuthorTokens } from './authorResolve';
-import { extractContentSearchTerms, filterByContent } from './contentFilter';
 
 // Max concurrent term searches to avoid overwhelming relays
 const MAX_CONCURRENT_TERMS = 8;
@@ -107,17 +106,7 @@ export async function searchByAnyTerms(
       const targetRelaySet = needsNip50 ? relaySet : ((await ensureFallbackRelaySet()) || relaySet);
 
       try {
-        const raw = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
-        if (residual) {
-          const terms = extractContentSearchTerms(residual);
-          if (terms) {
-            const filtered = filterByContent(raw, terms);
-            console.log(`[ContentFilter] term="${normalizedTerm}" residual="${residual}" terms=${JSON.stringify(terms)} raw=${raw.length} filtered=${filtered.length}`);
-            return filtered;
-          }
-        }
-        console.log(`[ContentFilter] term="${normalizedTerm}" residual="${residual}" — no content terms, skipping filter`);
-        return raw;
+        return await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
       } catch (error) {
         console.warn(`Search failed for term "${normalizedTerm}":`, error);
         return [];

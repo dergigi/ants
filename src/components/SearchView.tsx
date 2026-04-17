@@ -3,14 +3,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
-import { getIsKindRules, applySimpleReplacements } from '@/lib/search/replacements';
-import { fetchSpellSummaries } from '@/lib/spellDiscovery';
+import { getIsKindRules } from '@/lib/search/replacements';
 import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRelayFilters } from '@/lib/search/queryParsing';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
-import { extractContentSearchTerms, filterByContent } from '@/lib/search/contentFilter';
-import { RELAYS } from '@/lib/relays';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
@@ -52,13 +49,13 @@ import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { getRelayLists } from '@/lib/relayCounts';
-import { relaySets, getQuickNip50SearchRelaySet } from '@/lib/relays';
+import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
 import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND, SEARCH_DEFAULT_KINDS, NIP45_BENCHMARK_LOG } from '@/lib/constants';
+import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
@@ -68,7 +65,6 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 // import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
-import ArticleCard from '@/components/ArticleCard';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
@@ -77,7 +73,6 @@ import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
-import { deduplicateReplaceableEvents } from '@/lib/search/searchUtils';
 import packageJson from '../../package.json';
 
 type Props = {
@@ -106,7 +101,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
   const initialSearchDoneRef = useRef(false);
-  const streamingFirstResultRef = useRef(false);
   const normalizedInitialQuery = initialQuery.trim() || null;
   const bootstrapInitial = !manageUrl ? normalizedInitialQuery : null;
   const initialQueryNormalizedRef = useRef<string | null>(normalizedInitialQuery);
@@ -134,10 +128,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsRules, setKindsRules] = useState<Array<{ token: string; expansion: string }> | null>(null);
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
-  const [spellsList, setSpellsList] = useState<Array<{ neventId: string; name: string; description: string; cmd: string; fromContact: boolean; antsQuery: string | null }> | null>(null);
-  const [spellsLoading, setSpellsLoading] = useState(false);
-  const [spellsError, setSpellsError] = useState<string | null>(null);
-  const spellsRequestIdRef = useRef(0);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const clearResults = useCallback(() => {
     setResults([]);
@@ -193,7 +183,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setHelpCommands(commands);
       setTopExamples(null);
       setKindsRules(null);
-      setSpellsList(null);
     },
     onExamples: () => {
       const examples = getFilteredExamples(isLoggedIn());
@@ -201,7 +190,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('--help examples'));
       setHelpCommands(null);
       setKindsRules(null);
-      setSpellsList(null);
     },
     onLogin: async () => {
       setLoginState('logging-in');
@@ -209,7 +197,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
-      setSpellsList(null);
       try {
         const user = await login();
         if (user) {
@@ -260,14 +247,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
-      setSpellsList(null);
     },
     onClear: async () => {
       setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
-      setSpellsList(null);
       try {
         await executeClearCommand();
         setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
@@ -281,7 +266,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopExamples(null);
       setHelpCommands(null);
       setKindsRules(null);
-      setSpellsList(null);
       setQuery(tutorialNevent);
       updateSearchQuery(searchParams, router, tutorialNevent);
     },
@@ -302,34 +286,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli('kinds', `Error: ${errorMsg}`));
       } finally {
         setKindsLoading(false);
-      }
-    },
-    onSpells: async () => {
-      const requestId = ++spellsRequestIdRef.current;
-      setTopCommandText(buildCli('spells', 'Loading spells from relays...'));
-      setTopExamples(null);
-      setHelpCommands(null);
-      setKindsRules(null);
-      setSpellsList(null);
-      clearResults();
-      setSpellsLoading(true);
-      setSpellsError(null);
-      try {
-        const spells = await fetchSpellSummaries(30);
-        if (requestId !== spellsRequestIdRef.current) return;
-        setSpellsList(spells.map(s => ({ neventId: s.neventId, name: s.name, description: s.description, cmd: s.cmd, fromContact: s.fromContact, antsQuery: s.antsQuery })));
-        const contactCount = spells.filter(s => s.fromContact).length;
-        const label = contactCount > 0
-          ? `${spells.length} spells found (${contactCount} from contacts)`
-          : `${spells.length} spells found`;
-        setTopCommandText(buildCli('spells', label));
-      } catch (error) {
-        if (requestId !== spellsRequestIdRef.current) return;
-        const errorMsg = error instanceof Error ? error.message : 'Failed to load spells';
-        setSpellsError(errorMsg);
-        setTopCommandText(buildCli('spells', `Error: ${errorMsg}`));
-      } finally {
-        if (requestId === spellsRequestIdRef.current) setSpellsLoading(false);
       }
     }
   }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
@@ -479,10 +435,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Apply optional fuzzy filter on top of client-side filters
   const fuseFilteredResults = useMemo(() => {
-    const deduplicated = deduplicateReplaceableEvents(filteredResults);
     const q = (shouldEnableFilters && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
-    if (!q) return deduplicated;
-    const fuse = new Fuse(deduplicated, {
+    if (!q) return filteredResults;
+    const fuse = new Fuse(filteredResults, {
       includeScore: false,
       threshold: 0.35,
       ignoreLocation: true,
@@ -813,7 +768,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(null);
         setTopExamples(null);
         setKindsRules(null);
-        setSpellsList(null);
         setShowExternalButton(false);
         clearResults();
         setLoading(false);
@@ -855,26 +809,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(null);
       setTopExamples(null);
       setKindsRules(null);
-      setSpellsList(null);
       setShowExternalButton(false);
     }
     clearResults();
     setLoading(true);
-    if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] search started at ${new Date().toISOString()}`);
-
+    
+    
     // Ensure loading animation is visible for direct lookups
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
     
     // Expand by:@me / mentions:@me to the logged-in user's npub
     const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    const atContactsPattern = /(?:^|\s)(?:by|mentions):@contacts\b/i;
-    if (atMePattern.test(searchQuery) || atContactsPattern.test(searchQuery)) {
+    if (atMePattern.test(searchQuery)) {
       const storedPubkey = getStoredPubkey();
       if (storedPubkey) {
         const myNpub = nip19.npubEncode(storedPubkey);
         searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
-        // @contacts is resolved downstream in resolveAuthorTokens, just need login check here
       } else {
         // Not logged in — trigger login flow
         triggerLogin();
@@ -887,9 +838,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
     const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const isSpecialAuthorToken = (v: string) => /^@(me|contacts)$/i.test(v);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]) && !isSpecialAuthorToken(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]) && !isSpecialAuthorToken(mentionsMatch[1]));
+    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
+      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
 
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
@@ -956,87 +906,44 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
 
-      // Choose relay set: NIP-50 relays for text search, broad for direct lookups.
-      // searchEvents() builds both internally; we pass the NIP-50 set as the
-      // override for search queries so the quick (sync) set is used for instant
-      // results without waiting for async relay discovery.
+      // Choose relay set based on query type
       let relaySet: NDKRelaySet | undefined;
       if (isDirectQuery) {
+        // Direct queries (NIP-19): use all relays
         relaySet = await relaySets.default();
       } else {
-        relaySet = getQuickNip50SearchRelaySet();
+        // Search queries (NIP-50): use NIP-50 capable relays only
+        relaySet = await getNip50SearchRelaySet();
       }
 
-      // For NIP-50 text searches, stream results progressively
-      const useStreaming = !isDirectQuery;
-      streamingFirstResultRef.current = false;
-      // Pre-compute content search terms for streaming filter
-      const streamingContentTerms = useStreaming ? extractContentSearchTerms(scopedQuery) : null;
-
-      const searchResults = await searchEvents(scopedQuery, useStreaming ? 1000 : 200, {
-        ...(useStreaming ? {
-          streaming: true,
-          timeoutMs: 30000,
-          maxResults: 1000,
-          onResults: (events: NDKEvent[], isComplete: boolean) => {
-            if (currentSearchId.current !== searchId) return;
-            // Skip the final emission — authoritative results are applied below
-            // after searchEvents() resolves with the complete set
-            if (isComplete) return;
-            // Apply content filter to streaming results so unrelated
-            // events from non-NIP-50 relays don't appear progressively
-            const contentFiltered = streamingContentTerms
-              ? filterByContent(events, streamingContentTerms)
-              : events;
-            const filtered = applyClientFilters(contentFiltered, [], new Set<string>());
-            setResults(filtered);
-
-            if (!streamingFirstResultRef.current && filtered.length > 0) {
-              streamingFirstResultRef.current = true;
-              setLoading(false);
-              setExecutedQuery(searchQuery);
-            }
-
-            // Update relay tracking incrementally
-            const relayUrls: string[] = [];
-            events.forEach(evt => {
-              relayUrls.push(...extractRelaySourcesFromEvent(evt));
-            });
-            const relays = createRelaySet(relayUrls);
-            setSuccessfullyActiveRelays(relays);
-            setToggledRelays(relays);
-          },
-        } : {}),
-      }, relaySet, abortController.signal);
+      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
+      
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
         return;
       }
 
-      // Only apply final results if streaming never fired (e.g. OR queries,
-      // author searches, or zero-result searches that bypass streaming).
-      // When streaming DID fire, the callbacks already set filtered results —
-      // overwriting them here would replace content-filtered results with a
-      // set that may still contain junk from non-NIP-50 relays.
-      if (!streamingFirstResultRef.current) {
-        const filtered = applyClientFilters(searchResults, [], new Set<string>());
-        if (NIP45_BENCHMARK_LOG) console.log(`[NIP-45 UI] results arrived: ${filtered.length} events at ${new Date().toISOString()}`);
-        setExecutedQuery(searchQuery);
-        setResults(filtered);
+      const filtered = applyClientFilters(searchResults, [], new Set<string>());
+      setExecutedQuery(searchQuery);
+      setResults(filtered);
 
-        // Track relays that returned events for this search
-        const relayUrls: string[] = [];
-        searchResults.forEach(evt => {
-          relayUrls.push(...extractRelaySourcesFromEvent(evt));
-        });
-        const relays = createRelaySet(relayUrls);
-        setSuccessfullyActiveRelays(relays);
-        setToggledRelays(relays);
-      }
-
+      // Track relays that returned events for this search
+      const relayUrls: string[] = [];
+      
+      searchResults.forEach(evt => {
+        const relaySources = extractRelaySourcesFromEvent(evt);
+        relayUrls.push(...relaySources);
+      });
+      
+      const relays = createRelaySet(relayUrls);
+      setSuccessfullyActiveRelays(relays);
+      
+      // Initialize toggled relays to include all relays that provided results
+      setToggledRelays(relays);
+      
       // Check if this was a URL query and if we got 0 results
       const isUrlQueryResult = isUrl(searchQuery);
-      setShowExternalButton(isUrlQueryResult && searchResults.length === 0);
+      setShowExternalButton(isUrlQueryResult && filtered.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -1098,7 +1005,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
               setTopExamples(null);
               setKindsRules(null);
-              setSpellsList(null);
             }
             handleSearch(initialQueryRef.current);
           } else {
@@ -1226,7 +1132,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-        setSpellsList(null);
       }
     });
     return cleanup;
@@ -1235,9 +1140,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   useEffect(() => {
     if (!manageUrl) return;
-    // Wait for NDK to connect before triggering URL-based searches —
-    // searching before relays are connected returns empty results.
-    if (isConnecting) return;
     const urlQueryRaw = searchParams.get('q') || '';
     const decodedQuery = decodeUrlQuery(urlQueryRaw);
     const normalizedQuery = decodedQuery.trim();
@@ -1310,13 +1212,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-        setSpellsList(null);
       }
       return;
     }
 
     executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, isConnecting, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1330,7 +1231,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
         setKindsRules(null);
-        setSpellsList(null);
       }
       setQuery(raw);
       updateUrlForSearch(raw);
@@ -1345,7 +1245,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(null);
       setTopExamples(null);
       setKindsRules(null);
-      setSpellsList(null);
     }
     const currentProfileNpub = getCurrentProfileNpub(pathname);
     let displayVal = raw;
@@ -1740,7 +1639,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setTopCommandText(null);
     setTopExamples(null);
     setKindsRules(null);
-    setSpellsList(null);
     // Always reset to root path when clearing
     router.replace('/');
   }, [router, clearResults]);
@@ -1970,42 +1868,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                             <div>&nbsp;</div>
                             <div className="text-red-400">Error: {kindsError}</div>
                           </>
-                        ) : spellsList && spellsList.length > 0 ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            {spellsList.map((spell, idx) => (
-                              <div key={`${spell.neventId}-${idx}`}>
-                                <button
-                                  type="button"
-                                  className="text-left w-full hover:underline"
-                                  onClick={() => spell.antsQuery && handleContentSearch(spell.antsQuery)}
-                                  disabled={!spell.antsQuery}
-                                >
-                                  {spell.fromContact && <span className="text-yellow-400" title="From contact">&#9733; </span>}
-                                  <span className="text-gray-100">{spell.name}</span>
-                                  {spell.antsQuery && (
-                                    <span className="text-gray-500 ml-2 text-xs">{spell.antsQuery}</span>
-                                  )}
-                                  {!spell.antsQuery && (
-                                    <span className="text-gray-600 ml-2 text-xs">(untranslatable)</span>
-                                  )}
-                                </button>
-                              </div>
-                            ))}
-                          </>
-                        ) : spellsLoading ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            <div>Loading spells from relays...</div>
-                          </>
-                        ) : spellsError ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            <div className="text-red-400">Error: {spellsError}</div>
-                          </>
                         ) : (
                           <>
                             {tokens.map((line, i) => (
@@ -2059,12 +1921,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText
-                          content={text}
+                        <TruncatedText 
+                          content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          searchTerms={highlightTerms}
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
+                  renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
                       mediaRenderer={renderNoteMedia}
@@ -2148,24 +2009,14 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                         );
                       }}
                     />
-                  ) : event.kind === 30023 ? (
-                    <ArticleCard
-                      event={event}
-                      onAuthorClick={(npub) => goToProfile(npub, event)}
-                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
-                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
-                      defaultExpanded={isDirectQuery}
-                      searchTerms={highlightTerms}
-                    />
                   ) : event.kind === HIGHLIGHTS_KIND ? (
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText
-                          content={text}
+                        <TruncatedText 
+                          content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          searchTerms={highlightTerms}
                           renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
@@ -2175,11 +2026,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                     <EventCard
                       {...getCommonEventCardProps(event, noteCardClasses)}
                       renderContent={(text) => (
-                        <TruncatedText
-                          content={text}
+                        <TruncatedText 
+                          content={text} 
                           maxLength={TEXT_MAX_LENGTH}
                           className="text-gray-100 whitespace-pre-wrap break-words"
-                          searchTerms={highlightTerms}
                           renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
                         />
                       )}
@@ -2207,7 +2057,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, spellsList, spellsLoading, spellsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount, NeventSearchButton])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
     </div>
   );
 }

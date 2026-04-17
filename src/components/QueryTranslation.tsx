@@ -6,9 +6,7 @@ import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-sv
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
-import { resolveRelativeDates } from '@/lib/search/relativeDates';
 import { nip19 } from 'nostr-tools';
-import { getStoredPubkey } from '@/lib/nip07';
 import { getLastReducedFilters } from '@/lib/ndk';
 
 interface QueryTranslationProps {
@@ -55,9 +53,8 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
-      // 1) Resolve relative dates (since:2w → since:2026-03-06) then apply replacements
-      const { resolved: dateResolved } = resolveRelativeDates(query);
-      const afterReplacements = await applySimpleReplacements(dateResolved);
+      // 1) Apply simple replacements first
+      const afterReplacements = await applySimpleReplacements(query);
 
       // 2) Recursive OR substitution (distribute parentheses)
       const distributed = expandParenthesizedOr(afterReplacements);
@@ -77,13 +74,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
           const suffix = (match && match[2]) || '';
           let replacement = core;
           
-          // Resolve @me to the logged-in user's npub directly
-          if (/^@me$/i.test(core)) {
-            const pk = getStoredPubkey();
-            if (pk) replacement = nip19.npubEncode(pk);
-          } else if (/^@contacts$/i.test(core)) {
-            // Preserve @contacts as-is (expanded at search time to full follow list)
-          } else if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
+          if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
             // Check cache first
             if (authorResolutionCache.current.has(core)) {
               replacement = authorResolutionCache.current.get(core) || core;

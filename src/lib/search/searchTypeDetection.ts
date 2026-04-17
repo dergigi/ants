@@ -25,8 +25,8 @@ export function detectSearchType(query: string): 'profile' | 'media' | 'text' | 
   
   // Check for text-focused searches
   const textPatterns = [
-    'is:text', 'kind:1', 'kind:30023', 'is:article', 'is:longform', // text notes and articles
-    'text', 'note', 'post', 'article', 'longform', 'blogpost'
+    'is:text', 'kind:1', 'kind:30023', // text notes and articles
+    'text', 'note', 'post', 'article'
   ];
   
   for (const pattern of textPatterns) {

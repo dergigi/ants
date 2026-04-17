@@ -13,11 +13,9 @@ export {
   computeMatchScore
 } from './utils';
 export { queryVertexDVM, VERTEX_REGEXP } from './dvm-core';
-export { searchRelatrProfiles } from './relatr';
 export { lookupVertexProfile } from './dvm-lookup';
 export { fallbackLookupProfile } from './fallback';
 export { searchProfilesFullText } from './search';
-export { getProfileLookupProviderOrder, queryProviderProfiles } from './providers';
 export { 
   getCachedDvm, 
   setCachedDvm, 
