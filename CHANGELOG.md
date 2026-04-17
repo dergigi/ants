@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-17
+
+### Changed
+- **Reverted codebase to the `v0.2.11` state** (#248). The `v0.3.0`..`v0.3.5` line introduced several regressions that broke core search behaviour — `by:` author resolution (#244), `stripNonVisible()` killing gif/URL/filename/`nip:05` matching (#190, #228), relay-set mutation (#227), and misc. rendering issues (#217, #243). Rather than continue fixing on top of a shaky base, the tree was reset to the last known-good release (`v0.2.11`) so development can resume from a stable foundation.
+- Version bumped to `0.4.0` to make the reboot explicit; the `v0.3.x` tags remain on GitHub for historical reference but are not part of the `master` lineage.
+
+### Removed
+- All post-`v0.2.11` code through `v0.3.5` (see the diff on #248). Notable deletions: `stripNonVisible` content filter, `relatr` profile provider, spell translate/discovery, NIP-45 count support, reply/d-tag/id/link/ref search strategies, article cards, relay discovery/info modules, and the OR-expansion pipeline. These may be re-introduced later on a case-by-case basis.
+
 ## [0.2.11] - 2026-03-16
 
 ### Added
