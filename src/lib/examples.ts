@@ -3,7 +3,6 @@ export const searchExamples = [
 
   // Slash Commands
   '/help',
-  '/spells',
 
   // Basic
   'vibe coding',
@@ -25,14 +24,11 @@ export const searchExamples = [
   'by:snowden',
   'by:socrates',
 
-  // @me / @contacts (requires login)
+  // @me (requires login)
   'by:@me',
   'GM by:@me',
   'mentions:@me',
   'by:@me has:image',
-  'by:@contacts',
-  'bitcoin by:@contacts',
-  'is:highlight by:@contacts',
 
   // Combined
   'GM by:dergigi',
@@ -60,7 +56,6 @@ export const searchExamples = [
   'is:muted by:fiatjaf',
 
   // Date Filters
-  'bitcoin since:2w',
   'until:2023-01-01',
   'hello since:2021-01-01 until:2021-12-31',
   'GM by:dergigi until:2024-06-06',
@@ -150,16 +145,8 @@ export const searchExamples = [
   '#penisbutter or #⭕️',
   '#pugstr or #horsestr or #goatstr',
 
-  // Long-form Articles
-  'is:article bitcoin',
-  'is:longform by:dergigi',
-
   // Multiple Authors
   'NIP-EE (by:jeffg OR by:futurepaul OR by:franzap)',
-
-  // Tag filters
-  'link:https://github.com/nostr-protocol/nips',
-  'd:ants is:article',
 
   // Direct npub
   'GN by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
@@ -174,9 +161,6 @@ const loginRequiredExamples = [
   'GM by:@me',
   'mentions:@me',
   'by:@me has:image',
-  'by:@contacts',
-  'bitcoin by:@contacts',
-  'is:highlight by:@contacts',
 ] as const;
 
 // Get examples filtered by login status

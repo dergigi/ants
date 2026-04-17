@@ -58,7 +58,7 @@ export const UI_CONFIG = {
     FILTER_THRESHOLD: 69,
     
     // Default event kinds when no specific kind is requested (richly rendered kinds)
-    DEFAULT_KINDS: [1, 20, 21, 22, 9802, 30023, 39089] as number[]
+    DEFAULT_KINDS: [1, 20, 21, 22, 9802, 39089] as number[]
   },
   
   // Profile search settings
@@ -94,7 +94,7 @@ export const UI_CONFIG = {
     PING_TIMEOUT: 5000, // 5 seconds
     
     // Cache duration for relay info (milliseconds)
-    INFO_CACHE_DURATION: 43200000, // 12 hours
+    INFO_CACHE_DURATION: 60000, // 1 minute
     
     // User relay cache duration (milliseconds)
     USER_RELAY_CACHE_DURATION: 3600000, // 1 hour
@@ -105,12 +105,6 @@ export const UI_CONFIG = {
     NIP66_REFRESH_INTERVAL: 1800000,     // 30 min background refresh
     NIP66_SAFETY_THRESHOLD: 0.8,         // skip filter if >80% would be removed
     NIP66_DEAD_ENTRY_MAX_AGE: 86400000,  // 24 hours — dead entries older than this degrade to 'unknown'
-  },
-
-  // NIP-45 COUNT settings
-  NIP45: {
-    COUNT_TIMEOUT: 5000,       // 5s timeout per relay for COUNT requests
-    BENCHMARK_LOG: process.env.NODE_ENV === 'development',  // Log COUNT results in dev only
   },
   
   // UI refresh intervals
@@ -161,10 +155,6 @@ export const RELAY_HTTP_REQUEST_TIMEOUT = UI_CONFIG.RELAYS.HTTP_REQUEST_TIMEOUT;
 export const RELAY_PING_TIMEOUT = UI_CONFIG.RELAYS.PING_TIMEOUT;
 export const RELAY_INFO_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_CACHE_DURATION;
 export const RELAY_USER_RELAY_CACHE_DURATION = UI_CONFIG.RELAYS.USER_RELAY_CACHE_DURATION;
-
-// NIP-45 constants
-export const NIP45_COUNT_TIMEOUT = UI_CONFIG.NIP45.COUNT_TIMEOUT;
-export const NIP45_BENCHMARK_LOG = UI_CONFIG.NIP45.BENCHMARK_LOG;
 
 // NIP-66 constants
 export const NIP66_CACHE_DURATION = UI_CONFIG.RELAYS.NIP66_CACHE_DURATION;

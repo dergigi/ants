@@ -9,24 +9,18 @@ import { tryHandleProfileSearch } from './strategies/profileSearchStrategy';
 import { tryHandleIdentitySearch } from './strategies/identitySearchStrategy';
 import { tryHandleAuthorSearch } from './strategies/authorSearchStrategy';
 import { tryHandleMentionsSearch } from './strategies/mentionsSearchStrategy';
-import { tryHandleReplySearch } from './strategies/replySearchStrategy';
-import { tryHandleRefSearch } from './strategies/refSearchStrategy';
-import { tryHandleLinkSearch } from './strategies/linkSearchStrategy';
-import { tryHandleDTagSearch } from './strategies/dTagSearchStrategy';
 import { SearchContext } from './types';
 
 /**
- * Run search strategies in order and return the first non-null result.
- * Returns null if no strategy matches (empty arrays are valid results).
+ * Run search strategies in order and return the first non-null/non-empty result
+ * Returns null if no strategy matches
  */
 export async function runSearchStrategies(
   extCleanedQuery: string,
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { isStreaming, streamingOptions, nip50RelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
-
-  // Note: id: lookups are handled early in search.ts, before the orchestrator.
+  const { isStreaming, streamingOptions, chosenRelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
 
   // URL search: strip protocol and search for domain/path content
   const urlResults = await tryHandleUrlSearch(
@@ -36,7 +30,7 @@ export async function runSearchStrategies(
     limit,
     isStreaming || false,
     streamingOptions,
-    nip50RelaySet,
+    chosenRelaySet,
     abortSignal
   );
   if (urlResults) return urlResults;
@@ -68,22 +62,6 @@ export async function runSearchStrategies(
   // Check for mentions filter (mentions:<user> → #p tag search)
   const mentionsResults = await tryHandleMentionsSearch(cleanedQuery, context);
   if (mentionsResults) return mentionsResults;
-
-  // Check for reply filter (reply:<event-id> → #e tag search)
-  const replyResults = await tryHandleReplySearch(cleanedQuery, context);
-  if (replyResults) return replyResults;
-
-  // Check for ref filter (ref:<naddr/coordinate> → #a tag search)
-  const refResults = await tryHandleRefSearch(cleanedQuery, context);
-  if (refResults) return refResults;
-
-  // Check for link filter (link:<url> → #r tag search)
-  const linkResults = await tryHandleLinkSearch(cleanedQuery, context);
-  if (linkResults) return linkResults;
-
-  // Check for d: filter (d:<identifier> → #d tag search)
-  const dResults = await tryHandleDTagSearch(cleanedQuery, context);
-  if (dResults) return dResults;
 
   // Check for author filter
   const authorResults = await tryHandleAuthorSearch(cleanedQuery, context);

@@ -68,7 +68,6 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(function Sear
             value={query}
             onChange={onInputChange}
             placeholder={placeholder}
-            data-testid="search-input"
             className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4d4d4d] text-gray-100 placeholder-gray-400"
             style={{ paddingRight: '3rem' }}
           />

@@ -51,31 +51,5 @@ export function buildSearchQueryWithExtensions(baseQuery: string, extensions: Ni
   return query.trim();
 }
 
-/**
- * Deduplicate parameterized replaceable events (kinds 30000-39999).
- * These are keyed by kind:pubkey:d-tag — keeps only the newest version.
- * Non-replaceable events pass through unchanged.
- */
-export function deduplicateReplaceableEvents(events: NDKEvent[]): NDKEvent[] {
-  const replaceableNewest = new Map<string, NDKEvent>();
-  const result: NDKEvent[] = [];
-
-  for (const event of events) {
-    const kind = event.kind ?? 0;
-    if (kind >= 30000 && kind < 40000) {
-      const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
-      const key = `${kind}:${event.pubkey}:${dTag}`;
-      const existing = replaceableNewest.get(key);
-      if (!existing || (event.created_at ?? 0) > (existing.created_at ?? 0)) {
-        replaceableNewest.set(key, event);
-      }
-    } else {
-      result.push(event);
-    }
-  }
-
-  return [...result, ...replaceableNewest.values()];
-}
-
 // Re-export the subscription functions from the subscriptions module
 export { subscribeAndStream, subscribeAndCollect } from './subscriptions';

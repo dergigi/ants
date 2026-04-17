@@ -1,7 +1,6 @@
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connect } from './ndk';
 import { clearAllProfileCaches } from './profile/cache';
-import { clearContactsCache } from './contacts';
 import { clearRelayCaches } from './relays';
 
 const NIP07_PUBKEY_KEY = 'nip07_pubkey';
@@ -67,7 +66,6 @@ export function logout(): void {
   try {
     clearRelayCaches();
     clearAllProfileCaches();
-    clearContactsCache();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ants_nip50_support_cache');
       localStorage.removeItem('ants_nip50_cache');
