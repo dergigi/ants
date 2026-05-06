@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - All post-`v0.2.8` code through `v0.4.0`. Notable deletions: search term highlighting, `mentions:` search, `@me` search modifiers, NIP-66 relay monitoring and liveness plumbing, the NIP-05 well-known endpoint, Fathom wiring, and the native video controls. These can come back later on a case-by-case basis.
 
+### Fixed
+- Updated Next.js to `15.5.14` and `eslint-config-next` to `15.5.14` so Vercel no longer blocks the build for a vulnerable framework version.
+
 ## [0.2.7] - 2025-11-23
 
 ### Added
