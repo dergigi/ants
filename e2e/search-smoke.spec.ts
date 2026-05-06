@@ -6,13 +6,25 @@ type SmokeQuery = {
   query: SearchExample;
   resultType: 'event' | 'profile';
   expectedText?: string;
+  expectedResolvedAuthor?: string;
 };
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
-  { label: 'author search', query: 'by:fiatjaf', resultType: 'event' },
+  {
+    label: 'author search',
+    query: 'by:fiatjaf',
+    resultType: 'event',
+    expectedResolvedAuthor: 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'
+  },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
-  { label: 'text plus author search', query: 'good by:socrates', resultType: 'event', expectedText: 'good' },
+  {
+    label: 'text plus author search',
+    query: 'good by:socrates',
+    resultType: 'event',
+    expectedText: 'good',
+    expectedResolvedAuthor: 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h'
+  },
   { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
 ];
 
@@ -33,7 +45,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedResolvedAuthor } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -52,6 +64,17 @@ test.describe('real relay search smoke', () => {
       await expect
         .poll(() => new URL(page.url()).searchParams.get('q'))
         .toBe(query);
+
+      if (expectedResolvedAuthor) {
+        const explanation = page.locator('#search-explanation');
+        await expect(explanation).toBeVisible({ timeout: 15_000 });
+        await expect
+          .poll(async () => {
+            const text = (await explanation.textContent()) || '';
+            return text.replace(/\s+/g, ' ').trim();
+          }, { timeout: 20_000 })
+          .toContain(expectedResolvedAuthor);
+      }
 
       const spinner = page.locator('#search-row .animate-spin');
       const resultCards = getResultCards(page, resultType);
