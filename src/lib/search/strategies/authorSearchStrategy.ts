@@ -11,6 +11,46 @@ import { getBroadRelaySet, getOutboxSearchCapableRelays } from '../relayManageme
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
 
+function matchesAuthorSeedContent(content: string, seed: string): boolean {
+  const normalizedContent = (content || '').toLowerCase();
+  const normalizedSeed = seed.trim().toLowerCase();
+
+  if (!normalizedSeed) return true;
+  if (!normalizedContent) return false;
+
+  const quotedPhrases = Array.from(normalizedSeed.matchAll(/"([^"]+)"/g))
+    .map((match) => (match[1] || '').trim())
+    .filter(Boolean);
+
+  const tokens = normalizedSeed
+    .replace(/"[^"]+"/g, ' ')
+    .replace(/[()]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && !/^(OR|AND)$/i.test(token));
+
+  if (quotedPhrases.some((phrase) => !normalizedContent.includes(phrase))) {
+    return false;
+  }
+
+  if (tokens.length === 0) {
+    return quotedPhrases.length > 0;
+  }
+
+  return normalizedContent.includes(tokens.join(' '))
+    || tokens.every((token) => normalizedContent.includes(token));
+}
+
+function filterAuthorResultsByTerms(events: NDKEvent[], terms: string): NDKEvent[] {
+  const seeds = expandParenthesizedOr(terms).map((seed) => seed.trim()).filter(Boolean);
+
+  if (seeds.length === 0) {
+    return events;
+  }
+
+  return events.filter((event) => seeds.some((seed) => matchesAuthorSeedContent(event.content || '', seed)));
+}
+
 /**
  * Handle author filter queries (by:<author>)
  * Supports multiple by: tokens (e.g., "bitcoin by:alice by:bob")
@@ -134,26 +174,25 @@ export async function tryHandleAuthorSearch(
       res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
     }
   }
-  // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
-  // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
+
   const termStr = terms.trim();
-  const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
-  if (res.length === 0 && termStr) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
-    const needle = termStr.toLowerCase();
-    res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
-  } else if (res.length === 0 && hasShortToken) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
-    const needle = termStr.toLowerCase();
-    res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
+
+  let mergedResults: NDKEvent[] = termStr ? filterAuthorResultsByTerms(res, termStr) : res;
+
+  if (termStr && mergedResults.length === 0) {
+    const authorOnly = await subscribeAndCollect(
+      applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter,
+      10000,
+      broadRelaySet,
+      abortSignal
+    );
+    mergedResults = filterAuthorResultsByTerms(authorOnly, termStr);
   }
-  let mergedResults: NDKEvent[] = res;
+
   // Dedupe
   const dedupe = new Map<string, NDKEvent>();
   for (const e of mergedResults) { if (!dedupe.has(e.id)) dedupe.set(e.id, e); }
   mergedResults = Array.from(dedupe.values());
-  // Do not enforce additional client-side text match; rely on relay-side search
-  const filtered = mergedResults;
 
-  return sortEventsNewestFirst(filtered).slice(0, limit);
+  return sortEventsNewestFirst(mergedResults).slice(0, limit);
 }
