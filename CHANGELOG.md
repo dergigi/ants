@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Support for viewing Nostr follow packs (kind 39089) with `is:followpack` search shortcut
 
+## [0.4.1] - 2026-05-06
+
+### Changed
+- **Reverted codebase to the `v0.2.8` state**. The `v0.2.9`..`v0.4.0` line kept shipping search regressions, including search term highlighting, `mentions:` search plumbing, NIP-66 relay selection changes, and later follow-on fixes that did not restore stable behaviour.
+- Version bumped to `0.4.1` to keep the reboot lineage monotonic while resetting the app to the last known-good pre-`v0.2.9` baseline.
+
+### Removed
+- All post-`v0.2.8` code through `v0.4.0`. Notable deletions: search term highlighting, `mentions:` search, `@me` search modifiers, NIP-66 relay monitoring and liveness plumbing, the NIP-05 well-known endpoint, Fathom wiring, and the native video controls. These can come back later on a case-by-case basis.
+
 ## [0.2.7] - 2025-11-23
 
 ### Added
