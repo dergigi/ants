@@ -1,14 +1,13 @@
 {
   "name": "ants.dergigi.com",
-  "version": "0.4.0",
+  "version": "0.2.8",
   "private": true,
   "scripts": {
     "dev": "next dev --port 7473",
     "build": "next build",
     "start": "next start",
     "lint": "next lint && tsc --noEmit",
-    "test": "jest",
-    "bench:nip66": "tsx bench/nip66.ts"
+    "test": "jest"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
@@ -21,10 +20,9 @@
     "@nostr-dev-kit/ndk-cache-sqlite-wasm": "0.5.8",
     "@types/string-similarity": "^4.0.2",
     "blurhash": "^2.0.5",
-    "fathom-client": "^3.7.2",
     "fetch-opengraph": "^1.0.36",
     "fuse.js": "7.1.0",
-    "next": "15.4.10",
+    "next": "^15.4.6",
     "prism-react-renderer": "2.4.1",
     "prism-themes": "^1.9.0",
     "prismjs": "^1.29.0",
@@ -46,7 +44,6 @@
     "jest": "^30.0.5",
     "tailwindcss": "^4",
     "ts-jest": "^29.1.2",
-    "tsx": "^4",
     "typescript": "^5"
   }
 }

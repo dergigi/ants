@@ -24,12 +24,6 @@ export const searchExamples = [
   'by:snowden',
   'by:socrates',
 
-  // @me (requires login)
-  'by:@me',
-  'GM by:@me',
-  'mentions:@me',
-  'by:@me has:image',
-
   // Combined
   'GM by:dergigi',
   'GM fiat by:fiatjaf',
@@ -156,12 +150,7 @@ export const searchExamples = [
 ] as const;
 
 // Examples that require login to work properly
-const loginRequiredExamples = [
-  'by:@me',
-  'GM by:@me',
-  'mentions:@me',
-  'by:@me has:image',
-] as const;
+const loginRequiredExamples = [] as const;
 
 // Get examples filtered by login status
 export function getFilteredExamples(isLoggedIn: boolean): readonly string[] {

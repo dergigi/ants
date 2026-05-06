@@ -16,7 +16,6 @@ import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
 import { compareTwoStrings } from 'string-similarity';
 import { shortenNpub } from '@/lib/utils';
-import { resolveProfileName } from '@/lib/utils/profileUtils';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import { nip19 } from 'nostr-tools';
 import { ndk } from '@/lib/ndk';
@@ -117,18 +116,18 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
       let isMounted = true;
       (async () => {
         try {
+          const user = new NDKUser({ pubkey: pubkeyHex });
+          user.ndk = ndk;
+          try { await user.fetchProfile(); } catch {}
+          if (!isMounted) return;
+          const profile = user.profile as { display?: string; displayName?: string; name?: string } | undefined;
+          const display = profile?.displayName || profile?.display || profile?.name || '';
           const npubVal = nip19.npubEncode(pubkeyHex);
           setNpub(npubVal);
-          const result = await resolveProfileName(pubkeyHex);
-          if (!isMounted) return;
-          if (result) {
-            setLabel(result.display);
-          } else {
-            setLabel(shortenNpub(npubVal));
-          }
+          setLabel(display || `npub:${shortenNpub(npubVal)}`);
         } catch {
           if (!isMounted) return;
-          setLabel(shortenNpub(nip19.npubEncode(pubkeyHex)));
+          setLabel(`npub:${shortenNpub(nip19.npubEncode(pubkeyHex))}`);
         }
       })();
       return () => { isMounted = false; };

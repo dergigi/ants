@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
-import { extractNip50Extensions, extractKindFilter, extractDateFilter, stripRelayFilters } from '@/lib/search/queryParsing';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
@@ -67,7 +66,7 @@ import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
 import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
-import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
+import { isLoggedIn, login, logout } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { useClearTrigger } from '@/lib/ClearTrigger';
@@ -91,7 +90,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<NDKEvent[]>([]);
-  const [executedQuery, setExecutedQuery] = useState('');
   const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
@@ -119,8 +117,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
-  const [visibleCount, setVisibleCount] = useState(50);
-  const lastPaginationQueryRef = useRef<string>('');
   
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
@@ -129,11 +125,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
   const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
-  const clearResults = useCallback(() => {
-    setResults([]);
-    setExecutedQuery('');
-  }, []);
-  const { triggerLogin, onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
+  const { onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
   // Determine if filters should be enabled based on filterMode
@@ -261,7 +253,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     },
     onTutorial: () => {
-      const tutorialNevent = 'nevent1qqsqnndhkz4u26m4v4gut2xjsun8hzfxn75spzcr8337a06g66zwzespzamhxue69uhksctkv4hzuer9wfnkjemf9e3k7mgehz685';
+      const tutorialNevent = 'nevent1qqstgekdlmaeu3n6gf3ss7nnlq4f0hfx3nm3nmy0pf84xs7e98wyt2ssw5p34';
       setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
       setTopExamples(null);
       setHelpCommands(null);
@@ -273,7 +265,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setTopCommandText(buildCli('kinds', 'Loading kind shortcuts...'));
       setTopExamples(null);
       setHelpCommands(null);
-      clearResults();
+      setResults([]);
       setKindsLoading(true);
       setKindsError(null);
       try {
@@ -395,14 +387,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return () => { cancelled = true; };
   }, [results]);
 
-
-  // Reset pagination when the search query changes, not when results mutate
-  useEffect(() => {
-    if (query !== lastPaginationQueryRef.current) {
-      lastPaginationQueryRef.current = query;
-      setVisibleCount(50);
-    }
-  }, [query]);
 
   const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
 
@@ -739,7 +723,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       return;
     }
     if (!searchQuery.trim()) {
-      clearResults();
+      setResults([]);
       setResolvingAuthor(false);
       return;
     }
@@ -769,7 +753,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setTopExamples(null);
         setKindsRules(null);
         setShowExternalButton(false);
-        clearResults();
+        setResults([]);
         setLoading(false);
         setResolvingAuthor(false);
 
@@ -811,7 +795,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setKindsRules(null);
       setShowExternalButton(false);
     }
-    clearResults();
+    setResults([]);
     setLoading(true);
     
     
@@ -819,28 +803,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
     
-    // Expand by:@me / mentions:@me to the logged-in user's npub
-    const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    if (atMePattern.test(searchQuery)) {
-      const storedPubkey = getStoredPubkey();
-      if (storedPubkey) {
-        const myNpub = nip19.npubEncode(storedPubkey);
-        searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
-      } else {
-        // Not logged in — trigger login flow
-        triggerLogin();
-        setLoading(false);
-        setResolvingAuthor(false);
-        return;
-      }
-    }
-
     // Check if we need to resolve an author first
     const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-    const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
-
+    const needsAuthorResolution = byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]);
+    
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
     }
@@ -885,21 +851,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setResolvingAuthor(false);
       }
 
-      // Pre-resolve mentions:<author> to npub (if needed) BEFORE searching
-      if (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1])) {
-        const author = (mentionsMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
-        try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        if (resolvedNpub) {
-          effectiveQuery = effectiveQuery.replace(/(^|\s)mentions:(\S+)(?=\s|$)/i, (m, pre) => `${pre}mentions:${resolvedNpub}`);
-        }
-        setResolvingAuthor(false);
-      }
-
       const expanded = effectiveQuery;
       const currentProfileNpub = getCurrentProfileNpub(pathname);
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
@@ -924,7 +875,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
 
       const filtered = applyClientFilters(searchResults, [], new Set<string>());
-      setExecutedQuery(searchQuery);
       setResults(filtered);
 
       // Track relays that returned events for this search
@@ -950,7 +900,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         return;
       }
       console.error('Search error:', error);
-      clearResults();
+      setResults([]);
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
@@ -1235,10 +1185,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setQuery(raw);
       updateUrlForSearch(raw);
       // Clear prior results immediately before async search
-      clearResults();
+      setResults([]);
       setTopCommandText(buildCli(raw.replace(/^\//, ''), topExamples ? topExamples : ''));
       if (raw) handleSearch(raw);
-      else clearResults();
+      else setResults([]);
       return;
     } else {
       // Clear any previous command card for non-command searches
@@ -1265,11 +1215,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         const params = new URLSearchParams(searchParams.toString());
         params.delete('q');
         router.replace(`?${params.toString()}`);
-        clearResults();
+        setResults([]);
       }
     } else {
       if (displayVal) handleSearch(displayVal);
-      else clearResults();
+      else setResults([]);
     }
   };
 
@@ -1321,39 +1271,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   // Use the utility function from urlUtils
 
-  const highlightTerms = useMemo(() => {
-    if (!executedQuery) return [];
-    let cleaned = extractNip50Extensions(executedQuery).cleaned;
-    cleaned = extractKindFilter(cleaned).cleaned;
-    cleaned = extractDateFilter(cleaned).cleaned;
-    cleaned = stripRelayFilters(cleaned);
-    cleaned = cleaned.replace(/\bby:\S+/gi, '');
-    cleaned = cleaned.replace(/\bmentions:\S+/gi, '');
-    cleaned = cleaned.replace(/#(\w+)/g, '$1');
-    cleaned = cleaned.replace(/[()"/]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!cleaned) return [];
-    const orParts = cleaned.split(/\s+OR\s+/i);
-    const terms: string[] = [];
-    for (const part of orParts) {
-      for (const word of part.trim().split(/\s+/)) {
-        if (word.length >= 2 && !/^(AND|NOT|OR)$/i.test(word)) terms.push(word);
-      }
-    }
-    return [...new Set(terms)];
-  }, [executedQuery]);
-
-  const highlightSearchTerms = useCallback((text: string): React.ReactNode => {
-    if (!highlightTerms.length || !text) return text;
-    const escaped = highlightTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
-    const parts = text.split(regex);
-    if (parts.length === 1) return text;
-    return parts.map((part, i) =>
-      i % 2 === 1
-        ? <mark key={i} className="bg-blue-500/[.69] text-inherit rounded-sm px-0.5">{part}</mark>
-        : part
-    );
-  }, [highlightTerms]);
 
   const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => {
     const strippedContent = stripAllUrls(content, successfulPreviews);
@@ -1464,7 +1381,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                   onClick={() => handleContentSearch(hashtagPart)}
                   className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
                 >
-                  {highlightSearchTerms(hashtagPart)}
+                  {hashtagPart}
                 </button>
               );
             } else if (hashtagPart && hashtagPart.trim()) {
@@ -1472,7 +1389,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
               const emojiSplit = hashtagPart.split(emojiRx);
               const emojis = hashtagPart.match(emojiRx) || [];
               emojiSplit.forEach((emojiPart, emojiIndex) => {
-                if (emojiPart) finalNodes.push(highlightSearchTerms(emojiPart));
+                if (emojiPart) finalNodes.push(emojiPart);
                 if (emojis[emojiIndex]) {
                   finalNodes.push(
                     <button
@@ -1486,11 +1403,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 }
               });
             } else {
-              finalNodes.push(highlightSearchTerms(hashtagPart));
+              finalNodes.push(hashtagPart);
             }
           });
         }
-
+        
         // Add nostr token if it exists
         if (nostrTokens[partIndex]) {
           const token = nostrTokens[partIndex];
@@ -1521,7 +1438,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
 
     return finalNodes;
-  }, [successfulPreviews, handleContentSearch, goToProfile, highlightSearchTerms]);
+  }, [successfulPreviews, handleContentSearch, goToProfile]);
 
   const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
     try {
@@ -1633,7 +1550,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
     currentSearchId.current++;
     setQuery('');
-    clearResults();
+    setResults([]);
     setLoading(false);
     setResolvingAuthor(false);
     setTopCommandText(null);
@@ -1641,7 +1558,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setKindsRules(null);
     // Always reset to root path when clearing
     router.replace('/');
-  }, [router, clearResults]);
+  }, [router]);
 
   // Register clear handler for favicon click
   useEffect(() => {
@@ -1893,7 +1810,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 searchType={detectSearchType(query)}
               />
             )}
-            {finalResults.slice(0, visibleCount).map((event, idx) => {
+            {finalResults.map((event, idx) => {
               // Check if this note has any parent chain blocks rendered above it
               const hasExpandedParents = (() => {
                 let currentEvent = event;
@@ -2046,18 +1963,9 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
                 </div>
               );
             })}
-            {visibleCount < finalResults.length && (
-              <button
-                type="button"
-                onClick={() => setVisibleCount(prev => prev + 50)}
-                className="w-full py-3 text-sm text-gray-400 hover:text-gray-200 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg hover:bg-[#3d3d3d] transition-colors"
-              >
-                Show more ({finalResults.length - visibleCount} remaining)
-              </button>
-            )}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, visibleCount])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query])}
     </div>
   );
 }

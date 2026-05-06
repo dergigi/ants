@@ -1,11 +1,12 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { connectWithTimeout, resetLastReducedFilters } from './ndk';
-import { searchProfilesFullText } from './vertex';
+import { searchProfilesFullText, resolveAuthor } from './vertex';
+import { nip19 } from 'nostr-tools';
 import { getNip50SearchRelaySet } from './relays';
 import { SEARCH_DEFAULT_KINDS } from './constants';
 
 // Import shared utilities
-import {
+import { 
   buildSearchQueryWithExtensions,
   Nip50Extensions
 } from './search/searchUtils';
@@ -44,7 +45,6 @@ import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy'
 
 // Import term search utilities
 import { searchByAnyTerms } from './search/termSearch';
-import { resolveAuthorTokens } from './search/authorResolve';
 
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
@@ -64,6 +64,10 @@ export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
 
 
 // (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
+
+// Re-export getUserRelayUrls for backwards compatibility
+export { getUserRelayUrls } from './search/relayManagement';
+
 
 
 // Re-export query transformation utilities for backwards compatibility
@@ -124,8 +128,23 @@ async function maybeOptimizeByOnlyOrSeeds(
     return null;
   }
 
-  // Resolve all tokens to hex pubkeys in parallel
-  const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
+  // Resolve all tokens to hex pubkeys
+  const resolvedPubkeys: string[] = [];
+  for (const authorToken of uniqueByTokens) {
+    try {
+      if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+        const hex = nip19.decode(authorToken).data as string;
+        resolvedPubkeys.push(hex);
+      } else {
+        const resolved = await resolveAuthor(authorToken);
+        if (resolved.pubkeyHex) {
+          resolvedPubkeys.push(resolved.pubkeyHex);
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to resolve author ${authorToken}:`, error);
+    }
+  }
 
   if (resolvedPubkeys.length === 0) {
     return null; // No pubkeys could be resolved
@@ -176,7 +195,7 @@ export async function searchEvents(
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
   const nip50Extensions = nip50Extraction.extensions;
-
+  
   // Remove legacy relay filters and choose the default search relay set
   let chosenRelaySet: NDKRelaySet;
   if (relaySetOverride) {
@@ -193,11 +212,11 @@ export async function searchEvents(
 
   // Strip legacy relay filters but keep the rest of the query intact
   const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
-
+  
   // Apply simple replacements to expand is: patterns to kind: patterns
   const { applySimpleReplacements } = await import('./search/replacements');
   const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
-
+  
   // Parse query into structured format
   const parsedQuery = parseSearchQuery(preprocessedQuery, SEARCH_DEFAULT_KINDS);
   const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters } = parsedQuery;
@@ -264,29 +283,44 @@ export async function searchEvents(
       const firstNonBy = extractNonByContent(expandedSeeds[0]);
       const allSameNonBy = expandedSeeds.every(seed => extractNonByContent(seed) === firstNonBy);
       const allHaveBy = expandedSeeds.every(seed => /\bby:\S+/i.test(seed));
-
+      
       if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
         // All seeds are identical except for by: clauses - optimize with single filter
         const allByTokens = expandedSeeds.flatMap(extractByTokens);
         const uniqueByTokens = Array.from(new Set(allByTokens));
-
-        // Resolve all authors to pubkeys in parallel
-        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
-
+        
+        // Resolve all authors to pubkeys
+        const resolvedPubkeys: string[] = [];
+        for (const authorToken of uniqueByTokens) {
+          try {
+            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+              const hex = nip19.decode(authorToken).data as string;
+              resolvedPubkeys.push(hex);
+            } else {
+              const resolved = await resolveAuthor(authorToken);
+              if (resolved.pubkeyHex) {
+                resolvedPubkeys.push(resolved.pubkeyHex);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to resolve author ${authorToken}:`, error);
+          }
+        }
+        
         if (resolvedPubkeys.length > 0) {
           // Build single filter with all authors
           const baseQuery = firstNonBy || '';
           const { applySimpleReplacements } = await import('./search/replacements');
           const preprocessed = await applySimpleReplacements(baseQuery);
           const tagMatches = Array.from(preprocessed.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
-
+          
           const filter: NDKFilter = applyDateFilter({
             kinds: effectiveKinds,
             authors: resolvedPubkeys,
             limit: Math.max(limit, 500),
             ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
           }, dateFilter) as NDKFilter;
-
+          
           // Extract residual search text
           const residual = preprocessed
             .replace(/\bkind:[^\s]+/gi, ' ')
@@ -294,13 +328,13 @@ export async function searchEvents(
             .replace(/#[A-Za-z0-9_]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-
+          
           if (residual.length > 0) {
-            filter.search = nip50Extensions
+            filter.search = nip50Extensions 
               ? buildSearchQueryWithExtensions(residual, nip50Extensions)
               : residual;
           }
-
+          
           const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
           return sortEventsNewestFirst(results).slice(0, limit);
         }
@@ -335,8 +369,23 @@ export async function searchEvents(
 
         const uniqueByTokens = Array.from(new Set(allByTokens));
 
-        // Resolve all authors to pubkeys in parallel
-        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
+        // Resolve all authors to pubkeys
+        const resolvedPubkeys: string[] = [];
+        for (const authorToken of uniqueByTokens) {
+          try {
+            if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
+              const hex = nip19.decode(authorToken).data as string;
+              resolvedPubkeys.push(hex);
+            } else {
+              const resolved = await resolveAuthor(authorToken);
+              if (resolved.pubkeyHex) {
+                resolvedPubkeys.push(resolved.pubkeyHex);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to resolve author ${authorToken}:`, error);
+          }
+        }
 
         if (resolvedPubkeys.length > 0 && allTags.size > 0) {
           const { applySimpleReplacements } = await import('./search/replacements');
@@ -390,8 +439,8 @@ export async function searchEvents(
         applyDateFilter({ kinds: effectiveKinds }, dateFilter),
         () => getBroadRelaySet()
       );
-
-
+      
+      
       return sortEventsNewestFirst(seedResults).slice(0, limit);
     }
   }
@@ -481,13 +530,13 @@ export async function searchEvents(
       applyDateFilter({ kinds: effectiveKinds }, dateFilter),
       () => getBroadRelaySet()
     );
-
+    
     // If we got no results and we're using NIP-50 relays, try with broader relay set
     if (orResults.length === 0 && !relaySetOverride) {
       const broadRelaySet = await getBroadRelaySet();
       orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter));
     }
-
+    
     const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
     return sortEventsNewestFirst(filteredResults).slice(0, limit);
   }
@@ -495,20 +544,19 @@ export async function searchEvents(
   // Run search strategies in order
   const strategyResults = await runSearchStrategies(extCleanedQuery, cleanedQuery, searchContext);
   if (strategyResults) return strategyResults;
-
+  
   // Regular search without author filter
   try {
     let results: NDKEvent[] = [];
-    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery;
-    // Build search query even when baseSearch is empty — extensions alone are valid NIP-50 queries
-    const searchQuery = buildSearchQueryWithExtensions(baseSearch || '', nip50Extensions) || undefined;
+    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
+    const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
     // Create the filter object that will be sent to NDK
     const searchFilter = applyDateFilter({
       kinds: effectiveKinds,
       search: searchQuery
     }, dateFilter) as NDKFilter;
-
-    results = isStreaming
+    
+    results = isStreaming 
       ? await subscribeAndStream(searchFilter, {
           timeoutMs: streamingOptions?.timeoutMs || 30000,
           maxResults: streamingOptions?.maxResults || 1000,
@@ -517,14 +565,13 @@ export async function searchEvents(
           abortSignal
         })
       : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
-    // Dedupe by event id using Set for O(n) instead of O(n^2) findIndex
-    const seen = new Set<string>();
-    const filtered = results.filter(e => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
+    // Enforce AND: must match text and contain requested media
+    const filtered = results.filter((e, idx, arr) => {
+      // dedupe by id while mapping
+      const firstIdx = arr.findIndex((x) => x.id === e.id);
+      return firstIdx === idx;
     });
-
+    
     return sortEventsNewestFirst(filtered).slice(0, limit);
   } catch (error) {
     // Treat aborted searches as benign; return empty without logging an error
@@ -555,4 +602,4 @@ export async function searchEventsStreaming(
     timeoutMs: options.timeoutMs || 30000,
     exact: options.exact
   }, options.relaySetOverride, options.abortSignal);
-}
+} 
