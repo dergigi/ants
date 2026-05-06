@@ -1,28 +1,33 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { searchExamples } from '../src/lib/examples';
 
 const smokeQueries = [
-  { label: 'basic text search', query: 'vibe coding' },
-  { label: 'author search', query: 'by:fiatjaf' },
-  { label: 'profile search', query: 'p:fiatjaf' },
-  { label: 'text plus author search', query: 'GM by:dergigi' },
-  { label: 'site plus author search', query: 'site:github by:fiatjaf' },
+  { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
+  { label: 'author search', query: 'by:fiatjaf', resultType: 'event' },
+  { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
+  { label: 'text plus author search', query: 'good by:socrates', resultType: 'event' },
+  { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
 ] as const;
 
 const exampleSet = new Set(searchExamples);
+const baseCardSelector = '[class*="relative"][class*="bg-[#2d2d2d]"][class*="border-[#3d3d3d]"]';
+const eventCardSelector = `${baseCardSelector}:not([class*="overflow-hidden"])`;
+const profileCardSelector = `${baseCardSelector}[class*="overflow-hidden"]`;
 
-for (const { query } of smokeQueries) {
-  if (!exampleSet.has(query)) {
-    throw new Error(`Missing smoke query in src/lib/examples.ts: ${query}`);
-  }
-}
+const getResultCards = (page: Page, resultType: 'event' | 'profile') =>
+  page.locator(resultType === 'profile' ? profileCardSelector : eventCardSelector);
 
 test.describe('real relay search smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
-  for (const { label, query } of smokeQueries) {
+  test('smoke queries exist in src/lib/examples.ts', () => {
+    for (const { query } of smokeQueries) {
+      expect(exampleSet.has(query), `Missing smoke query: ${query}`).toBe(true);
+    }
+  });
+
+  for (const { label, query, resultType } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
-      test.setTimeout(90_000);
 
       const pageErrors: string[] = [];
       page.on('pageerror', (error) => {
@@ -42,7 +47,12 @@ test.describe('real relay search smoke', () => {
         .toBe(query);
 
       const spinner = page.locator('#search-row .animate-spin');
-      await spinner.first().waitFor({ state: 'visible', timeout: 5_000 }).catch(() => null);
+      const resultCards = getResultCards(page, resultType);
+
+      await expect
+        .poll(() => resultCards.count(), { timeout: 45_000 })
+        .toBeGreaterThan(0);
+      await expect(resultCards.first()).toBeVisible();
       await expect(spinner).toHaveCount(0, { timeout: 45_000 });
 
       await expect(input).toHaveValue(query);
