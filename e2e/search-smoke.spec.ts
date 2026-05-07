@@ -32,7 +32,7 @@ const smokeQueries: readonly SmokeQuery[] = [
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
   { label: 'image kind search', query: 'is:image', resultType: 'event' },
-  { label: 'OR search', query: 'bitcoin OR lightning', resultType: 'event' },
+  { label: 'NIP search', query: 'nip:05', resultType: 'event' },
 ];
 
 const exampleSet = new Set(searchExamples);
