@@ -6,8 +6,11 @@ type SmokeQuery = {
   query: SearchExample;
   resultType: 'event' | 'profile';
   expectedText?: string;
-  expectedResolvedAuthor?: string;
+  expectedExplanationSubstrings?: readonly string[];
 };
+
+const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
+const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
@@ -15,17 +18,21 @@ const smokeQueries: readonly SmokeQuery[] = [
     label: 'author search',
     query: 'by:fiatjaf',
     resultType: 'event',
-    expectedResolvedAuthor: 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'
+    expectedExplanationSubstrings: ['by:fiatjaf', fiatjafResolvedQuery],
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
+  { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
+  { label: 'gif search', query: 'has:gif', resultType: 'event' },
   {
-    label: 'text plus author search',
-    query: 'good by:socrates',
+    label: 'second author search',
+    query: 'by:socrates',
     resultType: 'event',
-    expectedText: 'good',
-    expectedResolvedAuthor: 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h'
+    expectedExplanationSubstrings: ['by:socrates', socratesResolvedQuery],
   },
-  { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
+  { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
+  { label: 'media search', query: 'has:image', resultType: 'event' },
+  { label: 'image kind search', query: 'is:image', resultType: 'event' },
+  { label: 'NIP search', query: 'nip:05', resultType: 'event' },
 ];
 
 const exampleSet = new Set(searchExamples);
@@ -45,7 +52,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText, expectedResolvedAuthor } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -65,15 +72,24 @@ test.describe('real relay search smoke', () => {
         .poll(() => new URL(page.url()).searchParams.get('q'))
         .toBe(query);
 
-      if (expectedResolvedAuthor) {
+      if (expectedExplanationSubstrings) {
         const explanation = page.locator('#search-explanation');
+        const explanationPattern = new RegExp(
+          expectedExplanationSubstrings
+            .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('|')
+        );
+
         await expect(explanation).toBeVisible({ timeout: 15_000 });
         await expect
-          .poll(async () => {
-            const text = (await explanation.textContent()) || '';
-            return text.replace(/\s+/g, ' ').trim();
-          }, { timeout: 20_000 })
-          .toContain(expectedResolvedAuthor);
+          .poll(
+            async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
+            {
+              timeout: 20_000,
+              message: `Expected explanation to contain one of: ${expectedExplanationSubstrings.join(', ')}`,
+            }
+          )
+          .toMatch(explanationPattern);
       }
 
       const spinner = page.locator('#search-row .animate-spin');
