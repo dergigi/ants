@@ -9,13 +9,17 @@ type SmokeQuery = {
   expectedResolvedAuthor?: string;
 };
 
+const fiatjafAuthor = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
+const socratesAuthor = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
+const dergigiAuthor = 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
+
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
   {
     label: 'author search',
     query: 'by:fiatjaf',
     resultType: 'event',
-    expectedResolvedAuthor: 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'
+    expectedResolvedAuthor: fiatjafAuthor,
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   {
@@ -23,9 +27,24 @@ const smokeQueries: readonly SmokeQuery[] = [
     query: 'good by:socrates',
     resultType: 'event',
     expectedText: 'good',
-    expectedResolvedAuthor: 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h'
+    expectedResolvedAuthor: socratesAuthor,
   },
   { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
+  {
+    label: 'second author search',
+    query: 'by:socrates',
+    resultType: 'event',
+    expectedResolvedAuthor: socratesAuthor,
+  },
+  { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
+  { label: 'media search', query: 'has:image', resultType: 'event' },
+  {
+    label: 'author plus media search',
+    query: 'by:dergigi has:image',
+    resultType: 'event',
+    expectedResolvedAuthor: dergigiAuthor,
+  },
+  { label: 'OR search', query: 'bitcoin OR lightning', resultType: 'event' },
 ];
 
 const exampleSet = new Set(searchExamples);
