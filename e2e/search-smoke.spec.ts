@@ -24,10 +24,10 @@ const smokeQueries: readonly SmokeQuery[] = [
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   {
     label: 'text plus author search',
-    query: 'good by:socrates',
+    query: 'GM by:dergigi',
     resultType: 'event',
-    expectedText: 'good',
-    expectedExplanationSubstrings: ['by:socrates', socratesAuthor],
+    expectedText: 'GM',
+    expectedExplanationSubstrings: ['by:dergigi', dergigiAuthor],
   },
   { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
   {
