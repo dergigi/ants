@@ -9,8 +9,8 @@ type SmokeQuery = {
   expectedExplanationSubstrings?: readonly string[];
 };
 
-const fiatjafAuthor = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
-const socratesAuthor = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
+const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
+const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
@@ -18,7 +18,7 @@ const smokeQueries: readonly SmokeQuery[] = [
     label: 'author search',
     query: 'by:fiatjaf',
     resultType: 'event',
-    expectedExplanationSubstrings: ['by:fiatjaf', fiatjafAuthor],
+    expectedExplanationSubstrings: ['by:fiatjaf', fiatjafResolvedQuery],
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
@@ -27,7 +27,7 @@ const smokeQueries: readonly SmokeQuery[] = [
     label: 'second author search',
     query: 'by:socrates',
     resultType: 'event',
-    expectedExplanationSubstrings: ['by:socrates', socratesAuthor],
+    expectedExplanationSubstrings: ['by:socrates', socratesResolvedQuery],
   },
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
@@ -74,13 +74,22 @@ test.describe('real relay search smoke', () => {
 
       if (expectedExplanationSubstrings) {
         const explanation = page.locator('#search-explanation');
+        const explanationPattern = new RegExp(
+          expectedExplanationSubstrings
+            .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('|')
+        );
+
         await expect(explanation).toBeVisible({ timeout: 15_000 });
         await expect
-          .poll(async () => {
-            const text = ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
-            return expectedExplanationSubstrings.some((candidate) => text.includes(candidate));
-          }, { timeout: 20_000 })
-          .toBe(true);
+          .poll(
+            async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
+            {
+              timeout: 20_000,
+              message: `Expected explanation to contain one of: ${expectedExplanationSubstrings.join(', ')}`,
+            }
+          )
+          .toMatch(explanationPattern);
       }
 
       const spinner = page.locator('#search-row .animate-spin');
