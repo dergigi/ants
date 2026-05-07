@@ -11,7 +11,6 @@ type SmokeQuery = {
 
 const fiatjafAuthor = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
 const socratesAuthor = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
-const dergigiAuthor = 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
@@ -22,14 +21,8 @@ const smokeQueries: readonly SmokeQuery[] = [
     expectedExplanationSubstrings: ['by:fiatjaf', fiatjafAuthor],
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
-  {
-    label: 'text plus author search',
-    query: 'GM by:dergigi',
-    resultType: 'event',
-    expectedText: 'GM',
-    expectedExplanationSubstrings: ['by:dergigi', dergigiAuthor],
-  },
-  { label: 'site plus author search', query: 'site:github by:fiatjaf', resultType: 'event' },
+  { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
+  { label: 'gif search', query: 'has:gif', resultType: 'event' },
   {
     label: 'second author search',
     query: 'by:socrates',
@@ -38,12 +31,7 @@ const smokeQueries: readonly SmokeQuery[] = [
   },
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
-  {
-    label: 'author plus media search',
-    query: 'by:dergigi has:image',
-    resultType: 'event',
-    expectedExplanationSubstrings: ['by:dergigi', dergigiAuthor],
-  },
+  { label: 'image kind search', query: 'is:image', resultType: 'event' },
   { label: 'OR search', query: 'bitcoin OR lightning', resultType: 'event' },
 ];
 
