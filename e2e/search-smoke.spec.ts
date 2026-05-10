@@ -7,10 +7,13 @@ type SmokeQuery = {
   resultType: 'event' | 'profile';
   expectedText?: string;
   expectedExplanationSubstrings?: readonly string[];
+  expectedExplanationPattern?: RegExp;
 };
 
 const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
 const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
+const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
+const relativeUntilPattern = /\buntil:\d{4}-\d{2}-\d{2}\b/;
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
@@ -33,6 +36,24 @@ const smokeQueries: readonly SmokeQuery[] = [
   { label: 'media search', query: 'has:image', resultType: 'event' },
   { label: 'image kind search', query: 'is:image', resultType: 'event' },
   { label: 'NIP search', query: 'nip:05', resultType: 'event' },
+  {
+    label: 'absolute date range search',
+    query: 'GM by:dergigi since:2024-01-01 until:2024-03-31',
+    resultType: 'event',
+    expectedExplanationSubstrings: ['since:2024-01-01', 'until:2024-03-31'],
+  },
+  {
+    label: 'relative since date search',
+    query: 'bitcoin since:2w',
+    resultType: 'event',
+    expectedExplanationPattern: relativeSincePattern,
+  },
+  {
+    label: 'relative until date search',
+    query: 'nostr until:3d',
+    resultType: 'event',
+    expectedExplanationPattern: relativeUntilPattern,
+  },
 ];
 
 const exampleSet = new Set(searchExamples);
@@ -52,7 +73,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -72,24 +93,40 @@ test.describe('real relay search smoke', () => {
         .poll(() => new URL(page.url()).searchParams.get('q'))
         .toBe(query);
 
-      if (expectedExplanationSubstrings) {
+      if (expectedExplanationSubstrings || expectedExplanationPattern) {
         const explanation = page.locator('#search-explanation');
-        const explanationPattern = new RegExp(
-          expectedExplanationSubstrings
-            .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-            .join('|')
-        );
 
         await expect(explanation).toBeVisible({ timeout: 15_000 });
-        await expect
-          .poll(
-            async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
-            {
-              timeout: 20_000,
-              message: `Expected explanation to contain one of: ${expectedExplanationSubstrings.join(', ')}`,
-            }
-          )
-          .toMatch(explanationPattern);
+
+        if (expectedExplanationSubstrings) {
+          const explanationPattern = new RegExp(
+            expectedExplanationSubstrings
+              .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+              .join('|')
+          );
+
+          await expect
+            .poll(
+              async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
+              {
+                timeout: 20_000,
+                message: `Expected explanation to contain one of: ${expectedExplanationSubstrings.join(', ')}`,
+              }
+            )
+            .toMatch(explanationPattern);
+        }
+
+        if (expectedExplanationPattern) {
+          await expect
+            .poll(
+              async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
+              {
+                timeout: 20_000,
+                message: `Expected explanation to match: ${expectedExplanationPattern}`,
+              }
+            )
+            .toMatch(expectedExplanationPattern);
+        }
       }
 
       const spinner = page.locator('#search-row .animate-spin');
