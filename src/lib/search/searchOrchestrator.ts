@@ -8,6 +8,7 @@ import { tryHandleATagSearch } from './strategies/aTagSearchStrategy';
 import { tryHandleProfileSearch } from './strategies/profileSearchStrategy';
 import { tryHandleIdentitySearch } from './strategies/identitySearchStrategy';
 import { tryHandleAuthorSearch } from './strategies/authorSearchStrategy';
+import { tryHandleMentionsSearch } from './strategies/mentionsSearchStrategy';
 import { SearchContext } from './types';
 
 /**
@@ -58,10 +59,13 @@ export async function runSearchStrategies(
   const identityResults = await tryHandleIdentitySearch(cleanedQuery, context);
   if (identityResults) return identityResults;
 
+  // Check for mentions filter
+  const mentionsResults = await tryHandleMentionsSearch(cleanedQuery, context);
+  if (mentionsResults) return mentionsResults;
+
   // Check for author filter
   const authorResults = await tryHandleAuthorSearch(cleanedQuery, context);
   if (authorResults) return authorResults;
 
   return null;
 }
-
