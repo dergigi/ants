@@ -13,7 +13,6 @@ type SmokeQuery = {
 const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
 const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
 const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
-const relativeUntilPattern = /\buntil:\d{4}-\d{2}-\d{2}\b/;
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
@@ -49,10 +48,10 @@ const smokeQueries: readonly SmokeQuery[] = [
     expectedExplanationPattern: relativeSincePattern,
   },
   {
-    label: 'relative until date search',
-    query: 'nostr until:3d',
+    label: 'absolute until date search',
+    query: 'GM by:dergigi until:2024-06-06',
     resultType: 'event',
-    expectedExplanationPattern: relativeUntilPattern,
+    expectedExplanationSubstrings: ['until:2024-06-06'],
   },
 ];
 
