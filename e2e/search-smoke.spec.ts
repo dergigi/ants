@@ -1,5 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { searchExamples, type SearchExample } from '../src/lib/examples';
+import { parseDateValue } from '../src/lib/search/relativeDates';
+
+type DateExpectation = {
+  since?: string;
+  until?: string;
+  cardsToCheck?: number;
+};
 
 type SmokeQuery = {
   label: string;
@@ -8,6 +15,7 @@ type SmokeQuery = {
   expectedText?: string;
   expectedExplanationSubstrings?: readonly string[];
   expectedExplanationPattern?: RegExp;
+  expectedDateRange?: DateExpectation;
 };
 
 const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
@@ -40,18 +48,21 @@ const smokeQueries: readonly SmokeQuery[] = [
     query: 'by:fiatjaf since:2024-01-01 until:2024-03-31',
     resultType: 'event',
     expectedExplanationSubstrings: ['since:2024-01-01', 'until:2024-03-31'],
+    expectedDateRange: { since: '2024-01-01', until: '2024-03-31' },
   },
   {
     label: 'relative since date search',
     query: 'bitcoin since:2w',
     resultType: 'event',
     expectedExplanationPattern: relativeSincePattern,
+    expectedDateRange: { since: '2w' },
   },
   {
     label: 'absolute until date search',
     query: 'by:dergigi until:2026-12-31',
     resultType: 'event',
     expectedExplanationSubstrings: ['until:2026-12-31'],
+    expectedDateRange: { until: '2026-12-31' },
   },
 ];
 
@@ -59,9 +70,56 @@ const exampleSet = new Set(searchExamples);
 const baseCardSelector = '[class*="relative"][class*="bg-[#2d2d2d]"][class*="border-[#3d3d3d]"]';
 const eventCardSelector = `${baseCardSelector}:not([class*="overflow-hidden"])`;
 const profileCardSelector = `${baseCardSelector}[class*="overflow-hidden"]`;
+const DEFAULT_DATE_CARDS_TO_CHECK = 5;
 
 const getResultCards = (page: Page, resultType: 'event' | 'profile') =>
   page.locator(resultType === 'profile' ? profileCardSelector : eventCardSelector);
+
+function parseExactDateTitle(title: string): number | null {
+  const normalized = title.replace(' at ', ' ');
+  const parsed = new Date(normalized).getTime();
+  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : null;
+}
+
+async function getCardExactTimestamp(card: Locator): Promise<number> {
+  const titles = await card.locator('[title]').evaluateAll((nodes) =>
+    nodes
+      .map((node) => node.getAttribute('title') || '')
+      .filter(Boolean)
+  );
+
+  for (const title of titles) {
+    const parsed = parseExactDateTitle(title);
+    if (parsed !== null) return parsed;
+  }
+
+  throw new Error(`No exact date tooltip found for card. Titles: ${titles.join(' | ')}`);
+}
+
+async function expectResultDatesWithinRange(resultCards: Locator, expectedDateRange: DateExpectation): Promise<void> {
+  const since = expectedDateRange.since ? parseDateValue(expectedDateRange.since, 'since')?.timestamp : undefined;
+  const until = expectedDateRange.until ? parseDateValue(expectedDateRange.until, 'until')?.timestamp : undefined;
+
+  if (expectedDateRange.since && since === undefined) {
+    throw new Error(`Failed to parse expected since date: ${expectedDateRange.since}`);
+  }
+  if (expectedDateRange.until && until === undefined) {
+    throw new Error(`Failed to parse expected until date: ${expectedDateRange.until}`);
+  }
+
+  const count = await resultCards.count();
+  const cardsToCheck = Math.min(count, expectedDateRange.cardsToCheck ?? DEFAULT_DATE_CARDS_TO_CHECK);
+
+  for (let index = 0; index < cardsToCheck; index += 1) {
+    const timestamp = await getCardExactTimestamp(resultCards.nth(index));
+    if (since !== undefined) {
+      expect(timestamp, `Card ${index + 1} is older than since:${expectedDateRange.since}`).toBeGreaterThanOrEqual(since);
+    }
+    if (until !== undefined) {
+      expect(timestamp, `Card ${index + 1} is newer than until:${expectedDateRange.until}`).toBeLessThanOrEqual(until);
+    }
+  }
+}
 
 test.describe('real relay search smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -72,7 +130,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern, expectedDateRange } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -136,6 +194,11 @@ test.describe('real relay search smoke', () => {
         .toBeGreaterThan(0);
       await expect(resultCards.first()).toBeVisible();
       await expect(spinner).toHaveCount(0, { timeout: 45_000 });
+
+      if (expectedDateRange) {
+        await expectResultDatesWithinRange(resultCards, expectedDateRange);
+      }
+
       if (expectedText) {
         await expect
           .poll(async () => {
