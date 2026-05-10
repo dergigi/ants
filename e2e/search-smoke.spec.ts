@@ -75,25 +75,18 @@ const DEFAULT_DATE_CARDS_TO_CHECK = 5;
 const getResultCards = (page: Page, resultType: 'event' | 'profile') =>
   page.locator(resultType === 'profile' ? profileCardSelector : eventCardSelector);
 
-function parseExactDateTitle(title: string): number | null {
-  const normalized = title.replace(' at ', ' ');
-  const parsed = new Date(normalized).getTime();
-  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : null;
-}
-
 async function getCardExactTimestamp(card: Locator): Promise<number> {
-  const titles = await card.locator('[title]').evaluateAll((nodes) =>
+  const timestamps = await card.locator('[data-timestamp]').evaluateAll((nodes) =>
     nodes
-      .map((node) => node.getAttribute('title') || '')
-      .filter(Boolean)
+      .map((node) => Number.parseInt(node.getAttribute('data-timestamp') || '', 10))
+      .filter((timestamp) => Number.isFinite(timestamp))
   );
 
-  for (const title of titles) {
-    const parsed = parseExactDateTitle(title);
-    if (parsed !== null) return parsed;
+  for (const timestamp of timestamps) {
+    if (timestamp > 0) return timestamp;
   }
 
-  throw new Error(`No exact date tooltip found for card. Titles: ${titles.join(' | ')}`);
+  throw new Error('No machine-readable timestamp found for card.');
 }
 
 async function expectResultDatesWithinRange(resultCards: Locator, expectedDateRange: DateExpectation): Promise<void> {
@@ -152,36 +145,27 @@ test.describe('real relay search smoke', () => {
 
       if (expectedExplanationSubstrings || expectedExplanationPattern) {
         const explanation = page.locator('#search-explanation');
+        const getExplanationText = async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
 
         await expect(explanation).toBeVisible({ timeout: 15_000 });
 
         if (expectedExplanationSubstrings) {
-          const explanationPattern = new RegExp(
-            expectedExplanationSubstrings
-              .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-              .join('|')
-          );
-
-          await expect
-            .poll(
-              async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
-              {
+          for (const expectedSubstring of expectedExplanationSubstrings) {
+            await expect
+              .poll(getExplanationText, {
                 timeout: 20_000,
-                message: `Expected explanation to contain one of: ${expectedExplanationSubstrings.join(', ')}`,
-              }
-            )
-            .toMatch(explanationPattern);
+                message: `Expected explanation to contain: ${expectedSubstring}`,
+              })
+              .toContain(expectedSubstring);
+          }
         }
 
         if (expectedExplanationPattern) {
           await expect
-            .poll(
-              async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim(),
-              {
-                timeout: 20_000,
-                message: `Expected explanation to match: ${expectedExplanationPattern}`,
-              }
-            )
+            .poll(getExplanationText, {
+              timeout: 20_000,
+              message: `Expected explanation to match: ${expectedExplanationPattern}`,
+            })
             .toMatch(expectedExplanationPattern);
         }
       }
