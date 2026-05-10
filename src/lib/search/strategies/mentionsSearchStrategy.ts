@@ -73,9 +73,10 @@ export async function tryHandleMentionsSearch(
   if (byMatches.length > 0) {
     const authorTokens = Array.from(new Set(byMatches.map((match) => match[1]).filter(Boolean)));
     const authorPubkeys = await resolveAuthorTokens(authorTokens);
-    if (authorPubkeys.length > 0) {
-      filter.authors = authorPubkeys;
+    if (authorPubkeys.length === 0) {
+      return [];
     }
+    filter.authors = authorPubkeys;
 
     const searchTerms = terms.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
     if (searchTerms) {
