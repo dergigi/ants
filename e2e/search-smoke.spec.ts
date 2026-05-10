@@ -37,7 +37,7 @@ const smokeQueries: readonly SmokeQuery[] = [
   { label: 'NIP search', query: 'nip:05', resultType: 'event' },
   {
     label: 'absolute date range search',
-    query: 'bitcoin since:2024-01-01 until:2024-03-31',
+    query: 'by:fiatjaf since:2024-01-01 until:2024-03-31',
     resultType: 'event',
     expectedExplanationSubstrings: ['since:2024-01-01', 'until:2024-03-31'],
   },
@@ -49,9 +49,9 @@ const smokeQueries: readonly SmokeQuery[] = [
   },
   {
     label: 'absolute until date search',
-    query: 'bitcoin until:2024-06-06',
+    query: 'by:dergigi until:2026-12-31',
     resultType: 'event',
-    expectedExplanationSubstrings: ['until:2024-06-06'],
+    expectedExplanationSubstrings: ['until:2026-12-31'],
   },
 ];
 
