@@ -64,9 +64,12 @@ export function parseDateValue(value: string, keyword: 'since' | 'until', now = 
       resolvedDate.setUTCDate(resolvedDate.getUTCDate() - amount * 7);
       break;
     case 'm':
+      // `setUTCMonth` can overflow when the current day does not exist in the target month.
+      // Example: Jan 31 minus 1 month lands in early March instead of the last day of February.
       resolvedDate.setUTCMonth(resolvedDate.getUTCMonth() - amount);
       break;
     case 'y':
+      // `setUTCFullYear` follows the same overflow behavior for leap days and short months.
       resolvedDate.setUTCFullYear(resolvedDate.getUTCFullYear() - amount);
       break;
     default:
@@ -82,12 +85,10 @@ export function parseDateValue(value: string, keyword: 'since' | 'until', now = 
 }
 
 export function resolveRelativeDates(rawQuery: string, now = new Date()): { resolved: string; translation: string | null } {
-  const relativeRegex = /(?:^|\s)(since|until):(\S+)(?=\s|$)/gi;
+  const relativeRegex = /(?:^|\s)(since|until):(\d+[hdwmy])(?=\s|$)/gi;
   const translations: string[] = [];
 
   const resolved = rawQuery.replace(relativeRegex, (match, keyword: 'since' | 'until', value: string) => {
-    if (!RELATIVE_DATE_REGEX.test(value)) return match;
-
     const parsed = parseDateValue(value, keyword, now);
     if (!parsed) return match;
 

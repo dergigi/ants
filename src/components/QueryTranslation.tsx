@@ -56,7 +56,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
       // 1) Resolve relative dates, then apply simple replacements
-      const { resolved: relativeDateResolvedQuery } = resolveRelativeDates(query);
+      const { resolved: relativeDateResolvedQuery, translation: dateTranslation } = resolveRelativeDates(query);
       const afterReplacements = await applySimpleReplacements(relativeDateResolvedQuery);
 
       // 2) Recursive OR substitution (distribute parentheses)
@@ -158,7 +158,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       if (distributed.length > 1) {
         // We have parenthesized OR expansion - show all expanded queries
         const preview = withPResolved.join('\n');
-        return preview;
+        return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
       }
 
       // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
@@ -175,7 +175,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
       // Format compact preview
       const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      return preview;
+      return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
     } catch {
       return '';
     }
