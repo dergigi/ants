@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-10
+
 ### Added
 - Support for viewing Nostr follow packs (kind 39089) with `is:followpack` search shortcut
+- A real-relay search smoke suite in GitHub Actions with broader stable query coverage
+
+### Fixed
+- Restored `by:@me` and `mentions:@me` search modifiers, related examples, and the `@me` query translation preview
+- Restored the `.well-known/nostr.json` NIP-05 endpoint for `_@ants.sh`, including Haven and WoT relay hints
+- Restored `/tutorial` to the hosted Haven tutorial event
 
 ## [0.4.1] - 2026-05-06
 
