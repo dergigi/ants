@@ -6,6 +6,7 @@ import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-sv
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
+import { resolveRelativeDates } from '@/lib/search/relativeDates';
 import { getStoredPubkey } from '@/lib/nip07';
 import { nip19 } from 'nostr-tools';
 import { getLastReducedFilters } from '@/lib/ndk';
@@ -54,8 +55,9 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
-      // 1) Apply simple replacements first
-      const afterReplacements = await applySimpleReplacements(query);
+      // 1) Resolve relative dates, then apply simple replacements
+      const { resolved: relativeDateResolvedQuery } = resolveRelativeDates(query);
+      const afterReplacements = await applySimpleReplacements(relativeDateResolvedQuery);
 
       // 2) Recursive OR substitution (distribute parentheses)
       const distributed = expandParenthesizedOr(afterReplacements);

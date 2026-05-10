@@ -61,6 +61,9 @@ export const searchExamples = [
   'GM by:dergigi until:2024-06-06',
   'GN by:dergigi since:2025-10-31',
   'GM by:dergigi since:2024-01-01 until:2024-03-31',
+  'bitcoin since:2w',
+  'nostr until:3d',
+  'GM by:dergigi since:12h',
 
   // Profile lookup / NIP-05
   'p:fiatjaf',
