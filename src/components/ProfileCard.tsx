@@ -87,6 +87,9 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
 
   const updatedLabel = updatedAt ? formatRelativeTimeAuto(updatedAt) : 'Unknown';
   const cleanedLightning = lightning ? cleanLightningAddress(lightning, npub) : undefined;
+  const timestampProps = typeof updatedAt === 'number'
+    ? { 'data-timestamp': String(updatedAt) }
+    : {};
 
   return (
     <div className="text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] px-4 py-2 flex items-center gap-3 flex-wrap">
@@ -146,15 +149,15 @@ function ProfileCreatedAt({ pubkey, fallbackEventId, fallbackCreatedAt, lightnin
                 onClick={onToggleRaw}
                 className="hover:underline cursor-pointer"
                 title={updatedAt ? formatExactDate(updatedAt) : undefined}
-                data-timestamp={updatedAt ?? undefined}
+                {...timestampProps}
               >
                 {updatedLabel}
               </button>
             ) : (
-              <a href={`/p/${npub}`} className="hover:underline" title={updatedAt ? formatExactDate(updatedAt) : undefined} data-timestamp={updatedAt ?? undefined}>{updatedLabel}</a>
+              <a href={`/p/${npub}`} className="hover:underline" title={updatedAt ? formatExactDate(updatedAt) : undefined} {...timestampProps}>{updatedLabel}</a>
             )
           ) : (
-            <span title={updatedAt ? formatExactDate(updatedAt) : undefined} data-timestamp={updatedAt ?? undefined}>{updatedLabel}</span>
+            <span title={updatedAt ? formatExactDate(updatedAt) : undefined} {...timestampProps}>{updatedLabel}</span>
           )}
           <CardActions
             eventId={fallbackEventId}
@@ -506,4 +509,3 @@ export default function ProfileCard({ event, onAuthorClick, onHashtagClick, show
     </div>
   );
 }
-

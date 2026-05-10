@@ -1277,17 +1277,23 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [setQuery, updateUrlForSearch, handleSearch]);
 
   // DRY component for nevent search buttons
-  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate, exactTimestamp }: { eventId: string; timestamp: string; exactDate?: string; exactTimestamp?: number }) => (
-    <button
-      type="button"
-      className="text-xs hover:underline"
-      title={exactDate || "Search this nevent"}
-      data-timestamp={exactTimestamp}
-      onClick={() => handleNeventSearch(eventId)}
-    >
-      {timestamp}
-    </button>
-  ), [handleNeventSearch]);
+  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate, exactTimestamp }: { eventId: string; timestamp: string; exactDate?: string; exactTimestamp?: number }) => {
+    const timestampProps = typeof exactTimestamp === 'number'
+      ? { 'data-timestamp': String(exactTimestamp) }
+      : {};
+
+    return (
+      <button
+        type="button"
+        className="text-xs hover:underline"
+        title={exactDate || "Search this nevent"}
+        onClick={() => handleNeventSearch(eventId)}
+        {...timestampProps}
+      >
+        {timestamp}
+      </button>
+    );
+  }, [handleNeventSearch]);
 
   // DRY helper for common EventCard props
   const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
