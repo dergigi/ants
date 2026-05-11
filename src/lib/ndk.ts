@@ -93,16 +93,27 @@ export async function ensureCacheInitialized(): Promise<void> {
   // Install global error handlers first to catch any initialization errors
   if (!cacheErrorHandlersInstalled && typeof window !== 'undefined') {
     try {
-      const handleAnyError = (err: unknown) => {
-        const reason = err && (err as { reason?: unknown; error?: unknown }).reason;
-        const payload = (reason as unknown) || err;
-        if (isUndefinedBindWasmError(payload)) {
-          console.warn('Caught WASM cache binding error, disabling cache:', payload);
-          disableCacheAdapter(payload);
-        }
+      const suppressKnownCacheError = (event: { preventDefault?: () => void; stopImmediatePropagation?: () => void } | undefined) => {
+        try { event?.preventDefault?.(); } catch {}
+        try { event?.stopImmediatePropagation?.(); } catch {}
       };
-      window.addEventListener('error', (ev) => handleAnyError(ev.error || ev.message));
-      window.addEventListener('unhandledrejection', (ev) => handleAnyError((ev as PromiseRejectionEvent).reason));
+
+      window.addEventListener('error', (ev) => {
+        const payload = ev.error || ev.message;
+        if (!isUndefinedBindWasmError(payload)) return;
+        console.warn('Caught WASM cache binding error, disabling cache:', payload);
+        disableCacheAdapter(payload);
+        suppressKnownCacheError(ev);
+      });
+
+      window.addEventListener('unhandledrejection', (ev) => {
+        const payload = (ev as PromiseRejectionEvent).reason;
+        if (!isUndefinedBindWasmError(payload)) return;
+        console.warn('Caught WASM cache binding rejection, disabling cache:', payload);
+        disableCacheAdapter(payload);
+        suppressKnownCacheError(ev);
+      });
+
       cacheErrorHandlersInstalled = true;
     } catch {}
   }
