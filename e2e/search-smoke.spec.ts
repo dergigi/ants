@@ -14,13 +14,13 @@ type SmokeQuery = {
   resultType: 'event' | 'profile';
   expectedText?: string;
   expectedExplanationSubstrings?: readonly string[];
+  expectedExplanationSubstringsBeforeSubmit?: readonly string[];
   expectedExplanationPattern?: RegExp;
   expectedEffectiveFilterSubstrings?: readonly string[];
   expectedDateRange?: DateExpectation;
 };
 
 const dergigiResolvedQuery = 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
-const dergigiAuthorHex = '6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93';
 const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
 
 const smokeQueries: readonly SmokeQuery[] = [
@@ -29,7 +29,7 @@ const smokeQueries: readonly SmokeQuery[] = [
     label: 'author alias search',
     query: 'by:dergigi',
     resultType: 'event',
-    expectedEffectiveFilterSubstrings: [dergigiAuthorHex],
+    expectedExplanationSubstringsBeforeSubmit: [dergigiResolvedQuery],
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
@@ -124,7 +124,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern, expectedEffectiveFilterSubstrings, expectedDateRange } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationSubstringsBeforeSubmit, expectedExplanationPattern, expectedEffectiveFilterSubstrings, expectedDateRange } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -138,14 +138,28 @@ test.describe('real relay search smoke', () => {
       await expect(input).toBeVisible();
 
       await input.fill(query);
+
+      const explanation = page.locator('#search-explanation');
+      const getExplanationText = async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
+
+      if (expectedExplanationSubstringsBeforeSubmit) {
+        await expect(explanation).toBeVisible({ timeout: 15_000 });
+
+        for (const expectedSubstring of expectedExplanationSubstringsBeforeSubmit) {
+          await expect
+            .poll(getExplanationText, {
+              timeout: 30_000,
+              message: `Expected explanation to contain before submit: ${expectedSubstring}`,
+            })
+            .toContain(expectedSubstring);
+        }
+      }
+
       await input.press('Enter');
 
       await expect
         .poll(() => new URL(page.url()).searchParams.get('q'))
         .toBe(query);
-
-      const explanation = page.locator('#search-explanation');
-      const getExplanationText = async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
 
       if (expectedExplanationSubstrings || expectedExplanationPattern || expectedEffectiveFilterSubstrings) {
         await expect(explanation).toBeVisible({ timeout: 15_000 });
