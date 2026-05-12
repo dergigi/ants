@@ -15,40 +15,30 @@ type SmokeQuery = {
   expectedText?: string;
   expectedExplanationSubstrings?: readonly string[];
   expectedExplanationPattern?: RegExp;
+  expectedEffectiveFilterSubstrings?: readonly string[];
   expectedDateRange?: DateExpectation;
 };
 
-const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
-const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
+const dergigiResolvedQuery = 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
+const dergigiAuthorHex = '6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93';
 const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
-
-function patternFromAlternatives(...candidates: readonly string[]): RegExp {
-  return new RegExp(
-    candidates
-      .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .join('|')
-  );
-}
-
-const fiatjafExplanationPattern = patternFromAlternatives('by:fiatjaf', fiatjafResolvedQuery);
-const socratesExplanationPattern = patternFromAlternatives('by:socrates', socratesResolvedQuery);
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
   {
-    label: 'author search',
-    query: 'by:fiatjaf',
+    label: 'author alias search',
+    query: 'by:dergigi',
     resultType: 'event',
-    expectedExplanationPattern: fiatjafExplanationPattern,
+    expectedEffectiveFilterSubstrings: [dergigiAuthorHex],
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
   { label: 'gif search', query: 'has:gif', resultType: 'event' },
   {
-    label: 'second author search',
-    query: 'by:socrates',
+    label: 'direct npub author search',
+    query: 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
     resultType: 'event',
-    expectedExplanationPattern: socratesExplanationPattern,
+    expectedExplanationSubstrings: [dergigiResolvedQuery],
   },
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
@@ -134,7 +124,7 @@ test.describe('real relay search smoke', () => {
     }
   });
 
-  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern, expectedDateRange } of smokeQueries) {
+  for (const { label, query, resultType, expectedText, expectedExplanationSubstrings, expectedExplanationPattern, expectedEffectiveFilterSubstrings, expectedDateRange } of smokeQueries) {
     test(`${label}: ${query}`, async ({ page }) => {
 
       const pageErrors: string[] = [];
@@ -154,10 +144,10 @@ test.describe('real relay search smoke', () => {
         .poll(() => new URL(page.url()).searchParams.get('q'))
         .toBe(query);
 
-      if (expectedExplanationSubstrings || expectedExplanationPattern) {
-        const explanation = page.locator('#search-explanation');
-        const getExplanationText = async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
+      const explanation = page.locator('#search-explanation');
+      const getExplanationText = async () => ((await explanation.textContent()) || '').replace(/\s+/g, ' ').trim();
 
+      if (expectedExplanationSubstrings || expectedExplanationPattern || expectedEffectiveFilterSubstrings) {
         await expect(explanation).toBeVisible({ timeout: 15_000 });
 
         if (expectedExplanationSubstrings) {
@@ -189,6 +179,21 @@ test.describe('real relay search smoke', () => {
         .toBeGreaterThan(0);
       await expect(resultCards.first()).toBeVisible();
       await expect(spinner).toHaveCount(0, { timeout: 45_000 });
+
+      if (expectedEffectiveFilterSubstrings) {
+        const filtersButton = page.getByRole('button', { name: /effective filters/i });
+        await expect(filtersButton).toBeVisible();
+        await filtersButton.click();
+
+        for (const expectedSubstring of expectedEffectiveFilterSubstrings) {
+          await expect
+            .poll(getExplanationText, {
+              timeout: 20_000,
+              message: `Expected effective filters to contain: ${expectedSubstring}`,
+            })
+            .toContain(expectedSubstring);
+        }
+      }
 
       if (expectedDateRange) {
         await expectResultDatesWithinRange(resultCards, expectedDateRange);
