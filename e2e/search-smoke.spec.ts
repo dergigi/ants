@@ -18,8 +18,7 @@ type SmokeQuery = {
   expectedDateRange?: DateExpectation;
 };
 
-const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
-const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
+const dergigiResolvedQuery = 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc';
 const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
 
 function patternFromAlternatives(...candidates: readonly string[]): RegExp {
@@ -30,25 +29,24 @@ function patternFromAlternatives(...candidates: readonly string[]): RegExp {
   );
 }
 
-const fiatjafExplanationPattern = patternFromAlternatives('by:fiatjaf', fiatjafResolvedQuery);
-const socratesExplanationPattern = patternFromAlternatives('by:socrates', socratesResolvedQuery);
+const dergigiExplanationPattern = patternFromAlternatives('by:dergigi', dergigiResolvedQuery);
 
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
   {
-    label: 'author search',
-    query: 'by:fiatjaf',
+    label: 'author alias search',
+    query: 'by:dergigi',
     resultType: 'event',
-    expectedExplanationPattern: fiatjafExplanationPattern,
+    expectedExplanationPattern: dergigiExplanationPattern,
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
   { label: 'gif search', query: 'has:gif', resultType: 'event' },
   {
-    label: 'second author search',
-    query: 'by:socrates',
+    label: 'direct npub author search',
+    query: 'by:npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc',
     resultType: 'event',
-    expectedExplanationPattern: socratesExplanationPattern,
+    expectedExplanationSubstrings: [dergigiResolvedQuery],
   },
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
