@@ -1277,23 +1277,30 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }, [setQuery, updateUrlForSearch, handleSearch]);
 
   // DRY component for nevent search buttons
-  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate }: { eventId: string; timestamp: string; exactDate?: string }) => (
-    <button
-      type="button"
-      className="text-xs hover:underline"
-      title={exactDate || "Search this nevent"}
-      onClick={() => handleNeventSearch(eventId)}
-    >
-      {timestamp}
-    </button>
-  ), [handleNeventSearch]);
+  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate, exactTimestamp }: { eventId: string; timestamp: string; exactDate?: string; exactTimestamp?: number }) => {
+    const timestampProps = typeof exactTimestamp === 'number'
+      ? { 'data-timestamp': String(exactTimestamp) }
+      : {};
+
+    return (
+      <button
+        type="button"
+        className="text-xs hover:underline"
+        title={exactDate || "Search this nevent"}
+        onClick={() => handleNeventSearch(eventId)}
+        {...timestampProps}
+      >
+        {timestamp}
+      </button>
+    );
+  }, [handleNeventSearch]);
 
   // DRY helper for common EventCard props
   const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
     event,
     onAuthorClick: goToProfile,
     className,
-    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} exactDate={event.created_at ? formatExactDate(event.created_at) : undefined} />
+    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} exactDate={event.created_at ? formatExactDate(event.created_at) : undefined} exactTimestamp={event.created_at} />
   }), [goToProfile, NeventSearchButton]);
 
 
@@ -1569,7 +1576,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         mediaRenderer={renderNoteMedia}
         className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
         showFooter={true}
-        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} exactDate={parentEvent.created_at ? formatExactDate(parentEvent.created_at) : undefined} />}
+        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} exactDate={parentEvent.created_at ? formatExactDate(parentEvent.created_at) : undefined} exactTimestamp={parentEvent.created_at} />}
       />
     ));
   }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton]);

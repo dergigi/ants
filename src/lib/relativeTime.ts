@@ -14,9 +14,32 @@ const DAYS_IN_YEAR = 365;
 
 // Cache formatters to avoid recreating them
 const formatters = {
-  narrow: new RelativeTimeFormat('en', { style: 'narrow' }),
   long: new RelativeTimeFormat('en', { style: 'long' })
 };
+
+const MOBILE_UNIT_SUFFIXES = {
+  year: 'y',
+  month: 'mo',
+  day: 'd',
+  hour: 'h',
+  minute: 'min',
+  second: 's'
+} as const;
+
+type MobileRelativeUnit = keyof typeof MOBILE_UNIT_SUFFIXES;
+
+function formatMobileRelativeTime(value: number, unit: MobileRelativeUnit): string {
+  if (value === 0) return 'now';
+
+  const suffix = MOBILE_UNIT_SUFFIXES[unit];
+  const absoluteValue = Math.abs(value);
+
+  if (value < 0) {
+    return `${absoluteValue}${suffix} ago`;
+  }
+
+  return `in ${absoluteValue}${suffix}`;
+}
 
 /**
  * Detects if the current viewport is mobile
@@ -54,24 +77,24 @@ function calculateTimeDifferences(timestamp: number) {
  */
 export function formatRelativeTime(timestamp: number, isMobile: boolean = false): string {
   const { diffSeconds, diffMinutes, diffHours, diffDays, diffMonths, diffYears } = calculateTimeDifferences(timestamp);
-  const formatter = isMobile ? formatters.narrow : formatters.long;
+  const formatter = formatters.long;
 
   if (Math.abs(diffYears) >= 1) {
-    return formatter.format(-diffYears, 'year');
+    return isMobile ? formatMobileRelativeTime(-diffYears, 'year') : formatter.format(-diffYears, 'year');
   }
   if (Math.abs(diffMonths) >= 1) {
-    return formatter.format(-diffMonths, 'month');
+    return isMobile ? formatMobileRelativeTime(-diffMonths, 'month') : formatter.format(-diffMonths, 'month');
   }
   if (Math.abs(diffDays) >= 1) {
-    return formatter.format(-diffDays, 'day');
+    return isMobile ? formatMobileRelativeTime(-diffDays, 'day') : formatter.format(-diffDays, 'day');
   }
   if (Math.abs(diffHours) >= 1) {
-    return formatter.format(-diffHours, 'hour');
+    return isMobile ? formatMobileRelativeTime(-diffHours, 'hour') : formatter.format(-diffHours, 'hour');
   }
   if (Math.abs(diffMinutes) >= 1) {
-    return formatter.format(-diffMinutes, 'minute');
+    return isMobile ? formatMobileRelativeTime(-diffMinutes, 'minute') : formatter.format(-diffMinutes, 'minute');
   }
-  return formatter.format(-diffSeconds, 'second');
+  return isMobile ? formatMobileRelativeTime(-diffSeconds, 'second') : formatter.format(-diffSeconds, 'second');
 }
 
 /**
