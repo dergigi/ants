@@ -64,7 +64,8 @@ function pickBestAuthorResolutionProfile(input: string, profiles: NDKEvent[]): N
       return a.index - b.index;
     });
 
-  return ranked[0]?.event || null;
+  const best = ranked[0];
+  return best && best.score > 0 ? best.event : null;
 }
 
 // Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
