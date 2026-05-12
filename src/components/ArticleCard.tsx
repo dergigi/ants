@@ -152,7 +152,6 @@ function ArticleBody({
             width={800}
             height={256}
             className="w-full max-h-64 object-cover rounded"
-            unoptimized
             onError={() => setImgError(true)}
           />
         </div>
