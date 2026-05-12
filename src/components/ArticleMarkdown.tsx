@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import Markdown from 'react-markdown';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
 import NostrProfileLink from '@/components/NostrProfileLink';
