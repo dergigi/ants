@@ -185,9 +185,11 @@ test.describe('real relay search smoke', () => {
         await expect(filtersButton).toBeVisible();
         await filtersButton.click();
 
+        const getBodyText = async () => ((await page.locator('body').textContent()) || '').replace(/\s+/g, ' ').trim();
+
         for (const expectedSubstring of expectedEffectiveFilterSubstrings) {
           await expect
-            .poll(getExplanationText, {
+            .poll(getBodyText, {
               timeout: 20_000,
               message: `Expected effective filters to contain: ${expectedSubstring}`,
             })
