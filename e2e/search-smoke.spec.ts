@@ -22,13 +22,24 @@ const fiatjafResolvedQuery = 'by:npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6
 const socratesResolvedQuery = 'by:npub1s0cra5735s8ccw7pfvqtp4see7t7lkfr0gwrfhkhsfakuxkf5ahs83023h';
 const relativeSincePattern = /\bsince:\d{4}-\d{2}-\d{2}\b/;
 
+function patternFromAlternatives(...candidates: readonly string[]): RegExp {
+  return new RegExp(
+    candidates
+      .map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|')
+  );
+}
+
+const fiatjafExplanationPattern = patternFromAlternatives('by:fiatjaf', fiatjafResolvedQuery);
+const socratesExplanationPattern = patternFromAlternatives('by:socrates', socratesResolvedQuery);
+
 const smokeQueries: readonly SmokeQuery[] = [
   { label: 'basic text search', query: 'vibe coding', resultType: 'event' },
   {
     label: 'author search',
     query: 'by:fiatjaf',
     resultType: 'event',
-    expectedExplanationSubstrings: ['by:fiatjaf', fiatjafResolvedQuery],
+    expectedExplanationPattern: fiatjafExplanationPattern,
   },
   { label: 'profile search', query: 'p:fiatjaf', resultType: 'profile' },
   { label: 'kind OR search', query: 'kind:0 or kind:1', resultType: 'event' },
@@ -37,7 +48,7 @@ const smokeQueries: readonly SmokeQuery[] = [
     label: 'second author search',
     query: 'by:socrates',
     resultType: 'event',
-    expectedExplanationSubstrings: ['by:socrates', socratesResolvedQuery],
+    expectedExplanationPattern: socratesExplanationPattern,
   },
   { label: 'second profile search', query: 'p:hodl', resultType: 'profile' },
   { label: 'media search', query: 'has:image', resultType: 'event' },
