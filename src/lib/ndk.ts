@@ -2,7 +2,7 @@ import NDK, { NDKEvent, NDKFilter, NDKRelaySet, NDKSubscription, NDKSubscription
 import NDKCacheAdapterSqliteWasm from '@nostr-dev-kit/ndk-cache-sqlite-wasm';
 import { getFilteredExamples } from './examples';
 import { reduceFilters } from './utils/filterReduce';
-import { RELAYS } from './relays';
+import { RELAYS } from './relays/config';
 import { isLoggedIn } from './nip07';
 import { isBrowser } from './utils/ssr';
 import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from './constants';

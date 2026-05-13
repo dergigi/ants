@@ -1,9 +1,8 @@
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk, connect } from './ndk';
 import { clearAllProfileCaches } from './profile/cache';
+import { NIP07_PUBKEY_KEY, getStoredPubkey } from './authStorage';
 import { clearRelayCaches } from './relays';
-
-const NIP07_PUBKEY_KEY = 'nip07_pubkey';
 
 function emitAuthChange(): void {
   try {
@@ -56,10 +55,6 @@ export function isLoggedIn(): boolean {
   return !!localStorage.getItem(NIP07_PUBKEY_KEY);
 }
 
-export function getStoredPubkey(): string | null {
-  return localStorage.getItem(NIP07_PUBKEY_KEY);
-}
-
 export function logout(): void {
   localStorage.removeItem(NIP07_PUBKEY_KEY);
   ndk.signer = undefined;
@@ -74,6 +69,8 @@ export function logout(): void {
   } catch {}
   emitAuthChange();
 }
+
+export { getStoredPubkey } from './authStorage';
 
 export async function restoreLogin(): Promise<NDKUser | null> {
   const storedPubkey = getStoredPubkey();
