@@ -47,7 +47,13 @@ async function fetchRelayList(kind: number, pubkey: string): Promise<string[]> {
       resolve([]);
     });
 
-    sub.start();
+    try {
+      sub.start();
+    } catch {
+      clearTimeout(timer);
+      try { sub.stop(); } catch {}
+      resolve([]);
+    }
   });
 }
 

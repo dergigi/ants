@@ -1,7 +1,6 @@
 import { RELAY_INFO_CHECK_TIMEOUT, RELAY_HTTP_REQUEST_TIMEOUT } from '../constants';
 import { ndk } from '../ndk';
 import { cacheRelayInfo, relayInfoCache, relayInfoCacheDurationMs } from './cache';
-import { RELAYS } from './config';
 import type { RelayInfo } from './types';
 
 export function normalizeRelayUrlInternal(url: string): string {
@@ -32,15 +31,6 @@ export async function getRelayInfo(relayUrl: string): Promise<RelayInfo> {
           cacheRelayInfo(relayUrl, result);
           return result;
         }
-      }
-
-      const knownSearchRelays = new Set<string>([
-        ...RELAYS.SEARCH,
-        ...RELAYS.PROFILE_SEARCH
-      ]);
-
-      if (knownSearchRelays.has(relayUrl)) {
-        // Keep curated relays on the HTTP/NIP-11 path instead of hard-coding supported NIPs.
       }
 
       const httpResult = await checkRelayInfoViaHttp(relayUrl);
