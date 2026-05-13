@@ -8,43 +8,65 @@ export function normalizeRelayUrlInternal(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return '';
   const withScheme = /^wss?:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`;
-  return withScheme.replace(/\/+$/, '');
+
+  try {
+    const parsed = new URL(withScheme);
+    const pathname = parsed.pathname.replace(/\/+$/, '');
+    const port = parsed.port ? `:${parsed.port}` : '';
+    return `${parsed.protocol.toLowerCase()}//${parsed.hostname.toLowerCase()}${port}${pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return withScheme.replace(/\/+$/, '');
+  }
 }
 
 export async function getRelayInfo(relayUrl: string): Promise<RelayInfo> {
+  const normalizedRelayUrl = normalizeRelayUrlInternal(relayUrl);
+  if (!normalizedRelayUrl) {
+    return {};
+  }
+
   try {
-    const cached = relayInfoCache.get(relayUrl);
+    const cached = relayInfoCache.get(normalizedRelayUrl);
     if (cached && Date.now() - cached.timestamp < relayInfoCacheDurationMs) {
       return cached;
     }
 
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Relay info check timeout')), RELAY_INFO_CHECK_TIMEOUT);
+      timeout = setTimeout(() => reject(new Error('Relay info check timeout')), RELAY_INFO_CHECK_TIMEOUT);
     });
 
     const relayInfoPromise = (async () => {
-      const relay = ndk.pool?.relays?.get(relayUrl);
+      const relay = ndk.pool?.relays?.get(normalizedRelayUrl);
       if (relay) {
         const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
         if (relayInfo?.supported_nips) {
           const result = { supportedNips: relayInfo.supported_nips };
-          cacheRelayInfo(relayUrl, result);
+          cacheRelayInfo(normalizedRelayUrl, result);
           return result;
         }
       }
 
-      const httpResult = await checkRelayInfoViaHttp(relayUrl);
+      const httpResult = await checkRelayInfoViaHttp(normalizedRelayUrl);
       if (httpResult.supportedNips?.length || httpResult.name || httpResult.description) {
-        cacheRelayInfo(relayUrl, httpResult);
+        cacheRelayInfo(normalizedRelayUrl, httpResult);
         return httpResult;
       }
 
+      cacheRelayInfo(normalizedRelayUrl, {});
       return {};
     })();
 
-    return await Promise.race([relayInfoPromise, timeoutPromise]);
+    try {
+      return await Promise.race([relayInfoPromise, timeoutPromise]);
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
   } catch (error) {
-    console.warn(`Failed to get relay info for ${relayUrl}:`, error);
+    console.warn(`Failed to get relay info for ${normalizedRelayUrl}:`, error);
+    cacheRelayInfo(normalizedRelayUrl, {});
     return {};
   }
 }
@@ -59,16 +81,14 @@ async function checkRelayInfoViaHttp(relayUrl: string): Promise<RelayInfo> {
     ];
 
     for (const testUrl of possibleUrls) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), RELAY_HTTP_REQUEST_TIMEOUT);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), RELAY_HTTP_REQUEST_TIMEOUT);
 
+      try {
         const response = await fetch(testUrl, {
           signal: controller.signal,
           headers: { Accept: 'application/nostr+json' }
         });
-
-        clearTimeout(timeout);
 
         if (response.ok) {
           const data = await response.json();
@@ -83,6 +103,8 @@ async function checkRelayInfoViaHttp(relayUrl: string): Promise<RelayInfo> {
         }
       } catch {
         // ignore
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
