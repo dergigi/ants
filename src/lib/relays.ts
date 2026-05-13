@@ -68,27 +68,28 @@ export const RELAYS = {
   // Default relays for general NDK connection
   DEFAULT: [
     'wss://relay.primal.net',
-    'wss://relay.snort.social',
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://nos.lol'
   ],
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
     'wss://search.nos.today',
-    'wss://relay.nostr.band',
     'wss://relay.ditto.pub',
-    'wss://relay.davidebtc.me',
     'wss://relay.gathr.gives',
-    'wss://nostr.polyserv.xyz',
-    'wss://nostr.azzamo.net'
+    'wss://antiprimal.net',
+    'wss://index.hzrd149.com',
+    'wss://nostr.me/relay',
+    'wss://relay.vertexlab.io'
   ],
 
-  // Profile search relays (NIP-50 capable)
+  // Profile lookup relays
   PROFILE_SEARCH: [
     'wss://purplepag.es',
     'wss://search.nos.today',
-    'wss://relay.nostr.band',
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://relay.vertexlab.io',
+    'wss://antiprimal.net'
   ],
 
   // Premium relays to use only for logged-in users
@@ -528,15 +529,25 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
     }
   });
 
-  // If we have very few NIP-50 relays, include some known good relays as fallback
+  // If we have very few NIP-50 relays, top up from the default curated search set.
+  // Re-check support here so stale relay metadata never forces bad fallbacks in.
   if (supportedRelays.length < 3) {
-    const fallbackRelays = [
-      'wss://relay.primal.net',
-      'wss://relay.snort.social', 
-      'wss://relay.ditto.pub'
-    ].filter(url => !supportedRelays.includes(url) && !rejectedRelays.includes(url));
-    
-    supportedRelays.push(...fallbackRelays);
+    const fallbackCandidates = RELAYS.SEARCH.filter(
+      url => !supportedRelays.includes(url) && !rejectedRelays.includes(url)
+    );
+
+    const fallbackResults = await Promise.allSettled(
+      fallbackCandidates.map(async (url) => {
+        const nip50Info = await checkNip50Support(url);
+        return { url, supportsNip50: nip50Info.supportsNip50 };
+      })
+    );
+
+    fallbackResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.supportsNip50) {
+        supportedRelays.push(result.value.url);
+      }
+    });
   }
 
   return supportedRelays;
@@ -581,4 +592,3 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   
   return createRelaySet(nip50Relays);
 }
-
