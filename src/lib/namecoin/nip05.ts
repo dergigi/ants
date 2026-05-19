@@ -62,17 +62,26 @@ export type ElectrumXServer = {
 
 /**
  * Default list of Namecoin ElectrumX WSS endpoints, tried in order.
- * Both operators serve self-signed TLS certs today; in the browser
+ * Mirrors amethyst's `quartz/.../namecoin/ElectrumXServer.kt`
+ * `DEFAULT_ELECTRUMX_SERVERS` (4-of-6 subset): amethyst additionally
+ * carries two bare-IP entries (`23.158.233.10`, `46.229.238.187`)
+ * for the JVM TLS path, but browsers refuse WSS to bare IPs without
+ * an IP-SAN cert so we intentionally omit them here.
+ *
+ * Most operators serve self-signed TLS certs today; in the browser
  * those will fail until either operator switches to a CA-issued cert
  * or the caller injects a WebSocket implementation that trusts the
  * pinned cert. Server-side (Node), the API route can dial these
  * directly because Node's TLS stack accepts the self-signed CA via
- * the `ws` peer dependency plus a pinned-cert wrapper.
+ * the `ws` peer dependency plus a pinned-cert wrapper. The last
+ * entry (`electrum.nmc.ethicnology.com`) ships a Let's Encrypt cert,
+ * so it is the easiest one to reach from a browser today.
  */
 export const DEFAULT_ELECTRUMX_SERVERS: ElectrumXServer[] = [
-  { host: 'electrum.nmc.ethicnology.com', port: 50004 },
   { host: 'electrumx.testls.space', port: 50004 },
   { host: 'nmc2.bitcoins.sk', port: 57004 },
+  { host: 'relay.testls.bit', port: 50004 },
+  { host: 'electrum.nmc.ethicnology.com', port: 50004 },
 ];
 
 /** Blocks until a Namecoin name expires (~250 days). */
