@@ -1,5 +1,6 @@
 import { nip05 as nostrNip05 } from 'nostr-tools';
 import { normalizeNip05String, isRootNip05 } from '../nip05';
+import { isDotBit, resolveNamecoinNip05 } from '@/lib/namecoin';
 import { 
   getCachedNip05Result, 
   setCachedNip05Result, 
@@ -13,6 +14,11 @@ import {
 export async function resolveNip05ToPubkey(nip05: string): Promise<string | null> {
   try {
     const input = nip05.trim();
+    // Route `.bit` (Namecoin) identifiers through the chain resolver.
+    if (isDotBit(input)) {
+      const res = await resolveNamecoinNip05(input);
+      return res?.pubkey ?? null;
+    }
     const cleaned = input.startsWith('@') ? input.slice(1) : input;
     const [nameRaw, domainRaw] = cleaned.includes('@') ? cleaned.split('@') : ['_', cleaned];
     const name = nameRaw || '_';
@@ -47,7 +53,11 @@ async function verifyNip05ViaApi(pubkeyHex: string, normalizedNip05: string): Pr
 // Verify NIP-05 with caching and deduplication
 export async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<boolean> {
   if (!nip05) return false;
-  const normalized = normalizeNip05String(nip05);
+  // For `.bit` (Namecoin) identifiers, route through the chain resolver.
+  // The verify API endpoint also handles `.bit`, but we short-circuit here
+  // so the in-memory cache stays consistent for both code paths.
+  const isNamecoin = isDotBit(nip05);
+  const normalized = isNamecoin ? nip05.trim() : normalizeNip05String(nip05);
   if (!normalized) return false;
   const cacheKey = `${normalized}|${pubkeyHex}`;
 
@@ -61,7 +71,7 @@ export async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<bo
 
   const promise = (async () => {
     try {
-      // Try server-side endpoint to avoid CORS from browser
+      // Try server-side endpoint to avoid CORS / WSS cert issues from browser
       const okApi = await verifyNip05ViaApi(pubkeyHex, normalized);
       if (okApi !== false) {
         setCachedNip05Result(pubkeyHex, nip05, okApi);
@@ -69,6 +79,11 @@ export async function verifyNip05(pubkeyHex: string, nip05?: string): Promise<bo
       }
     } catch {}
     try {
+      if (isNamecoin) {
+        // No fallback to nostr-tools — `.bit` identifiers must go through the chain.
+        setCachedNip05Result(pubkeyHex, nip05, false);
+        return false;
+      }
       // Fallback to direct nostr-tools check
       const ok = await nostrNip05.isValid(pubkeyHex, normalized as `${string}@${string}`);
       setCachedNip05Result(pubkeyHex, nip05, ok);

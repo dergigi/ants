@@ -40,6 +40,7 @@ import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
+import NamecoinResolutionIndicator from '@/components/NamecoinResolutionIndicator';
 import InlineNostrToken from '@/components/InlineNostrToken';
 import NoteHeader from '@/components/NoteHeader';
 import NoteMedia from '@/components/NoteMedia';
@@ -1653,6 +1654,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         />
       </div>
       
+      <NamecoinResolutionIndicator query={query} />
+
       <QueryTranslation 
         query={query} 
         onAuthorResolved={() => {
