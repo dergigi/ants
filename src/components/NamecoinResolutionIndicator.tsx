@@ -46,12 +46,18 @@ export default function NamecoinResolutionIndicator({ query }: { query: string }
     if (!isDotBit(trimmed)) {
       lastQueryRef.current = '';
       setState({ kind: 'idle' });
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       return;
     }
     if (trimmed === lastQueryRef.current) return;
     lastQueryRef.current = trimmed;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     setState({ kind: 'loading' });
     let cancelled = false;
     debounceRef.current = setTimeout(async () => {
@@ -80,6 +86,10 @@ export default function NamecoinResolutionIndicator({ query }: { query: string }
     }, 400);
     return () => {
       cancelled = true;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
     };
   }, [query]);
 
