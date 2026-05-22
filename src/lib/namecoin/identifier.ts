@@ -20,7 +20,10 @@ export function isValidIdentifier(identifier?: string | null): boolean {
   if (!identifier) return false;
   let s = identifier.trim().toLowerCase();
   if (s.startsWith('nostr:')) s = s.slice(6);
-  if (s.startsWith('d/') || s.startsWith('id/')) return s.length > 2 + 1;
+  // Keep behaviour aligned with parseIdentifier: any non-empty
+  // name after the namespace prefix is accepted.
+  if (s.startsWith('d/')) return s.length > 2;
+  if (s.startsWith('id/')) return s.length > 3;
   return s.endsWith('.bit') && s.length > 4;
 }
 
