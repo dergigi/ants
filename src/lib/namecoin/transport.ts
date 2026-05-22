@@ -150,13 +150,29 @@ function buildWSSUrl(srv: ElectrumXServer): string {
   return `wss://${srv.host}:${srv.port}${path.startsWith('/') ? path : '/' + path}`;
 }
 
-/** Minimal JSON-RPC-2.0 over WebSocket. */
+/**
+ * Minimal JSON-RPC-2.0 over WebSocket.
+ *
+ * Every outbound call carries a per-request timeout so a server that
+ * accepts the socket but never replies cannot stall verification
+ * flows. {@link nameShowWithFallback} catches the timeout error and
+ * moves on to the next server.
+ */
 class RPC {
+  static readonly REQUEST_TIMEOUT_MS = 8000;
+
   opened: Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private ws: any;
   private id = 0;
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  private pending = new Map<
+    number,
+    {
+      resolve: (v: unknown) => void;
+      reject: (e: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(ws: any) {
@@ -165,7 +181,10 @@ class RPC {
       ws.addEventListener('open', () => resolve());
       ws.addEventListener('error', () => reject(new Error('websocket error')));
       ws.addEventListener('close', () => {
-        for (const p of this.pending.values()) p.reject(new Error('websocket closed'));
+        for (const p of this.pending.values()) {
+          clearTimeout(p.timer);
+          p.reject(new Error('websocket closed'));
+        }
         this.pending.clear();
       });
     });
@@ -176,10 +195,27 @@ class RPC {
     const id = ++this.id;
     const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: (v) => resolve(v as T), reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`rpc timeout (${method})`));
+      }, RPC.REQUEST_TIMEOUT_MS);
+
+      this.pending.set(id, {
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v as T);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        },
+        timer,
+      });
+
       try {
         this.ws.send(msg);
       } catch (e) {
+        clearTimeout(timer);
         this.pending.delete(id);
         reject(e instanceof Error ? e : new Error(String(e)));
       }
