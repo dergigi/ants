@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, nextExample, ndk, ConnectionStatus, addConnectionStatusListener, removeConnectionStatusListener, getRecentlyActiveRelays } from '@/lib/ndk';
+import { connect, nextExample, ndk } from '@/lib/ndk';
+import { useRelayStatus } from '@/hooks/useRelayStatus';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
 import { resolveAuthorToNpub } from '@/lib/vertex';
@@ -21,10 +22,6 @@ import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensu
 import { profileEventFromPubkey } from '@/lib/vertex';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
-import { 
-  UI_RECENTLY_ACTIVE_INTERVAL, 
-  UI_CONNECTION_DETAILS_INTERVAL
-} from '@/lib/constants';
 import EventCard from '@/components/EventCard';
 import ArticleCard from '@/components/ArticleCard';
 import ProfileCard from '@/components/ProfileCard';
@@ -48,7 +45,6 @@ import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nost
 import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
-import { getRelayLists } from '@/lib/relayCounts';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
@@ -95,8 +91,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
   const [placeholder, setPlaceholder] = useState('/examples');
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [connectionDetails, setConnectionDetails] = useState<ConnectionStatus | null>(null);
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
@@ -112,11 +106,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Removed expanded-term chip UI and related state to simplify UX
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
-  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
-  const [recentlyActive, setRecentlyActive] = useState<string[]>([]);
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
+  const {
+    isConnecting,
+    setIsConnecting,
+    connectionDetails,
+    setConnectionDetails,
+    showConnectionDetails,
+    setShowConnectionDetails,
+    relayInfo
+  } = useRelayStatus(results.length);
   const [showExternalButton, setShowExternalButton] = useState(false);
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
   
@@ -314,14 +315,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
   const suppressSearchRef = useRef(false);
  
-  const relayInfo = useMemo(() => {
-    const base = getRelayLists(connectionDetails, recentlyActive);
-    return {
-      ...base,
-      relayPings: connectionDetails?.relayPings ?? new Map<string, number>(),
-    };
-  }, [connectionDetails, recentlyActive]);
-
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
     const toVerify: Array<{ pubkey: string; nip05: string }> = [];
@@ -981,55 +974,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     };
     initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand]);
-
-  // Listen for connection status changes
-  useEffect(() => {
-    const handleConnectionStatusChange = (status: ConnectionStatus) => {
-      setConnectionDetails(status);
-      // Auto-hide connection details when status changes
-      setShowConnectionDetails(false);
-      // Refresh recently active relays on changes
-      setRecentlyActive(getRecentlyActiveRelays());
-    };
-
-    addConnectionStatusListener(handleConnectionStatusChange);
-    
-    return () => {
-      removeConnectionStatusListener(handleConnectionStatusChange);
-    };
-  }, []);
-
-  // Periodically refresh recently active relays while panel open (reduced frequency)
-  useEffect(() => {
-    if (!showConnectionDetails) return;
-    setRecentlyActive(getRecentlyActiveRelays());
-    const id = setInterval(() => setRecentlyActive(getRecentlyActiveRelays()), UI_CONNECTION_DETAILS_INTERVAL);
-    return () => clearInterval(id);
-  }, [showConnectionDetails]);
-
-  // Update recently active relays immediately when connection status changes
-  useEffect(() => {
-    setRecentlyActive(getRecentlyActiveRelays());
-  }, [connectionDetails]);
-
-  // Periodically update recently active relays to catch relay activity changes (reduced frequency)
-  useEffect(() => {
-    const id = setInterval(() => {
-      setRecentlyActive(getRecentlyActiveRelays());
-    }, UI_RECENTLY_ACTIVE_INTERVAL);
-    return () => clearInterval(id);
-  }, []);
-
-  // Update recently active relays when results change (events received)
-  useEffect(() => {
-    if (results.length > 0) {
-      setRecentlyActive(getRecentlyActiveRelays());
-    }
-  }, [results.length]);
-
-
-  // Removed separate RecentlyActiveRelays section; now merged into Reachable
+  }, [handleSearch, manageUrl, runSlashCommand, setConnectionDetails, setIsConnecting]);
 
   // Rotate placeholder when idle and show a small progress indicator
   useEffect(() => {
