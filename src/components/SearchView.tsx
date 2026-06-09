@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { connect, nextExample, ndk } from '@/lib/ndk';
 import { useRelayStatus } from '@/hooks/useRelayStatus';
+import { useSearchUi } from '@/hooks/useSearchUi';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
 import { resolveAuthorToNpub } from '@/lib/vertex';
@@ -67,7 +68,6 @@ import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
-import { useClearTrigger } from '@/lib/ClearTrigger';
 import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
 import packageJson from '../../package.json';
@@ -90,9 +90,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
-  const [placeholder, setPlaceholder] = useState('/examples');
   const currentSearchId = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
+  const suppressSearchRef = useRef(false);
   const lastIdentifierRedirectRef = useRef<string | null>(null);
   const initialSearchDoneRef = useRef(false);
   const normalizedInitialQuery = initialQuery.trim() || null;
@@ -102,10 +103,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
   const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  // Removed expanded-term chip UI and related state to simplify UX
-  const [rotationProgress, setRotationProgress] = useState(0);
-  const [rotationSeed, setRotationSeed] = useState(0);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
@@ -128,7 +125,33 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
   const { triggerLogin, onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
-  const { setClearHandler } = useClearTrigger();
+
+  const handleClear = useCallback(() => {
+    // Abort any ongoing search immediately
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    currentSearchId.current++;
+    setQuery('');
+    setResults([]);
+    setLoading(false);
+    setResolvingAuthor(false);
+    setTopCommandText(null);
+    setTopExamples(null);
+    setKindsRules(null);
+    // Always reset to root path when clearing
+    router.replace('/');
+  }, [router]);
+
+  const {
+    placeholder,
+    setPlaceholder,
+    rotationProgress,
+    searchInputRef,
+    handleInputChange,
+    handleExampleNext
+  } = useSearchUi({ query, loading, setQuery, suppressSearchRef, onClear: handleClear });
+
   
   // Determine if filters should be enabled based on filterMode
   const shouldEnableFilters = useMemo(() => {
@@ -301,20 +324,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     });
   }, [toggledRelays]);
 
-  // Simple input change handler: update local query state; searches run on submit
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setQuery(newValue);
-    // Release suppression on next tick so explicit submit still works
-    setTimeout(() => { suppressSearchRef.current = false; }, 0);
-  }, [setQuery]);
-
   // Memoized client-side filtered results (for count and rendering)
   // Maintain a map of pubkey->verified to avoid re-verifying
   const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
-  // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
-  const suppressSearchRef = useRef(false);
- 
+
   useEffect(() => {
     // Proactively verify missing entries (bounded to first 50) and then reorder results
     const toVerify: Array<{ pubkey: string; nip05: string }> = [];
@@ -976,35 +989,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     initializeNDK();
   }, [handleSearch, manageUrl, runSlashCommand, setConnectionDetails, setIsConnecting]);
 
-  // Rotate placeholder when idle and show a small progress indicator
-  useEffect(() => {
-    if (query || loading) { setRotationProgress(0); return; }
-    let rafId = 0;
-    const ROTATION_MS = 7000;
-    let start = performance.now();
-    const tick = (now: number) => {
-      const elapsed = now - start;
-      const p = Math.min(1, elapsed / ROTATION_MS);
-      setRotationProgress(p);
-      if (p >= 1) {
-        setPlaceholder(nextExample());
-        start = now;
-        setRotationProgress(0);
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => { cancelAnimationFrame(rafId); };
-  }, [query, loading, rotationSeed]);
-
-
-  // Auto-focus the search input on component mount
-  useEffect(() => {
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, []);
-
   // Handle Escape key to stop current search
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1047,7 +1031,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, searchInputRef]);
 
 
   useEffect(() => {
@@ -1489,35 +1473,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       />
     ));
   }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, NeventSearchButton]);
-
-  const handleClear = useCallback(() => {
-    // Abort any ongoing search immediately
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    currentSearchId.current++;
-    setQuery('');
-    setResults([]);
-    setLoading(false);
-    setResolvingAuthor(false);
-    setTopCommandText(null);
-    setTopExamples(null);
-    setKindsRules(null);
-    // Always reset to root path when clearing
-    router.replace('/');
-  }, [router]);
-
-  // Register clear handler for favicon click
-  useEffect(() => {
-    setClearHandler(handleClear);
-  }, [setClearHandler, handleClear]);
-
-  const handleExampleNext = useCallback(() => {
-    setPlaceholder(nextExample());
-    setRotationProgress(0);
-    setRotationSeed((s) => s + 1);
-  }, []);
-
 
   useEffect(() => {
     if (initialQueryRef.current !== initialQuery) {
