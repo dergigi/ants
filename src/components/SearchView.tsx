@@ -53,7 +53,8 @@ import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import emojiRegex from 'emoji-regex';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
-import { formatEventTimestamp } from '@/lib/utils/eventHelpers';
+import { formatEventTimestamp, getReplyToEventId } from '@/lib/utils/eventHelpers';
+import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
 import { formatExactDate } from '@/lib/relativeTime';
 import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
 import { HIGHLIGHTS_KIND } from '@/lib/highlights';
@@ -125,7 +126,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [kindsRules, setKindsRules] = useState<Array<{ token: string; expansion: string }> | null>(null);
   const [kindsLoading, setKindsLoading] = useState(false);
   const [kindsError, setKindsError] = useState<string | null>(null);
-  const isSlashCommand = useCallback((input: string): boolean => /^\s*\//.test(input), []);
   const { triggerLogin, onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
   const { setClearHandler } = useClearTrigger();
   
@@ -143,16 +143,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [filterSettings.filterMode, results.length]);
   
-  // Check if query is a URL
-  const isUrl = useCallback((input: string): boolean => {
-    try {
-      const url = new URL(input.trim());
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, []);
-  
   // Handle opening external URL
   const handleOpenExternal = useCallback(() => {
     if (query.trim()) {
@@ -162,10 +152,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [query]);
   
-  const buildCli = useCallback((label: string, body: string | string[] = ''): string => {
-    const lines = Array.isArray(body) ? body : [body];
-    return [`$ ants ${label}`, '', ...lines].join('\n');
-  }, []);
   const runSlashCommand = useMemo(() => createSlashCommandRunner({
     onHelp: (commands) => {
       const lines = [
@@ -281,7 +267,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         setKindsLoading(false);
       }
     }
-  }), [buildCli, setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
+  }), [setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
 
   const [profileScopeUser, setProfileScopeUser] = useState<NDKUser | null>(null);
   const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
@@ -747,7 +733,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         .toLowerCase();
       const identifierOnly = stripped === identifierLower;
       const identifierInUrl =
-        !identifierOnly && isUrl(normalizedInput) && normalizedInput.toLowerCase().includes(identifierLower);
+        !identifierOnly && isUrlQuery(normalizedInput) && normalizedInput.toLowerCase().includes(identifierLower);
 
       if (identifierOnly || identifierInUrl) {
         setTopCommandText(null);
@@ -924,8 +910,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setToggledRelays(relays);
       
       // Check if this was a URL query and if we got 0 results
-      const isUrlQueryResult = isUrl(searchQuery);
-      setShowExternalButton(isUrlQueryResult && filtered.length === 0);
+      setShowExternalButton(isUrlQuery(searchQuery) && filtered.length === 0);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -950,7 +935,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, isSlashCommand, isUrl, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin]);
 
   // DRY helper for content-based search triggers (always root searches)
   const handleContentSearch = useCallback((query: string) => {
@@ -996,7 +981,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     };
     initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand, isSlashCommand, buildCli]);
+  }, [handleSearch, manageUrl, runSlashCommand]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -1117,7 +1102,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, buildCli]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query]);
 
 
   useEffect(() => {
@@ -1199,7 +1184,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
 
     executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, isSlashCommand, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, buildCli]);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1479,28 +1464,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return finalNodes;
   }, [successfulPreviews, handleContentSearch, goToProfile]);
 
-  const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
-    try {
-      const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
-      if (eTags.length === 0) return null;
-
-      // Deduplicate e tags by event ID to prevent duplicate quoted events
-      const uniqueETags = new Map<string, typeof eTags[0]>();
-      eTags.forEach((tag) => {
-        const eventId = tag[1];
-        if (eventId && !uniqueETags.has(eventId)) {
-          uniqueETags.set(eventId, tag);
-        }
-      });
-      const deduplicatedETags = Array.from(uniqueETags.values());
-
-      const replyTag = deduplicatedETags.find((t) => t[3] === 'reply') || deduplicatedETags.find((t) => t[3] === 'root') || deduplicatedETags[deduplicatedETags.length - 1];
-      return replyTag && replyTag[1] ? replyTag[1] : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
   // toPlainEvent moved to shared util; RawEventJson will use it.
 
 
@@ -1580,7 +1543,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} exactDate={parentEvent.created_at ? formatExactDate(parentEvent.created_at) : undefined} exactTimestamp={parentEvent.created_at} />}
       />
     ));
-  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, getReplyToEventId, NeventSearchButton]);
+  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, NeventSearchButton]);
 
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
@@ -2012,7 +1975,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
             })}
           </div>
         );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, getReplyToEventId, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, NeventSearchButton])}
+      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, NeventSearchButton])}
     </div>
   );
 }
