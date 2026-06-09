@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect } from '@/lib/ndk';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { useRelayStatus } from '@/hooks/useRelayStatus';
 import { useSearchUi } from '@/hooks/useSearchUi';
 import { useProfileScope } from '@/hooks/useProfileScope';
 import { useResultPipeline } from '@/hooks/useResultPipeline';
 import { useContentRenderer } from '@/hooks/useContentRenderer';
 import { useSlashCommands } from '@/hooks/useSlashCommands';
-import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { searchEvents } from '@/lib/search';
-import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
-import { updateSearchQuery } from '@/lib/utils/navigationUtils';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
-import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
+import { useSearchViewRefs } from '@/hooks/useSearchViewRefs';
+import { useSearchExecution } from '@/hooks/useSearchExecution';
+import { useUrlUpdater, useUrlSync } from '@/hooks/useUrlSync';
+import { getCurrentProfileNpub, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
+import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope } from '@/lib/search/profileScope';
 import ClientFilters from '@/components/ClientFilters';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import FilterCollapsed from '@/components/FilterCollapsed';
@@ -26,13 +24,8 @@ import ShareButton from '@/components/ShareButton';
 import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
 import SearchResultsList from '@/components/SearchResultsList';
-import { nip19 } from 'nostr-tools';
-import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
-import { isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
-import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
-import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
+import { isSlashCommand, buildCli } from '@/lib/utils/searchViewUtils';
 import { SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
-import { getStoredPubkey } from '@/lib/nip07';
 import { useClearTrigger } from '@/lib/ClearTrigger';
 import { PlaceholderStyles } from './Placeholder';
 
@@ -42,10 +35,6 @@ type Props = {
   onUrlUpdate?: (query: string) => void;
 };
 
-
-
-// (Local AuthorBadge removed; using global `components/AuthorBadge` inside EventCard.)
-
 export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,19 +43,10 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const [results, setResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(Boolean(initialQuery && !manageUrl));
   const [resolvingAuthor, setResolvingAuthor] = useState(false);
-  const currentSearchId = useRef(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  // Suppress accidental searches caused by programmatic query edits (e.g., toggle)
-  const suppressSearchRef = useRef(false);
-  const lastIdentifierRedirectRef = useRef<string | null>(null);
-  const initialSearchDoneRef = useRef(false);
-  const normalizedInitialQuery = initialQuery.trim() || null;
-  const bootstrapInitial = !manageUrl ? normalizedInitialQuery : null;
-  const initialQueryNormalizedRef = useRef<string | null>(normalizedInitialQuery);
-  const initialQueryRef = useRef(initialQuery);
-  const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
-  const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
   const [showFilterDetails, setShowFilterDetails] = useState(false);
+  const [showExternalButton, setShowExternalButton] = useState(false);
+  const refs = useSearchViewRefs(initialQuery, manageUrl);
+
   const {
     isConnecting,
     setIsConnecting,
@@ -76,7 +56,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setShowConnectionDetails,
     relayInfo
   } = useRelayStatus(results.length);
-  const [showExternalButton, setShowExternalButton] = useState(false);
+
   const {
     filterSettings,
     setFilterSettings,
@@ -100,7 +80,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     searchInputRef,
     handleInputChange,
     handleExampleNext
-  } = useSearchUi({ query, loading, setQuery, suppressSearchRef });
+  } = useSearchUi({ query, loading, setQuery, suppressSearchRef: refs.suppressSearchRef });
 
   const {
     runSlashCommand,
@@ -117,13 +97,57 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     onLoginTrigger
   } = useSlashCommands({ setQuery, setResults, setPlaceholder });
 
+  const { profileScopeUser, profileScopeIdentifiers, profileScoped } = useProfileScope({ manageUrl, pathname, query });
+
+  const updateUrlForSearch = useUrlUpdater({ manageUrl, onUrlUpdate, profileScopeUser });
+
+  const { isDirectQuery, handleSearch, handleContentSearch } = useSearchExecution({
+    query,
+    initialQuery,
+    manageUrl,
+    refs,
+    loading,
+    setQuery,
+    setResults,
+    setLoading,
+    setResolvingAuthor,
+    setShowExternalButton,
+    setSuccessfullyActiveRelays,
+    setToggledRelays,
+    setTopCommandText,
+    setTopExamples,
+    setKindsRules,
+    setIsConnecting,
+    setConnectionDetails,
+    triggerLogin,
+    runSlashCommand,
+    updateUrlForSearch,
+    profileScopeUser
+  });
+
+  useUrlSync({
+    manageUrl,
+    initialQuery,
+    refs,
+    profileScopeUser,
+    profileIdentifier: profileScopeIdentifiers?.profileIdentifier,
+    setQuery,
+    handleSearch,
+    runSlashCommand,
+    setTopCommandText,
+    setTopExamples,
+    setKindsRules
+  });
+
+  const contentRenderer = useContentRenderer({ setQuery, updateUrlForSearch, handleSearch, handleContentSearch });
+
   const { setClearHandler } = useClearTrigger();
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+    if (refs.abortControllerRef.current) {
+      refs.abortControllerRef.current.abort();
     }
-    currentSearchId.current++;
+    refs.currentSearchId.current++;
     setQuery('');
     setResults([]);
     setLoading(false);
@@ -133,7 +157,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setKindsRules(null);
     // Always reset to root path when clearing
     router.replace('/');
-  }, [router, setTopCommandText, setTopExamples, setKindsRules]);
+  }, [router, refs, setTopCommandText, setTopExamples, setKindsRules]);
 
   // Register clear handler for favicon click
   useEffect(() => {
@@ -148,439 +172,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setShowExternalButton(false);
     }
   }, [query]);
-
-  const { profileScopeUser, profileScopeIdentifiers, profileScoped } = useProfileScope({ manageUrl, pathname, query });
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
-    // Rely solely on replacements.txt expansion upstream; no client-side media seeding
-    return events;
-  }
-
-  // Helper function to update URL immediately when search is triggered
-  const updateUrlForSearch = useCallback((searchQuery: string) => {
-    // If custom URL update handler is provided, use it instead
-    if (onUrlUpdate) {
-      onUrlUpdate(searchQuery);
-      return;
-    }
-    
-    if (!manageUrl) return;
-    
-    // If query is empty, remove q parameter and navigate to clean URL
-    if (!searchQuery.trim()) {
-      const currentProfileNpub = getCurrentProfileNpub(pathname);
-      if (currentProfileNpub) {
-        // On profile pages, just remove the q parameter
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete('q');
-        const newUrl = params.toString() ? `?${params.toString()}` : '';
-        router.replace(newUrl);
-      } else {
-        // On root pages, navigate to clean root
-        router.replace('/');
-      }
-      return;
-    }
-    
-    // Detect current path type
-    const currentProfileNpub = getCurrentProfileNpub(pathname);
-    const isOnTagPath = pathname?.startsWith('/t/');
-    const isOnEventPath = pathname?.startsWith('/e/');
-    const isOnProfilePath = currentProfileNpub !== null;
-    
-    // debug removed
-    
-    // Handle hashtag-only queries
-    if (!isOnProfilePath && isHashtagOnlyQuery(searchQuery)) {
-      const hashtagUrl = hashtagQueryToUrl(searchQuery);
-      if (hashtagUrl) {
-        router.replace(`/t/${hashtagUrl}`);
-        return;
-      }
-    }
-    
-    // Handle transitions from special paths to root with query
-    if ((isOnTagPath || isOnEventPath) && !isHashtagOnlyQuery(searchQuery)) {
-      const params = new URLSearchParams();
-      params.set('q', searchQuery);
-      router.replace(`/?${params.toString()}`);
-      return;
-    }
-    
-    // Handle profile pages
-    if (isOnProfilePath) {
-      // URL should be implicit on profile pages: strip matching by:npub
-      const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
-      const params = new URLSearchParams(searchParams.toString());
-      
-      // Check if query is effectively empty after removing profile scope
-      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-      const isOnlyProfileScope = identifiers ? removeProfileScope(searchQuery, identifiers).trim() === '' : false;
-      
-      if (urlValue.trim() && !isOnlyProfileScope) {
-        params.set('q', urlValue);
-        router.replace(`?${params.toString()}`);
-      } else {
-        // If implicit query is empty or only contains profile scope, remove q parameter
-        params.delete('q');
-        const newUrl = params.toString() ? `?${params.toString()}` : '';
-        router.replace(newUrl);
-      }
-    } else {
-      // Handle root path
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('q', searchQuery);
-      router.replace(`?${params.toString()}`);
-    }
-  }, [manageUrl, onUrlUpdate, pathname, searchParams, router, profileScopeUser]);
-
-
-  // DRY helper function for root searches (always navigate to root path)
-  const setQueryAndNavigateToRoot = useCallback((query: string) => {
-    setQuery(query);
-    if (query.trim()) {
-      router.replace(`/?q=${encodeURIComponent(query)}`);
-    } else {
-      router.replace('/');
-    }
-  }, [router]);
-
-
-
-  // Helper to determine if current query is a direct identifier query
-  const isDirectQuery = useMemo(() => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return false;
-    const nip19Identifiers = extractNip19Identifiers(trimmedQuery);
-    if (nip19Identifiers.length === 0) return false;
-
-    const identifierToken = nip19Identifiers[0].trim();
-    const firstIdentifier = decodeNip19Identifier(identifierToken.toLowerCase());
-
-    if (!firstIdentifier) return false;
-
-    // Check if the query is just the identifier (direct query)
-    const normalizedInput = trimmedQuery
-      .replace(/^web\+nostr:/i, '')
-      .replace(/^nostr:/i, '')
-      .replace(/[\s),.;]*$/, '')
-      .trim()
-      .toLowerCase();
-
-    const identifierOnly = normalizedInput === identifierToken.toLowerCase();
-    if (identifierOnly) return true;
-
-    if (pathname?.startsWith('/e/')) {
-      const segment = pathname.split('/')[2]?.trim().toLowerCase();
-      if (segment && segment === identifierToken.toLowerCase()) {
-        return !/\b(AND|OR|NOT)\b/i.test(trimmedQuery.replace(identifierToken, ''));
-      }
-    }
-    return false;
-  }, [query, pathname]);
-
-  const handleSearch = useCallback(async (searchQuery: string) => {
-    if (suppressSearchRef.current) {
-      // Clear the flag and ignore this invocation
-      suppressSearchRef.current = false;
-      return;
-    }
-    if (!searchQuery.trim()) {
-      setResults([]);
-      setResolvingAuthor(false);
-      return;
-    }
-
-    // Update URL immediately when search is triggered
-    const normalizedInput = searchQuery.trim();
-    const nip19Identifiers = extractNip19Identifiers(normalizedInput);
-    const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
-    const identifierLower = identifierToken ? identifierToken.toLowerCase() : null;
-    const firstIdentifier = identifierLower ? decodeNip19Identifier(identifierLower) : null;
-
-    if (identifierLower && identifierLower === lastIdentifierRedirectRef.current) {
-      lastIdentifierRedirectRef.current = null;
-    } else if (identifierLower && firstIdentifier) {
-      const stripped = normalizedInput
-        .replace(/^web\+nostr:/i, '')
-        .replace(/^nostr:/i, '')
-        .replace(/[\s),.;]*$/, '')
-        .trim()
-        .toLowerCase();
-      const identifierOnly = stripped === identifierLower;
-      const identifierInUrl =
-        !identifierOnly && isUrlQuery(normalizedInput) && normalizedInput.toLowerCase().includes(identifierLower);
-
-      if (identifierOnly || identifierInUrl) {
-        setTopCommandText(null);
-        setTopExamples(null);
-        setKindsRules(null);
-        setShowExternalButton(false);
-        setResults([]);
-        setLoading(false);
-        setResolvingAuthor(false);
-
-        if (firstIdentifier.type === 'nevent' || firstIdentifier.type === 'note' || firstIdentifier.type === 'naddr') {
-          // Only redirect if we're not already on the /e/[id] page
-          if (!pathname?.startsWith('/e/')) {
-            lastIdentifierRedirectRef.current = identifierLower;
-            router.push(`/e/${identifierLower}`);
-            return;
-          }
-          // If we're already on the /e/[id] page, continue with the search instead of redirecting
-        }
-        if (firstIdentifier.type === 'nprofile' || firstIdentifier.type === 'npub') {
-          lastIdentifierRedirectRef.current = identifierLower;
-          router.push(`/p/${identifierLower}`);
-          return;
-        }
-      }
-    }
-
-    // Always update URL to reflect the current search
-    updateUrlForSearch(searchQuery);
-
-    // Abort any ongoing search
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController for this search
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    const searchId = ++currentSearchId.current;
-
-    // Clear previous UI immediately
-    const isCmd = isSlashCommand(searchQuery);
-    if (!isCmd) {
-      setTopCommandText(null);
-      setTopExamples(null);
-      setKindsRules(null);
-      setShowExternalButton(false);
-    }
-    setResults([]);
-    setLoading(true);
-    
-    
-    // Ensure loading animation is visible for direct lookups
-    const isDirectLookup = !manageUrl && initialQuery === searchQuery;
-    const minLoadingTime = isDirectLookup ? 800 : 0;
-    
-    // Expand by:@me / mentions:@me to the logged-in user's npub
-    const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    if (atMePattern.test(searchQuery)) {
-      const storedPubkey = getStoredPubkey();
-      if (storedPubkey) {
-        const myNpub = nip19.npubEncode(storedPubkey);
-        searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
-      } else {
-        triggerLogin();
-        setLoading(false);
-        setResolvingAuthor(false);
-        return;
-      }
-    }
-
-    // Check if we need to resolve an author first
-    const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-    const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
-    
-    if (needsAuthorResolution) {
-      setResolvingAuthor(true);
-    }
-    
-    try {
-
-      // Check if search was aborted before making the call
-      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
-        return;
-      }
-
-      // Pre-resolve by:<author> to npub (if needed) BEFORE searching
-      let effectiveQuery = searchQuery;
-      if (needsAuthorResolution && byMatch) {
-        const author = (byMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
-        try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        // If we resolved successfully, replace only the matched by: token with the resolved npub.
-        // If resolution failed, proceed without modifying the query; the backend search will fallback.
-        if (resolvedNpub) {
-          // Replace by: token with resolved npub
-          effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
-
-          // If currently on a profile page and the resolved author differs, navigate there and carry query
-          const onProfilePage = /^\/p\//i.test(pathname || '');
-          const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
-          const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
-          if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
-            const implicitQ = toImplicitUrlQuery(effectiveQuery, resolvedNpub);
-            const carry = encodeURIComponent(implicitQ);
-            router.push(`/p/${resolvedNpub}?q=${carry}`);
-            setResolvingAuthor(false);
-            setLoading(false);
-            return;
-          }
-        }
-        // Resolution phase complete (either way)
-        setResolvingAuthor(false);
-      }
-
-      if (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1])) {
-        const author = (mentionsMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
-        try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        if (resolvedNpub) {
-          effectiveQuery = effectiveQuery.replace(/(^|\s)mentions:(\S+)(?=\s|$)/i, (m, pre) => `${pre}mentions:${resolvedNpub}`);
-        }
-        setResolvingAuthor(false);
-      }
-
-      const expanded = effectiveQuery;
-      const currentProfileNpub = getCurrentProfileNpub(pathname);
-      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-      const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
-      const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
-
-      // Choose relay set based on query type
-      let relaySet: NDKRelaySet | undefined;
-      if (isDirectQuery) {
-        // Direct queries (NIP-19): use all relays
-        relaySet = await relaySets.default();
-      } else {
-        // Search queries (NIP-50): use NIP-50 capable relays only
-        relaySet = await getNip50SearchRelaySet();
-      }
-
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
-      
-      // Check if search was aborted after getting results
-      if (abortController.signal.aborted || currentSearchId.current !== searchId) {
-        return;
-      }
-
-      const filtered = applyClientFilters(searchResults, [], new Set<string>());
-      setResults(filtered);
-
-      // Track relays that returned events for this search
-      const relayUrls: string[] = [];
-      
-      searchResults.forEach(evt => {
-        const relaySources = extractRelaySourcesFromEvent(evt);
-        relayUrls.push(...relaySources);
-      });
-      
-      const relays = createRelaySet(relayUrls);
-      setSuccessfullyActiveRelays(relays);
-      
-      // Initialize toggled relays to include all relays that provided results
-      setToggledRelays(relays);
-      
-      // Check if this was a URL query and if we got 0 results
-      setShowExternalButton(isUrlQuery(searchQuery) && filtered.length === 0);
-    } catch (error) {
-      // Don't log aborted searches as errors
-      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-        return;
-      }
-      console.error('Search error:', error);
-      setResults([]);
-    } finally {
-      // Only update loading state if this is still the current search
-      if (currentSearchId.current === searchId) {
-        // Ensure minimum loading time for direct lookups to show animation
-        if (minLoadingTime > 0) {
-          setTimeout(() => {
-            if (currentSearchId.current === searchId) {
-              setLoading(false);
-              setResolvingAuthor(false);
-            }
-          }, minLoadingTime);
-        } else {
-          setLoading(false);
-          setResolvingAuthor(false);
-        }
-      }
-    }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
-
-  // DRY helper for content-based search triggers (always root searches)
-  const handleContentSearch = useCallback((query: string) => {
-    setQueryAndNavigateToRoot(query);
-    // Trigger search immediately for clicked examples
-    if (query.trim()) {
-      handleSearch(query);
-    }
-  }, [setQueryAndNavigateToRoot, handleSearch]);
-
-  const contentRenderer = useContentRenderer({ setQuery, updateUrlForSearch, handleSearch, handleContentSearch });
-
-  // While connecting, show a static placeholder; remove animated loading dots
-
-  useEffect(() => {
-    const initializeNDK = async () => {
-      setIsConnecting(true);
-      const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
-      setIsConnecting(false);
-      setConnectionDetails(connectionResult);
-      
-      if (!connectionResult.success) {
-        console.warn('NDK connection timed out, but search will still work with available relays');
-      }
-      
-      if (initialQueryRef.current && !manageUrl) {
-        const normalizedInitial = initialQueryRef.current.trim();
-        if (normalizedInitial && !initialSearchDoneRef.current) {
-          initialSearchDoneRef.current = true;
-          initialQueryNormalizedRef.current = normalizedInitial;
-          lastHashQueryRef.current = normalizedInitial;
-          setQuery(initialQueryRef.current);
-          if (isSlashCommand(initialQueryRef.current)) {
-            const unknownCmd = runSlashCommand(initialQueryRef.current);
-            if (unknownCmd) {
-              setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
-              setTopExamples(null);
-              setKindsRules(null);
-            }
-            handleSearch(initialQueryRef.current);
-          } else {
-            handleSearch(normalizedInitial);
-          }
-        }
-      }
-    };
-    initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand, setConnectionDetails, setIsConnecting, setTopCommandText, setTopExamples, setKindsRules]);
-
-  // Handle Escape key to stop current search
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && loading) {
-        // Abort any ongoing search
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        currentSearchId.current++;
-        setLoading(false);
-        setResolvingAuthor(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [loading]);
 
   // Listen for login trigger from Header
   useEffect(() => {
@@ -606,93 +197,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     return cleanup;
   }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, searchInputRef, setTopCommandText, setTopExamples, setKindsRules]);
 
-
-  useEffect(() => {
-    if (!manageUrl) return;
-    const urlQueryRaw = searchParams.get('q') || '';
-    const decodedQuery = decodeUrlQuery(urlQueryRaw);
-    const normalizedQuery = decodedQuery.trim();
-    const currentProfileNpub = getCurrentProfileNpub(pathname);
-
-    const executeSearch = (displayValue: string, backendValue: string) => {
-      if (lastHashQueryRef.current === displayValue) return;
-      lastHashQueryRef.current = displayValue;
-      setQuery(displayValue);
-      lastExecutedQueryRef.current = displayValue;
-      handleSearch(backendValue);
-    };
-
-    if (currentProfileNpub) {
-      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-      const displayIdentifier = identifiers?.profileIdentifier || currentProfileNpub;
-
-      if (!normalizedQuery) {
-        const normalizedInitial = initialQueryNormalizedRef.current;
-        if (normalizedInitial) {
-          executeSearch(normalizedInitial, ensureAuthorForBackend(normalizedInitial, currentProfileNpub));
-        } else {
-          const defaultDisplay = toExplicitInputFromUrl('', currentProfileNpub, displayIdentifier);
-          const backendQuery = ensureAuthorForBackend('', currentProfileNpub);
-          executeSearch(defaultDisplay, backendQuery);
-          updateSearchQuery(searchParams, router, backendQuery);
-        }
-        return;
-      }
-
-      if (lastHashQueryRef.current === normalizedQuery) return;
-
-      if (isSlashCommand(normalizedQuery)) {
-        executeSearch(normalizedQuery, normalizedQuery);
-        const unknownCmd = runSlashCommand(normalizedQuery);
-        if (unknownCmd) {
-          setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
-          setTopExamples(null);
-        }
-      } else {
-        const displayValue = toExplicitInputFromUrl(normalizedQuery, currentProfileNpub, displayIdentifier);
-        executeSearch(displayValue, ensureAuthorForBackend(normalizedQuery, currentProfileNpub));
-
-        const implicit = toImplicitUrlQuery(normalizedQuery, currentProfileNpub);
-        if (implicit !== normalizedQuery) {
-          updateSearchQuery(searchParams, router, implicit);
-        }
-      }
-      return;
-    }
-
-    if (!normalizedQuery) {
-      const normalizedInitial = initialQueryNormalizedRef.current;
-      if (normalizedInitial) {
-        executeSearch(normalizedInitial, normalizedInitial);
-      } else if (lastHashQueryRef.current) {
-        setQuery('');
-        lastHashQueryRef.current = null;
-        lastExecutedQueryRef.current = null;
-      }
-      return;
-    }
-
-    if (lastHashQueryRef.current === normalizedQuery) return;
-
-    if (isSlashCommand(normalizedQuery)) {
-      executeSearch(normalizedQuery, normalizedQuery);
-      const unknownCmd = runSlashCommand(normalizedQuery);
-      if (unknownCmd) {
-        setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
-        setTopExamples(null);
-        setKindsRules(null);
-      }
-      return;
-    }
-
-    executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, setTopCommandText, setTopExamples, setKindsRules]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const effectivePlaceholder = isConnecting ? '/examples' : placeholder;
     const raw = query.trim() || effectivePlaceholder;
-    
+
     // Slash-commands: show CLI-style top card but still run normal search
     if (isSlashCommand(raw)) {
       const unknownCmd = runSlashCommand(raw);
@@ -742,23 +251,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   };
 
-
-  useEffect(() => {
-    if (initialQueryRef.current !== initialQuery) {
-      initialQueryRef.current = initialQuery;
-      const normalized = initialQuery.trim() || null;
-      initialQueryNormalizedRef.current = normalized;
-      initialSearchDoneRef.current = false;
-      if (manageUrl) {
-        lastHashQueryRef.current = null;
-        lastExecutedQueryRef.current = null;
-      } else {
-        lastHashQueryRef.current = normalized;
-        lastExecutedQueryRef.current = normalized;
-      }
-    }
-  }, [initialQuery, manageUrl]);
-
   return (
     <div className="w-full pt-4">
       <PlaceholderStyles />
@@ -789,8 +281,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         query={query} 
         onAuthorResolved={() => {
           // Re-execute search after final author resolution completes
-          if (lastExecutedQueryRef.current) {
-            handleSearch(lastExecutedQueryRef.current);
+          if (refs.lastExecutedQueryRef.current) {
+            handleSearch(refs.lastExecutedQueryRef.current);
           }
         }} 
       />
@@ -857,8 +349,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           )}
         </div>
       )}
-
-      {/* Textbox moved inside ClientFilters 'Show:' section */}
 
       <SearchResultsList
         results={sortedResults}
