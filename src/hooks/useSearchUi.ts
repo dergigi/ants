@@ -2,25 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef, type MutableRefObject } from 'react';
 import { nextExample } from '@/lib/ndk';
-import { useClearTrigger } from '@/lib/ClearTrigger';
 
 /**
  * Owns the search input chrome: placeholder rotation, autofocus,
- * input change handling, and the clear handler registration.
+ * and input change handling.
  */
 export function useSearchUi(options: {
   query: string;
   loading: boolean;
   setQuery: (q: string) => void;
   suppressSearchRef: MutableRefObject<boolean>;
-  onClear: () => void;
 }) {
-  const { query, loading, setQuery, suppressSearchRef, onClear } = options;
+  const { query, loading, setQuery, suppressSearchRef } = options;
   const [placeholder, setPlaceholder] = useState('/examples');
   const [rotationProgress, setRotationProgress] = useState(0);
   const [rotationSeed, setRotationSeed] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const { setClearHandler } = useClearTrigger();
 
   // Simple input change handler: update local query state; searches run on submit
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,11 +54,6 @@ export function useSearchUi(options: {
       searchInputRef.current.focus();
     }
   }, []);
-
-  // Register clear handler for favicon click
-  useEffect(() => {
-    setClearHandler(onClear);
-  }, [setClearHandler, onClear]);
 
   const handleExampleNext = useCallback(() => {
     setPlaceholder(nextExample());

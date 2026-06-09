@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, nextExample } from '@/lib/ndk';
+import { connect } from '@/lib/ndk';
 import { useRelayStatus } from '@/hooks/useRelayStatus';
 import { useSearchUi } from '@/hooks/useSearchUi';
 import { useProfileScope } from '@/hooks/useProfileScope';
 import { useResultPipeline } from '@/hooks/useResultPipeline';
 import { useContentRenderer } from '@/hooks/useContentRenderer';
-import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
-import { getIsKindRules } from '@/lib/search/replacements';
+import { useSlashCommands } from '@/hooks/useSlashCommands';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent, NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
@@ -33,9 +32,8 @@ import { isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
 import { SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
-import { getFilteredExamples } from '@/lib/examples';
-import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
-import { useLoginTrigger } from '@/lib/LoginTrigger';
+import { getStoredPubkey } from '@/lib/nip07';
+import { useClearTrigger } from '@/lib/ClearTrigger';
 import { PlaceholderStyles } from './Placeholder';
 
 type Props = {
@@ -95,14 +93,31 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     hasNonProfileResults
   } = useResultPipeline({ results, setResults, query });
 
-  const [topCommandText, setTopCommandText] = useState<string | null>(null);
-  const [topExamples, setTopExamples] = useState<string[] | null>(null);
-  const [helpCommands, setHelpCommands] = useState<readonly SlashCommand[] | null>(null);
-  const [kindsRules, setKindsRules] = useState<Array<{ token: string; expansion: string }> | null>(null);
-  const [kindsLoading, setKindsLoading] = useState(false);
-  const [kindsError, setKindsError] = useState<string | null>(null);
-  const { triggerLogin, onLoginTrigger, setLoginState, setCurrentUser } = useLoginTrigger();
+  const {
+    placeholder,
+    setPlaceholder,
+    rotationProgress,
+    searchInputRef,
+    handleInputChange,
+    handleExampleNext
+  } = useSearchUi({ query, loading, setQuery, suppressSearchRef });
 
+  const {
+    runSlashCommand,
+    topCommandText,
+    setTopCommandText,
+    topExamples,
+    setTopExamples,
+    helpCommands,
+    kindsRules,
+    setKindsRules,
+    kindsLoading,
+    kindsError,
+    triggerLogin,
+    onLoginTrigger
+  } = useSlashCommands({ setQuery, setResults, setPlaceholder });
+
+  const { setClearHandler } = useClearTrigger();
   const handleClear = useCallback(() => {
     // Abort any ongoing search immediately
     if (abortControllerRef.current) {
@@ -118,18 +133,13 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     setKindsRules(null);
     // Always reset to root path when clearing
     router.replace('/');
-  }, [router]);
+  }, [router, setTopCommandText, setTopExamples, setKindsRules]);
 
-  const {
-    placeholder,
-    setPlaceholder,
-    rotationProgress,
-    searchInputRef,
-    handleInputChange,
-    handleExampleNext
-  } = useSearchUi({ query, loading, setQuery, suppressSearchRef, onClear: handleClear });
+  // Register clear handler for favicon click
+  useEffect(() => {
+    setClearHandler(handleClear);
+  }, [setClearHandler, handleClear]);
 
-  
   // Handle opening external URL
   const handleOpenExternal = useCallback(() => {
     if (query.trim()) {
@@ -138,123 +148,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       setShowExternalButton(false);
     }
   }, [query]);
-  
-  const runSlashCommand = useMemo(() => createSlashCommandRunner({
-    onHelp: (commands) => {
-      const lines = [
-        'Available commands:',
-        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)
-      ];
-      setTopCommandText(buildCli('--help', lines));
-      setHelpCommands(commands);
-      setTopExamples(null);
-      setKindsRules(null);
-    },
-    onExamples: () => {
-      const examples = getFilteredExamples(isLoggedIn());
-      setTopExamples(Array.from(examples));
-      setTopCommandText(buildCli('--help examples'));
-      setHelpCommands(null);
-      setKindsRules(null);
-    },
-    onLogin: async () => {
-      setLoginState('logging-in');
-      setTopCommandText(buildCli('login', 'Attempting login…'));
-      setTopExamples(null);
-      setHelpCommands(null);
-      setKindsRules(null);
-      try {
-        const user = await login();
-        if (user) {
-          // Immediately set current user and logged-in state for instant header update
-          setCurrentUser(user);
-          setLoginState('logged-in');
-          const userDisplay = user.profile?.nip05 || user.profile?.displayName || user.profile?.name || user.npub;
-          setTopCommandText(buildCli('login', `Logged in as ${userDisplay}`));
-          setPlaceholder(nextExample());
-
-          // Fetch profile in the background to avoid blocking header update
-          (async () => {
-            try {
-              await user.fetchProfile();
-              // Clone user to ensure state change triggers re-render with updated profile
-              const cloned = new NDKUser({ pubkey: user.pubkey });
-              cloned.ndk = user.ndk;
-              if (user.profile) {
-                cloned.profile = { ...(user.profile as Record<string, unknown>) } as typeof user.profile;
-              }
-              setCurrentUser(cloned);
-              // Update login message with fetched profile info
-              const updatedDisplay = cloned.profile?.nip05 || cloned.profile?.displayName || cloned.profile?.name || cloned.npub;
-              setTopCommandText(buildCli('login', `Logged in as ${updatedDisplay}`));
-            } catch {}
-          })();
-        } else {
-          setCurrentUser(null);
-          setLoginState('logged-out');
-          setTopCommandText(buildCli('login', 'Login cancelled'));
-        }
-      } catch {
-        setCurrentUser(null);
-        setLoginState('logged-out');
-        setTopCommandText(buildCli('login', 'Login failed. Ensure a NIP-07 extension is installed.'));
-      }
-    },
-    onLogout: () => {
-      try {
-        logout();
-        setCurrentUser(null);
-        setLoginState('logged-out');
-        setTopCommandText(buildCli('logout', 'Logged out'));
-        setPlaceholder(nextExample());
-      } catch {
-        setTopCommandText(buildCli('logout', 'Logout failed'));
-      }
-      setTopExamples(null);
-      setHelpCommands(null);
-      setKindsRules(null);
-    },
-    onClear: async () => {
-      setTopCommandText(buildCli('clear --cache', 'Clearing all caches...'));
-      setTopExamples(null);
-      setHelpCommands(null);
-      setKindsRules(null);
-      try {
-        await executeClearCommand();
-        setTopCommandText(buildCli('clear --cache', 'All caches cleared successfully'));
-      } catch (error) {
-        setTopCommandText(buildCli('clear --cache', `Cache clearing failed: ${error}`));
-      }
-    },
-    onTutorial: () => {
-      const tutorialNevent = 'nevent1qqsqnndhkz4u26m4v4gut2xjsun8hzfxn75spzcr8337a06g66zwzespzamhxue69uhksctkv4hzuer9wfnkjemf9e3k7mgehz685';
-      setTopCommandText(buildCli('--help tutorial', 'Loading tutorial event...'));
-      setTopExamples(null);
-      setHelpCommands(null);
-      setKindsRules(null);
-      setQuery(tutorialNevent);
-      updateSearchQuery(searchParams, router, tutorialNevent);
-    },
-    onKinds: async () => {
-      setTopCommandText(buildCli('kinds', 'Loading kind shortcuts...'));
-      setTopExamples(null);
-      setHelpCommands(null);
-      setResults([]);
-      setKindsLoading(true);
-      setKindsError(null);
-      try {
-        const rules = await getIsKindRules();
-        setKindsRules(rules.map(r => ({ token: r.token, expansion: r.expansion })));
-        setTopCommandText(buildCli('kinds', `${rules.length} is: shortcuts that map to nostr kinds`));
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Failed to load kind shortcuts';
-        setKindsError(errorMsg);
-        setTopCommandText(buildCli('kinds', `Error: ${errorMsg}`));
-      } finally {
-        setKindsLoading(false);
-      }
-    }
-  }), [setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
 
   const { profileScopeUser, profileScopeIdentifiers, profileScoped } = useProfileScope({ manageUrl, pathname, query });
 
@@ -619,7 +512,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, setSuccessfullyActiveRelays, setToggledRelays]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
 
   // DRY helper for content-based search triggers (always root searches)
   const handleContentSearch = useCallback((query: string) => {
@@ -667,7 +560,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     };
     initializeNDK();
-  }, [handleSearch, manageUrl, runSlashCommand, setConnectionDetails, setIsConnecting]);
+  }, [handleSearch, manageUrl, runSlashCommand, setConnectionDetails, setIsConnecting, setTopCommandText, setTopExamples, setKindsRules]);
 
   // Handle Escape key to stop current search
   useEffect(() => {
@@ -711,7 +604,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       }
     });
     return cleanup;
-  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, searchInputRef]);
+  }, [onLoginTrigger, runSlashCommand, updateUrlForSearch, query, searchInputRef, setTopCommandText, setTopExamples, setKindsRules]);
 
 
   useEffect(() => {
@@ -793,7 +686,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
 
     executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, profileScopeUser, profileScopeIdentifiers?.profileIdentifier]);
+  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, profileScopeUser, profileScopeIdentifiers?.profileIdentifier, setTopCommandText, setTopExamples, setKindsRules]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
