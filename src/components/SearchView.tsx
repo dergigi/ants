@@ -5,20 +5,17 @@ import { connect, nextExample, ndk } from '@/lib/ndk';
 import { useRelayStatus } from '@/hooks/useRelayStatus';
 import { useSearchUi } from '@/hooks/useSearchUi';
 import { useProfileScope } from '@/hooks/useProfileScope';
+import { useResultPipeline } from '@/hooks/useResultPipeline';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
-import { applyContentFilters, isEmojiSearch } from '@/lib/contentAnalysis';
 import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
 import { stripAllUrls } from '@/lib/utils/textUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
-// Use unified cached NIP-05 checker for DRYness and to leverage persistent cache
-import { checkNip05 as verifyNip05Async } from '@/lib/vertex';
-
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
 import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
@@ -26,12 +23,12 @@ import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removePro
 import EventCard from '@/components/EventCard';
 import ArticleCard from '@/components/ArticleCard';
 import ProfileCard from '@/components/ProfileCard';
-import ClientFilters, { FilterSettings } from '@/components/ClientFilters';
+import ClientFilters from '@/components/ClientFilters';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import FilterCollapsed from '@/components/FilterCollapsed';
 import RelayCollapsed from '@/components/RelayCollapsed';
 import RelayStatusDisplay from '@/components/RelayStatusDisplay';
-import SortCollapsed, { SortOrder } from '@/components/SortCollapsed';
+import SortCollapsed from '@/components/SortCollapsed';
 import ShareButton from '@/components/ShareButton';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
@@ -59,11 +56,8 @@ import { HIGHLIGHTS_KIND } from '@/lib/highlights';
 
 
 
-// Removed direct Highlight usage; RawEventJson handles JSON highlighting
-// import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import RawEventJson from '@/components/RawEventJson';
 import CodeSnippet from '@/components/CodeSnippet';
-import Fuse from 'fuse.js';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
 import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
@@ -104,7 +98,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
   const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [showFilterDetails, setShowFilterDetails] = useState(false);
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const {
     isConnecting,
@@ -116,8 +109,22 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     relayInfo
   } = useRelayStatus(results.length);
   const [showExternalButton, setShowExternalButton] = useState(false);
-  const [filterSettings, setFilterSettings] = useState<FilterSettings>({ maxEmojis: 3, maxHashtags: 3, maxMentions: 6, hideLinks: false, hideBridged: true, resultFilter: '', verifiedOnly: false, fuzzyEnabled: true, hideBots: false, hideNsfw: false, filterMode: 'intelligently' });
-  
+  const {
+    filterSettings,
+    setFilterSettings,
+    sortOrder,
+    setSortOrder,
+    successfullyActiveRelays,
+    setSuccessfullyActiveRelays,
+    toggledRelays,
+    setToggledRelays,
+    toggleRelay,
+    emojiAutoDisabled,
+    fuseFilteredResults,
+    sortedResults,
+    hasNonProfileResults
+  } = useResultPipeline({ results, setResults, query });
+
   const [topCommandText, setTopCommandText] = useState<string | null>(null);
   const [topExamples, setTopExamples] = useState<string[] | null>(null);
   const [helpCommands, setHelpCommands] = useState<readonly SlashCommand[] | null>(null);
@@ -152,20 +159,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     handleExampleNext
   } = useSearchUi({ query, loading, setQuery, suppressSearchRef, onClear: handleClear });
 
-  
-  // Determine if filters should be enabled based on filterMode
-  const shouldEnableFilters = useMemo(() => {
-    switch (filterSettings.filterMode) {
-      case 'always':
-        return true;
-      case 'never':
-        return false;
-      case 'intelligently':
-        return results.length >= SEARCH_FILTER_THRESHOLD;
-      default:
-        return false;
-    }
-  }, [filterSettings.filterMode, results.length]);
   
   // Handle opening external URL
   const handleOpenExternal = useCallback(() => {
@@ -294,183 +287,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   }), [setTopCommandText, setPlaceholder, setTopExamples, setLoginState, setCurrentUser, setQuery, searchParams, router]);
 
   const { profileScopeUser, profileScopeIdentifiers, profileScoped } = useProfileScope({ manageUrl, pathname, query });
-  const [successfullyActiveRelays, setSuccessfullyActiveRelays] = useState<Set<string>>(new Set());
-  const [toggledRelays, setToggledRelays] = useState<Set<string>>(new Set());
-
-  // Toggle relay on/off for client-side filtering
-  const toggleRelay = useCallback((relayUrl: string) => {
-    setToggledRelays(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(relayUrl)) {
-        newSet.delete(relayUrl);
-      } else {
-        newSet.add(relayUrl);
-      }
-      return newSet;
-    });
-  }, []);
-
-  // Filter results based on toggled relay state
-  const filterByRelays = useCallback((events: NDKEvent[]) => {
-    if (toggledRelays.size === 0) {
-      // No relays toggled off, return all events
-      return events;
-    }
-
-    return events.filter(event => {
-      const eventSources = extractRelaySourcesFromEvent(event);
-      // Keep event if it has sources from toggled relays
-      return eventSources.some(source => toggledRelays.has(source));
-    });
-  }, [toggledRelays]);
-
-  // Memoized client-side filtered results (for count and rendering)
-  // Maintain a map of pubkey->verified to avoid re-verifying
-  const verifiedMapRef = useRef<Map<string, boolean>>(new Map());
-
-  useEffect(() => {
-    // Proactively verify missing entries (bounded to first 50) and then reorder results
-    const toVerify: Array<{ pubkey: string; nip05: string }> = [];
-    for (const evt of results.slice(0, 50)) {
-      const pubkey = (evt.pubkey || evt.author?.pubkey) as string | undefined;
-      const profile = evt.author?.profile as { nip05?: string | { url?: string; verified?: boolean } } | undefined;
-      const raw = profile?.nip05;
-      const nip05 = typeof raw === 'string' ? raw : raw?.url;
-      const verifiedHint = typeof raw === 'object' && raw ? raw.verified : undefined;
-      if (pubkey && verifiedHint === true) {
-        verifiedMapRef.current.set(pubkey, true);
-      }
-      if (!pubkey || !nip05) continue;
-      if (!verifiedMapRef.current.has(pubkey)) toVerify.push({ pubkey, nip05 });
-    }
-    if (toVerify.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      await Promise.allSettled(toVerify.map(async ({ pubkey, nip05 }) => {
-        try {
-          const ok = await verifyNip05Async(pubkey, nip05);
-          if (!cancelled) verifiedMapRef.current.set(pubkey, Boolean(ok));
-        } catch {
-          if (!cancelled) verifiedMapRef.current.set(pubkey, false);
-        }
-      }));
-      if (cancelled) return;
-      // Reorder results by verified first while preserving relative order for ties
-      setResults(prev => {
-        const index = new Map<string, number>();
-        prev.forEach((e, i) => {
-          const pk = (e.pubkey || e.author?.pubkey) as string | undefined;
-          if (pk) index.set(pk, i);
-        });
-        const copy = [...prev];
-        copy.sort((a, b) => {
-          const ap = (a.pubkey || a.author?.pubkey) as string | undefined;
-          const bp = (b.pubkey || b.author?.pubkey) as string | undefined;
-          const av = ap ? (verifiedMapRef.current.get(ap) === true ? 1 : 0) : 0;
-          const bv = bp ? (verifiedMapRef.current.get(bp) === true ? 1 : 0) : 0;
-          if (av !== bv) return bv - av; // verified first
-          // stable by original index
-          const ai = ap ? (index.get(ap) ?? 0) : 0;
-          const bi = bp ? (index.get(bp) ?? 0) : 0;
-          return ai - bi;
-        });
-        return copy;
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [results]);
-
-
-  const emojiAutoDisabled = filterSettings.filterMode === 'intelligently' && isEmojiSearch(query);
-
-  const filteredResults = useMemo(
-    () => {
-      let filtered = results;
-      
-      // Apply content filters first
-      if (shouldEnableFilters) {
-        filtered = applyContentFilters(
-          filtered,
-          // Disable emoji filter when searching for multiple emojis in Smart mode
-          emojiAutoDisabled ? null : filterSettings.maxEmojis,
-          filterSettings.maxHashtags,
-          filterSettings.maxMentions,
-          filterSettings.hideLinks,
-          filterSettings.hideBridged,
-          filterSettings.verifiedOnly,
-          (pubkey) => Boolean(pubkey && verifiedMapRef.current.get(pubkey) === true),
-          filterSettings.hideBots,
-          filterSettings.hideNsfw
-        );
-      }
-      
-      // Apply relay filtering
-      return filterByRelays(filtered);
-    },
-    [results, shouldEnableFilters, emojiAutoDisabled, filterSettings.maxEmojis, filterSettings.maxHashtags, filterSettings.maxMentions, filterSettings.hideLinks, filterSettings.hideBridged, filterSettings.verifiedOnly, filterSettings.hideBots, filterSettings.hideNsfw, filterByRelays]
-  );
-
-  // Apply optional fuzzy filter on top of client-side filters
-  const fuseFilteredResults = useMemo(() => {
-    const q = (shouldEnableFilters && filterSettings.fuzzyEnabled ? (filterSettings.resultFilter || '') : '').trim();
-    if (!q) return filteredResults;
-    const fuse = new Fuse(filteredResults, {
-      includeScore: false,
-      threshold: 0.35,
-      ignoreLocation: true,
-      keys: [
-        { name: 'content', weight: 1 }
-      ]
-    });
-    return fuse.search(q).map(r => r.item);
-  }, [filteredResults, filterSettings.resultFilter, filterSettings.fuzzyEnabled, shouldEnableFilters]);
-
-  // Separate profiles from non-profiles and sort only non-profiles by date
-  const sortedResults = useMemo(() => {
-    const profiles: NDKEvent[] = [];
-    const nonProfiles: NDKEvent[] = [];
-    
-    // Separate events by kind
-    for (const event of fuseFilteredResults) {
-      if (event.kind === 0) {
-        profiles.push(event);
-      } else {
-        nonProfiles.push(event);
-      }
-    }
-    
-    // Sort non-profiles by created_at based on sortOrder
-    const sortedNonProfiles = [...nonProfiles].sort((a, b) => {
-      if (sortOrder === 'newest') {
-        return (b.created_at || 0) - (a.created_at || 0);
-      } else {
-        return (a.created_at || 0) - (b.created_at || 0);
-      }
-    });
-    
-    // Return profiles first (maintaining their verified-first order), then sorted non-profiles
-    return [...profiles, ...sortedNonProfiles];
-  }, [fuseFilteredResults, sortOrder]);
-
-  // Check if there are non-profile results to show sort dropdown
-  const hasNonProfileResults = useMemo(() => {
-    return fuseFilteredResults.some(event => event.kind !== 0);
-  }, [fuseFilteredResults]);
-
-  // Seed profile prefetch for visible profile cards as soon as results materialize
-  useEffect(() => {
-    try {
-      for (const ev of fuseFilteredResults) {
-        if (ev.kind === 0) {
-          // Use author.pubkey if available, fallback to event.pubkey
-          const pubkey = ev.author?.pubkey || ev.pubkey;
-          if (pubkey) {
-            setPrefetchedProfile(pubkey, prepareProfileEventForPrefetch(ev));
-          }
-        }
-      }
-    } catch {}
-  }, [fuseFilteredResults]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function applyClientFilters(events: NDKEvent[], _terms: string[], _active: Set<string>): NDKEvent[] {
@@ -833,7 +649,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, setSuccessfullyActiveRelays, setToggledRelays]);
 
   // DRY helper for content-based search triggers (always root searches)
   const handleContentSearch = useCallback((query: string) => {
