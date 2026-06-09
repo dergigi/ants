@@ -359,20 +359,9 @@ export async function getRelayInfo(relayUrl: string): Promise<{
     });
 
     const relayInfoPromise = (async () => {
-      // Method 1: Check if relay is in our known relays list and assume standard NIPs
-      const knownSearchRelays = new Set<string>([
-        ...RELAYS.SEARCH,
-        ...RELAYS.PROFILE_SEARCH
-      ]);
-
-      if (knownSearchRelays.has(relayUrl)) {
-        // Don't hard-code supported NIPs - let HTTP detection determine actual capabilities
-      }
-
-      // Method 2: Check NDK's cached relay info
+      // Method 1: Check NDK's cached relay info
       const relay = ndk.pool?.relays?.get(relayUrl);
       if (relay) {
-
         // Check if relay has info cached from NIP-11
         const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
         if (relayInfo && relayInfo.supported_nips) {
@@ -384,7 +373,7 @@ export async function getRelayInfo(relayUrl: string): Promise<{
         }
       }
 
-      // Method 3: Try HTTP NIP-11 detection as fallback
+      // Method 2: Try HTTP NIP-11 detection as fallback
       // trying HTTP detection
       const httpResult = await checkRelayInfoViaHttp(relayUrl);
 
@@ -453,7 +442,6 @@ async function checkRelayInfoViaHttp(relayUrl: string): Promise<{
             software: data?.software,
             version: data?.version
           };
-        } else {
         }
       } catch {
         // ignore
@@ -487,11 +475,7 @@ export function clearRelayCaches(): void {
   userRelayCache.clear();
 }
 
-// Backward compatibility - keep old function names
-export const clearNip50SupportCache = clearRelayInfoCache;
-export const clearNip50Cache = clearRelayInfoCache;
-
-// Backward compatibility function for NIP-50 support checking
+// Check whether a relay supports NIP-50
 export async function checkNip50Support(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
   const relayInfo = await getRelayInfo(relayUrl);
 
@@ -569,16 +553,7 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   const allRelays = await extendWithUserAndPremium(allSearchRelays);
   
   const nip50Relays = await filterNip50Relays(allRelays);
-  
-  // Debug: Test each relay individually
-  for (const relayUrl of nip50Relays) {
-    try {
-      await getRelayInfo(relayUrl);
-    } catch {
-      // ignore
-    }
-  }
-  
+
   return createRelaySet(nip50Relays);
 }
 

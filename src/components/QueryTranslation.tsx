@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
-import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
+import { expandParenthesizedOr, parseOrQuery } from '@/lib/search/queryTransforms';
 import { resolveAuthorToNpub } from '@/lib/vertex';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { resolveRelativeDates } from '@/lib/search/relativeDates';

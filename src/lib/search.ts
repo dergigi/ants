@@ -49,30 +49,6 @@ import { searchByAnyTerms } from './search/termSearch';
 // Import types
 import { StreamingSearchOptions, SearchContext } from './search/types';
 
-
-// Note: We no longer inject properties into NDKEvent objects
-// Instead, we use the eventRelayTracking system to track relay sources
-
-
-
-
-
-// Centralized media extension lists (keep DRY)
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
-export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
-export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
-
-
-// (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
-
-// Re-export getUserRelayUrls for backwards compatibility
-export { getUserRelayUrls } from './search/relayManagement';
-
-
-
-// Re-export query transformation utilities for backwards compatibility
-export { parseOrQuery, expandParenthesizedOr } from './search/queryTransforms';
-
 // Helper functions for analyzing OR seeds with by: clauses
 /**
  * Extract all by: tokens from a seed string

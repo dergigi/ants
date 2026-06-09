@@ -45,37 +45,6 @@ function disableCacheAdapter(reason?: unknown): void {
   cacheDisabledDueToError = true;
 }
 
-/**
- * Wrapper function to safely execute NDK operations with WASM error handling
- * If a WASM cache error occurs, it will disable the cache and retry with live data
- * @param operation - Function that performs NDK operations
- * @param fallbackValue - Value to return if operation fails after cache is disabled
- * @returns Promise that resolves to the operation result or fallback value
- */
-export async function safeExecuteWithCacheFallback<T>(
-  operation: () => T | Promise<T>,
-  fallbackValue: T
-): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    if (isUndefinedBindWasmError(error)) {
-      console.warn('WASM cache error detected, disabling cache and falling back to live data');
-      disableCacheAdapter(error);
-      try {
-        // Retry the operation with cache disabled
-        return await operation();
-      } catch (retryError) {
-        console.error('Operation failed even after disabling cache:', retryError);
-        return fallbackValue;
-      }
-    }
-    // For non-WASM errors, just return the fallback
-    console.error('Operation failed with non-WASM error:', error);
-    return fallbackValue;
-  }
-}
-
 function isNoFiltersToMergeError(error: unknown): boolean {
   try {
     const message = (error instanceof Error ? error.message : String(error || '')) || '';
@@ -145,15 +114,6 @@ export const ndk = new NDK({
 
 // Store the selected example
 let currentSearchExample: string;
-
-export const getCurrentExample = () => {
-  // Always prioritize '/examples' as the initial example
-  if (!currentSearchExample) {
-    currentSearchExample = '/examples';
-    return currentSearchExample;
-  }
-  return currentSearchExample;
-};
 
 export const nextExample = (): string => {
   const filteredExamples = getFilteredExamples(isLoggedIn());
@@ -406,13 +366,6 @@ export const startRelayMonitoring = () => {
       console.warn('Relay monitoring error:', error);
     }
   }, RELAY_MONITORING_INTERVAL);
-};
-
-export const stopRelayMonitoring = () => {
-  if (relayMonitorInterval) {
-    clearInterval(relayMonitorInterval);
-    relayMonitorInterval = null;
-  }
 };
 
 export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatus> => {
