@@ -6,27 +6,28 @@ export const RELAYS = {
   // Default relays for general NDK connection
   DEFAULT: [
     'wss://relay.primal.net',
-    'wss://relay.snort.social',
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://nos.lol'
   ],
 
   // Search-capable relays (NIP-50 support)
   SEARCH: [
     'wss://search.nos.today',
-    'wss://relay.nostr.band',
     'wss://relay.ditto.pub',
-    'wss://relay.davidebtc.me',
     'wss://relay.gathr.gives',
-    'wss://nostr.polyserv.xyz',
-    'wss://nostr.azzamo.net'
+    'wss://antiprimal.net',
+    'wss://index.hzrd149.com',
+    'wss://nostr.me/relay',
+    'wss://relay.vertexlab.io'
   ],
 
   // Profile search relays (NIP-50 capable)
   PROFILE_SEARCH: [
     'wss://purplepag.es',
     'wss://search.nos.today',
-    'wss://relay.nostr.band',
-    'wss://relay.ditto.pub'
+    'wss://relay.ditto.pub',
+    'wss://relay.vertexlab.io',
+    'wss://antiprimal.net'
   ],
 
   // Premium relays to use only for logged-in users

@@ -40,15 +40,25 @@ export async function filterNip50Relays(relayUrls: string[]): Promise<string[]> 
     }
   });
 
-  // If we have very few NIP-50 relays, include some known good relays as fallback
+  // If we have very few NIP-50 relays, fall back to unchecked candidates from
+  // the curated search relay set, but only after verifying NIP-50 support
   if (supportedRelays.length < 3) {
-    const fallbackRelays = [
-      'wss://relay.primal.net',
-      'wss://relay.snort.social',
-      'wss://relay.ditto.pub'
-    ].filter(url => !supportedRelays.includes(url) && !rejectedRelays.includes(url));
+    const fallbackCandidates = RELAYS.SEARCH.filter(
+      (url) => !supportedRelays.includes(url) && !rejectedRelays.includes(url)
+    );
 
-    supportedRelays.push(...fallbackRelays);
+    const fallbackResults = await Promise.allSettled(
+      fallbackCandidates.map(async (url) => {
+        const nip50Info = await checkNip50Support(url);
+        return { url, supportsNip50: nip50Info.supportsNip50 };
+      })
+    );
+
+    fallbackResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.supportsNip50) {
+        supportedRelays.push(result.value.url);
+      }
+    });
   }
 
   return supportedRelays;
