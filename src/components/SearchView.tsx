@@ -1,28 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { connect, nextExample, ndk } from '@/lib/ndk';
+import { connect, nextExample } from '@/lib/ndk';
 import { useRelayStatus } from '@/hooks/useRelayStatus';
 import { useSearchUi } from '@/hooks/useSearchUi';
 import { useProfileScope } from '@/hooks/useProfileScope';
 import { useResultPipeline } from '@/hooks/useResultPipeline';
+import { useContentRenderer } from '@/hooks/useContentRenderer';
 import { createSlashCommandRunner, executeClearCommand, type SlashCommand } from '@/lib/slashCommands';
 import { getIsKindRules } from '@/lib/search/replacements';
 import { resolveAuthorToNpub } from '@/lib/vertex';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { searchEvents } from '@/lib/search';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
-import { formatUrlForDisplay, getFilenameFromUrl, extractVideoUrls } from '@/lib/utils/urlUtils';
-import { stripAllUrls } from '@/lib/utils/textUtils';
 import { updateSearchQuery } from '@/lib/utils/navigationUtils';
-import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
-import { setPrefetchedProfile, prepareProfileEventForPrefetch } from '@/lib/profile/prefetch';
 import { getProfileScopeIdentifiers, hasProfileScope, addProfileScope, removeProfileScope } from '@/lib/search/profileScope';
-import EventCard from '@/components/EventCard';
-import ArticleCard from '@/components/ArticleCard';
-import ProfileCard from '@/components/ProfileCard';
 import ClientFilters from '@/components/ClientFilters';
 import ProfileScopeIndicator from '@/components/ProfileScopeIndicator';
 import FilterCollapsed from '@/components/FilterCollapsed';
@@ -30,41 +24,19 @@ import RelayCollapsed from '@/components/RelayCollapsed';
 import RelayStatusDisplay from '@/components/RelayStatusDisplay';
 import SortCollapsed from '@/components/SortCollapsed';
 import ShareButton from '@/components/ShareButton';
-import TruncatedText from '@/components/TruncatedText';
-import ImageWithBlurhash from '@/components/ImageWithBlurhash';
-import VideoWithBlurhash from '@/components/VideoWithBlurhash';
 import SearchInput from '@/components/SearchInput';
 import QueryTranslation from '@/components/QueryTranslation';
-import InlineNostrToken from '@/components/InlineNostrToken';
-import NoteHeader from '@/components/NoteHeader';
-import NoteMedia from '@/components/NoteMedia';
+import SearchResultsList from '@/components/SearchResultsList';
 import { nip19 } from 'nostr-tools';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
-import { createNostrTokenRegex } from '@/lib/utils/nostrIdentifiers';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { trimImageUrl, isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
+import { isHashtagOnlyQuery, hashtagQueryToUrl } from '@/lib/utils';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
-import { NDKUser, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import emojiRegex from 'emoji-regex';
-import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
-import { formatEventTimestamp, getReplyToEventId } from '@/lib/utils/eventHelpers';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
-import { formatExactDate } from '@/lib/relativeTime';
-import { TEXT_MAX_LENGTH, SEARCH_FILTER_THRESHOLD, FOLLOW_PACK_KIND } from '@/lib/constants';
-import { HIGHLIGHTS_KIND } from '@/lib/highlights';
-
-
-
-
-import RawEventJson from '@/components/RawEventJson';
-import CodeSnippet from '@/components/CodeSnippet';
+import { SEARCH_FILTER_THRESHOLD } from '@/lib/constants';
 import { getFilteredExamples } from '@/lib/examples';
 import { isLoggedIn, login, logout, getStoredPubkey } from '@/lib/nip07';
-import { Highlight, themes, type RenderProps } from 'prism-react-renderer';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
-import { SearchResultsPlaceholder, PlaceholderStyles } from './Placeholder';
-import { detectSearchType } from '@/lib/search/searchTypeDetection';
-import packageJson from '../../package.json';
+import { PlaceholderStyles } from './Placeholder';
 
 type Props = {
   initialQuery?: string;
@@ -96,9 +68,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   const initialQueryRef = useRef(initialQuery);
   const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
   const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
-  const [expandedParents, setExpandedParents] = useState<Record<string, NDKEvent | 'loading'>>({});
   const [showFilterDetails, setShowFilterDetails] = useState(false);
-  const [successfulPreviews, setSuccessfulPreviews] = useState<Set<string>>(new Set());
   const {
     isConnecting,
     setIsConnecting,
@@ -660,6 +630,8 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     }
   }, [setQueryAndNavigateToRoot, handleSearch]);
 
+  const contentRenderer = useContentRenderer({ setQuery, updateUrlForSearch, handleSearch, handleContentSearch });
+
   // While connecting, show a static placeholder; remove animated loading dots
 
   useEffect(() => {
@@ -878,310 +850,6 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
   };
 
 
-  const goToProfile = useCallback((npub: string, prefetchEvent?: NDKEvent) => {
-    try {
-      if (prefetchEvent) {
-        const { data } = nip19.decode(npub);
-        const pk = data as string;
-        setPrefetchedProfile(pk, prepareProfileEventForPrefetch(prefetchEvent));
-      }
-    } catch {}
-    router.push(`/p/${npub}`);
-  }, [router]);
-
-  // DRY helper for nevent search buttons
-  const handleNeventSearch = useCallback((eventId: string) => {
-    try {
-      const nevent = nip19.neventEncode({ id: eventId });
-      setQuery(nevent);
-      updateUrlForSearch(nevent);
-      handleSearch(nevent);
-    } catch {}
-  }, [setQuery, updateUrlForSearch, handleSearch]);
-
-  // DRY component for nevent search buttons
-  const NeventSearchButton = useCallback(({ eventId, timestamp, exactDate, exactTimestamp }: { eventId: string; timestamp: string; exactDate?: string; exactTimestamp?: number }) => {
-    const timestampProps = typeof exactTimestamp === 'number'
-      ? { 'data-timestamp': String(exactTimestamp) }
-      : {};
-
-    return (
-      <button
-        type="button"
-        className="text-xs hover:underline"
-        title={exactDate || "Search this nevent"}
-        onClick={() => handleNeventSearch(eventId)}
-        {...timestampProps}
-      >
-        {timestamp}
-      </button>
-    );
-  }, [handleNeventSearch]);
-
-  // DRY helper for common EventCard props
-  const getCommonEventCardProps = useCallback((event: NDKEvent, className: string) => ({
-    event,
-    onAuthorClick: goToProfile,
-    className,
-    footerRight: <NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} exactDate={event.created_at ? formatExactDate(event.created_at) : undefined} exactTimestamp={event.created_at} />
-  }), [goToProfile, NeventSearchButton]);
-
-
-
-
-
-  // Use the utility function from urlUtils
-
-
-  const renderContentWithClickableHashtags = useCallback((content: string, options?: { disableNevent?: boolean; skipIdentifierIds?: Set<string> }) => {
-    const strippedContent = stripAllUrls(content, successfulPreviews);
-    if (!strippedContent) return null;
-
-    const initialIdentifierIds = options?.skipIdentifierIds
-      ? Array.from(options.skipIdentifierIds, (id) => id.toLowerCase())
-      : [];
-    const seenIdentifierIds = new Set<string>(initialIdentifierIds);
-
-    const deriveIdentifierKey = (token: string): string | null => {
-      if (!/^nostr:(?:nevent1|naddr1|note1)/i.test(token)) return null;
-      try {
-        const decoded = nip19.decode(token.replace(/^nostr:/i, ''));
-        if (!decoded) return null;
-
-        if (decoded.type === 'nevent') {
-          const data = decoded.data as { id?: string };
-          const id = (data?.id || '').toLowerCase();
-          return id || null;
-        }
-
-        if (decoded.type === 'note') {
-          const noteId = (decoded.data as string) || '';
-          return noteId ? noteId.toLowerCase() : null;
-        }
-
-        if (decoded.type === 'naddr') {
-          const data = decoded.data as { pubkey?: string; identifier?: string; kind?: number };
-          const kind = typeof data?.kind === 'number' ? data.kind : '';
-          const pubkey = (data?.pubkey || '').toLowerCase();
-          const identifier = (data?.identifier || '').toLowerCase();
-          if (!pubkey || !identifier || kind === '') return null;
-          return `${kind}:${pubkey}:${identifier}`;
-        }
-      } catch {}
-      return null;
-    };
-
-    const urlRegex = /(https?:\/\/[^\s'"<>]+)(?!\w)/gi;
-    const nostrPattern = createNostrTokenRegex();
-    const hashtagRegex = /(#\w+)/g;
-    const emojiRx = emojiRegex();
-
-    const splitByUrls = strippedContent.split(urlRegex);
-    const finalNodes: (string | React.ReactNode)[] = [];
-
-    splitByUrls.forEach((segment, segIndex) => {
-      const isUrl = /^https?:\/\//i.test(segment);
-      if (isUrl) {
-        const cleanedUrl = segment.replace(/[),.;]+$/, '').trim();
-        const { displayText, fullUrl } = formatUrlForDisplay(cleanedUrl, 25);
-        finalNodes.push(
-          <span key={`url-${segIndex}`} className="inline-flex items-center gap-1">
-            <button
-              type="button"
-              className="text-blue-400 hover:text-blue-300 hover:underline break-all text-left"
-              onClick={(e) => { 
-                e.stopPropagation();
-                handleContentSearch(fullUrl);
-              }}
-              title={`Search for: ${fullUrl}`}
-            >
-              {displayText}
-            </button>
-            <button
-              type="button"
-              title="Open URL in new tab"
-              className="p-0.5 text-gray-400 hover:text-gray-200 opacity-70"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(fullUrl, '_blank', 'noopener,noreferrer');
-              }}
-            >
-              <FontAwesomeIcon icon={faExternalLink} className="text-xs" />
-            </button>
-          </span>
-        );
-        return;
-      }
-
-      // Process nostr tokens, hashtags, and emojis
-      const nostrSplitRegex = new RegExp(nostrPattern.source, nostrPattern.flags);
-      const segmentTokens: string[] = [];
-      const segmentParts: string[] = [];
-      let lastIndex = 0;
-      let execMatch: RegExpExecArray | null;
-      while ((execMatch = nostrSplitRegex.exec(segment)) !== null) {
-        const tokenStart = execMatch.index;
-        const tokenEnd = tokenStart + execMatch[0].length;
-        segmentParts.push(segment.slice(lastIndex, tokenStart));
-        segmentTokens.push(execMatch[0]);
-        lastIndex = tokenEnd;
-      }
-      segmentParts.push(segment.slice(lastIndex));
-      const nostrSplit = segmentParts;
-      const nostrTokens = segmentTokens;
-      
-      nostrSplit.forEach((textPart, partIndex) => {
-        if (textPart) {
-          // Process hashtags and emojis in text
-          const hashtagSplit = textPart.split(hashtagRegex);
-          hashtagSplit.forEach((hashtagPart, hashtagIndex) => {
-            if (hashtagPart.startsWith('#')) {
-              finalNodes.push(
-                <button
-                  key={`hashtag-${segIndex}-${partIndex}-${hashtagIndex}`}
-                  onClick={() => handleContentSearch(hashtagPart)}
-                  className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-                >
-                  {hashtagPart}
-                </button>
-              );
-            } else if (hashtagPart && hashtagPart.trim()) {
-              // Process emojis
-              const emojiSplit = hashtagPart.split(emojiRx);
-              const emojis = hashtagPart.match(emojiRx) || [];
-              emojiSplit.forEach((emojiPart, emojiIndex) => {
-                if (emojiPart) finalNodes.push(emojiPart);
-                if (emojis[emojiIndex]) {
-                  finalNodes.push(
-                    <button
-                      key={`emoji-${segIndex}-${partIndex}-${hashtagIndex}-${emojiIndex}`}
-                      onClick={() => handleContentSearch(emojis[emojiIndex] as string)}
-                      className="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      {emojis[emojiIndex]}
-                    </button>
-                  );
-                }
-              });
-            } else {
-              finalNodes.push(hashtagPart);
-            }
-          });
-        }
-        
-        // Add nostr token if it exists
-        if (nostrTokens[partIndex]) {
-          const token = nostrTokens[partIndex];
-          
-          const identifierKey = deriveIdentifierKey(token);
-          if (identifierKey) {
-            if (seenIdentifierIds.has(identifierKey)) {
-              return;
-            }
-            seenIdentifierIds.add(identifierKey);
-          }
-          
-          if (options?.disableNevent && /^nostr:(?:nevent1|naddr1|note1)/i.test(token)) {
-            finalNodes.push(token);
-          } else {
-            finalNodes.push(
-              <InlineNostrToken
-                key={`nostr-${segIndex}-${partIndex}`}
-                token={token}
-                onProfileClick={goToProfile}
-                onSearch={handleContentSearch}
-                renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-              />
-            );
-          }
-        }
-      });
-    });
-
-    return finalNodes;
-  }, [successfulPreviews, handleContentSearch, goToProfile]);
-
-  // toPlainEvent moved to shared util; RawEventJson will use it.
-
-
-  const renderNoteMedia = useCallback((content: string) => (
-    <NoteMedia
-      content={content}
-      onSearch={handleContentSearch}
-      onUrlLoaded={(loadedUrl) => {
-        setSuccessfulPreviews((prev) => {
-          if (prev.has(loadedUrl)) return prev;
-          const next = new Set(prev);
-          next.add(loadedUrl);
-          return next;
-        });
-      }}
-    />
-  ), [handleContentSearch]);
-
-  const handleParentToggle = useCallback((parentId: string, parent: NDKEvent | 'loading' | null) => {
-    if (parent === null) {
-      const updated = { ...expandedParents };
-      delete updated[parentId];
-      setExpandedParents(updated);
-    } else {
-      setExpandedParents((prev) => ({ ...prev, [parentId]: parent }));
-    }
-  }, [expandedParents, setExpandedParents]);
-
-  const renderNoteHeader = useCallback((event: NDKEvent): React.ReactNode => {
-    // Hide header for profile events (kind:0)
-    if (event.kind === 0) return null;
-    return (
-      <NoteHeader
-        event={event}
-        expandedParents={expandedParents}
-        onParentToggle={handleParentToggle}
-        onSearch={handleSearch}
-      />
-    );
-  }, [expandedParents, handleParentToggle, handleSearch]);
-
-  const renderParentChain = useCallback((event: NDKEvent): React.ReactNode => {
-    const parentChain: NDKEvent[] = [];
-    let currentEvent = event;
-    
-    // Build the parent chain by following expanded parents
-    while (currentEvent) {
-      const parentId = getReplyToEventId(currentEvent);
-      if (!parentId) break;
-      
-      const parentState = expandedParents[parentId];
-      if (parentState && parentState !== 'loading' && parentState !== null) {
-        parentChain.push(parentState as NDKEvent);
-        currentEvent = parentState as NDKEvent;
-      } else {
-        break;
-      }
-    }
-    
-    // Render all parents as stacked blocks (reverse order so most recent is on top)
-    return parentChain.reverse().map((parentEvent, index) => (
-      <EventCard
-        key={`parent-${parentEvent.id}-${index}`}
-        event={parentEvent}
-        onAuthorClick={goToProfile}
-        renderContent={(text) => (
-          <TruncatedText 
-            content={text} 
-            maxLength={TEXT_MAX_LENGTH}
-            className="text-gray-100 whitespace-pre-wrap break-words"
-            renderContentWithClickableHashtags={renderContentWithClickableHashtags}
-          />
-        )}
-        mediaRenderer={renderNoteMedia}
-        className="relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] border-t-0 w-full rounded-none"
-        showFooter={true}
-        footerRight={<NeventSearchButton eventId={parentEvent.id} timestamp={formatEventTimestamp(parentEvent)} exactDate={parentEvent.created_at ? formatExactDate(parentEvent.created_at) : undefined} exactTimestamp={parentEvent.created_at} />}
-      />
-    ));
-  }, [expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, NeventSearchButton]);
-
   useEffect(() => {
     if (initialQueryRef.current !== initialQuery) {
       initialQueryRef.current = initialQuery;
@@ -1299,291 +967,20 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
       {/* Textbox moved inside ClientFilters 'Show:' section */}
 
-      {useMemo(() => {
-        const finalResults = sortedResults;
-        return (
-          <div className="mt-8 space-y-4">
-            {topCommandText ? (
-              <EventCard
-                event={new NDKEvent(ndk)}
-                onAuthorClick={goToProfile}
-                renderContent={() => (
-                  <Highlight code={topCommandText} language="bash" theme={themes.nightOwl}>
-                    {({ className: cls, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-                      <pre
-                        className={`${cls} text-xs overflow-x-auto rounded-md p-3 border border-[#3d3d3d]`.trim()}
-                        style={{ ...style, whiteSpace: 'pre' }}
-                      >
-                        {helpCommands && helpCommands.length > 0 ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            {helpCommands.map((cmd, idx) => (
-                              <div key={`${cmd.key}-${idx}`}>
-                                <button
-                                  type="button"
-                                  className="text-left w-full hover:underline"
-                                  onClick={() => handleContentSearch(cmd.label)}
-                                >
-                                  {`${cmd.label.padEnd(12)} ${cmd.description}`}
-                                </button>
-                              </div>
-                            ))}
-                            <div>&nbsp;</div>
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={`https://github.com/dergigi/ants/releases/tag/v${packageJson.version}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:underline"
-                              >
-                                v{packageJson.version}
-                              </a>
-                              <a
-                                href={`https://github.com/dergigi/ants/commit/${process.env.NEXT_PUBLIC_GIT_COMMIT || 'unknown'}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:underline"
-                              >
-                                {process.env.NEXT_PUBLIC_GIT_COMMIT_SHORT || 'unknown'}
-                              </a>
-                            </div>
-                          </>
-                        ) : topExamples && topExamples.length > 0 ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            {topExamples.map((ex, idx) => (
-                              <div key={`${ex}-${idx}`}>
-                                <button
-                                  type="button"
-                                  className="text-left w-full hover:underline"
-                                  onClick={() => handleContentSearch(ex)}
-                                >
-                                  {ex}
-                                </button>
-                              </div>
-                            ))}
-                          </>
-                        ) : kindsRules && kindsRules.length > 0 ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            {kindsRules.map((rule, idx) => (
-                              <div key={`${rule.token}-${idx}`}>
-                                <button
-                                  type="button"
-                                  className="text-left w-full hover:underline"
-                                  onClick={() => handleContentSearch(rule.token)}
-                                >
-                                  <span className="font-mono">{rule.token.padEnd(16)}</span>
-                                  <span className="text-gray-400">{' => '}</span>
-                                  <span className="font-mono text-blue-400">{rule.expansion}</span>
-                                </button>
-                              </div>
-                            ))}
-                          </>
-                        ) : kindsLoading ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            <div>Loading kind shortcuts...</div>
-                          </>
-                        ) : kindsError ? (
-                          <>
-                            <div>{topCommandText.split('\n')[0]}</div>
-                            <div>&nbsp;</div>
-                            <div className="text-red-400">Error: {kindsError}</div>
-                          </>
-                        ) : (
-                          <>
-                            {tokens.map((line, i) => (
-                              <div key={`cmd-${i}`} {...getLineProps({ line })}>
-                                {line.map((token, key) => (
-                                  <span key={`cmd-t-${i}-${key}`} {...getTokenProps({ token })} />
-                                ))}
-                              </div>
-                            ))}
-                          </>
-                        )}
-                      </pre>
-                    )}
-                  </Highlight>
-                )}
-                variant="card"
-                showFooter={false}
-              />
-            ) : null}
-            {loading && finalResults.length === 0 && (
-              <SearchResultsPlaceholder 
-                count={isDirectQuery ? 1 : 2} 
-                searchType={detectSearchType(query)}
-              />
-            )}
-            {finalResults.map((event, idx) => {
-              // Check if this note has any parent chain blocks rendered above it
-              const hasExpandedParents = (() => {
-                let currentEvent = event;
-                while (currentEvent) {
-                  const parentId = getReplyToEventId(currentEvent);
-                  if (!parentId) break;
-                  const parentState = expandedParents[parentId];
-                  if (parentState && parentState !== 'loading' && parentState !== null) {
-                    return true;
-                  }
-                  currentEvent = parentState as unknown as NDKEvent;
-                }
-                return false;
-              })();
-              
-              const noteCardClasses = `relative p-4 bg-[#2d2d2d] border border-[#3d3d3d] rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`;
-              const key = `${event.id || 'unknown'}:${idx}`;
-              return (
-                <div key={key}>
-                  {renderNoteHeader(event)}
-                  {renderParentChain(event)}
-                  {event.kind === 0 ? (
-                    <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
-                  ) : event.kind === 1 ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
-                          maxLength={TEXT_MAX_LENGTH}
-                          className="text-gray-100 whitespace-pre-wrap break-words"
-                  renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
-                        />
-                      )}
-                      mediaRenderer={renderNoteMedia}
-                    />
-                  ) : event.kind === 20 ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={() => {
-                        const urls = extractImetaImageUrls(event);
-                        const blurhashes = extractImetaBlurhashes(event);
-                        const dimensions = extractImetaDimensions(event);
-                        const hashes = extractImetaHashes(event);
-                        if (urls.length === 0) {
-                          return <div className="text-gray-400">(no images)</div>;
-                        }
-                        return (
-                          <div className="mt-0 grid grid-cols-1 gap-3">
-                            {urls.map((src, idx) => {
-                              const blurhash = blurhashes[idx] || blurhashes[0];
-                              const dim = dimensions[idx] || dimensions[0];
-                              const hash = hashes[idx] || hashes[0] || null;
-                              return (
-                                <div key={`image-${idx}-${src}`} className="relative">
-                                  <ImageWithBlurhash
-                                    src={trimImageUrl(src)}
-                                    blurhash={blurhash}
-                                    alt="picture"
-                                    width={dim?.width || 1024}
-                                    height={dim?.height || 1024}
-                                    dim={dim || null}
-                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      }}
-                    />
-                  ) : event.kind === 1337 ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={() => (
-                        <CodeSnippet event={event} onSearch={handleContentSearch} />
-                      )}
-                    />
-                  ) : event.kind === 21 || event.kind === 22 ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={() => {
-                        const urls = extractImetaVideoUrls(event);
-                        const contentUrls = extractVideoUrls(event.content || '').slice(0, 2);
-                        const blurhashes = extractImetaBlurhashes(event);
-                        const dimensions = extractImetaDimensions(event);
-                        const hashes = extractImetaHashes(event);
-                        const all = Array.from(new Set([...
-                          urls,
-                          ...contentUrls
-                        ]));
-                        if (all.length === 0) {
-                          return <div className="text-gray-400">(no video)</div>;
-                        }
-                        return (
-                          <div className="mt-0 grid grid-cols-1 gap-3">
-                            {all.map((src, idx) => {
-                              const blurhash = blurhashes[idx] || blurhashes[0];
-                              const dim = dimensions[idx] || dimensions[0];
-                              const hash = hashes[idx] || hashes[0] || null;
-                              return (
-                                <div key={`video-${idx}-${src}`} className="relative">
-                                  <VideoWithBlurhash
-                                    src={trimImageUrl(src)}
-                                    blurhash={blurhash}
-                                    dim={dim || null}
-                                    onClickSearch={() => handleContentSearch(hash ? hash : getFilenameFromUrl(src))}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      }}
-                    />
-                  ) : event.kind === 30023 ? (
-                    <ArticleCard
-                      event={event}
-                      onAuthorClick={(npub) => goToProfile(npub, event)}
-                      className={`rounded-t-none border-t-0 ${hasExpandedParents ? 'rounded-none' : 'rounded-b-lg'}`}
-                      footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} />}
-                      defaultExpanded={isDirectQuery}
-                    />
-                  ) : event.kind === HIGHLIGHTS_KIND ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
-                          maxLength={TEXT_MAX_LENGTH}
-                          className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
-                        />
-                      )}
-                      mediaRenderer={renderNoteMedia}
-                    />
-                  ) : event.kind === FOLLOW_PACK_KIND ? (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={(text) => (
-                        <TruncatedText 
-                          content={text} 
-                          maxLength={TEXT_MAX_LENGTH}
-                          className="text-gray-100 whitespace-pre-wrap break-words"
-                          renderContentWithClickableHashtags={(value) => renderContentWithClickableHashtags(value, { skipIdentifierIds: new Set([event.id?.toLowerCase?.() || '']) })}
-                        />
-                      )}
-                      mediaRenderer={renderNoteMedia}
-                    />
-                  ) : (
-                    <EventCard
-                      {...getCommonEventCardProps(event, noteCardClasses)}
-                      renderContent={() => (
-                        <RawEventJson event={event} />
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      }, [sortedResults, expandedParents, goToProfile, renderContentWithClickableHashtags, renderNoteMedia, renderNoteHeader, renderParentChain, topCommandText, topExamples, helpCommands, kindsRules, kindsLoading, kindsError, handleContentSearch, getCommonEventCardProps, isDirectQuery, loading, query, NeventSearchButton])}
+      <SearchResultsList
+        results={sortedResults}
+        loading={loading}
+        query={query}
+        isDirectQuery={isDirectQuery}
+        topCommandText={topCommandText}
+        helpCommands={helpCommands}
+        topExamples={topExamples}
+        kindsRules={kindsRules}
+        kindsLoading={kindsLoading}
+        kindsError={kindsError}
+        onContentSearch={handleContentSearch}
+        renderer={contentRenderer}
+      />
     </div>
   );
 }
