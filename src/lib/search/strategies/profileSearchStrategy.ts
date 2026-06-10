@@ -13,8 +13,6 @@ export async function tryHandleProfileSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  // Context parameter kept for strategy interface consistency
-  void context;
   const fullProfileMatch = query.match(/^p:(.+)$/i);
   if (fullProfileMatch) {
     const term = (fullProfileMatch[1] || '').trim();
@@ -56,17 +54,25 @@ export async function tryHandleProfileSearch(
     const domainLike = /^[^\s@]+\.[^\s@]+$/.test(term);
     if (domainLike) {
       try {
-        const profiles = await searchProfilesFullText(term);
+        const domainLower = term.toLowerCase();
+        const filterByDomain = (profiles: NDKEvent[]): NDKEvent[] => {
+          const filtered = profiles.filter((evt) => {
+            const nip05 = (evt.author as { profile?: { nip05?: string } } | undefined)?.profile?.nip05;
+            if (!nip05) return false;
+            return getNip05Domain(nip05) === domainLower;
+          });
+          return filtered.length > 0 ? filtered : profiles;
+        };
+
+        const onUpdate = context.onProfileResultsUpdate;
+        const profiles = await searchProfilesFullText(
+          term,
+          undefined,
+          onUpdate ? (updated) => onUpdate(filterByDomain(updated)) : undefined
+        );
         if (profiles.length === 0) return [];
 
-        const domainLower = term.toLowerCase();
-        const filtered = profiles.filter((evt) => {
-          const nip05 = (evt.author as { profile?: { nip05?: string } } | undefined)?.profile?.nip05;
-          if (!nip05) return false;
-          return getNip05Domain(nip05) === domainLower;
-        });
-
-        return (filtered.length > 0 ? filtered : profiles);
+        return filterByDomain(profiles);
       } catch (error) {
         console.warn('Domain-based profile search failed:', error);
         return [];
@@ -75,7 +81,7 @@ export async function tryHandleProfileSearch(
 
     // Otherwise, do a general full-text profile search
     try {
-      const profiles = await searchProfilesFullText(term);
+      const profiles = await searchProfilesFullText(term, undefined, context.onProfileResultsUpdate);
       return profiles;
     } catch (error) {
       console.warn('Full-text profile search failed:', error);

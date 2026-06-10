@@ -269,7 +269,13 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         relaySet = await getNip50SearchRelaySet();
       }
 
-      const searchResults = await searchEvents(scopedQuery, 200, undefined, relaySet, abortController.signal);
+      const searchResults = await searchEvents(scopedQuery, 200, {
+        // Re-sort displayed profiles when NIP-05 verifications land after the initial render
+        onProfileResultsUpdate: (updated) => {
+          if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+          setResults(updated);
+        }
+      }, relaySet, abortController.signal);
 
       // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
