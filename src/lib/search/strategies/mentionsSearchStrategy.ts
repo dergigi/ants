@@ -48,7 +48,7 @@ export async function tryHandleMentionsSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit, onPartialResults } = context;
   const matches = Array.from(cleanedQuery.matchAll(/\bmentions:(\S+)/gi));
   if (matches.length === 0) return null;
 
@@ -92,9 +92,9 @@ export async function tryHandleMentionsSearch(
 
   let results: NDKEvent[];
   try {
-    results = await subscribeAndCollect(filter, 10000, relaySet, abortSignal);
+    results = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet, abortSignal, onPartial: onPartialResults });
   } catch {
-    results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+    results = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
   }
 
   const deduped = new Map<string, NDKEvent>();

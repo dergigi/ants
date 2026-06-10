@@ -69,7 +69,7 @@ export async function fetchEventByIdentifier(
   }
 
   for (const rs of relaySetsToTry) {
-    const events = await subscribeAndCollect(baseFilter as NDKFilter, 8000, rs, abortSignal);
+    const events = await subscribeAndCollect(baseFilter as NDKFilter, { timeoutMs: 8000, relaySet: rs, abortSignal });
     if (events.length > 0) return events;
   }
   return [];

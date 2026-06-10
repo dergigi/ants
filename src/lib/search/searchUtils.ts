@@ -49,4 +49,4 @@ export function buildSearchQueryWithExtensions(baseQuery: string, extensions: Ni
 }
 
 // Re-export the subscription functions from the subscriptions module
-export { subscribeAndStream, subscribeAndCollect } from './subscriptions';
+export { subscribeAndCollect, createPartialEmitter } from './subscriptions';

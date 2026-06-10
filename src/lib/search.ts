@@ -11,16 +11,16 @@ import {
   parseSearchQuery
 } from './search/queryParsing';
 import { getBroadRelaySet } from './search/relayManagement';
-import { subscribeAndStream, subscribeAndCollect } from './search/subscriptions';
+import { subscribeAndCollect, createPartialEmitter } from './search/subscriptions';
 import { runSearchStrategies } from './search/searchOrchestrator';
 import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy';
 import { handleParenthesizedOr, handleTopLevelOr } from './search/orQueryHandler';
-import { StreamingSearchOptions, SearchContext } from './search/types';
+import { SearchOptions, SearchContext } from './search/types';
 
 export async function searchEvents(
   query: string,
   limit: number = 200,
-  options?: { exact?: boolean } | StreamingSearchOptions,
+  options?: SearchOptions,
   relaySetOverride?: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
@@ -43,12 +43,9 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
-  // Check if this is a streaming search
-  const isStreaming = options && 'streaming' in options && options.streaming;
-  const streamingOptions = isStreaming ? options as StreamingSearchOptions : undefined;
-  const onProfileResultsUpdate = options && 'onProfileResultsUpdate' in options
-    ? (options as StreamingSearchOptions).onProfileResultsUpdate
-    : undefined;
+  // Shared emitter: merges partials across all subscriptions of this search
+  const onPartialResults = createPartialEmitter(options?.onPartialResults);
+  const onProfileResultsUpdate = options?.onProfileResultsUpdate;
 
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
@@ -86,11 +83,10 @@ export async function searchEvents(
     nip50Extensions,
     chosenRelaySet,
     relaySetOverride,
-    isStreaming: isStreaming || false,
-    streamingOptions,
     abortSignal,
     limit,
     extensionFilters,
+    onPartialResults,
     onProfileResultsUpdate
   };
 
@@ -127,15 +123,12 @@ export async function searchEvents(
       search: searchQuery
     }, dateFilter) as NDKFilter;
 
-    results = isStreaming
-      ? await subscribeAndStream(searchFilter, {
-          timeoutMs: streamingOptions?.timeoutMs || 30000,
-          maxResults: streamingOptions?.maxResults || 1000,
-          onResults: streamingOptions?.onResults,
-          relaySet: chosenRelaySet,
-          abortSignal
-        })
-      : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
+    results = await subscribeAndCollect(searchFilter, {
+      timeoutMs: 8000,
+      relaySet: chosenRelaySet,
+      abortSignal,
+      onPartial: onPartialResults
+    });
     // Dedupe by id
     const filtered = results.filter((e, idx, arr) => {
       const firstIdx = arr.findIndex((x) => x.id === e.id);
@@ -151,25 +144,4 @@ export async function searchEvents(
     console.error('Error fetching events:', error);
     return [];
   }
-}
-
-// Convenience function for streaming search
-export async function searchEventsStreaming(
-  query: string,
-  onResults: (results: NDKEvent[], isComplete: boolean) => void,
-  options: {
-    maxResults?: number;
-    timeoutMs?: number;
-    exact?: boolean;
-    relaySetOverride?: NDKRelaySet;
-    abortSignal?: AbortSignal;
-  } = {}
-): Promise<NDKEvent[]> {
-  return searchEvents(query, 1000, {
-    streaming: true,
-    onResults,
-    maxResults: options.maxResults || 1000,
-    timeoutMs: options.timeoutMs || 30000,
-    exact: options.exact
-  }, options.relaySetOverride, options.abortSignal);
 }

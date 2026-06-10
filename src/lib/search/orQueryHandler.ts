@@ -45,7 +45,7 @@ export async function handleParenthesizedOr(
   cleanedQuery: string,
   ctx: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, nip50Extensions, chosenRelaySet, abortSignal, limit } = ctx;
+  const { effectiveKinds, nip50Extensions, chosenRelaySet, abortSignal, limit, onPartialResults } = ctx;
   const dateFilter = ctx.dateFilter || {};
 
   const expandedSeeds = expandParenthesizedOr(cleanedQuery).map((seed) => seed.trim()).filter(Boolean);
@@ -68,7 +68,8 @@ export async function handleParenthesizedOr(
     nip50Extensions,
     chosenRelaySet,
     abortSignal,
-    limit
+    limit,
+    onPartialResults
   );
   if (byOnlyResults !== null) {
     return byOnlyResults;
@@ -113,7 +114,7 @@ export async function handleParenthesizedOr(
           : residual;
       }
 
-      const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+      const results = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
       return sortEventsNewestFirst(results).slice(0, limit);
     }
   }
@@ -162,7 +163,7 @@ export async function handleParenthesizedOr(
           : residual;
       }
 
-      const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+      const results = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
       return sortEventsNewestFirst(results).slice(0, limit);
     }
   }
@@ -184,7 +185,8 @@ export async function handleParenthesizedOr(
     abortSignal,
     nip50Extensions,
     applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => getBroadRelaySet()
+    () => getBroadRelaySet(),
+    onPartialResults
   );
 
   return sortEventsNewestFirst(seedResults).slice(0, limit);
@@ -199,7 +201,7 @@ export async function handleTopLevelOr(
   topLevelOrParts: string[],
   ctx: SearchContext
 ): Promise<NDKEvent[]> {
-  const { effectiveKinds, nip50Extensions, chosenRelaySet, relaySetOverride, abortSignal, limit } = ctx;
+  const { effectiveKinds, nip50Extensions, chosenRelaySet, relaySetOverride, abortSignal, limit, onPartialResults } = ctx;
   const dateFilter = ctx.dateFilter || {};
 
   const normalizedParts = topLevelOrParts
@@ -225,7 +227,8 @@ export async function handleTopLevelOr(
     nip50Extensions,
     chosenRelaySet,
     abortSignal,
-    limit
+    limit,
+    onPartialResults
   );
   if (byOnlyResults !== null) {
     return byOnlyResults;
@@ -246,13 +249,14 @@ export async function handleTopLevelOr(
     abortSignal,
     nip50Extensions,
     applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-    () => getBroadRelaySet()
+    () => getBroadRelaySet(),
+    onPartialResults
   );
 
   // If we got no results and we're using NIP-50 relays, try with broader relay set
   if (orResults.length === 0 && !relaySetOverride) {
     const broadRelaySet = await getBroadRelaySet();
-    orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter));
+    orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter), undefined, onPartialResults);
   }
 
   const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
