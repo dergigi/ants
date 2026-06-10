@@ -269,12 +269,16 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         relaySet = await getNip50SearchRelaySet();
       }
 
+      // Render results as they arrive; the awaited final result overwrites them
+      const applyPartialResults = (updated: NDKEvent[]) => {
+        if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+        setResults(updated);
+      };
+
       const searchResults = await searchEvents(scopedQuery, 200, {
+        onPartialResults: applyPartialResults,
         // Re-sort displayed profiles when NIP-05 verifications land after the initial render
-        onProfileResultsUpdate: (updated) => {
-          if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
-          setResults(updated);
-        }
+        onProfileResultsUpdate: applyPartialResults
       }, relaySet, abortController.signal);
 
       // Check if search was aborted after getting results
