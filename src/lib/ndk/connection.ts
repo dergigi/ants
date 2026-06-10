@@ -31,23 +31,20 @@ const hasConnectedRelay = (): boolean => {
   return Array.from(relays.values()).some((relay) => relay.status === 1);
 };
 
-// Resolves true as soon as at least one relay is connected, false on timeout
+// Resolves true as soon as at least one relay is connected, false on timeout.
+// Detection is poll-based on purpose: adding/removing pool listeners can
+// corrupt tseep's baked listener collection when done mid-emit.
 const waitForFirstRelayConnection = (timeoutMs: number): Promise<boolean> => {
   if (hasConnectedRelay()) return Promise.resolve(true);
   return new Promise((resolve) => {
-    const pool = ndk.pool;
-    const cleanup = () => {
-      clearTimeout(timer);
-      clearInterval(poll);
-      try { pool?.off('relay:connect', onConnect); } catch {}
-    };
-    const onConnect = () => { cleanup(); resolve(true); };
-    const timer = setTimeout(() => { cleanup(); resolve(hasConnectedRelay()); }, timeoutMs);
-    // Poll as a fallback in case the pool event is missed
+    const started = Date.now();
     const poll = setInterval(() => {
-      if (hasConnectedRelay()) { cleanup(); resolve(true); }
-    }, 100);
-    try { pool?.on('relay:connect', onConnect); } catch {}
+      const connected = hasConnectedRelay();
+      if (connected || Date.now() - started >= timeoutMs) {
+        clearInterval(poll);
+        resolve(connected);
+      }
+    }, 50);
   });
 };
 
@@ -125,9 +122,13 @@ async function measureRelayPing(relayUrl: string): Promise<number> {
         resolve(-1); // Timeout
       }, RELAY_PING_TIMEOUT);
 
+      // Scope to the measured relay only; a pool-wide sub would EOSE on the
+      // fastest relay and leave late relays executing an emptied subscription
+      // (NDK's "BUG: No filters to merge!").
       const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
         closeOnEose: true,
-        cacheUsage: 'ONLY_RELAY' as const
+        cacheUsage: 'ONLY_RELAY' as const,
+        relayUrls: [relayUrl]
       });
 
       if (sub) {

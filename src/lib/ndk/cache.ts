@@ -7,6 +7,33 @@ export const cacheAdapter = new NDKCacheAdapterSqliteWasm({
   dbName: 'ants-ndk-cache',
   wasmUrl: '/ndk/sql-wasm.wasm'
 });
+
+// sql.js throws a bare string ("Wrong API use: tried to bind a value of an
+// unknown type") when a filter array contains undefined. NDK calls query()
+// synchronously inside a setTimeout, so that throw is uncaught and used to
+// disable the whole cache. Sanitize filters and degrade to a cache miss.
+const sanitizeFilterArrays = (filters: Array<Record<string, unknown>>): void => {
+  for (const filter of filters) {
+    for (const key of Object.keys(filter)) {
+      const value = filter[key];
+      if (Array.isArray(value) && value.some((v) => v === undefined || v === null)) {
+        console.warn('Dropping undefined values from filter before cache query:', key, JSON.stringify(filter));
+        filter[key] = value.filter((v) => v !== undefined && v !== null);
+      }
+    }
+  }
+};
+
+const originalQuery = cacheAdapter.query.bind(cacheAdapter);
+cacheAdapter.query = ((subscription: Parameters<typeof originalQuery>[0]) => {
+  try {
+    sanitizeFilterArrays(subscription.filters as unknown as Array<Record<string, unknown>>);
+    return originalQuery(subscription);
+  } catch (error) {
+    console.warn('Cache query failed, continuing without cached results:', error);
+    return [];
+  }
+}) as typeof cacheAdapter.query;
 let cacheInitialized = false;
 let cacheDisabledDueToError = false;
 let cacheErrorHandlersInstalled = false;
