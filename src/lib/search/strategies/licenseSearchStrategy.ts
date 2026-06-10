@@ -1,6 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
-import { subscribeAndStream, subscribeAndCollect } from '../subscriptions';
+import { subscribeAndCollect } from '../subscriptions';
 import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext, TagTFilter } from '../types';
@@ -13,7 +13,7 @@ export async function tryHandleLicenseSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters } = context;
+  const { effectiveKinds, dateFilter, limit, abortSignal, extensionFilters, onPartialResults } = context;
   
   const licenseMatches = Array.from(query.match(/\blicense:([^\s)]+)\b/gi) || []).map((m) => m.split(':')[1]?.trim()).filter(Boolean) as string[];
   const nonLicenseRemainder = query.replace(/\blicense:[^\s)]+/gi, '').trim();
@@ -22,15 +22,12 @@ export async function tryHandleLicenseSearch(
     const licenses = Array.from(new Set(licenseMatches.map((v) => v.toUpperCase())));
     const licenseFilter: TagTFilter = applyDateFilter({ kinds: effectiveKinds, '#license': licenses, limit: Math.max(limit, 500) }, dateFilter) as TagTFilter;
     const tagRelaySet = await getBroadRelaySet();
-    const results = isStreaming
-      ? await subscribeAndStream(licenseFilter, {
-          timeoutMs: streamingOptions?.timeoutMs || 30000,
-          maxResults: streamingOptions?.maxResults || 1000,
-          onResults: streamingOptions?.onResults,
-          relaySet: tagRelaySet,
-          abortSignal
-        })
-      : await subscribeAndCollect(licenseFilter, 10000, tagRelaySet, abortSignal);
+    const results = await subscribeAndCollect(licenseFilter, {
+      timeoutMs: 10000,
+      relaySet: tagRelaySet,
+      abortSignal,
+      onPartial: onPartialResults
+    });
     let final = results;
     if (extensionFilters && extensionFilters.length > 0) {
       final = final.filter((e) => extensionFilters.every((f) => f(e.content || '')));

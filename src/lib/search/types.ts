@@ -1,13 +1,11 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { Nip50Extensions } from './searchUtils';
 
-// Streaming search options
-export interface StreamingSearchOptions {
+// Options accepted by searchEvents
+export interface SearchOptions {
   exact?: boolean;
-  streaming?: boolean;
-  maxResults?: number;
-  timeoutMs?: number;
-  onResults?: (results: NDKEvent[], isComplete: boolean) => void;
+  // Called with partial results while subscriptions are still collecting
+  onPartialResults?: (results: NDKEvent[]) => void;
   // Called when profile search results are re-ranked after NIP-05 verifications land
   onProfileResultsUpdate?: (results: NDKEvent[]) => void;
 }
@@ -19,11 +17,11 @@ export interface SearchContext {
   nip50Extensions?: Nip50Extensions;
   chosenRelaySet: NDKRelaySet;
   relaySetOverride?: NDKRelaySet;
-  isStreaming: boolean;
-  streamingOptions?: StreamingSearchOptions;
   abortSignal?: AbortSignal;
   limit: number;
   extensionFilters?: Array<(content: string) => boolean>;
+  // Shared partial-results emitter (already merged across subscriptions)
+  onPartialResults?: (results: NDKEvent[]) => void;
   onProfileResultsUpdate?: (results: NDKEvent[]) => void;
 }
 

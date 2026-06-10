@@ -1,6 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { applyDateFilter } from '../queryParsing';
-import { subscribeAndStream, subscribeAndCollect } from '../subscriptions';
+import { subscribeAndCollect } from '../subscriptions';
 import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext, TagTFilter } from '../types';
@@ -13,7 +13,7 @@ export async function tryHandleATagSearch(
   query: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, limit, isStreaming, streamingOptions, abortSignal, extensionFilters } = context;
+  const { effectiveKinds, dateFilter, limit, abortSignal, extensionFilters, onPartialResults } = context;
   
   const aTagMatch = query.match(/^a:(.+)$/i);
   if (aTagMatch) {
@@ -24,15 +24,12 @@ export async function tryHandleATagSearch(
       // Use broader relay set for a tag searches
       const aTagRelaySet = await getBroadRelaySet();
 
-      const results = isStreaming
-        ? await subscribeAndStream(aTagFilter, {
-            timeoutMs: streamingOptions?.timeoutMs || 30000,
-            maxResults: streamingOptions?.maxResults || 1000,
-            onResults: streamingOptions?.onResults,
-            relaySet: aTagRelaySet,
-            abortSignal
-          })
-        : await subscribeAndCollect(aTagFilter, 10000, aTagRelaySet, abortSignal);
+      const results = await subscribeAndCollect(aTagFilter, {
+        timeoutMs: 10000,
+        relaySet: aTagRelaySet,
+        abortSignal,
+        onPartial: onPartialResults
+      });
 
       let final = results;
       if (extensionFilters && extensionFilters.length > 0) {

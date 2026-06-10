@@ -19,7 +19,7 @@ export async function tryHandleAuthorSearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, nip50Extensions, chosenRelaySet, abortSignal, limit, onPartialResults } = context;
   
   const authorMatch = cleanedQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
   if (!authorMatch) {
@@ -72,15 +72,15 @@ export async function tryHandleAuthorSearch(
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
           const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
-          const r = await subscribeAndCollect(f, 8000, chosenRelaySet, abortSignal);
+          const r = await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
           for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
         } catch {}
       }
     } else {
-      res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+      res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
     }
   } else {
-    res = await subscribeAndCollect(filters, 8000, chosenRelaySet, abortSignal);
+    res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
   }
 
   // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
@@ -103,7 +103,8 @@ export async function tryHandleAuthorSearch(
         abortSignal,
         nip50Extensions,
         applyDateFilter({ authors: [pubkey], kinds: effectiveKinds }, dateFilter),
-        () => getBroadRelaySet()
+        () => getBroadRelaySet(),
+        onPartialResults
       );
       res = [...res, ...seeded];
     } catch {}
@@ -112,18 +113,20 @@ export async function tryHandleAuthorSearch(
   const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
   const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
   if (res.length === 0) {
-    res = await subscribeAndCollect(filters, 10000, broadRelaySet, abortSignal);
+    res = await subscribeAndCollect(filters, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal, onPartial: onPartialResults });
   }
   // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
   // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
   const termStr = terms.trim();
   const hasShortToken = termStr.length > 0 && termStr.split(/\s+/).some((t) => t.length < 3);
+  // No onPartial here: these fetch all author events and filter client-side,
+  // so partials would surface unrelated notes
   if (res.length === 0 && termStr) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   } else if (res.length === 0 && hasShortToken) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, 10000, broadRelaySet, abortSignal);
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   }

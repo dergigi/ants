@@ -5,152 +5,43 @@ import { trackEventRelay } from '../eventRelayTracking';
 import { sortEventsNewestFirst } from '../utils/searchUtils';
 import { getSearchRelaySet } from './relayManagement';
 
+const PARTIAL_EMIT_INTERVAL_MS = 500;
+
+export type CollectOptions = {
+  timeoutMs?: number;
+  relaySet?: NDKRelaySet;
+  abortSignal?: AbortSignal;
+  /** Called with the deduped, newest-first sorted events collected so far (throttled). */
+  onPartial?: (events: NDKEvent[]) => void;
+};
+
 /**
- * Streaming subscription that keeps connections open and streams results
+ * Create a callback that merges partial batches (by event id) across multiple
+ * subscriptions and emits the sorted union. Multi-seed paths (OR queries,
+ * author fallbacks) share one emitter so partials accumulate instead of
+ * clobbering each other.
  */
-export async function subscribeAndStream(
-  filter: NDKFilter, 
-  options: {
-    timeoutMs?: number;
-    maxResults?: number;
-    onResults?: (results: NDKEvent[], isComplete: boolean) => void;
-    relaySet?: NDKRelaySet;
-    abortSignal?: AbortSignal;
-  } = {}
-): Promise<NDKEvent[]> {
-  const { timeoutMs = 30000, maxResults = 1000, onResults, relaySet, abortSignal } = options;
-  const rs = relaySet || await getSearchRelaySet();
-  
-  return new Promise<NDKEvent[]>((resolve) => {
-    // Check if already aborted
-    if (abortSignal?.aborted) {
-      resolve([]);
-      return;
+export function createPartialEmitter(
+  onPartialResults?: (events: NDKEvent[]) => void
+): ((events: NDKEvent[]) => void) | undefined {
+  if (!onPartialResults) return undefined;
+  const all = new Map<string, NDKEvent>();
+  return (events: NDKEvent[]) => {
+    for (const evt of events) {
+      if (evt.id && !all.has(evt.id)) all.set(evt.id, evt);
     }
-
-    // Validate filter
-    if (!isValidFilter(filter)) {
-      console.warn('Invalid filter passed to subscribeAndStream, returning empty results');
-      resolve([]);
-      return;
-    }
-
-    const collected: Map<string, NDKEvent> = new Map();
-    let isComplete = false;
-    let lastEmitTime = 0;
-    const emitInterval = 500; // Emit results every 500ms
-
-    // Remove limit from filter for streaming - we'll handle it ourselves
-    const streamingFilter = { ...filter };
-    delete streamingFilter.limit;
-
-    // Validate the streaming filter after modification
-    if (!isValidFilter(streamingFilter)) {
-      console.warn('Streaming filter became invalid after removing limit, returning empty results');
-      resolve([]);
-      return;
-    }
-
-    const sub = safeSubscribe([streamingFilter], { 
-      closeOnEose: false, // Keep connection open!
-      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, 
-      relaySet: rs,
-      __trackFilters: true
-    });
-
-    if (!sub) {
-      console.warn('Failed to create subscription in subscribeAndStream');
-      resolve([]);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      isComplete = true;
-      try { sub.stop(); } catch {}
-      // Final emit before resolving
-      const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
-      if (onResults) {
-        onResults(sortedResults, true);
-      }
-      resolve(sortedResults);
-    }, timeoutMs);
-
-    // Handle abort signal
-    const abortHandler = () => {
-      isComplete = true;
-      try { sub.stop(); } catch {}
-      clearTimeout(timer);
-      if (abortSignal) {
-        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
-      }
-      const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
-      if (onResults) {
-        onResults(sortedResults, true);
-      }
-      resolve(sortedResults);
-    };
-
-    if (abortSignal) {
-      abortSignal.addEventListener('abort', abortHandler);
-    }
-
-    // Periodic emission of results
-    const emitResults = () => {
-      if (onResults && !isComplete) {
-        const now = Date.now();
-        if (now - lastEmitTime >= emitInterval) {
-          const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
-          onResults(sortedResults, false);
-          lastEmitTime = now;
-        }
-      }
-    };
-
-    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
-      const relayUrl = relay?.url || 'unknown';
-      // Mark this relay as active
-      if (relayUrl !== 'unknown') {
-        try { markRelayActivity(relayUrl); } catch {}
-      }
-      
-      if (!collected.has(event.id)) {
-        // Track this event's relay source
-        trackEventRelay(event, relayUrl);
-        collected.set(event.id, event);
-        
-        // Check if we've hit max results
-        if (maxResults && collected.size >= maxResults) {
-          isComplete = true;
-          try { sub.stop(); } catch {}
-          clearTimeout(timer);
-          const sortedResults = sortEventsNewestFirst(Array.from(collected.values()));
-          if (onResults) {
-            onResults(sortedResults, true);
-          }
-          resolve(sortedResults);
-          return;
-        }
-        
-        // Emit results periodically
-        emitResults();
-      } else {
-        // Event already exists, track this additional relay source
-        trackEventRelay(event, relayUrl);
-      }
-    });
-
-    sub.on('eose', () => {
-      // Keep streaming after EOSE
-    });
-    
-    sub.start();
-  });
+    onPartialResults(sortEventsNewestFirst(Array.from(all.values())));
+  };
 }
 
 /**
- * Collect events from a subscription until EOSE or timeout
+ * Collect events from a subscription until EOSE or timeout.
+ * When onPartial is provided, partial results are emitted while collecting
+ * (throttled) and once more on completion.
  */
-export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number = 8000, relaySet?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
+export async function subscribeAndCollect(filter: NDKFilter, options: CollectOptions = {}): Promise<NDKEvent[]> {
+  const { timeoutMs = 8000, relaySet, abortSignal, onPartial } = options;
+
   return new Promise<NDKEvent[]>((resolve) => {
     // Check if already aborted
     if (abortSignal?.aborted) {
@@ -166,59 +57,66 @@ export async function subscribeAndCollect(filter: NDKFilter, timeoutMs: number =
     }
 
     const collected: Map<string, NDKEvent> = new Map();
+    let lastEmitTime = 0;
+    let settled = false;
+
+    const emitPartial = () => {
+      if (!onPartial || settled) return;
+      const now = Date.now();
+      if (now - lastEmitTime < PARTIAL_EMIT_INTERVAL_MS) return;
+      lastEmitTime = now;
+      onPartial(sortEventsNewestFirst(Array.from(collected.values())));
+    };
 
     (async () => {
       const rs = relaySet || await getSearchRelaySet();
       const sub = safeSubscribe([filter], { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet: rs, __trackFilters: true });
-    
+
       if (!sub) {
         console.warn('Failed to create subscription in subscribeAndCollect');
         resolve([]);
         return;
       }
-    const timer = setTimeout(() => {
-      try { sub.stop(); } catch {}
-      const finalResults = Array.from(collected.values());
-      resolve(finalResults);
-    }, timeoutMs);
 
-    // Handle abort signal
-    const abortHandler = () => {
-      try { sub.stop(); } catch {}
-      clearTimeout(timer);
-      if (abortSignal) {
-        try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
-      }
-      // Resolve with whatever we have so far (partial results) instead of rejecting
-      resolve(Array.from(collected.values()));
-    };
-
-    if (abortSignal) {
-      abortSignal.addEventListener('abort', abortHandler);
-    }
-
-    sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
-      const relayUrl = relay?.url || 'unknown';
-      if (relayUrl !== 'unknown') {
-        try { markRelayActivity(relayUrl); } catch {}
-      }
-      const normalizedUrl = normalizeRelayUrl(relayUrl);
-      trackEventRelay(event, normalizedUrl);
-      if (!collected.has(event.id)) {
-        collected.set(event.id, event);
-      }
-    });
-
-      sub.on('eose', () => {
+      const finish = () => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         if (abortSignal) {
-          abortSignal.removeEventListener('abort', abortHandler);
+          try { abortSignal.removeEventListener('abort', abortHandler); } catch {}
         }
-        resolve(Array.from(collected.values()));
+        try { sub.stop(); } catch {}
+        const finalResults = Array.from(collected.values());
+        // Final emission so shared emitters see this subscription's full set
+        if (onPartial && finalResults.length > 0) {
+          onPartial(sortEventsNewestFirst(finalResults));
+        }
+        resolve(finalResults);
+      };
+
+      const timer = setTimeout(finish, timeoutMs);
+      const abortHandler = () => finish();
+
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', abortHandler);
+      }
+
+      sub.on('event', (event: NDKEvent, relay: NDKRelay | undefined) => {
+        const relayUrl = relay?.url || 'unknown';
+        if (relayUrl !== 'unknown') {
+          try { markRelayActivity(relayUrl); } catch {}
+        }
+        const normalizedUrl = normalizeRelayUrl(relayUrl);
+        trackEventRelay(event, normalizedUrl);
+        if (!collected.has(event.id)) {
+          collected.set(event.id, event);
+          emitPartial();
+        }
       });
-      
+
+      sub.on('eose', finish);
+
       sub.start();
     })();
   });
 }
-

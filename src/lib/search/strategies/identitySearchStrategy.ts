@@ -14,7 +14,7 @@ export async function tryHandleIdentitySearch(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { effectiveKinds, dateFilter, chosenRelaySet, abortSignal, limit } = context;
+  const { effectiveKinds, dateFilter, chosenRelaySet, abortSignal, limit, onPartialResults } = context;
 
   // Check if the query is a direct npub
   if (isNpub(cleanedQuery)) {
@@ -26,7 +26,7 @@ export async function tryHandleIdentitySearch(
         kinds: effectiveKinds,
         authors: [pubkey],
         limit: Math.max(limit, 200)
-      }, dateFilter) as NDKFilter, 8000, chosenRelaySet, abortSignal);
+      }, dateFilter) as NDKFilter, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
       return sortEventsNewestFirst(res).slice(0, limit);
     } catch (error) {
       console.error('Error processing npub query:', error);

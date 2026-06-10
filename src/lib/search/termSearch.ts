@@ -17,7 +17,8 @@ export async function searchByAnyTerms(
   abortSignal?: AbortSignal,
   nip50Extensions?: Nip50Extensions,
   baseFilter?: Partial<NDKFilter>,
-  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>
+  fallbackRelaySetFactory?: () => Promise<NDKRelaySet>,
+  onPartial?: (events: NDKEvent[]) => void
 ): Promise<NDKEvent[]> {
   const seen = new Set<string>();
   const merged: NDKEvent[] = [];
@@ -134,7 +135,7 @@ export async function searchByAnyTerms(
 
       try {
         const targetRelaySet = await selectRelaySet();
-        const res = await subscribeAndCollect(filter, 10000, targetRelaySet, abortSignal);
+        const res = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: targetRelaySet, abortSignal, onPartial });
         for (const evt of res) {
           if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
         }

@@ -65,7 +65,8 @@ export async function maybeOptimizeByOnlyOrSeeds(
   nip50Extensions: Nip50Extensions | undefined,
   chosenRelaySet: NDKRelaySet,
   abortSignal: AbortSignal | undefined,
-  limit: number
+  limit: number,
+  onPartial?: (events: NDKEvent[]) => void
 ): Promise<NDKEvent[] | null> {
   // Trim and filter empty seeds
   const trimmedSeeds = seeds.map(s => s.trim()).filter(Boolean);
@@ -105,6 +106,6 @@ export async function maybeOptimizeByOnlyOrSeeds(
   }, dateFilter) as NDKFilter;
 
   // Execute single subscription
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
+  const results = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: chosenRelaySet, abortSignal, onPartial });
   return sortEventsNewestFirst(results).slice(0, limit);
 }
