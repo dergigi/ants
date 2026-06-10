@@ -1,6 +1,7 @@
 'use client';
 
-import { restoreLogin } from '@/lib/nip07';
+import { restoreLogin, getStoredPubkey } from '@/lib/nip07';
+import { ndk } from '@/lib/ndk';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
@@ -18,33 +19,40 @@ export function Header() {
 
   // Restore login state on mount
   useEffect(() => {
-    const initLogin = async () => {
-      try {
-        const restoredUser = await restoreLogin();
-        // Set user immediately for fast UI feedback
-        setUser(restoredUser);
-        setCurrentUser(restoredUser);
-        if (restoredUser) {
-          setLoginState('logged-in');
-          // Fetch the user's profile in the background to update display details
-          try { 
-            await restoredUser.fetchProfile();
-            // Bump avatar version to force a re-render even if the user object identity is unchanged
-            setAvatarVersion(v => v + 1);
-            setUser(restoredUser);
-          } catch {}
-        } else {
-          setLoginState('logged-out');
-          setCurrentUser(null);
-        }
-      } catch (error) {
-        console.error('Failed to restore login:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    const fetchProfileInBackground = (u: NDKUser) => {
+      u.fetchProfile().then(() => {
+        // Bump avatar version to force a re-render even if the user object identity is unchanged
+        setAvatarVersion(v => v + 1);
+        setUser(u);
+      }).catch(() => {});
     };
 
-    initLogin();
+    const applyLoggedOut = () => {
+      setUser(null);
+      setCurrentUser(null);
+      setLoginState('logged-out');
+    };
+
+    // Show the logged-in state instantly from the stored pubkey, then verify
+    // the extension and fetch the profile in the background.
+    const storedPubkey = getStoredPubkey();
+    if (storedPubkey) {
+      const optimisticUser = ndk.getUser({ pubkey: storedPubkey });
+      setUser(optimisticUser);
+      setCurrentUser(optimisticUser);
+      setLoginState('logged-in');
+      setIsLoading(false);
+      fetchProfileInBackground(optimisticUser);
+      restoreLogin().then((restoredUser) => {
+        if (!restoredUser) applyLoggedOut();
+      }).catch((error) => {
+        console.error('Failed to restore login:', error);
+        applyLoggedOut();
+      });
+    } else {
+      applyLoggedOut();
+      setIsLoading(false);
+    }
     // Listen for external auth changes (e.g., slash-commands)
     const onAuthChange = () => {
       (async () => {

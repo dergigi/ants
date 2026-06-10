@@ -13,10 +13,41 @@ export interface ConnectionStatus {
   relayPings?: Map<string, number>; // Relay URL -> ping time in ms
 }
 
-// Helper function to create timeout promise
-const createTimeoutPromise = (timeoutMs: number): Promise<never> => {
-  return new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Connection timeout')), timeoutMs);
+// ndk.connect() only resolves once ALL relays respond, so a single dead relay
+// stalls it until the timeout. We start it once (fire-and-forget) and instead
+// wait for the first relay to come up before letting searches proceed.
+let ndkConnectStarted = false;
+const startNdkConnect = (): void => {
+  if (ndkConnectStarted) return;
+  ndkConnectStarted = true;
+  ndk.connect().catch((error) => {
+    console.warn('NDK connect error (continuing with available relays):', error);
+  });
+};
+
+const hasConnectedRelay = (): boolean => {
+  const relays = ndk.pool?.relays;
+  if (!relays) return false;
+  return Array.from(relays.values()).some((relay) => relay.status === 1);
+};
+
+// Resolves true as soon as at least one relay is connected, false on timeout
+const waitForFirstRelayConnection = (timeoutMs: number): Promise<boolean> => {
+  if (hasConnectedRelay()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const pool = ndk.pool;
+    const cleanup = () => {
+      clearTimeout(timer);
+      clearInterval(poll);
+      try { pool?.off('relay:connect', onConnect); } catch {}
+    };
+    const onConnect = () => { cleanup(); resolve(true); };
+    const timer = setTimeout(() => { cleanup(); resolve(hasConnectedRelay()); }, timeoutMs);
+    // Poll as a fallback in case the pool event is missed
+    const poll = setInterval(() => {
+      if (hasConnectedRelay()) { cleanup(); resolve(true); }
+    }, 100);
+    try { pool?.on('relay:connect', onConnect); } catch {}
   });
 };
 
@@ -58,19 +89,12 @@ const finalizeConnectionResult = (connectedRelays: string[], connectingRelays: s
   return result;
 };
 
-// Reusable connection function with timeout
+// Reusable connection function with timeout: returns as soon as one relay is up
 export const connectWithTimeout = async (timeoutMs: number = 5000): Promise<void> => {
   // Always initialize cache before attempting to connect or racing with timeout
   await ensureCacheInitialized();
-  try {
-    await Promise.race([
-      ndk.connect(),
-      createTimeoutPromise(timeoutMs)
-    ]);
-  } catch (error) {
-    console.warn('NDK connection failed, but continuing with available relays:', error);
-    // Don't throw - let the search continue with whatever relays are available
-  }
+  startNdkConnect();
+  await waitForFirstRelayConnection(timeoutMs);
 };
 
 // Track recent relay activity (last event timestamp per relay)
@@ -166,7 +190,8 @@ export function getRecentlyActiveRelays(windowMs: number = ACTIVITY_WINDOW_MS): 
   return urls.sort((a, b) => a.localeCompare(b));
 }
 
-const checkRelayStatus = async (): Promise<ConnectionStatus> => {
+// Synchronous pool inspection, no network round-trips
+const getRelayStatusSnapshot = (): ConnectionStatus => {
   const connectedRelays: string[] = [];
   const connectingRelays: string[] = [];
   const failedRelays: string[] = [];
@@ -202,17 +227,19 @@ const checkRelayStatus = async (): Promise<ConnectionStatus> => {
     }
   }
 
-  // Measure ping times for connected relays
-  const relayPings = connectedRelays.length > 0 ? await measureAllRelayPings() : new Map();
-
   return {
     success: connectedRelays.length > 0,
     connectedRelays,
     connectingRelays,
     failedRelays,
-    timeout: false,
-    relayPings
+    timeout: false
   };
+};
+
+const checkRelayStatus = async (): Promise<ConnectionStatus> => {
+  const status = getRelayStatusSnapshot();
+  const relayPings = status.connectedRelays.length > 0 ? await measureAllRelayPings() : new Map<string, number>();
+  return { ...status, relayPings };
 };
 
 // Start background relay monitoring
@@ -245,33 +272,31 @@ export const startRelayMonitoring = () => {
 };
 
 export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatus> => {
-  let timeout = false;
+  // Ensure cache is initialized even if the connection times out
+  await ensureCacheInitialized();
+  startNdkConnect();
 
-  try {
-    // Ensure cache is initialized even if the connection times out
-    await ensureCacheInitialized();
-    // Race between connection and timeout
-    await Promise.race([
-      ndk.connect(),
-      createTimeoutPromise(timeoutMs)
-    ]);
+  // Return as soon as the first relay is up; remaining relays keep connecting
+  // in the background and surface via the monitoring interval.
+  const connected = await waitForFirstRelayConnection(timeoutMs);
+  const status = getRelayStatusSnapshot();
 
-    // Give relays a moment to establish connections after ndk.connect() returns
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Check which relays actually connected
-    const status = await checkRelayStatus();
-    // Do not change the example on connect; keep current selection
-
-    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, false, status.relayPings);
-  } catch (error) {
-    console.warn('NDK connection failed or timed out:', error);
-    timeout = true;
-
-    // Check which relays we can still access
-    const status = await checkRelayStatus();
-    // Do not change the example on failed connect either
-
-    return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, timeout, status.relayPings);
+  // Measure pings in the background so they don't delay the first search
+  if (status.connectedRelays.length > 0) {
+    void measureAllRelayPings().then((pings) => {
+      if (globalConnectionStatus) {
+        updateConnectionStatus({ ...globalConnectionStatus, relayPings: pings });
+      }
+    }).catch(() => {});
   }
+
+  return finalizeConnectionResult(status.connectedRelays, status.connectingRelays, status.failedRelays, !connected);
 };
+
+// Kick off the relay connection as early as possible (at module load in the
+// browser) so relays are usually up by the time the first search runs.
+if (typeof window !== 'undefined') {
+  void ensureCacheInitialized()
+    .catch(() => {})
+    .then(() => startNdkConnect());
+}
