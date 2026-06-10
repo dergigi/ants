@@ -65,16 +65,18 @@ export async function tryHandleAuthorSearch(
   if (terms) {
     const seedExpansions3 = expandParenthesizedOr(terms);
     if (seedExpansions3.length > 1) {
-      const seen = new Set<string>();
-      for (const seed of seedExpansions3) {
+      const perSeed = await Promise.all(seedExpansions3.map(async (seed) => {
         try {
           const searchQuery = nip50Extensions 
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
           const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
-          const r = await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
-          for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
-        } catch {}
+          return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
+        } catch { return []; }
+      }));
+      const seen = new Set<string>();
+      for (const r of perSeed) {
+        for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
       }
     } else {
       res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });

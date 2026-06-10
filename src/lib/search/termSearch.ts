@@ -8,7 +8,7 @@ import { subscribeAndCollect } from './subscriptions';
 
 /**
  * Search for events matching any of the provided terms (OR logic)
- * Each term is processed independently and results are merged
+ * Terms run in parallel and results are merged in seed order
  */
 export async function searchByAnyTerms(
   terms: string[],
@@ -20,24 +20,20 @@ export async function searchByAnyTerms(
   fallbackRelaySetFactory?: () => Promise<NDKRelaySet>,
   onPartial?: (events: NDKEvent[]) => void
 ): Promise<NDKEvent[]> {
-  const seen = new Set<string>();
-  const merged: NDKEvent[] = [];
-  let fallbackRelaySet: NDKRelaySet | null = null;
+  let fallbackRelaySetPromise: Promise<NDKRelaySet | null> | null = null;
 
-  const ensureFallbackRelaySet = async (): Promise<NDKRelaySet | null> => {
-    if (!fallbackRelaySetFactory) return null;
-    if (!fallbackRelaySet) {
-      try {
-        fallbackRelaySet = await fallbackRelaySetFactory();
-      } catch (error) {
+  const ensureFallbackRelaySet = (): Promise<NDKRelaySet | null> => {
+    if (!fallbackRelaySetFactory) return Promise.resolve(null);
+    if (!fallbackRelaySetPromise) {
+      fallbackRelaySetPromise = fallbackRelaySetFactory().catch((error) => {
         console.warn('Failed to create fallback relay set:', error);
         return null;
-      }
+      });
     }
-    return fallbackRelaySet;
+    return fallbackRelaySetPromise;
   };
 
-  for (const term of terms) {
+  const searchTerm = async (term: string): Promise<NDKEvent[]> => {
     try {
       const normalizedTerm = term.replace(/by:\s*(#\w+)/gi, (_m, tag: string) => tag);
       const hasLogicalOperators = /\b(OR|AND)\b|"|\(|\)/i.test(normalizedTerm);
@@ -93,7 +89,7 @@ export async function searchByAnyTerms(
         // Only skip if we couldn't resolve ANY authors
         if (authors.length === 0) {
           console.warn(`No authors could be resolved for term: ${normalizedTerm}`);
-          continue;
+          return [];
         }
         
         // Log which authors were resolved vs which failed
@@ -135,21 +131,27 @@ export async function searchByAnyTerms(
 
       try {
         const targetRelaySet = await selectRelaySet();
-        const res = await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: targetRelaySet, abortSignal, onPartial });
-        for (const evt of res) {
-          if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
-        }
+        return await subscribeAndCollect(filter, { timeoutMs: 10000, relaySet: targetRelaySet, abortSignal, onPartial });
       } catch (error) {
         console.warn(`Search failed for term "${normalizedTerm}":`, error);
-        // Continue with other terms even if one fails
+        return [];
       }
     } catch (error) {
       // Don't log aborted searches as errors
-      if (error instanceof Error && error.message === 'Search aborted') {
-        return merged; // Return what we have so far
+      if (!(error instanceof Error && error.message === 'Search aborted')) {
+        console.warn('Search term failed:', term, error);
       }
-      // Log other errors but continue
-      console.warn('Search term failed:', term, error);
+      return [];
+    }
+  };
+
+  const perTermResults = await Promise.all(terms.map(searchTerm));
+
+  const seen = new Set<string>();
+  const merged: NDKEvent[] = [];
+  for (const res of perTermResults) {
+    for (const evt of res) {
+      if (!seen.has(evt.id)) { seen.add(evt.id); merged.push(evt); }
     }
   }
   return merged;
