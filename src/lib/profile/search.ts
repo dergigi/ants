@@ -19,6 +19,8 @@ import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 
 const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const NIP05_VERIFY_WAIT_MS = 2500; // max time to wait for NIP-05 verifications before ranking
+const NIP05_FAILED_PENALTY = 150; // outweighs the max NIP-05 string-match bonus in computeMatchScore
 const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
 
 function makeProfileSearchCacheKey(query: string, loggedIn: boolean): string {
@@ -170,17 +172,26 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     };
   });
 
-  // Step 3: don't await verifications; they run in background and update cache when done
+  // Step 3: give scheduled verifications a bounded window to finish so that
+  // ranking can use real results instead of an empty cache on first search
+  if (verifications.length > 0) {
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, NIP05_VERIFY_WAIT_MS));
+    await Promise.race([Promise.allSettled(verifications).then(() => undefined), timeout]);
+  }
 
   // Step 4: assign final score and sort
   for (const row of enriched) {
-    const verified = row.verifyHint === true
-      ? true
-      : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
+    // Actual verification result takes precedence; the self-claimed hint from
+    // profile content is only trusted when no real result is available
+    const actualResult = row.pubkey && row.nip05 ? getCachedNip05Result(row.pubkey, row.nip05) : null;
+    const verified = actualResult ?? (row.verifyHint === true);
     let score = row.baseScore;
     if (verified) score += 100;
     // Additional bonus for verified root NIP-05s (double checkmark)
     if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
+    // Claimed NIP-05 that failed verification is an impersonation signal:
+    // cancel the string-match bonus the bogus identifier earned
+    if (actualResult === false) score -= NIP05_FAILED_PENALTY;
     const updatedNutzap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.NUTZAP) : undefined;
     const updatedZap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.ZAP) : undefined;
     const hasNutzap = updatedNutzap ?? row.hasNutzap;
