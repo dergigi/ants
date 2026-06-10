@@ -1,0 +1,11 @@
+---
+description: Text searches must only use NIP-50 relays
+alwaysApply: true
+---
+
+Text searches (anything using the `search` filter field) MUST only go to relays that support NIP-50. Relays without NIP-50 support ignore the `search` field and return arbitrary events matching the rest of the filter, polluting the results.
+
+- Always pass an explicit NIP-50 relay set (see `getNip50SearchRelaySet()` in `src/lib/relays/nip50.ts`) when subscribing with a `search` filter.
+- Never let a `search` subscription fall through to the default pool or an unfiltered relay set.
+- Direct lookups (ids, authors, kinds without `search`) may use the default relay set.
+- `subscribeAndCollect` in `src/lib/search/subscriptions.ts` enforces this as the choke point via `restrictToNip50Relays()`; keep that enforcement in place when refactoring, and route new event subscriptions with `search` filters through it.
