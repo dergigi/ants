@@ -46,6 +46,9 @@ export async function searchEvents(
   // Check if this is a streaming search
   const isStreaming = options && 'streaming' in options && options.streaming;
   const streamingOptions = isStreaming ? options as StreamingSearchOptions : undefined;
+  const onProfileResultsUpdate = options && 'onProfileResultsUpdate' in options
+    ? (options as StreamingSearchOptions).onProfileResultsUpdate
+    : undefined;
 
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
@@ -87,7 +90,8 @@ export async function searchEvents(
     streamingOptions,
     abortSignal,
     limit,
-    extensionFilters
+    extensionFilters,
+    onProfileResultsUpdate
   };
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling

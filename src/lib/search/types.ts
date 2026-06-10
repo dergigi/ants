@@ -8,6 +8,8 @@ export interface StreamingSearchOptions {
   maxResults?: number;
   timeoutMs?: number;
   onResults?: (results: NDKEvent[], isComplete: boolean) => void;
+  // Called when profile search results are re-ranked after NIP-05 verifications land
+  onProfileResultsUpdate?: (results: NDKEvent[]) => void;
 }
 
 // Context passed to search strategies
@@ -22,6 +24,7 @@ export interface SearchContext {
   abortSignal?: AbortSignal;
   limit: number;
   extensionFilters?: Array<(content: string) => boolean>;
+  onProfileResultsUpdate?: (results: NDKEvent[]) => void;
 }
 
 // Extend filter type to include tag queries for "t" (hashtags) and "a" (replaceable events)
