@@ -98,7 +98,17 @@ function refreshRelayInfo(relayUrl: string): Promise<RelayInfo> {
         // Method 2: Try HTTP NIP-11 detection as fallback
         const httpResult = await checkRelayInfoViaHttp(relayUrl);
 
-        if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
+        const hasAnyInfo = Boolean(
+          httpResult && (
+            httpResult.supportedNips?.length ||
+            httpResult.name ||
+            httpResult.description ||
+            httpResult.contact ||
+            httpResult.software ||
+            httpResult.version
+          )
+        );
+        if (hasAnyInfo) {
           cacheRelayInfo(relayUrl, httpResult, false);
           return httpResult;
         }
