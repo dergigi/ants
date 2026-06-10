@@ -1,6 +1,6 @@
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
-import { resolveNip05ToPubkey } from './nip05';
+import { resolveNip05ToPubkey, verifyNip05 } from './nip05';
 import { normalizeNip05String } from '../nip05';
 import { extractProfileFields, profileEventFromPubkey } from './utils';
 import { getCachedUsername, setCachedUsername } from './username-cache';
@@ -48,7 +48,23 @@ function isStrongAuthorResolutionMatch(input: string, event: NDKEvent): boolean 
   return scoreAuthorResolutionCandidate(input, event) >= 500;
 }
 
-function pickBestAuthorResolutionProfile(input: string, profiles: NDKEvent[]): NDKEvent | null {
+const NIP05_VERIFY_TIMEOUT_MS = 3000;
+const NIP05_VERIFY_BATCH_SIZE = 8;
+const NIP05_VERIFY_MAX_CANDIDATES = 32;
+
+async function verifyCandidateNip05(event: NDKEvent): Promise<boolean> {
+  const pubkey = event.author?.pubkey || event.pubkey || '';
+  const { nip05 } = extractProfileFields(event);
+  if (!pubkey || !nip05) return false;
+  try {
+    const timeout = new Promise<false>((resolve) => setTimeout(() => resolve(false), NIP05_VERIFY_TIMEOUT_MS));
+    return await Promise.race([verifyNip05(pubkey, nip05), timeout]);
+  } catch {
+    return false;
+  }
+}
+
+async function pickBestAuthorResolutionProfile(input: string, profiles: NDKEvent[]): Promise<NDKEvent | null> {
   if (profiles.length === 0) return null;
 
   const ranked = profiles
@@ -62,10 +78,24 @@ function pickBestAuthorResolutionProfile(input: string, profiles: NDKEvent[]): N
       if (a.score !== b.score) return b.score - a.score;
       if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
       return a.index - b.index;
-    });
+    })
+    .filter((candidate) => candidate.score > 0);
 
-  const best = ranked[0];
-  return best && best.score > 0 ? best.event : null;
+  if (ranked.length === 0) return null;
+
+  // Impersonators copy names and NIP-05 strings of well-known profiles and can
+  // outscore the real one. Walk the ranked candidates in batches and return the
+  // highest-scored profile whose NIP-05 claim actually verifies against its
+  // domain; fall back to the top scorer when nothing verifies.
+  const candidates = ranked.slice(0, NIP05_VERIFY_MAX_CANDIDATES);
+  for (let offset = 0; offset < candidates.length; offset += NIP05_VERIFY_BATCH_SIZE) {
+    const batch = candidates.slice(offset, offset + NIP05_VERIFY_BATCH_SIZE);
+    const verifications = await Promise.all(batch.map((candidate) => verifyCandidateNip05(candidate.event)));
+    const verified = batch.find((_, idx) => verifications[idx]);
+    if (verified) return verified.event;
+  }
+
+  return ranked[0].event;
 }
 
 // Unified author resolver: npub | nip05 | username -> pubkey (hex) and an optional profile event
@@ -122,7 +152,7 @@ export async function resolveAuthor(authorInput: string): Promise<{ pubkeyHex: s
     let profileEvt: NDKEvent | null = null;
     try {
       const profiles = await searchProfilesFullText(input, 200);
-      profileEvt = pickBestAuthorResolutionProfile(input, profiles);
+      profileEvt = await pickBestAuthorResolutionProfile(input, profiles);
     } catch {}
 
     setCachedUsername(usernameLower, profileEvt);
