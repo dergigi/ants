@@ -2,6 +2,7 @@ import { ndk } from '../ndk';
 import { hasLocalStorage, loadMapFromStorage, saveMapToStorage, clearStorageKey } from '../storageCache';
 import {
   RELAY_INFO_CACHE_DURATION,
+  RELAY_INFO_NEGATIVE_CACHE_DURATION,
   RELAY_INFO_CHECK_TIMEOUT,
   RELAY_HTTP_REQUEST_TIMEOUT
 } from '../constants';
@@ -15,10 +16,16 @@ export type RelayInfo = {
   version?: string;
 };
 
+type CachedRelayInfo = RelayInfo & { timestamp: number; failed?: boolean };
+
 // Cache for relay information (complete NIP-11 data)
-export const relayInfoCache = new Map<string, RelayInfo & { timestamp: number }>();
+export const relayInfoCache = new Map<string, CachedRelayInfo>();
 const CACHE_DURATION_MS = RELAY_INFO_CACHE_DURATION;
+const NEGATIVE_CACHE_DURATION_MS = RELAY_INFO_NEGATIVE_CACHE_DURATION;
 const CACHE_STORAGE_KEY = 'ants_relay_info_cache';
+
+// Dedupe concurrent lookups per relay
+const inFlightLookups = new Map<string, Promise<RelayInfo>>();
 
 // Load cache from localStorage on initialization (browser only)
 function loadCacheFromStorage(): void {
@@ -47,55 +54,78 @@ if (hasLocalStorage()) {
   loadCacheFromStorage();
 }
 
-// Get complete relay information using multiple detection methods
+// Get complete relay information using multiple detection methods.
+// Stale-while-revalidate: a cached entry (even expired) is returned
+// immediately and refreshed in the background; only relays never seen
+// before block on the HTTP check. Failed lookups are negative-cached
+// so dead relays don't delay every search.
 export async function getRelayInfo(relayUrl: string): Promise<RelayInfo> {
-  try {
-    // Check cache first
-    const cached = relayInfoCache.get(relayUrl);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION_MS) {
-      return cached;
+  const cached = relayInfoCache.get(relayUrl);
+  if (cached) {
+    const ttl = cached.failed ? NEGATIVE_CACHE_DURATION_MS : CACHE_DURATION_MS;
+    if ((Date.now() - cached.timestamp) >= ttl) {
+      void refreshRelayInfo(relayUrl);
     }
-
-    // Add a global timeout for the entire relay info checking process
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Relay info check timeout')), RELAY_INFO_CHECK_TIMEOUT);
-    });
-
-    const relayInfoPromise = (async () => {
-      // Method 1: Check NDK's cached relay info
-      const relay = ndk.pool?.relays?.get(relayUrl);
-      if (relay) {
-        // Check if relay has info cached from NIP-11
-        const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
-        if (relayInfo && relayInfo.supported_nips) {
-          const result = { supportedNips: relayInfo.supported_nips };
-          // Cache this result
-          relayInfoCache.set(relayUrl, { ...result, timestamp: Date.now() });
-          saveCacheToStorage();
-          return result;
-        }
-      }
-
-      // Method 2: Try HTTP NIP-11 detection as fallback
-      const httpResult = await checkRelayInfoViaHttp(relayUrl);
-
-      if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
-        // Cache this result
-        relayInfoCache.set(relayUrl, { ...httpResult, timestamp: Date.now() });
-        saveCacheToStorage();
-        return httpResult;
-      }
-
-      // no relay info found
-      return {};
-    })();
-
-    // Race between the relay info promise and the timeout
-    return await Promise.race([relayInfoPromise, timeoutPromise]);
-  } catch (error) {
-    console.warn(`Failed to get relay info for ${relayUrl}:`, error);
-    return {};
+    return cached;
   }
+  return refreshRelayInfo(relayUrl);
+}
+
+function refreshRelayInfo(relayUrl: string): Promise<RelayInfo> {
+  const existing = inFlightLookups.get(relayUrl);
+  if (existing) return existing;
+
+  const lookup = (async (): Promise<RelayInfo> => {
+    try {
+      // Add a global timeout for the entire relay info checking process
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Relay info check timeout')), RELAY_INFO_CHECK_TIMEOUT);
+      });
+
+      const relayInfoPromise = (async () => {
+        // Method 1: Check NDK's cached relay info
+        const relay = ndk.pool?.relays?.get(relayUrl);
+        if (relay) {
+          // Check if relay has info cached from NIP-11
+          const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;
+          if (relayInfo && relayInfo.supported_nips) {
+            const result = { supportedNips: relayInfo.supported_nips };
+            cacheRelayInfo(relayUrl, result, false);
+            return result;
+          }
+        }
+
+        // Method 2: Try HTTP NIP-11 detection as fallback
+        const httpResult = await checkRelayInfoViaHttp(relayUrl);
+
+        if (httpResult && (httpResult.supportedNips?.length || httpResult.name || httpResult.description)) {
+          cacheRelayInfo(relayUrl, httpResult, false);
+          return httpResult;
+        }
+
+        // No relay info found: negative-cache so we don't re-check on every search
+        cacheRelayInfo(relayUrl, {}, true);
+        return {};
+      })();
+
+      // Race between the relay info promise and the timeout
+      return await Promise.race([relayInfoPromise, timeoutPromise]);
+    } catch (error) {
+      console.warn(`Failed to get relay info for ${relayUrl}:`, error);
+      cacheRelayInfo(relayUrl, {}, true);
+      return {};
+    } finally {
+      inFlightLookups.delete(relayUrl);
+    }
+  })();
+
+  inFlightLookups.set(relayUrl, lookup);
+  return lookup;
+}
+
+function cacheRelayInfo(relayUrl: string, info: RelayInfo, failed: boolean): void {
+  relayInfoCache.set(relayUrl, { ...info, timestamp: Date.now(), ...(failed && { failed }) });
+  saveCacheToStorage();
 }
 
 // Check relay information via HTTP (NIP-11 compatible)

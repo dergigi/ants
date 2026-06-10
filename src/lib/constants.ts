@@ -94,7 +94,10 @@ export const UI_CONFIG = {
     PING_TIMEOUT: 5000, // 5 seconds
     
     // Cache duration for relay info (milliseconds)
-    INFO_CACHE_DURATION: 60000, // 1 minute
+    INFO_CACHE_DURATION: 3600000, // 1 hour
+
+    // Cache duration for failed relay info lookups (milliseconds)
+    INFO_NEGATIVE_CACHE_DURATION: 600000, // 10 minutes
     
     // User relay cache duration (milliseconds)
     USER_RELAY_CACHE_DURATION: 3600000, // 1 hour
@@ -147,6 +150,7 @@ export const RELAY_INFO_CHECK_TIMEOUT = UI_CONFIG.RELAYS.INFO_CHECK_TIMEOUT;
 export const RELAY_HTTP_REQUEST_TIMEOUT = UI_CONFIG.RELAYS.HTTP_REQUEST_TIMEOUT;
 export const RELAY_PING_TIMEOUT = UI_CONFIG.RELAYS.PING_TIMEOUT;
 export const RELAY_INFO_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_CACHE_DURATION;
+export const RELAY_INFO_NEGATIVE_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_NEGATIVE_CACHE_DURATION;
 export const RELAY_USER_RELAY_CACHE_DURATION = UI_CONFIG.RELAYS.USER_RELAY_CACHE_DURATION;
 
 // UI refresh constants
