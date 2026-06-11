@@ -11,7 +11,8 @@ import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
 import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
 import { getProfileScopeIdentifiers, hasProfileScope } from '@/lib/search/profileScope';
-import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { relaySets, getNip50SearchRelaySet, prewarmSearchRelaySet } from '@/lib/relays';
+import { loadRules } from '@/lib/search/replacements';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
 import { getStoredPubkey } from '@/lib/nip07';
 import { type SearchViewRefs } from '@/hooks/useSearchViewRefs';
@@ -359,6 +360,11 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
   // Connect NDK on mount and run the initial query for direct lookups
   useEffect(() => {
+    // Resolve the NIP-50 relay set and replacement rules while the user is
+    // still typing so the first search doesn't pay for them.
+    prewarmSearchRelaySet();
+    void loadRules().catch(() => {});
+
     const initializeNDK = async () => {
       setIsConnecting(true);
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect
