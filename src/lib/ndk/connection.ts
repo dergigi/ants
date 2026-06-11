@@ -296,8 +296,9 @@ export const connect = async (timeoutMs: number = 8000): Promise<ConnectionStatu
 
 // Kick off the relay connection as early as possible (at module load in the
 // browser) so relays are usually up by the time the first search runs.
+// Opening websockets doesn't touch the cache adapter, so run both in
+// parallel instead of serializing the WASM SQLite init before connecting.
 if (typeof window !== 'undefined') {
-  void ensureCacheInitialized()
-    .catch(() => {})
-    .then(() => startNdkConnect());
+  void ensureCacheInitialized().catch(() => {});
+  startNdkConnect();
 }
