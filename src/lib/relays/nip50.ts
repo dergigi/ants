@@ -1,5 +1,6 @@
 import { NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { getStoredPubkey } from '../nip07';
+import { getUserRelayAdditions } from '../storage';
 import { RELAYS, createRelaySet } from './config';
 import { getRelayInfo } from './infoCache';
 import { discoverUserRelays, extendWithUserAndPremium } from './userDiscovery';
@@ -70,8 +71,21 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
   return createRelaySet(nip50Relays);
 }
 
-// Enhanced search relay set that filters for NIP-50 support
-export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
+// Resolving the search relay set involves NIP-51 list fetches and NIP-11
+// checks, so memoize the resolved URLs per login/manual-relay state. The
+// underlying caches handle staleness; this just keeps repeat searches from
+// re-awaiting the whole pipeline.
+const SEARCH_RELAY_URLS_TTL_MS = 60_000;
+let cachedSearchRelayUrls: { key: string; urls: string[]; timestamp: number } | null = null;
+let inFlightSearchRelayUrls: { key: string; promise: Promise<string[]> } | null = null;
+
+function searchRelayCacheKey(): string {
+  const pubkey = getStoredPubkey() || 'anon';
+  const manual = getUserRelayAdditions().slice().sort().join(',');
+  return `${pubkey}|${manual}`;
+}
+
+async function resolveSearchRelayUrls(): Promise<string[]> {
   const pubkey = getStoredPubkey();
 
   // Start with hardcoded search relays
@@ -90,7 +104,47 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
   // Get all relays (including user relays) but filter for NIP-50 support
   const allRelays = await extendWithUserAndPremium(allSearchRelays);
 
-  const nip50Relays = await filterNip50Relays(allRelays);
+  return filterNip50Relays(allRelays);
+}
 
+async function getSearchRelayUrls(): Promise<string[]> {
+  const key = searchRelayCacheKey();
+
+  if (cachedSearchRelayUrls && cachedSearchRelayUrls.key === key
+    && (Date.now() - cachedSearchRelayUrls.timestamp) < SEARCH_RELAY_URLS_TTL_MS) {
+    return cachedSearchRelayUrls.urls;
+  }
+
+  if (inFlightSearchRelayUrls && inFlightSearchRelayUrls.key === key) {
+    return inFlightSearchRelayUrls.promise;
+  }
+
+  const promise = resolveSearchRelayUrls()
+    .then((urls) => {
+      cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };
+      return urls;
+    })
+    .finally(() => {
+      if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
+    });
+
+  inFlightSearchRelayUrls = { key, promise };
+  return promise;
+}
+
+// Enhanced search relay set that filters for NIP-50 support
+export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
+  const nip50Relays = await getSearchRelayUrls();
   return createRelaySet(nip50Relays);
+}
+
+// Resolve (and cache) the search relay set ahead of the first search so the
+// NIP-11/NIP-51 round-trips happen while the user is still typing.
+export function prewarmSearchRelaySet(): void {
+  void getSearchRelayUrls().catch(() => {});
+}
+
+export function clearSearchRelayUrlCache(): void {
+  cachedSearchRelayUrls = null;
+  inFlightSearchRelayUrls = null;
 }
