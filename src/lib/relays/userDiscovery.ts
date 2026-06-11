@@ -75,9 +75,11 @@ export async function discoverUserRelays(pubkey: string): Promise<{
 
   try {
     // kind:10002 relay list, kind:10006 blocked relays, kind:10007 search relays
-    const userRelays = await fetchKindList(10002, pubkey);
-    const blockedRelays = await fetchKindList(10006, pubkey);
-    const searchRelays = await fetchKindList(10007, pubkey);
+    const [userRelays, blockedRelays, searchRelays] = await Promise.all([
+      fetchKindList(10002, pubkey),
+      fetchKindList(10006, pubkey),
+      fetchKindList(10007, pubkey)
+    ]);
 
     const result = { userRelays, blockedRelays, searchRelays };
 
