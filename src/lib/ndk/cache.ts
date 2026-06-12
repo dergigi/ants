@@ -17,7 +17,9 @@ const sanitizeFilterArrays = (filters: Array<Record<string, unknown>>): void => 
     for (const key of Object.keys(filter)) {
       const value = filter[key];
       if (Array.isArray(value) && value.some((v) => v === undefined || v === null)) {
-        console.warn('Dropping undefined values from filter before cache query:', key, JSON.stringify(filter));
+        const droppedCount = value.filter((v) => v === undefined || v === null).length;
+        // Don't log filter contents; authors/ids arrays contain user identifiers
+        console.warn(`Dropping ${droppedCount} undefined/null value(s) from filter key: ${key}`);
         filter[key] = value.filter((v) => v !== undefined && v !== null);
       }
     }

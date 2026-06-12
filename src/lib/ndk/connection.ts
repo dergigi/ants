@@ -1,3 +1,4 @@
+import { NDKSubscriptionCacheUsage } from '@nostr-dev-kit/ndk';
 import { RELAYS } from '../relays/config';
 import { RELAY_MONITORING_INTERVAL, RELAY_PING_TIMEOUT } from '../constants';
 import { ndk } from './index';
@@ -127,7 +128,7 @@ async function measureRelayPing(relayUrl: string): Promise<number> {
       // (NDK's "BUG: No filters to merge!").
       const sub = safeSubscribe([{ kinds: [1], limit: 1 }], {
         closeOnEose: true,
-        cacheUsage: 'ONLY_RELAY' as const,
+        cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
         relayUrls: [relayUrl]
       });
 

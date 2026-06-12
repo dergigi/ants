@@ -3,7 +3,7 @@ import { getStoredPubkey } from '../nip07';
 import { getUserRelayAdditions } from '../storage';
 import { RELAYS, createRelaySet } from './config';
 import { getRelayInfo } from './infoCache';
-import { discoverUserRelays, extendWithUserAndPremium } from './userDiscovery';
+import { extendWithUserAndPremium } from './userDiscovery';
 
 // Check whether a relay supports NIP-50
 export async function checkNip50Support(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
@@ -85,24 +85,11 @@ function searchRelayCacheKey(): string {
   return `${pubkey}|${manual}`;
 }
 
-async function gatherCandidateRelays(): Promise<string[]> {
-  const pubkey = getStoredPubkey();
-
-  // Start with hardcoded search relays
-  const allSearchRelays: string[] = [...RELAYS.SEARCH];
-
-  // Add user's search relays if logged in
-  if (pubkey) {
-    try {
-      const { searchRelays } = await discoverUserRelays(pubkey);
-      allSearchRelays.push(...searchRelays);
-    } catch (error) {
-      console.warn('[NIP-51] Failed to discover user search relays:', error);
-    }
-  }
-
-  // All relays (including user relays); NIP-50 filtering happens afterwards
-  return extendWithUserAndPremium(allSearchRelays);
+function gatherCandidateRelays(): Promise<string[]> {
+  // Curated search relays plus the user's relays, manual additions, premium
+  // relays, and NIP-51 search relays (single discovery call for logged-in
+  // users). NIP-50 filtering happens afterwards.
+  return extendWithUserAndPremium([...RELAYS.SEARCH], { includeSearchRelays: true });
 }
 
 // On a cold NIP-11 cache, waiting for every relay check means the slowest
@@ -151,7 +138,9 @@ async function getSearchRelayUrls(): Promise<string[]> {
   const early = (async () => {
     const candidates = await gatherCandidateRelays();
 
-    // Full resolution caches its result so later searches use the whole set
+    // Both paths probe the same candidates, but getRelayInfo() dedupes
+    // concurrent lookups per relay, so each relay is checked once.
+    // Full resolution caches its result so later searches use the whole set.
     const full = filterNip50Relays(candidates)
       .then((urls) => {
         if (urls.length > 0) cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };

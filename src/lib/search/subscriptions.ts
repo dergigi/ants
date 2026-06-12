@@ -3,7 +3,7 @@ import { safeSubscribe, isValidFilter, markRelayActivity } from '../ndk';
 import { normalizeRelayUrl } from '../urlUtils';
 import { trackEventRelay } from '../eventRelayTracking';
 import { sortEventsNewestFirst } from '../utils/searchUtils';
-import { RELAYS, createRelaySet, filterNip50Relays } from '../relays';
+import { createRelaySet, filterNip50Relays, getNip50SearchRelaySet } from '../relays';
 import { getSearchRelaySet } from './relayManagement';
 
 /**
@@ -20,10 +20,12 @@ async function restrictToNip50Relays(relaySet: NDKRelaySet): Promise<NDKRelaySet
     if (nip50Urls.length === urls.length) return relaySet;
     if (nip50Urls.length > 0) return createRelaySet(nip50Urls);
   } catch (error) {
-    console.warn('NIP-50 relay filtering failed, using curated search relays:', error);
+    console.warn('NIP-50 relay filtering failed, resolving curated NIP-50 search relays:', error);
   }
-  // Never fall back to non-NIP-50 relays; use the curated search relays instead
-  return createRelaySet([...RELAYS.SEARCH]);
+  // Never fall back to unverified relays; resolve the curated set through the
+  // NIP-50 pipeline (memoized) so even the error path honors the invariant.
+  // An empty set (no results) is preferable to polluted results.
+  return getNip50SearchRelaySet().catch(() => createRelaySet([]));
 }
 
 const PARTIAL_EMIT_INTERVAL_MS = 500;
