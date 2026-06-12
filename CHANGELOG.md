@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-06-12
+
+### Added
+- Streaming search results that render partial matches while broader search collection continues
+
+### Changed
+- Profile search now shows candidates immediately and re-ranks them after NIP-05 verifications land
+- Refactored `SearchView`, relay handling, and NDK/search internals into smaller modules and hooks
+- Refreshed the default relay sets and improved relay info caching for more consistent searches
+
+### Fixed
+- Restored relative `since:` and `until:` date filters
+- Restored long-form article rendering, aliases, and helper utilities
+- Verify NIP-05 claims when resolving author aliases and down-rank failed claims in profile search
+- Suppressed known WASM cache errors and improved compact minute timestamp labels
+
 ## [0.4.2] - 2026-05-10
 
 ### Added
