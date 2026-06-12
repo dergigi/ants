@@ -12,6 +12,7 @@ import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nost
 import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
 import { getProfileScopeIdentifiers, hasProfileScope } from '@/lib/search/profileScope';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
+import { prewarmSearchRuntime } from '@/lib/search/prewarm';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
 import { getStoredPubkey } from '@/lib/nip07';
 import { type SearchViewRefs } from '@/hooks/useSearchViewRefs';
@@ -357,8 +358,9 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     }
   }, [setQueryAndNavigateToRoot, handleSearch]);
 
-  // Connect NDK on mount and run the initial query for direct lookups
+  // Prewarm search, connect NDK on mount, and run the initial query for direct lookups
   useEffect(() => {
+    prewarmSearchRuntime();
     const initializeNDK = async () => {
       setIsConnecting(true);
       const connectionResult = await connect(8000); // 8 second timeout for more reliable initial connect

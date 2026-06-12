@@ -1,5 +1,5 @@
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
-import { ndk, connect } from './ndk';
+import { ndk } from './ndk';
 import { clearAllProfileCaches } from './profile/cache';
 import { clearRelayCaches } from './relays';
 
@@ -19,9 +19,7 @@ export async function login(): Promise<NDKUser | null> {
   }
 
   try {
-    // Ensure NDK is connected
-    await connect();
-    
+    // No need to wait for relays here; the signer only talks to the extension
     const signer = new NDKNip07Signer();
     const user = await signer.blockUntilReady();
     
@@ -75,6 +73,17 @@ export function logout(): void {
   emitAuthChange();
 }
 
+// Extensions inject window.nostr asynchronously; poll briefly instead of
+// failing when restore runs before the injection happened.
+async function waitForNip07Extension(timeoutMs: number = 3000): Promise<boolean> {
+  const start = Date.now();
+  while (!(window as { nostr?: unknown }).nostr) {
+    if (Date.now() - start >= timeoutMs) return false;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return true;
+}
+
 export async function restoreLogin(): Promise<NDKUser | null> {
   const storedPubkey = getStoredPubkey();
   if (!storedPubkey) {
@@ -82,16 +91,12 @@ export async function restoreLogin(): Promise<NDKUser | null> {
   }
 
   try {
-    // Check if NIP-07 extension is available
-    if (!(window as { nostr?: unknown }).nostr) {
+    if (!(await waitForNip07Extension())) {
       console.warn('NIP-07 extension not available, cannot restore login');
       return null;
     }
 
-    // Ensure NDK is connected
-    await connect();
-
-    // Create a new signer and restore the connection
+    // Restore the signer; no need to wait for relay connections
     const signer = new NDKNip07Signer();
     const user = await signer.blockUntilReady();
     

@@ -3,11 +3,12 @@ import { ndk, ensureCacheInitialized } from '../ndk';
 import { RELAYS } from './config';
 import { extendWithUserAndPremium, clearUserRelayCache } from './userDiscovery';
 import { clearRelayInfoCache } from './infoCache';
+import { clearSearchRelayUrlCache } from './nip50';
 
 export { RELAYS, createRelaySet } from './config';
 export { discoverUserRelays, extendWithUserAndPremium } from './userDiscovery';
 export { relayInfoCache, getRelayInfo, clearRelayInfoCache, type RelayInfo } from './infoCache';
-export { checkNip50Support, filterNip50Relays, getNip50RelaySet, getNip50SearchRelaySet } from './nip50';
+export { checkNip50Support, filterNip50Relays, getNip50RelaySet, getNip50SearchRelaySet, prewarmSearchRelaySet } from './nip50';
 
 // Pre-configured relay sets
 export const relaySets = {
@@ -30,4 +31,5 @@ export const relaySets = {
 export function clearRelayCaches(): void {
   clearRelayInfoCache();
   clearUserRelayCache();
+  clearSearchRelayUrlCache();
 }

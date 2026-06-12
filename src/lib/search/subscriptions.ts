@@ -3,7 +3,30 @@ import { safeSubscribe, isValidFilter, markRelayActivity } from '../ndk';
 import { normalizeRelayUrl } from '../urlUtils';
 import { trackEventRelay } from '../eventRelayTracking';
 import { sortEventsNewestFirst } from '../utils/searchUtils';
+import { createRelaySet, filterNip50Relays, getNip50SearchRelaySet } from '../relays';
 import { getSearchRelaySet } from './relayManagement';
+
+/**
+ * Text searches MUST only go to NIP-50 relays. Relays without NIP-50 support
+ * ignore the `search` field and return arbitrary events matching the rest of
+ * the filter, polluting the results. This is the single choke point for all
+ * event subscriptions, so every `search` filter gets restricted here no
+ * matter which relay set (broad, user, fallback) the caller picked.
+ */
+async function restrictToNip50Relays(relaySet: NDKRelaySet): Promise<NDKRelaySet> {
+  try {
+    const urls = Array.from(relaySet.relays).map((relay) => relay.url);
+    const nip50Urls = await filterNip50Relays(urls);
+    if (nip50Urls.length === urls.length) return relaySet;
+    if (nip50Urls.length > 0) return createRelaySet(nip50Urls);
+  } catch (error) {
+    console.warn('NIP-50 relay filtering failed, resolving curated NIP-50 search relays:', error);
+  }
+  // Never fall back to unverified relays; resolve the curated set through the
+  // NIP-50 pipeline (memoized) so even the error path honors the invariant.
+  // An empty set (no results) is preferable to polluted results.
+  return getNip50SearchRelaySet().catch(() => createRelaySet([]));
+}
 
 const PARTIAL_EMIT_INTERVAL_MS = 500;
 
@@ -89,6 +112,10 @@ export async function subscribeAndCollect(filter: NDKFilter, options: CollectOpt
         console.warn('Failed to resolve relay set in subscribeAndCollect:', error);
         resolve([]);
         return;
+      }
+
+      if (filter.search) {
+        rs = await restrictToNip50Relays(rs);
       }
 
       // An abort may have fired while awaiting the relay set
