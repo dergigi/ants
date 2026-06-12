@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-06-12
+
+### Changed
+- Cut cold-cache search time-to-first-result by prewarming search relay discovery, relay websocket connections, and `replacements.txt`
+- Resolve the NIP-50 search relay set early once three compatible relays confirm, while full validation continues in the background
+- Fetch NIP-51 relay lists in parallel and dedupe NIP-11 checks across relay URL slash variants
+
+### Fixed
+- Restrict `search` subscriptions to verified NIP-50 relays so text searches stop pulling garbage results from relays that ignore the `search` field
+- Fixed eager relay connection regressions around module-load connect ordering, relay ping subscriptions, and cache query errors
+
 ## [0.4.3] - 2026-06-12
 
 ### Added
