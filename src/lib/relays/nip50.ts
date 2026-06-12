@@ -85,7 +85,7 @@ function searchRelayCacheKey(): string {
   return `${pubkey}|${manual}`;
 }
 
-async function resolveSearchRelayUrls(): Promise<string[]> {
+async function gatherCandidateRelays(): Promise<string[]> {
   const pubkey = getStoredPubkey();
 
   // Start with hardcoded search relays
@@ -101,10 +101,39 @@ async function resolveSearchRelayUrls(): Promise<string[]> {
     }
   }
 
-  // Get all relays (including user relays) but filter for NIP-50 support
-  const allRelays = await extendWithUserAndPremium(allSearchRelays);
+  // All relays (including user relays); NIP-50 filtering happens afterwards
+  return extendWithUserAndPremium(allSearchRelays);
+}
 
-  return filterNip50Relays(allRelays);
+// On a cold NIP-11 cache, waiting for every relay check means the slowest
+// (or dead) relay gates the first search. Resolve early once this many
+// relays are confirmed; the full check keeps running and updates the cache.
+const EARLY_RELAY_TARGET = 3;
+
+function filterNip50RelaysEarly(relayUrls: string[], full: Promise<string[]>): Promise<string[]> {
+  return new Promise<string[]>((resolve) => {
+    let done = false;
+    const confirmed: string[] = [];
+    const finish = (urls: string[]) => {
+      if (done) return;
+      done = true;
+      resolve(urls);
+    };
+
+    for (const url of relayUrls) {
+      void checkNip50Support(url)
+        .then((info) => {
+          if (done || !info.supportsNip50) return;
+          confirmed.push(url);
+          if (confirmed.length >= EARLY_RELAY_TARGET) finish([...confirmed]);
+        })
+        .catch(() => {});
+    }
+
+    // Whatever the full pipeline produces (including its <3 relay fallback
+    // probing) always wins if the early target was never reached.
+    void full.then(finish).catch(() => finish(confirmed.length > 0 ? [...confirmed] : []));
+  });
 }
 
 async function getSearchRelayUrls(): Promise<string[]> {
@@ -119,17 +148,27 @@ async function getSearchRelayUrls(): Promise<string[]> {
     return inFlightSearchRelayUrls.promise;
   }
 
-  const promise = resolveSearchRelayUrls()
-    .then((urls) => {
-      cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };
-      return urls;
-    })
-    .finally(() => {
-      if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
-    });
+  const early = (async () => {
+    const candidates = await gatherCandidateRelays();
 
-  inFlightSearchRelayUrls = { key, promise };
-  return promise;
+    // Full resolution caches its result so later searches use the whole set
+    const full = filterNip50Relays(candidates)
+      .then((urls) => {
+        if (urls.length > 0) cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };
+        return urls;
+      })
+      .finally(() => {
+        if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
+      });
+
+    return filterNip50RelaysEarly(candidates, full);
+  })().catch((error) => {
+    if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
+    throw error;
+  });
+
+  inFlightSearchRelayUrls = { key, promise: early };
+  return early;
 }
 
 // Enhanced search relay set that filters for NIP-50 support
