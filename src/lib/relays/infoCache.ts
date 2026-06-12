@@ -54,12 +54,19 @@ if (hasLocalStorage()) {
   loadCacheFromStorage();
 }
 
+// NDK pool relay URLs carry a trailing slash while configured URLs don't;
+// normalize so both map to one cache entry instead of two HTTP checks.
+function normalizeCacheUrl(relayUrl: string): string {
+  return relayUrl.replace(/\/+$/, '');
+}
+
 // Get complete relay information using multiple detection methods.
 // Stale-while-revalidate: a cached entry (even expired) is returned
 // immediately and refreshed in the background; only relays never seen
 // before block on the HTTP check. Failed lookups are negative-cached
 // so dead relays don't delay every search.
-export async function getRelayInfo(relayUrl: string): Promise<RelayInfo> {
+export async function getRelayInfo(rawRelayUrl: string): Promise<RelayInfo> {
+  const relayUrl = normalizeCacheUrl(rawRelayUrl);
   const cached = relayInfoCache.get(relayUrl);
   if (cached) {
     const ttl = cached.failed ? NEGATIVE_CACHE_DURATION_MS : CACHE_DURATION_MS;
@@ -83,8 +90,8 @@ function refreshRelayInfo(relayUrl: string): Promise<RelayInfo> {
       });
 
       const relayInfoPromise = (async () => {
-        // Method 1: Check NDK's cached relay info
-        const relay = ndk.pool?.relays?.get(relayUrl);
+        // Method 1: Check NDK's cached relay info (pool keys use trailing slash)
+        const relay = ndk.pool?.relays?.get(relayUrl) || ndk.pool?.relays?.get(`${relayUrl}/`);
         if (relay) {
           // Check if relay has info cached from NIP-11
           const relayInfo = (relay as { info?: { supported_nips?: number[] } }).info;

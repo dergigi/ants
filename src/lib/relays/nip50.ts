@@ -178,9 +178,13 @@ export async function getNip50SearchRelaySet(): Promise<NDKRelaySet> {
 }
 
 // Resolve (and cache) the search relay set ahead of the first search so the
-// NIP-11/NIP-51 round-trips happen while the user is still typing.
+// NIP-11/NIP-51 round-trips happen while the user is still typing. Creating
+// the relay set also opens the websockets, so the first search doesn't pay
+// for the connection handshakes either.
 export function prewarmSearchRelaySet(): void {
-  void getSearchRelayUrls().catch(() => {});
+  void getSearchRelayUrls()
+    .then((urls) => createRelaySet(urls))
+    .catch(() => {});
 }
 
 export function clearSearchRelayUrlCache(): void {
