@@ -71,27 +71,11 @@ export function createEventExplorerItems(nevent: string): readonly ExplorerItem[
 /**
  * Build article-specific portals that render NIP-23 content well from an `naddr`.
  */
-export function createArticleExplorerItems(
-  naddr: string,
-  pubkey?: string,
-  dTag?: string,
-): readonly ExplorerItem[] {
+export function createArticleExplorerItems(naddr: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = ARTICLE_EXPLORERS.map((p) => ({
     name: p.name,
     href: `${p.base}${naddr}`,
   }));
-
-  if (pubkey && dTag) {
-    try {
-      const npub = nip19.npubEncode(pubkey);
-      items.splice(2, 0, {
-        name: 'Imwald',
-        href: `https://blog.imwald.eu/p/${npub}/d/${encodeURIComponent(dTag)}`,
-      });
-    } catch {
-      // encoding failed, skip Imwald
-    }
-  }
 
   return items.map((item, idx) => ({
     ...item,

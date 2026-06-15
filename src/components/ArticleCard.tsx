@@ -64,9 +64,7 @@ export default function ArticleCard({
     if (!articleNostrId) return { portalItems: [], clientItems: [] };
 
     const items = createEventExplorerItems(articleNostrId);
-    const articleItems = meta.naddr
-      ? createArticleExplorerItems(meta.naddr, event.pubkey, meta.dTag)
-      : [];
+    const articleItems = meta.naddr ? createArticleExplorerItems(meta.naddr) : [];
     return {
       portalItems: [...articleItems, ...items.slice(0, -2)],
       clientItems: items.slice(-2),
