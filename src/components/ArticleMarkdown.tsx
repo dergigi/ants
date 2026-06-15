@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
 import NostrProfileLink from '@/components/NostrProfileLink';
 
@@ -18,14 +19,14 @@ export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
   return (
     <div className="article-markdown prose prose-invert prose-sm max-w-none">
       <Markdown
-        remarkPlugins={[remarkNostrLinks]}
+        remarkPlugins={[remarkGfm, remarkNostrLinks]}
         components={{
           a: ({ href, title, children }) => {
             const isProfile = href?.startsWith('/p/');
             if (isProfile && title && href) {
               return <NostrProfileLink token={title} href={href} />;
             }
-            const isInternal = href?.startsWith('/');
+            const isInternal = href?.startsWith('/') || href?.startsWith('#');
             return (
               <a
                 href={href}

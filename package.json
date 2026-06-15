@@ -33,6 +33,7 @@
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "relative-time-format": "^1.1.11",
+    "remark-gfm": "^4.0.1",
     "string-similarity": "^4.0.4"
   },
   "devDependencies": {
