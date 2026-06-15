@@ -1,15 +1,20 @@
 'use client';
 
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp, faNewspaper } from '@fortawesome/free-solid-svg-icons';
+import { nip19 } from 'nostr-tools';
 import AuthorBadge from '@/components/AuthorBadge';
 import Nip05Display from '@/components/Nip05Display';
 import CardActions from '@/components/CardActions';
 import ArticleMarkdown from '@/components/ArticleMarkdown';
+import ExplorerPortalMenu, { type ExplorerMenuItem } from '@/components/ExplorerPortalMenu';
+import RawEventJson from '@/components/RawEventJson';
 import Image from 'next/image';
+import { createEventExplorerItems } from '@/lib/portals';
 import { extractArticleMetadata, formatArticleDate, truncateMarkdown } from '@/lib/utils/articleUtils';
+import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from '@/lib/ndk';
 
@@ -31,6 +36,10 @@ export default function ArticleCard({
   defaultExpanded = false,
 }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [showPortalMenu, setShowPortalMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [showRaw, setShowRaw] = useState(false);
+  const portalButtonRef = useRef<HTMLButtonElement>(null);
   const meta = extractArticleMetadata(event);
   const fallbackUser = new NDKUser({ pubkey: event.pubkey });
   fallbackUser.ndk = ndk;
@@ -40,25 +49,41 @@ export default function ArticleCard({
   const truncated = truncateMarkdown(contentPreview);
   const shouldTruncate = truncated.length < contentPreview.length;
   const displayContent = expanded ? contentPreview : truncated;
+  const articleNostrId = meta.naddr || encodeNevent(event.id);
+  const articleNevent = event.id ? encodeNevent(event.id) : '';
 
   const baseClasses = 'relative p-4 bg-[#2d2d2d] border border-[#3d3d3d]';
   const containerClasses = className
     ? `${baseClasses} ${className}`
     : `${baseClasses} rounded-lg`;
 
+  const buildMenuItems = (): { portalItems: ExplorerMenuItem[]; clientItems: ExplorerMenuItem[] } => {
+    if (!articleNostrId) return { portalItems: [], clientItems: [] };
+
+    const items = createEventExplorerItems(articleNostrId);
+    return {
+      portalItems: items.slice(0, -2),
+      clientItems: items.slice(-2),
+    };
+  };
+
   return (
     <div className={containerClasses}>
-      <div className="space-y-3">
-        <ArticleHeader meta={meta} user={user} onAuthorClick={onAuthorClick} />
-        <ArticleBody
-          meta={meta}
-          displayContent={displayContent}
-          shouldTruncate={shouldTruncate}
-          expanded={expanded}
-          setExpanded={setExpanded}
-        />
-        <ArticleTopics topics={meta.topics} />
-      </div>
+      {showRaw ? (
+        <RawEventJson event={event} />
+      ) : (
+        <div className="space-y-3">
+          <ArticleHeader meta={meta} user={user} onAuthorClick={onAuthorClick} />
+          <ArticleBody
+            meta={meta}
+            displayContent={displayContent}
+            shouldTruncate={shouldTruncate}
+            expanded={expanded}
+            setExpanded={setExpanded}
+          />
+          <ArticleTopics topics={meta.topics} />
+        </div>
+      )}
       {showFooter && (
         <div className="mt-4 text-xs text-gray-300 bg-[#2d2d2d] border-t border-[#3d3d3d] -mx-4 -mb-4 px-4 py-2 flex items-center gap-3 flex-wrap rounded-b-lg">
           <div className="flex items-center gap-2 min-h-[1rem]">
@@ -71,12 +96,50 @@ export default function ArticleCard({
               eventId={event?.id}
               profilePubkey={event?.author?.pubkey}
               eventKind={event?.kind}
+              nostrId={meta.naddr || undefined}
+              copyTitle={meta.naddr ? 'Copy naddr' : undefined}
+              secondaryCopyText={meta.naddr && articleNevent ? `nostr:${articleNevent}` : undefined}
+              secondaryCopyTitle="Copy nevent"
+              externalHref={articleNostrId ? `nostr:${articleNostrId}` : undefined}
+              externalTitle={meta.naddr ? 'Open article in native client' : undefined}
+              onToggleMenu={articleNostrId ? () => {
+                if (portalButtonRef.current) {
+                  const rect = portalButtonRef.current.getBoundingClientRect();
+                  setMenuPosition(calculateAbsoluteMenuPosition(rect));
+                }
+                setShowPortalMenu((v) => !v);
+              } : undefined}
+              menuButtonRef={portalButtonRef}
             />
           </div>
         </div>
       )}
+
+      {showPortalMenu && articleNostrId && (() => {
+        const { portalItems, clientItems } = buildMenuItems();
+        return (
+          <ExplorerPortalMenu
+            position={menuPosition}
+            onClose={() => setShowPortalMenu(false)}
+            portalItems={portalItems}
+            clientItems={clientItems}
+            showRaw={showRaw}
+            onToggleRaw={() => setShowRaw((v) => !v)}
+          />
+        );
+      })()}
     </div>
   );
+}
+
+function encodeNevent(eventId: string | undefined): string {
+  if (!eventId) return '';
+
+  try {
+    return nip19.neventEncode({ id: eventId });
+  } catch {
+    return '';
+  }
 }
 
 function ArticleHeader({
