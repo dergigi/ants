@@ -30,6 +30,7 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
 
 export const ARTICLE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'Boris', base: 'https://read.withboris.com/a/' },
+  { name: 'Habla', base: 'https://habla.coracle.social/a/' },
   { name: 'Primal', base: 'https://primal.net/e/' },
 ] as const;
 
@@ -83,7 +84,7 @@ export function createArticleExplorerItems(
   if (pubkey && dTag) {
     try {
       const npub = nip19.npubEncode(pubkey);
-      items.splice(1, 0, {
+      items.splice(2, 0, {
         name: 'Imwald',
         href: `https://blog.imwald.eu/p/${npub}/d/${encodeURIComponent(dTag)}`,
       });
