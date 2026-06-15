@@ -1,7 +1,7 @@
 'use client';
 
 import { restoreLogin, getStoredPubkey } from '@/lib/nip07';
-import { ndk } from '@/lib/ndk';
+import { ndk, connect } from '@/lib/ndk';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { useRouter } from 'next/navigation';
@@ -20,11 +20,17 @@ export function Header() {
   // Restore login state on mount
   useEffect(() => {
     const fetchProfileInBackground = (u: NDKUser) => {
-      u.fetchProfile().then(() => {
-        // Bump avatar version to force a re-render even if the user object identity is unchanged
-        setAvatarVersion(v => v + 1);
-        setUser(u);
-      }).catch(() => {});
+      // Ensure at least one relay is connected before fetching; otherwise the
+      // profile resolves empty and the avatar falls back to npub initials.
+      connect()
+        .catch(() => {})
+        .then(() => u.fetchProfile())
+        .then(() => {
+          // Bump avatar version to force a re-render even if the user object identity is unchanged
+          setAvatarVersion(v => v + 1);
+          setUser(u);
+        })
+        .catch(() => {});
     };
 
     const applyLoggedOut = () => {
@@ -63,6 +69,7 @@ export function Header() {
           setCurrentUser(u);
           if (u) {
             try { 
+              try { await connect(); } catch {}
               await u.fetchProfile();
               // Bump avatar version to force a re-render even if the user object identity is unchanged
               setAvatarVersion(v => v + 1);
