@@ -30,7 +30,6 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
 
 export const ARTICLE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'Boris', base: 'https://read.withboris.com/a/' },
-  { name: 'Habla', base: 'https://habla.news/a/' },
   { name: 'Primal', base: 'https://primal.net/e/' },
 ] as const;
 
@@ -71,10 +70,30 @@ export function createEventExplorerItems(nevent: string): readonly ExplorerItem[
 /**
  * Build article-specific portals that render NIP-23 content well from an `naddr`.
  */
-export function createArticleExplorerItems(naddr: string): readonly ExplorerItem[] {
-  return ARTICLE_EXPLORERS.map((p, idx) => ({
+export function createArticleExplorerItems(
+  naddr: string,
+  pubkey?: string,
+  dTag?: string,
+): readonly ExplorerItem[] {
+  const items: ExplorerItem[] = ARTICLE_EXPLORERS.map((p) => ({
     name: p.name,
     href: `${p.base}${naddr}`,
-    dividerAfter: idx === ARTICLE_EXPLORERS.length - 1,
+  }));
+
+  if (pubkey && dTag) {
+    try {
+      const npub = nip19.npubEncode(pubkey);
+      items.splice(1, 0, {
+        name: 'Imwald',
+        href: `https://blog.imwald.eu/p/${npub}/d/${encodeURIComponent(dTag)}`,
+      });
+    } catch {
+      // encoding failed, skip Imwald
+    }
+  }
+
+  return items.map((item, idx) => ({
+    ...item,
+    dividerAfter: idx === items.length - 1,
   }));
 }
