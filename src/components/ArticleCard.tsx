@@ -27,6 +27,9 @@ interface ArticleCardProps {
   defaultExpanded?: boolean;
 }
 
+/**
+ * Render a NIP-23 article card with article-aware portal actions and raw-event inspection.
+ */
 export default function ArticleCard({
   event,
   onAuthorClick,
@@ -133,6 +136,9 @@ export default function ArticleCard({
   );
 }
 
+/**
+ * Safely encode a raw event id as `nevent`, returning an empty string when encoding fails.
+ */
 function encodeNevent(eventId: string | undefined): string {
   if (!eventId) return '';
 
@@ -143,6 +149,9 @@ function encodeNevent(eventId: string | undefined): string {
   }
 }
 
+/**
+ * Render the article header with title, author metadata, and optional summary.
+ */
 function ArticleHeader({
   meta,
   user,
@@ -189,6 +198,9 @@ function ArticleHeader({
   );
 }
 
+/**
+ * Render the cover image and expandable markdown preview for an article.
+ */
 function ArticleBody({
   meta,
   displayContent,
@@ -250,6 +262,9 @@ function ArticleBody({
   );
 }
 
+/**
+ * Render topic tags for a NIP-23 article.
+ */
 function ArticleTopics({ topics }: { topics: string[] }) {
   if (topics.length === 0) return null;
 

@@ -24,6 +24,9 @@ type Props = {
   onExternalClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
+/**
+ * Shared action cluster for cards that expose copy, native-client, portal, and external-link affordances.
+ */
 const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   {
     eventId,

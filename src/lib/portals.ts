@@ -36,6 +36,9 @@ export const ARTICLE_EXPLORERS: readonly ExplorerLink[] = [
 
 export type ExplorerItem = { name: string; href: string; dividerAfter?: boolean };
 
+/**
+ * Build profile portal links from an `npub`, preferring `nprofile` for client deep links when possible.
+ */
 export function createProfileExplorerItems(npub: string, pubkey?: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = PROFILE_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${npub}` }));
   let nprofile: string | null = null;
@@ -55,6 +58,9 @@ export function createProfileExplorerItems(npub: string, pubkey?: string): reado
   return items;
 }
 
+/**
+ * Build generic event portal links from a shareable event identifier.
+ */
 export function createEventExplorerItems(nevent: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = EVENT_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${nevent}` }));
   items.push({ name: 'Web Client', href: `web+nostr:${nevent}` });
