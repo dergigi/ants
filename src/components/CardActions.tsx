@@ -89,7 +89,7 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
           <FontAwesomeIcon icon={faMobileScreenButton} className="text-xs" />
         </IconButton>
       ) : null}
-      {(eventId || (eventKind === 0 && profilePubkey)) ? (
+      {defaultNostrId ? (
         <IconButton
           title="Open with njump.to"
           onClick={(e) => {

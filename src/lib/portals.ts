@@ -10,7 +10,6 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
-  { name: 'nostr.band', base: 'https://nostr.band/' },
   { name: 'npub.world', base: 'https://npub.world/' },
   { name: 'nosta.me', base: 'https://nosta.me/' },
   { name: 'castr.me', base: 'https://castr.me/' },
@@ -26,11 +25,16 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
-  { name: 'nostr.band', base: 'https://nostr.band/' },
   { name: 'nostx.io', base: 'https://nostx.io/' },
 ];
 
-export type ExplorerItem = { name: string; href: string };
+export const ARTICLE_EXPLORERS: readonly ExplorerLink[] = [
+  { name: 'Boris', base: 'https://read.withboris.com/a/' },
+  { name: 'Habla', base: 'https://habla.news/a/' },
+  { name: 'Primal', base: 'https://primal.net/e/' },
+] as const;
+
+export type ExplorerItem = { name: string; href: string; dividerAfter?: boolean };
 
 export function createProfileExplorerItems(npub: string, pubkey?: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = PROFILE_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${npub}` }));
@@ -58,4 +62,13 @@ export function createEventExplorerItems(nevent: string): readonly ExplorerItem[
   return items;
 }
 
-
+/**
+ * Build article-specific portals that render NIP-23 content well from an `naddr`.
+ */
+export function createArticleExplorerItems(naddr: string): readonly ExplorerItem[] {
+  return ARTICLE_EXPLORERS.map((p, idx) => ({
+    name: p.name,
+    href: `${p.base}${naddr}`,
+    dividerAfter: idx === ARTICLE_EXPLORERS.length - 1,
+  }));
+}

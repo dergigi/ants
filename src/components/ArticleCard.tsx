@@ -12,7 +12,7 @@ import ArticleMarkdown from '@/components/ArticleMarkdown';
 import ExplorerPortalMenu, { type ExplorerMenuItem } from '@/components/ExplorerPortalMenu';
 import RawEventJson from '@/components/RawEventJson';
 import Image from 'next/image';
-import { createEventExplorerItems } from '@/lib/portals';
+import { createArticleExplorerItems, createEventExplorerItems } from '@/lib/portals';
 import { extractArticleMetadata, formatArticleDate, truncateMarkdown } from '@/lib/utils/articleUtils';
 import { calculateAbsoluteMenuPosition } from '@/lib/utils';
 import { NDKUser } from '@nostr-dev-kit/ndk';
@@ -61,8 +61,9 @@ export default function ArticleCard({
     if (!articleNostrId) return { portalItems: [], clientItems: [] };
 
     const items = createEventExplorerItems(articleNostrId);
+    const articleItems = meta.naddr ? createArticleExplorerItems(meta.naddr) : [];
     return {
-      portalItems: items.slice(0, -2),
+      portalItems: [...articleItems, ...items.slice(0, -2)],
       clientItems: items.slice(-2),
     };
   };
