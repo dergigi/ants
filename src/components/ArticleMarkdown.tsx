@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import remarkNostrLinks from '@/lib/remarkNostrLinks';
 import NostrProfileLink from '@/components/NostrProfileLink';
 
@@ -10,81 +11,110 @@ interface ArticleMarkdownProps {
   content: string;
 }
 
+function joinClasses(...classes: Array<string | undefined>): string {
+  return classes.filter(Boolean).join(' ');
+}
+
+function withoutNode<T extends object>(props: T): T {
+  const domProps = { ...props } as T & { node?: unknown };
+  delete domProps.node;
+  return domProps;
+}
+
 /**
  * Renders markdown content for NIP-23 long-form articles.
  * Sanitizes links to open in new tabs and styles elements to match the app theme.
  */
 export default function ArticleMarkdown({ content }: ArticleMarkdownProps) {
+  const scrollToHash = (href: string) => {
+    const targetId = decodeURIComponent(href.slice(1));
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    window.history.replaceState(null, '', href);
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="article-markdown prose prose-invert prose-sm max-w-none">
       <Markdown
-        remarkPlugins={[remarkNostrLinks]}
+        remarkPlugins={[remarkGfm, remarkNostrLinks]}
         components={{
-          a: ({ href, title, children }) => {
+          a: ({ href, title, children, className, ...props }) => {
             const isProfile = href?.startsWith('/p/');
             if (isProfile && title && href) {
               return <NostrProfileLink token={title} href={href} />;
             }
-            const isInternal = href?.startsWith('/');
+            const isHashLink = href?.startsWith('#');
+            const isInternal = href?.startsWith('/') || isHashLink;
             return (
               <a
+                {...withoutNode(props)}
                 href={href}
                 target={isInternal ? undefined : '_blank'}
                 rel={isInternal ? undefined : 'noopener noreferrer'}
-                className="text-blue-400 hover:text-blue-300 hover:underline"
+                className={joinClasses(
+                  'text-blue-400 hover:text-blue-300 hover:underline',
+                  className,
+                )}
+                onClick={isHashLink && href ? (e) => {
+                  e.preventDefault();
+                  scrollToHash(href);
+                } : undefined}
               >
                 {children}
               </a>
             );
           },
-          h1: ({ children }) => (
-            <h1 className="text-xl font-bold text-gray-100 mt-4 mb-2">{children}</h1>
+          h1: ({ children, className, ...props }) => (
+            <h1 {...withoutNode(props)} className={joinClasses('text-xl font-bold text-gray-100 mt-4 mb-2', className)}>{children}</h1>
           ),
-          h2: ({ children }) => (
-            <h2 className="text-lg font-semibold text-gray-100 mt-3 mb-2">{children}</h2>
+          h2: ({ children, className, ...props }) => (
+            <h2 {...withoutNode(props)} className={joinClasses('text-lg font-semibold text-gray-100 mt-3 mb-2', className)}>{children}</h2>
           ),
-          h3: ({ children }) => (
-            <h3 className="text-base font-semibold text-gray-200 mt-3 mb-1">{children}</h3>
+          h3: ({ children, className, ...props }) => (
+            <h3 {...withoutNode(props)} className={joinClasses('text-base font-semibold text-gray-200 mt-3 mb-1', className)}>{children}</h3>
           ),
-          p: ({ children }) => (
-            <p className="text-gray-100 mb-2 leading-relaxed">{children}</p>
+          p: ({ children, className, ...props }) => (
+            <p {...withoutNode(props)} className={joinClasses('text-gray-100 mb-2 leading-relaxed', className)}>{children}</p>
           ),
-          ul: ({ children }) => (
-            <ul className="list-disc list-inside text-gray-100 mb-2 space-y-1">{children}</ul>
+          ul: ({ children, className, ...props }) => (
+            <ul {...withoutNode(props)} className={joinClasses('list-disc list-inside text-gray-100 mb-2 space-y-1', className)}>{children}</ul>
           ),
-          ol: ({ children }) => (
-            <ol className="list-decimal list-inside text-gray-100 mb-2 space-y-1">{children}</ol>
+          ol: ({ children, className, ...props }) => (
+            <ol {...withoutNode(props)} className={joinClasses('list-decimal list-inside text-gray-100 mb-2 space-y-1', className)}>{children}</ol>
           ),
-          li: ({ children }) => (
-            <li className="text-gray-100">{children}</li>
+          li: ({ children, className, ...props }) => (
+            <li {...withoutNode(props)} className={joinClasses('text-gray-100', className)}>{children}</li>
           ),
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-gray-500 pl-3 my-2 text-gray-300 italic">
+          blockquote: ({ children, className, ...props }) => (
+            <blockquote {...withoutNode(props)} className={joinClasses('border-l-2 border-gray-500 pl-3 my-2 text-gray-300 italic', className)}>
               {children}
             </blockquote>
           ),
-          code: ({ children, className }) => {
+          code: ({ children, className, ...props }) => {
             const isBlock = className?.includes('language-');
             if (isBlock) {
               return (
                 <pre className="bg-[#1a1a1a] rounded p-3 my-2 overflow-x-auto">
-                  <code className="text-sm text-gray-200">{children}</code>
+                  <code {...withoutNode(props)} className={joinClasses('text-sm text-gray-200', className)}>{children}</code>
                 </pre>
               );
             }
             return (
-              <code className="bg-[#1a1a1a] text-gray-200 px-1 py-0.5 rounded text-sm">
+              <code {...withoutNode(props)} className={joinClasses('bg-[#1a1a1a] text-gray-200 px-1 py-0.5 rounded text-sm', className)}>
                 {children}
               </code>
             );
           },
           pre: ({ children }) => <>{children}</>,
-          hr: () => <hr className="border-[#3d3d3d] my-3" />,
-          img: ({ src, alt }) => (
+          hr: ({ className, ...props }) => <hr {...withoutNode(props)} className={joinClasses('border-[#3d3d3d] my-3', className)} />,
+          img: ({ src, alt, className, ...props }) => (
             <img
+              {...withoutNode(props)}
               src={src}
               alt={alt || ''}
-              className="max-w-full rounded my-2"
+              className={joinClasses('max-w-full rounded my-2', className)}
               loading="lazy"
             />
           ),
