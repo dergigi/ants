@@ -135,8 +135,6 @@ export function useUrlSync(options: {
     const currentProfileNpub = getCurrentProfileNpub(pathname);
 
     const executeSearch = (displayValue: string, backendValue: string) => {
-      if (lastHashQueryRef.current === displayValue) return;
-      lastHashQueryRef.current = displayValue;
       setQuery(displayValue);
       lastExecutedQueryRef.current = displayValue;
       handleSearch(backendValue);

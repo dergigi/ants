@@ -56,7 +56,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
   } = options;
   const router = useRouter();
   const pathname = usePathname();
-  const { currentSearchId, abortControllerRef, suppressSearchRef, lastIdentifierRedirectRef, initialSearchDoneRef, initialQueryNormalizedRef, initialQueryRef, lastHashQueryRef } = refs;
+  const { currentSearchId, abortControllerRef, suppressSearchRef, lastIdentifierRedirectRef, initialSearchDoneRef, initialQueryNormalizedRef, initialQueryRef, lastHashQueryRef, lastExecutedQueryRef } = refs;
 
   // Helper to determine if current query is a direct identifier query
   const isDirectQuery = useMemo(() => {
@@ -147,6 +147,14 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
+
+    // Mark this URL state as already handled so URL sync does not immediately re-run the same search.
+    // On profile pages, compare against the implicit URL form without the matching by:<current profile> token.
+    const currentProfileNpubForUrl = getCurrentProfileNpub(pathname);
+    lastHashQueryRef.current = currentProfileNpubForUrl
+      ? toImplicitUrlQuery(searchQuery, currentProfileNpubForUrl)
+      : searchQuery.trim();
+    lastExecutedQueryRef.current = searchQuery;
 
     // Always update URL to reflect the current search
     updateUrlForSearch(searchQuery);
@@ -337,7 +345,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
 
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
