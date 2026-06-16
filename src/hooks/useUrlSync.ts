@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 import { getCurrentProfileNpub, toImplicitUrlQuery, toExplicitInputFromUrl, ensureAuthorForBackend, decodeUrlQuery } from '@/lib/search/queryTransforms';
@@ -126,6 +126,16 @@ export function useUrlSync(options: {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { initialQueryRef, initialQueryNormalizedRef, initialSearchDoneRef, lastHashQueryRef, lastExecutedQueryRef } = refs;
+  const handleSearchRef = useRef(handleSearch);
+  const runSlashCommandRef = useRef(runSlashCommand);
+
+  useEffect(() => {
+    handleSearchRef.current = handleSearch;
+  }, [handleSearch]);
+
+  useEffect(() => {
+    runSlashCommandRef.current = runSlashCommand;
+  }, [runSlashCommand]);
 
   useEffect(() => {
     if (!manageUrl) return;
@@ -137,7 +147,7 @@ export function useUrlSync(options: {
     const executeSearch = (displayValue: string, backendValue: string) => {
       setQuery(displayValue);
       lastExecutedQueryRef.current = displayValue;
-      handleSearch(backendValue);
+      handleSearchRef.current(backendValue);
     };
 
     if (currentProfileNpub) {
@@ -161,7 +171,7 @@ export function useUrlSync(options: {
 
       if (isSlashCommand(normalizedQuery)) {
         executeSearch(normalizedQuery, normalizedQuery);
-        const unknownCmd = runSlashCommand(normalizedQuery);
+        const unknownCmd = runSlashCommandRef.current(normalizedQuery);
         if (unknownCmd) {
           setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
           setTopExamples(null);
@@ -194,7 +204,7 @@ export function useUrlSync(options: {
 
     if (isSlashCommand(normalizedQuery)) {
       executeSearch(normalizedQuery, normalizedQuery);
-      const unknownCmd = runSlashCommand(normalizedQuery);
+      const unknownCmd = runSlashCommandRef.current(normalizedQuery);
       if (unknownCmd) {
         setTopCommandText(buildCli(unknownCmd, 'Unknown command'));
         setTopExamples(null);
@@ -204,7 +214,7 @@ export function useUrlSync(options: {
     }
 
     executeSearch(normalizedQuery, normalizedQuery);
-  }, [manageUrl, searchParams, pathname, router, runSlashCommand, handleSearch, profileScopeUser, profileIdentifier, setQuery, setTopCommandText, setTopExamples, setKindsRules, lastHashQueryRef, lastExecutedQueryRef, initialQueryNormalizedRef]);
+  }, [manageUrl, searchParams, pathname, router, profileScopeUser, profileIdentifier, setQuery, setTopCommandText, setTopExamples, setKindsRules, lastHashQueryRef, lastExecutedQueryRef, initialQueryNormalizedRef]);
 
   // Reset query tracking refs when the initialQuery prop changes
   useEffect(() => {
