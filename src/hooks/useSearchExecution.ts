@@ -154,7 +154,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     lastHashQueryRef.current = currentProfileNpubForUrl
       ? toImplicitUrlQuery(searchQuery, currentProfileNpubForUrl)
       : searchQuery.trim();
-    lastExecutedQueryRef.current = searchQuery;
 
     // Always update URL to reflect the current search
     updateUrlForSearch(searchQuery);
@@ -267,6 +266,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
+      lastExecutedQueryRef.current = scopedQuery;
 
       // Choose relay set based on query type
       let relaySet: NDKRelaySet | undefined;
