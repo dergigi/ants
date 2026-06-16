@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { expandParenthesizedOr, parseOrQuery } from '@/lib/search/queryTransforms';
-import { resolveAuthorToNpub } from '@/lib/vertex';
+import { resolveScopedAuthorTokens } from '@/lib/search/queryPreprocessing';
 import { applySimpleReplacements } from '@/lib/search/replacements';
 import { resolveRelativeDates } from '@/lib/search/relativeDates';
-import { getStoredPubkey } from '@/lib/nip07';
 import { nip19 } from 'nostr-tools';
 import { getLastReducedFilters } from '@/lib/ndk';
 
@@ -62,55 +61,6 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       // 2) Recursive OR substitution (distribute parentheses)
       const distributed = expandParenthesizedOr(afterReplacements);
 
-      const resolveAuthorToken = async (token: string): Promise<string> => {
-        if (/^npub1[0-9a-z]+$/i.test(token)) return token;
-        if (/^@me$/i.test(token)) {
-          try {
-            const storedPubkey = getStoredPubkey();
-            return storedPubkey ? nip19.npubEncode(storedPubkey) : token;
-          } catch {
-            return token;
-          }
-        }
-
-        if (authorResolutionCache.current.has(token)) {
-          return authorResolutionCache.current.get(token) || token;
-        }
-
-        try {
-          const npub = await resolveAuthorToNpub(token);
-          if (npub) {
-            authorResolutionCache.current.set(token, npub);
-            return npub;
-          }
-        } catch {}
-
-        return token;
-      };
-
-      // Helper: resolve all by:/mentions: author tokens within a single query string
-      const resolveAuthorScopedTokensInQuery = async (q: string): Promise<string> => {
-        const rx = /(^|\s)(by|mentions):(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const scope = m[2] || '';
-          const raw = m[3] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          const replacement = skipAuthorResolution ? core : await resolveAuthorToken(core);
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}${scope}:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
-
       // Helper: normalize p:<token> where token may be hex, npub or nprofile
       const resolvePTokensInQuery = (q: string): string => {
         const rx = /(^|\s)p:(\S+)/gi;
@@ -149,7 +99,10 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       // 3) Resolve authors inside each distributed branch (if not skipping)
       const resolvedDistributed = skipAuthorResolution 
         ? distributed 
-        : await Promise.all(distributed.map((q) => resolveAuthorScopedTokensInQuery(q)));
+        : await Promise.all(distributed.map(async (q) => {
+          const resolved = await resolveScopedAuthorTokens(q, { cache: authorResolutionCache.current });
+          return resolved.query;
+        }));
 
       const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
 
