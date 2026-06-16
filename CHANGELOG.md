@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-06-16
+
+### Added
+- Added article card actions for long-form posts, including article portal links, article-specific `naddr` sharing, `nevent` copy, and raw JSON access
+
+### Changed
+- Refreshed the article portal set by restoring Habla, replacing defunct destinations, and removing the imwald portal
+
+### Fixed
+- Restored article footnote rendering and preserved in-article footnote anchor navigation
+- Wait for a relay connection before fetching the profile during login restore so the header avatar resolves correctly
+
 ## [0.4.4] - 2026-06-12
 
 ### Changed
