@@ -6,7 +6,7 @@ export function detectSearchType(query: string): 'profile' | 'media' | 'text' | 
   const trimmedQuery = query.trim().toLowerCase();
   
   // Check for profile searches (p: prefix)
-  if (trimmedQuery.includes('p:') || trimmedQuery.includes('by:')) {
+  if (trimmedQuery.includes('p:') || trimmedQuery.includes('by:') || trimmedQuery.includes('is:muted') || trimmedQuery.includes('kind:10000')) {
     return 'profile';
   }
   

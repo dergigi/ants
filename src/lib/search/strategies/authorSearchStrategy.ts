@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { resolveAuthor } from '../../vertex';
+import { profileEventFromPubkey, resolveAuthor } from '../../vertex';
 import { RELAYS } from '../../relays';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
@@ -10,6 +10,46 @@ import { searchByAnyTerms } from '../termSearch';
 import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
+
+function extractMuteListPubkeys(events: NDKEvent[]): string[] {
+  const newestByAuthor = new Map<string, NDKEvent>();
+
+  for (const event of sortEventsNewestFirst(events)) {
+    const authorPubkey = event.pubkey || event.author?.pubkey;
+    if (!authorPubkey || newestByAuthor.has(authorPubkey)) continue;
+    newestByAuthor.set(authorPubkey, event);
+  }
+
+  const seen = new Set<string>();
+  const pubkeys: string[] = [];
+
+  for (const event of newestByAuthor.values()) {
+    for (const tag of event.tags as string[][]) {
+      const rawPubkey = Array.isArray(tag) && tag[0] === 'p' && typeof tag[1] === 'string' ? tag[1] : '';
+      const pubkey = rawPubkey.trim().toLowerCase();
+      if (!/^[0-9a-f]{64}$/i.test(pubkey) || seen.has(pubkey)) continue;
+      seen.add(pubkey);
+      pubkeys.push(pubkey);
+    }
+  }
+
+  return pubkeys;
+}
+
+async function expandMuteListResults(events: NDKEvent[]): Promise<NDKEvent[]> {
+  const pubkeys = extractMuteListPubkeys(events);
+  if (pubkeys.length === 0) return [];
+
+  const profiles = await Promise.all(pubkeys.map(async (pubkey) => {
+    try {
+      return await profileEventFromPubkey(pubkey);
+    } catch {
+      return null;
+    }
+  }));
+
+  return profiles.filter((event): event is NDKEvent => event !== null);
+}
 
 /**
  * Handle author filter queries (by:<author>)
@@ -139,7 +179,11 @@ export async function tryHandleAuthorSearch(
   mergedResults = Array.from(dedupe.values());
   // Do not enforce additional client-side text match; rely on relay-side search
   const filtered = mergedResults;
+
+  if (effectiveKinds.length === 1 && effectiveKinds[0] === 10000 && !termStr) {
+    const profiles = await expandMuteListResults(filtered);
+    if (profiles.length > 0) return profiles;
+  }
   
   return sortEventsNewestFirst(filtered).slice(0, limit);
 }
-
