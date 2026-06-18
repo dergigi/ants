@@ -14,21 +14,13 @@ import { SearchContext } from '../types';
 const MUTE_LIST_PROFILE_BATCH_SIZE = 20;
 
 /**
- * Collect muted pubkeys from the newest mute list event per author.
+ * Collect muted pubkeys from the fetched mute-list events.
  */
 function extractMuteListPubkeys(events: NDKEvent[]): string[] {
-  const newestByAuthor = new Map<string, NDKEvent>();
-
-  for (const event of sortEventsNewestFirst(events)) {
-    const authorPubkey = event.pubkey || event.author?.pubkey;
-    if (!authorPubkey || newestByAuthor.has(authorPubkey)) continue;
-    newestByAuthor.set(authorPubkey, event);
-  }
-
   const seen = new Set<string>();
   const pubkeys: string[] = [];
 
-  for (const event of newestByAuthor.values()) {
+  for (const event of sortEventsNewestFirst(events)) {
     for (const tag of event.tags as string[][]) {
       const rawPubkey = Array.isArray(tag) && tag[0] === 'p' && typeof tag[1] === 'string' ? tag[1] : '';
       const pubkey = rawPubkey.trim().toLowerCase();
