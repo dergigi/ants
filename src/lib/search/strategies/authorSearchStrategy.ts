@@ -11,6 +11,11 @@ import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { SearchContext } from '../types';
 
+const MUTE_LIST_PROFILE_BATCH_SIZE = 20;
+
+/**
+ * Collect muted pubkeys from the newest mute list event per author.
+ */
 function extractMuteListPubkeys(events: NDKEvent[]): string[] {
   const newestByAuthor = new Map<string, NDKEvent>();
 
@@ -36,19 +41,29 @@ function extractMuteListPubkeys(events: NDKEvent[]): string[] {
   return pubkeys;
 }
 
+/**
+ * Resolve muted pubkeys into profile events without fanning out unbounded requests.
+ */
 async function expandMuteListResults(events: NDKEvent[]): Promise<NDKEvent[]> {
   const pubkeys = extractMuteListPubkeys(events);
   if (pubkeys.length === 0) return [];
 
-  const profiles = await Promise.all(pubkeys.map(async (pubkey) => {
-    try {
-      return await profileEventFromPubkey(pubkey);
-    } catch {
-      return null;
-    }
-  }));
+  const results: NDKEvent[] = [];
 
-  return profiles.filter((event): event is NDKEvent => event !== null);
+  for (let i = 0; i < pubkeys.length; i += MUTE_LIST_PROFILE_BATCH_SIZE) {
+    const batch = pubkeys.slice(i, i + MUTE_LIST_PROFILE_BATCH_SIZE);
+    const profiles = await Promise.all(batch.map(async (pubkey) => {
+      try {
+        return await profileEventFromPubkey(pubkey);
+      } catch {
+        return null;
+      }
+    }));
+
+    results.push(...profiles.filter((event): event is NDKEvent => event !== null));
+  }
+
+  return results;
 }
 
 /**
@@ -182,7 +197,7 @@ export async function tryHandleAuthorSearch(
 
   if (effectiveKinds.length === 1 && effectiveKinds[0] === 10000 && !termStr) {
     const profiles = await expandMuteListResults(filtered);
-    if (profiles.length > 0) return profiles;
+    return profiles.slice(0, limit);
   }
   
   return sortEventsNewestFirst(filtered).slice(0, limit);
