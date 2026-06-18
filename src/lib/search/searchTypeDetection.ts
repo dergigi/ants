@@ -1,12 +1,17 @@
+const MUTED_TOKEN_RX = /(?:^|\s)is:muted(?=$|[\s),.;])/;
+const KIND_10000_TOKEN_RX = /(?:^|\s)kind:10000(?=$|[\s),.;])/;
+
 /**
  * Detects the type of search based on query patterns
  * Used to determine appropriate placeholder components
  */
 export function detectSearchType(query: string): 'profile' | 'media' | 'text' | 'generic' {
   const trimmedQuery = query.trim().toLowerCase();
-  
+  const hasMutedToken = MUTED_TOKEN_RX.test(trimmedQuery);
+  const hasKind10000Token = KIND_10000_TOKEN_RX.test(trimmedQuery);
+
   // Check for profile searches (p: prefix)
-  if (trimmedQuery.includes('p:') || trimmedQuery.includes('by:')) {
+  if (trimmedQuery.includes('p:') || trimmedQuery.includes('by:') || hasMutedToken || hasKind10000Token) {
     return 'profile';
   }
   

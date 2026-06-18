@@ -1,6 +1,6 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { resolveAuthor } from '../../vertex';
+import { profileEventFromPubkey, resolveAuthor } from '../../vertex';
 import { RELAYS } from '../../relays';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
@@ -9,7 +9,78 @@ import { subscribeAndCollect } from '../subscriptions';
 import { searchByAnyTerms } from '../termSearch';
 import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
+import { setMuteListResultData } from '../muteListResultData';
 import { SearchContext } from '../types';
+
+const MUTE_LIST_PROFILE_BATCH_SIZE = 20;
+
+/**
+ * Collect muted pubkeys from the fetched mute-list events.
+ */
+function extractMuteListPubkeys(events: NDKEvent[]): string[] {
+  const seen = new Set<string>();
+  const pubkeys: string[] = [];
+
+  for (const event of sortEventsNewestFirst(events)) {
+    for (const tag of event.tags as string[][]) {
+      const rawPubkey = Array.isArray(tag) && tag[0] === 'p' && typeof tag[1] === 'string' ? tag[1] : '';
+      const pubkey = rawPubkey.trim().toLowerCase();
+      if (!/^[0-9a-f]{64}$/i.test(pubkey) || seen.has(pubkey)) continue;
+      seen.add(pubkey);
+      pubkeys.push(pubkey);
+    }
+  }
+
+  return pubkeys;
+}
+
+/**
+ * Resolve muted pubkeys into profile events without fanning out unbounded requests.
+ */
+async function expandMuteListResults(events: NDKEvent[]): Promise<{ pubkeys: string[]; profiles: NDKEvent[] }> {
+  const pubkeys = extractMuteListPubkeys(events);
+  if (pubkeys.length === 0) {
+    return { pubkeys: [], profiles: [] };
+  }
+
+  const profiles: NDKEvent[] = [];
+
+  for (let i = 0; i < pubkeys.length; i += MUTE_LIST_PROFILE_BATCH_SIZE) {
+    const batch = pubkeys.slice(i, i + MUTE_LIST_PROFILE_BATCH_SIZE);
+    const resolvedProfiles = await Promise.all(batch.map(async (pubkey) => {
+      try {
+        return await profileEventFromPubkey(pubkey);
+      } catch {
+        return null;
+      }
+    }));
+
+    profiles.push(...resolvedProfiles.filter((event): event is NDKEvent => event !== null));
+  }
+
+  return { pubkeys, profiles };
+}
+
+function isMuteListProfileSearch(effectiveKinds: number[], terms: string): boolean {
+  return effectiveKinds.length === 1 && effectiveKinds[0] === 10000 && !terms.trim();
+}
+
+function emitMuteListPartialResults(events: NDKEvent[], onPartialResults?: (results: NDKEvent[]) => void): void {
+  if (!onPartialResults) return;
+
+  const representative = sortEventsNewestFirst(events)[0];
+  if (!representative) {
+    onPartialResults([]);
+    return;
+  }
+
+  setMuteListResultData(representative, {
+    pubkeys: extractMuteListPubkeys(events),
+    profiles: []
+  });
+
+  onPartialResults([representative]);
+}
 
 /**
  * Handle author filter queries (by:<author>)
@@ -43,6 +114,11 @@ export async function tryHandleAuthorSearch(
     return [];
   }
 
+  const isMuteListSearch = isMuteListProfileSearch(effectiveKinds, terms);
+  const partialResultsHandler = isMuteListSearch
+    ? (events: NDKEvent[]) => emitMuteListPartialResults(events, onPartialResults)
+    : onPartialResults;
+
   const filters: NDKFilter = applyDateFilter({
     kinds: effectiveKinds,
     authors: [pubkey],
@@ -71,7 +147,7 @@ export async function tryHandleAuthorSearch(
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
           const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
-          return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
+          return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
         } catch { return []; }
       }));
       const seen = new Set<string>();
@@ -79,10 +155,10 @@ export async function tryHandleAuthorSearch(
         for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
       }
     } else {
-      res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
+      res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
     }
   } else {
-    res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: onPartialResults });
+    res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
   }
 
   // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
@@ -115,7 +191,7 @@ export async function tryHandleAuthorSearch(
   const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
   const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
   if (res.length === 0) {
-    res = await subscribeAndCollect(filters, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal, onPartial: onPartialResults });
+    res = await subscribeAndCollect(filters, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal, onPartial: partialResultsHandler });
   }
   // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
   // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
@@ -139,7 +215,15 @@ export async function tryHandleAuthorSearch(
   mergedResults = Array.from(dedupe.values());
   // Do not enforce additional client-side text match; rely on relay-side search
   const filtered = mergedResults;
+
+  if (isMuteListSearch) {
+    const representative = sortEventsNewestFirst(filtered)[0];
+    if (!representative) return [];
+
+    const muteListData = await expandMuteListResults(filtered);
+    setMuteListResultData(representative, muteListData);
+    return [representative];
+  }
   
   return sortEventsNewestFirst(filtered).slice(0, limit);
 }
-
