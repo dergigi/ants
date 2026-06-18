@@ -61,7 +61,7 @@ export function extractScopedAuthorTokens(query: string): ScopedAuthorToken[] {
 
   while ((match = AUTHOR_SCOPE_RX.exec(query)) !== null) {
     const pre = match[1] || '';
-    const scope = ((match[2] || '') as 'by' | 'mentions');
+    const scope = (match[2] || '').toLowerCase() as 'by' | 'mentions';
     const raw = match[3] || '';
     const { core, suffix } = splitTokenSuffix(raw);
     tokens.push({
