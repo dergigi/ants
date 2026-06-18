@@ -3,18 +3,16 @@
 import { useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { NDKEvent, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
 import { connect, ConnectionStatus } from '@/lib/ndk';
 import { searchEvents } from '@/lib/search';
-import { resolveAuthorToNpub } from '@/lib/vertex';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
 import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
+import { extractScopedAuthorTokens, isNpubAuthorToken, resolveScopedAuthorTokens } from '@/lib/search/queryPreprocessing';
 import { getProfileScopeIdentifiers, hasProfileScope } from '@/lib/search/profileScope';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { prewarmSearchRuntime } from '@/lib/search/prewarm';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
-import { getStoredPubkey } from '@/lib/nip07';
 import { type SearchViewRefs } from '@/hooks/useSearchViewRefs';
 
 type SearchExecutionOptions = {
@@ -183,26 +181,8 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
 
-    // Expand by:@me / mentions:@me to the logged-in user's npub
-    const atMePattern = /(?:^|\s)(?:by|mentions):@me\b/i;
-    if (atMePattern.test(searchQuery)) {
-      const storedPubkey = getStoredPubkey();
-      if (storedPubkey) {
-        const myNpub = nip19.npubEncode(storedPubkey);
-        searchQuery = searchQuery.replace(/((?:by|mentions):)@me\b/gi, `$1${myNpub}`);
-      } else {
-        triggerLogin();
-        setLoading(false);
-        setResolvingAuthor(false);
-        return;
-      }
-    }
-
-    // Check if we need to resolve an author first
-    const byMatch = searchQuery.match(/(?:^|\s)by:(\S+)(?:\s|$)/i);
-    const mentionsMatch = searchQuery.match(/(?:^|\s)mentions:(\S+)(?:\s|$)/i);
-    const needsAuthorResolution = (byMatch && !/^npub1[0-9a-z]+$/i.test(byMatch[1]))
-      || (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1]));
+    const authorTokens = extractScopedAuthorTokens(searchQuery);
+    const needsAuthorResolution = authorTokens.some(({ core }) => !isNpubAuthorToken(core));
 
     if (needsAuthorResolution) {
       setResolvingAuthor(true);
@@ -214,50 +194,38 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         return;
       }
 
-      // Pre-resolve by:<author> to npub (if needed) BEFORE searching
       let effectiveQuery = searchQuery;
-      if (needsAuthorResolution && byMatch) {
-        const author = (byMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
-        try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        // If we resolved successfully, replace only the matched by: token with the resolved npub.
-        // If resolution failed, proceed without modifying the query; the backend search will fallback.
-        if (resolvedNpub) {
-          // Replace by: token with resolved npub
-          effectiveQuery = effectiveQuery.replace(/(^|\s)by:(\S+)(?=\s|$)/i, (m, pre) => `${pre}by:${resolvedNpub}`);
-
-          // If currently on a profile page and the resolved author differs, navigate there and carry query
-          const onProfilePage = /^\/p\//i.test(pathname || '');
-          const currentProfileMatch = (pathname || '').match(/^\/p\/(npub1[0-9a-z]+)/i);
-          const currentProfileNpub = currentProfileMatch ? currentProfileMatch[1] : null;
-          if (onProfilePage && currentProfileNpub && currentProfileNpub.toLowerCase() !== resolvedNpub.toLowerCase()) {
-            const implicitQ = toImplicitUrlQuery(effectiveQuery, resolvedNpub);
-            const carry = encodeURIComponent(implicitQ);
-            router.push(`/p/${resolvedNpub}?q=${carry}`);
-            setResolvingAuthor(false);
-            setLoading(false);
-            return;
-          }
+      if (authorTokens.length > 0) {
+        const resolvedAuthors = await resolveScopedAuthorTokens(searchQuery, { onMissingMe: 'flag' });
+        if (resolvedAuthors.needsLoginForAtMe) {
+          triggerLogin();
+          setLoading(false);
+          setResolvingAuthor(false);
+          return;
         }
-        // Resolution phase complete (either way)
-        setResolvingAuthor(false);
+
+        effectiveQuery = resolvedAuthors.query;
+
+        const onProfilePage = /^\/p\//i.test(pathname || '');
+        const currentProfileNpub = getCurrentProfileNpub(pathname);
+        const uniqueByAuthors = Array.from(new Set(
+          resolvedAuthors.byAuthors
+            .filter((author) => isNpubAuthorToken(author))
+            .map((author) => author.toLowerCase())
+        ));
+
+        if (onProfilePage && currentProfileNpub && uniqueByAuthors.length === 1 && currentProfileNpub.toLowerCase() !== uniqueByAuthors[0]) {
+          const targetProfileNpub = uniqueByAuthors[0];
+          const implicitQ = toImplicitUrlQuery(effectiveQuery, targetProfileNpub);
+          const carry = encodeURIComponent(implicitQ);
+          router.push(`/p/${targetProfileNpub}?q=${carry}`);
+          setResolvingAuthor(false);
+          setLoading(false);
+          return;
+        }
       }
 
-      if (mentionsMatch && !/^npub1[0-9a-z]+$/i.test(mentionsMatch[1])) {
-        const author = (mentionsMatch[1] || '').trim();
-        let resolvedNpub: string | null = null;
-        try {
-          const TIMEOUT_MS = 2500;
-          const timed = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS));
-          resolvedNpub = (await Promise.race([resolveAuthorToNpub(author), timed])) as string | null;
-        } catch {}
-        if (resolvedNpub) {
-          effectiveQuery = effectiveQuery.replace(/(^|\s)mentions:(\S+)(?=\s|$)/i, (m, pre) => `${pre}mentions:${resolvedNpub}`);
-        }
+      if (needsAuthorResolution) {
         setResolvingAuthor(false);
       }
 
