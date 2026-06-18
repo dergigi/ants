@@ -6,6 +6,7 @@ import { type SlashCommand } from '@/lib/slashCommands';
 import EventCard from '@/components/EventCard';
 import ArticleCard from '@/components/ArticleCard';
 import ProfileCard from '@/components/ProfileCard';
+import MuteListCard from '@/components/MuteListCard';
 import TruncatedText from '@/components/TruncatedText';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
@@ -15,6 +16,7 @@ import NeventSearchButton from '@/components/NeventSearchButton';
 import SearchCommandCard from '@/components/SearchCommandCard';
 import { SearchResultsPlaceholder } from '@/components/Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
+import { getMuteListResultData } from '@/lib/search/muteListResultData';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { extractVideoUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { trimImageUrl } from '@/lib/utils';
@@ -107,6 +109,13 @@ function SearchResultsList({ results, loading, query, isDirectQuery, topCommandT
                   />
                 )}
                 mediaRenderer={renderNoteMedia}
+              />
+            ) : event.kind === 10000 && getMuteListResultData(event) ? (
+              <MuteListCard
+                event={event}
+                onAuthorClick={goToProfile}
+                className={noteCardClasses}
+                footerRight={<NeventSearchButton eventId={event.id} timestamp={formatEventTimestamp(event)} onSearch={handleNeventSearch} />}
               />
             ) : event.kind === 20 ? (
               <EventCard
