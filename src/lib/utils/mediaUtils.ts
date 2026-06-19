@@ -1,9 +1,9 @@
-import { extractImageUrls, extractVideoUrls, extractNonMediaUrls } from '@/lib/utils/urlUtils';
+import { extractAudioUrls, extractImageUrls, extractVideoUrls, extractNonMediaUrls } from '@/lib/utils/urlUtils';
 import { isAbsoluteHttpUrl, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { trimImageUrl } from '@/lib/utils';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'url';
+  type: 'image' | 'video' | 'audio' | 'url';
   src: string;
   index: number;
 }
@@ -21,6 +21,11 @@ export const extractMediaFromContent = (content: string): MediaItem[] => {
     items.push({ type: 'video', src: src.trim(), index });
   });
   
+  // Extract audio links (limit to 2)
+  extractAudioUrls(content).slice(0, 2).forEach((src, index) => {
+    items.push({ type: 'audio', src: src.trim(), index });
+  });
+
   // Extract non-media URLs (limit to 2)
   extractNonMediaUrls(content).slice(0, 2).forEach((src, index) => {
     items.push({ type: 'url', src: src.trim(), index });
