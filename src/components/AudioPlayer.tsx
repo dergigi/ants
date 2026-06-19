@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExternalLink, faMagnifyingGlass, faMusic } from '@fortawesome/free-solid-svg-icons';
-import { isAbsoluteHttpUrl } from '@/lib/utils/urlUtils';
+import { getFilenameFromUrl, isAbsoluteHttpUrl } from '@/lib/utils/urlUtils';
 
 interface AudioPlayerProps {
   src: string;
@@ -12,12 +12,14 @@ export default function AudioPlayer({ src, onClickSearch }: AudioPlayerProps) {
     return null;
   }
 
+  const extension = getFilenameFromUrl(src).match(/\.([a-z0-9]+)$/i)?.[1]?.toUpperCase();
+
   return (
     <div className="rounded-md border border-[#3d3d3d] bg-[#1f1f1f] p-3">
       <div className="mb-2 flex items-center justify-between gap-3 text-xs text-gray-400">
         <span className="flex items-center gap-2 truncate">
           <FontAwesomeIcon icon={faMusic} className="text-[10px]" />
-          <span>Audio</span>
+          {extension ? <span>{extension}</span> : null}
         </span>
         <div className="flex items-center gap-2">
           {onClickSearch ? (
