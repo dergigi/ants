@@ -1,0 +1,4 @@
+graphify-out/
+docs/code-map/graphify-out/
+.next/
+node_modules/
