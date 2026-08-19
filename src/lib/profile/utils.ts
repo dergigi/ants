@@ -1,6 +1,6 @@
 import { NDKEvent, NDKUser, NDKRelay } from '@nostr-dev-kit/ndk';
 import { ndk, safeSubscribe, markRelayActivity } from '../ndk';
-import { getNip50SearchRelaySet } from '../relays';
+import { RELAYS, getNip50RelaySet } from '../relays';
 import { NDKSubscriptionCacheUsage, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getCachedProfileEvent, setCachedProfileEvent } from './profile-event-cache';
 import { trackEventRelay } from '../eventRelayTracking';
@@ -61,7 +61,7 @@ export async function subscribeAndCollectProfiles(filter: NDKFilter, timeoutMs: 
     const collected: Map<string, NDKEvent> = new Map();
 
     (async () => {
-      const relaySet = await getNip50SearchRelaySet();
+      const relaySet = await getNip50RelaySet([...RELAYS.PROFILE_SEARCH]);
       const sub = safeSubscribe(
         [filter],
         { closeOnEose: true, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, relaySet }
