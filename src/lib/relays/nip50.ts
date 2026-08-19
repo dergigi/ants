@@ -1,16 +1,107 @@
 import { NDKRelaySet } from '@nostr-dev-kit/ndk';
+import { RELAY_NIP50_BEHAVIOR_CACHE_DURATION } from '../constants';
 import { getStoredPubkey } from '../nip07';
 import { getUserRelayAdditions } from '../storage';
 import { RELAYS, createRelaySet } from './config';
 import { getRelayInfo } from './infoCache';
+import { discoverNip66SearchRelays } from './nip66';
 import { extendWithUserAndPremium } from './userDiscovery';
+
+type SearchProbeResult = {
+  opened: boolean;
+  events: number;
+  eose: boolean;
+  closed: boolean;
+  error: boolean;
+};
+
+const NIP50_PROBE_TIMEOUT_MS = 2500;
+const NIP50_SANITY_SEARCH = 'nostr';
+const nip50BehaviorCache = new Map<string, { supportsSearch: boolean; timestamp: number }>();
+
+function canProbeRelayBehavior(): boolean {
+  return typeof WebSocket !== 'undefined';
+}
+
+function probeSearch(relayUrl: string, search: string): Promise<SearchProbeResult> {
+  return new Promise((resolve) => {
+    let ws: WebSocket | null = null;
+    let settled = false;
+    let events = 0;
+    let opened = false;
+    const subId = `ants-nip50-${Math.random().toString(16).slice(2)}`;
+
+    const finish = (result: Omit<SearchProbeResult, 'opened' | 'events'>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(['CLOSE', subId]));
+      } catch {}
+      try { ws?.close(); } catch {}
+      resolve({ opened, events, ...result });
+    };
+
+    const timer = setTimeout(() => finish({ eose: false, closed: false, error: false }), NIP50_PROBE_TIMEOUT_MS);
+
+    try {
+      ws = new WebSocket(relayUrl);
+    } catch {
+      finish({ eose: false, closed: false, error: true });
+      return;
+    }
+
+    ws.onopen = () => {
+      opened = true;
+      ws?.send(JSON.stringify(['REQ', subId, { kinds: [1], search, limit: 1 }]));
+    };
+
+    ws.onerror = () => finish({ eose: false, closed: false, error: true });
+
+    ws.onmessage = (message: MessageEvent) => {
+      if (typeof message.data !== 'string') return;
+
+      try {
+        const data = JSON.parse(message.data) as unknown[];
+        if (data[0] === 'EVENT' && data[1] === subId) events += 1;
+        if (data[0] === 'EOSE' && data[1] === subId) finish({ eose: true, closed: false, error: false });
+        if (data[0] === 'CLOSED' && data[1] === subId) finish({ eose: false, closed: true, error: false });
+      } catch {}
+    };
+  });
+}
+
+async function verifiesSearchBehavior(relayUrl: string): Promise<boolean> {
+  if (!canProbeRelayBehavior()) return true;
+
+  const cached = nip50BehaviorCache.get(relayUrl);
+  if (cached && Date.now() - cached.timestamp < RELAY_NIP50_BEHAVIOR_CACHE_DURATION) {
+    return cached.supportsSearch;
+  }
+
+  const bogusSearch = `ants-nip50-probe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const bogusProbe = await probeSearch(relayUrl, bogusSearch);
+
+  let supportsSearch = false;
+  if (bogusProbe.opened && !bogusProbe.error && bogusProbe.events === 0) {
+    const sanityProbe = await probeSearch(relayUrl, NIP50_SANITY_SEARCH);
+    supportsSearch = sanityProbe.opened
+      && !sanityProbe.error
+      && !sanityProbe.closed
+      && (sanityProbe.eose || sanityProbe.events > 0);
+  }
+
+  nip50BehaviorCache.set(relayUrl, { supportsSearch, timestamp: Date.now() });
+  return supportsSearch;
+}
 
 // Check whether a relay supports NIP-50
 export async function checkNip50Support(relayUrl: string): Promise<{ supportsNip50: boolean; supportedNips: number[] }> {
   const relayInfo = await getRelayInfo(relayUrl);
 
   if (relayInfo.supportedNips) {
-    const supportsNip50 = relayInfo.supportedNips.includes(50);
+    const supportsNip50 = relayInfo.supportedNips.includes(50)
+      && await verifiesSearchBehavior(relayUrl);
     return {
       supportsNip50,
       supportedNips: relayInfo.supportedNips
@@ -85,11 +176,15 @@ function searchRelayCacheKey(): string {
   return `${pubkey}|${manual}`;
 }
 
-function gatherCandidateRelays(): Promise<string[]> {
+async function gatherCandidateRelays(): Promise<string[]> {
   // Curated search relays plus the user's relays, manual additions, premium
-  // relays, and NIP-51 search relays (single discovery call for logged-in
-  // users). NIP-50 filtering happens afterwards.
-  return extendWithUserAndPremium([...RELAYS.SEARCH], { includeSearchRelays: true });
+  // relays, NIP-51 search relays, and NIP-66 discovery hints. NIP-66 data is
+  // only a source of candidates; active NIP-50 filtering happens afterwards.
+  const [configuredRelays, nip66Relays] = await Promise.all([
+    extendWithUserAndPremium([...RELAYS.SEARCH], { includeSearchRelays: true }),
+    discoverNip66SearchRelays()
+  ]);
+  return Array.from(new Set([...configuredRelays, ...nip66Relays]));
 }
 
 // On a cold NIP-11 cache, waiting for every relay check means the slowest
@@ -179,4 +274,5 @@ export function prewarmSearchRelaySet(): void {
 export function clearSearchRelayUrlCache(): void {
   cachedSearchRelayUrls = null;
   inFlightSearchRelayUrls = null;
+  nip50BehaviorCache.clear();
 }

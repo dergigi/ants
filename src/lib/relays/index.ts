@@ -4,11 +4,13 @@ import { RELAYS } from './config';
 import { extendWithUserAndPremium, clearUserRelayCache } from './userDiscovery';
 import { clearRelayInfoCache } from './infoCache';
 import { clearSearchRelayUrlCache } from './nip50';
+import { clearNip66DiscoveryCache } from './nip66';
 
 export { RELAYS, createRelaySet } from './config';
 export { discoverUserRelays, extendWithUserAndPremium } from './userDiscovery';
 export { relayInfoCache, getRelayInfo, clearRelayInfoCache, type RelayInfo } from './infoCache';
 export { checkNip50Support, filterNip50Relays, getNip50RelaySet, getNip50SearchRelaySet, prewarmSearchRelaySet } from './nip50';
+export { discoverNip66SearchRelays, clearNip66DiscoveryCache } from './nip66';
 
 // Pre-configured relay sets
 export const relaySets = {
@@ -32,4 +34,5 @@ export function clearRelayCaches(): void {
   clearRelayInfoCache();
   clearUserRelayCache();
   clearSearchRelayUrlCache();
+  clearNip66DiscoveryCache();
 }
