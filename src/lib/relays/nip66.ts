@@ -8,7 +8,8 @@ type DiscoveryCache = {
   timestamp: number;
 };
 
-const DISCOVERY_LIMIT_PER_RELAY = 80;
+const DISCOVERY_LIMIT_PER_RELAY = 25;
+const MAX_DISCOVERED_SEARCH_RELAYS = 12;
 const DISCOVERY_TIMEOUT_MS = 3000;
 let discoveryCache: DiscoveryCache | null = null;
 let inFlightDiscovery: Promise<string[]> | null = null;
@@ -81,7 +82,7 @@ export async function discoverNip66SearchRelays(): Promise<string[]> {
 
   inFlightDiscovery = Promise.all(RELAYS.NIP66_MONITORS.map(fetchNip66RelaysFrom))
     .then((relayLists) => {
-      const urls = Array.from(new Set(relayLists.flat()));
+      const urls = Array.from(new Set(relayLists.flat())).slice(0, MAX_DISCOVERED_SEARCH_RELAYS);
       discoveryCache = { urls, timestamp: Date.now() };
       return urls;
     })
