@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-08-19
+
+### Added
+- Added NIP-66 relay discovery as a source of candidate NIP-50 search relays
+- Added active NIP-50 behavior probes to reject relays that ignore `search` filters
+
+### Changed
+- Refreshed the hard-coded default, search, and profile search relay lists
+
+### Fixed
+- Prevent stale asynchronous relay probes from refilling cleared relay caches
+- Kept profile lookup on the curated profile search relay set so username resolution stays stable
+
 ## [0.4.5] - 2026-06-16
 
 ### Added
