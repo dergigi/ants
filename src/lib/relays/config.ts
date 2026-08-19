@@ -50,6 +50,13 @@ export const RELAYS = {
     'wss://relay.damus.io',
     'wss://nos.lol',
     'wss://relay.ditto.pub'
+  ],
+
+  // NIP-66 monitor event authors that currently publish useful relay data
+  NIP66_MONITOR_AUTHORS: [
+    '45df0580711f37c547270480d7aed2c7fc03ba5a4f8fef5a8787db0b19343de0',
+    '54b9e0a6f3c73c59d777cc7b9b948a7b9628e238c0d46cc31b71b1d6c7226baf',
+    '6d9717bc8758ddf99bc1b0e325d60bf5c41418dc122d81de6cd1a35138e51fe3'
   ]
 } as const;
 

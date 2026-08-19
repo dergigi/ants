@@ -19,6 +19,7 @@ const NIP50_PROBE_TIMEOUT_MS = 2500;
 const NIP50_SANITY_SEARCH = 'nostr';
 const nip50BehaviorCache = new Map<string, { supportsSearch: boolean; timestamp: number }>();
 const nip50BehaviorInFlight = new Map<string, Promise<boolean>>();
+let searchRelayGeneration = 0;
 
 function canProbeRelayBehavior(): boolean {
   return typeof WebSocket !== 'undefined';
@@ -83,6 +84,7 @@ async function verifiesSearchBehavior(relayUrl: string): Promise<boolean> {
   const existing = nip50BehaviorInFlight.get(relayUrl);
   if (existing) return existing;
 
+  const generation = searchRelayGeneration;
   const verification = (async () => {
     const bogusSearch = `ants-nip50-probe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const bogusProbe = await probeSearch(relayUrl, bogusSearch);
@@ -93,13 +95,17 @@ async function verifiesSearchBehavior(relayUrl: string): Promise<boolean> {
       supportsSearch = sanityProbe.opened
         && !sanityProbe.error
         && !sanityProbe.closed
-        && (sanityProbe.eose || sanityProbe.events > 0);
+        && sanityProbe.events > 0;
     }
 
-    nip50BehaviorCache.set(relayUrl, { supportsSearch, timestamp: Date.now() });
+    if (generation === searchRelayGeneration) {
+      nip50BehaviorCache.set(relayUrl, { supportsSearch, timestamp: Date.now() });
+    }
     return supportsSearch;
   })().finally(() => {
-    nip50BehaviorInFlight.delete(relayUrl);
+    if (nip50BehaviorInFlight.get(relayUrl) === verification) {
+      nip50BehaviorInFlight.delete(relayUrl);
+    }
   });
 
   nip50BehaviorInFlight.set(relayUrl, verification);
@@ -179,7 +185,7 @@ export async function getNip50RelaySet(relayUrls: string[]): Promise<NDKRelaySet
 // re-awaiting the whole pipeline.
 const SEARCH_RELAY_URLS_TTL_MS = 60_000;
 let cachedSearchRelayUrls: { key: string; urls: string[]; timestamp: number } | null = null;
-let inFlightSearchRelayUrls: { key: string; promise: Promise<string[]> } | null = null;
+let inFlightSearchRelayUrls: { key: string; generation: number; promise: Promise<string[]> } | null = null;
 
 function searchRelayCacheKey(): string {
   const pubkey = getStoredPubkey() || 'anon';
@@ -241,6 +247,7 @@ async function getSearchRelayUrls(): Promise<string[]> {
     return inFlightSearchRelayUrls.promise;
   }
 
+  const generation = searchRelayGeneration;
   const early = (async () => {
     const candidates = await gatherCandidateRelays();
 
@@ -249,20 +256,26 @@ async function getSearchRelayUrls(): Promise<string[]> {
     // Full resolution caches its result so later searches use the whole set.
     const full = filterNip50Relays(candidates)
       .then((urls) => {
-        if (urls.length > 0) cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };
+        if (urls.length > 0 && generation === searchRelayGeneration) {
+          cachedSearchRelayUrls = { key, urls, timestamp: Date.now() };
+        }
         return urls;
       })
       .finally(() => {
-        if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
+        if (inFlightSearchRelayUrls?.key === key && inFlightSearchRelayUrls.generation === generation) {
+          inFlightSearchRelayUrls = null;
+        }
       });
 
     return filterNip50RelaysEarly(candidates, full);
   })().catch((error) => {
-    if (inFlightSearchRelayUrls?.key === key) inFlightSearchRelayUrls = null;
+    if (inFlightSearchRelayUrls?.key === key && inFlightSearchRelayUrls.generation === generation) {
+      inFlightSearchRelayUrls = null;
+    }
     throw error;
   });
 
-  inFlightSearchRelayUrls = { key, promise: early };
+  inFlightSearchRelayUrls = { key, generation, promise: early };
   return early;
 }
 
@@ -283,6 +296,7 @@ export function prewarmSearchRelaySet(): void {
 }
 
 export function clearSearchRelayUrlCache(): void {
+  searchRelayGeneration += 1;
   cachedSearchRelayUrls = null;
   inFlightSearchRelayUrls = null;
   nip50BehaviorCache.clear();
