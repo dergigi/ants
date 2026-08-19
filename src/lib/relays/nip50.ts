@@ -18,6 +18,7 @@ type SearchProbeResult = {
 const NIP50_PROBE_TIMEOUT_MS = 2500;
 const NIP50_SANITY_SEARCH = 'nostr';
 const nip50BehaviorCache = new Map<string, { supportsSearch: boolean; timestamp: number }>();
+const nip50BehaviorInFlight = new Map<string, Promise<boolean>>();
 
 function canProbeRelayBehavior(): boolean {
   return typeof WebSocket !== 'undefined';
@@ -79,20 +80,30 @@ async function verifiesSearchBehavior(relayUrl: string): Promise<boolean> {
     return cached.supportsSearch;
   }
 
-  const bogusSearch = `ants-nip50-probe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const bogusProbe = await probeSearch(relayUrl, bogusSearch);
+  const existing = nip50BehaviorInFlight.get(relayUrl);
+  if (existing) return existing;
 
-  let supportsSearch = false;
-  if (bogusProbe.opened && !bogusProbe.error && bogusProbe.events === 0) {
-    const sanityProbe = await probeSearch(relayUrl, NIP50_SANITY_SEARCH);
-    supportsSearch = sanityProbe.opened
-      && !sanityProbe.error
-      && !sanityProbe.closed
-      && (sanityProbe.eose || sanityProbe.events > 0);
-  }
+  const verification = (async () => {
+    const bogusSearch = `ants-nip50-probe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const bogusProbe = await probeSearch(relayUrl, bogusSearch);
 
-  nip50BehaviorCache.set(relayUrl, { supportsSearch, timestamp: Date.now() });
-  return supportsSearch;
+    let supportsSearch = false;
+    if (bogusProbe.opened && !bogusProbe.error && bogusProbe.events === 0) {
+      const sanityProbe = await probeSearch(relayUrl, NIP50_SANITY_SEARCH);
+      supportsSearch = sanityProbe.opened
+        && !sanityProbe.error
+        && !sanityProbe.closed
+        && (sanityProbe.eose || sanityProbe.events > 0);
+    }
+
+    nip50BehaviorCache.set(relayUrl, { supportsSearch, timestamp: Date.now() });
+    return supportsSearch;
+  })().finally(() => {
+    nip50BehaviorInFlight.delete(relayUrl);
+  });
+
+  nip50BehaviorInFlight.set(relayUrl, verification);
+  return verification;
 }
 
 // Check whether a relay supports NIP-50
@@ -275,4 +286,5 @@ export function clearSearchRelayUrlCache(): void {
   cachedSearchRelayUrls = null;
   inFlightSearchRelayUrls = null;
   nip50BehaviorCache.clear();
+  nip50BehaviorInFlight.clear();
 }
