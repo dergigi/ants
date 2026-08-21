@@ -82,6 +82,11 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     handleExampleNext
   } = useSearchUi({ query, loading, setQuery, suppressSearchRef: refs.suppressSearchRef });
 
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    refs.completedSearchKeysRef.current.clear();
+    handleInputChange(e);
+  }, [refs, handleInputChange]);
+
   const {
     runSlashCommand,
     topCommandText,
@@ -268,7 +273,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           resolvingAuthor={resolvingAuthor}
           showExternalButton={showExternalButton}
           profileScopeUser={profileScopeUser}
-          onInputChange={handleInputChange}
+          onInputChange={handleSearchInputChange}
           onClear={handleClear}
           onOpenExternal={handleOpenExternal}
           onSubmit={handleSubmit}

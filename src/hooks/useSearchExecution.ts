@@ -54,7 +54,11 @@ export function useSearchExecution(options: SearchExecutionOptions) {
   } = options;
   const router = useRouter();
   const pathname = usePathname();
-  const { currentSearchId, abortControllerRef, suppressSearchRef, lastIdentifierRedirectRef, initialSearchDoneRef, initialQueryNormalizedRef, initialQueryRef, lastHashQueryRef, lastExecutedQueryRef } = refs;
+  const {
+    currentSearchId, abortControllerRef, suppressSearchRef, lastIdentifierRedirectRef,
+    initialSearchDoneRef, initialQueryNormalizedRef, initialQueryRef,
+    lastHashQueryRef, lastExecutedQueryRef, activeSearchKeysRef, completedSearchKeysRef
+  } = refs;
 
   // Helper to determine if current query is a direct identifier query
   const isDirectQuery = useMemo(() => {
@@ -102,6 +106,9 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
     // Update URL immediately when search is triggered
     const normalizedInput = searchQuery.trim();
+    if (activeSearchKeysRef.current.has(normalizedInput) || completedSearchKeysRef.current.has(normalizedInput)) {
+      return;
+    }
     const nip19Identifiers = extractNip19Identifiers(normalizedInput);
     const identifierToken = nip19Identifiers.length > 0 ? nip19Identifiers[0].trim() : null;
     const identifierLower = identifierToken ? identifierToken.toLowerCase() : null;
@@ -145,6 +152,8 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
+
+    activeSearchKeysRef.current = new Set([normalizedInput]);
 
     // Mark this URL state as already handled so URL sync does not immediately re-run the same search.
     // On profile pages, compare against the implicit URL form without the matching by:<current profile> token.
@@ -234,6 +243,14 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
       const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
       const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
+      const searchKeys = new Set([normalizedInput, scopedQuery.trim()].filter(Boolean));
+      const alreadyCompleted = Array.from(searchKeys).some((key) => completedSearchKeysRef.current.has(key));
+      if (alreadyCompleted) {
+        activeSearchKeysRef.current.clear();
+        return;
+      }
+      activeSearchKeysRef.current = searchKeys;
+      completedSearchKeysRef.current.clear();
       lastExecutedQueryRef.current = scopedQuery;
 
       // Choose relay set based on query type
@@ -289,6 +306,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
       // Check if this was a URL query and if we got 0 results
       setShowExternalButton(isUrlQuery(searchQuery) && filtered.length === 0);
+      completedSearchKeysRef.current = new Set(searchKeys);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
@@ -299,6 +317,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     } finally {
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
+        activeSearchKeysRef.current.clear();
         // Ensure minimum loading time for direct lookups to show animation
         if (minLoadingTime > 0) {
           setTimeout(() => {
@@ -313,7 +332,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, activeSearchKeysRef, completedSearchKeysRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
 
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
