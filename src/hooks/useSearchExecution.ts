@@ -57,10 +57,9 @@ export function useSearchExecution(options: SearchExecutionOptions) {
   const {
     currentSearchId, abortControllerRef, suppressSearchRef, lastIdentifierRedirectRef,
     initialSearchDoneRef, initialQueryNormalizedRef, initialQueryRef,
-    lastHashQueryRef, lastExecutedQueryRef, activeSearchKeysRef, completedSearchKeysRef
+    lastHashQueryRef, lastExecutedQueryRef, activeSearchIdRef, activeSearchKeysRef, completedSearchKeysRef
   } = refs;
 
-  // Helper to determine if current query is a direct identifier query
   const isDirectQuery = useMemo(() => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return false;
@@ -94,7 +93,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (suppressSearchRef.current) {
-      // Clear the flag and ignore this invocation
       suppressSearchRef.current = false;
       return;
     }
@@ -104,7 +102,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       return;
     }
 
-    // Update URL immediately when search is triggered
     const normalizedInput = searchQuery.trim();
     if (activeSearchKeysRef.current.has(normalizedInput) || completedSearchKeysRef.current.has(normalizedInput)) {
       return;
@@ -152,9 +149,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
-
-    activeSearchKeysRef.current = new Set([normalizedInput]);
-
     // Mark this URL state as already handled so URL sync does not immediately re-run the same search.
     // On profile pages, compare against the implicit URL form without the matching by:<current profile> token.
     const currentProfileNpubForUrl = getCurrentProfileNpub(pathname);
@@ -162,20 +156,18 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       ? toImplicitUrlQuery(searchQuery, currentProfileNpubForUrl)
       : searchQuery.trim();
 
-    // Always update URL to reflect the current search
     updateUrlForSearch(searchQuery);
 
-    // Abort any ongoing search
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    // Create new AbortController for this search
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     const searchId = ++currentSearchId.current;
+    activeSearchKeysRef.current = new Set([normalizedInput]);
+    activeSearchIdRef.current = searchId;
 
-    // Clear previous UI immediately
     const isCmd = isSlashCommand(searchQuery);
     if (!isCmd) {
       setTopCommandText(null);
@@ -198,7 +190,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     }
 
     try {
-      // Check if search was aborted before making the call
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
         return;
       }
@@ -206,6 +197,10 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       let effectiveQuery = searchQuery;
       if (authorTokens.length > 0) {
         const resolvedAuthors = await resolveScopedAuthorTokens(searchQuery, { onMissingMe: 'flag' });
+        if (abortController.signal.aborted || currentSearchId.current !== searchId) {
+          return;
+        }
+
         if (resolvedAuthors.needsLoginForAtMe) {
           triggerLogin();
           setLoading(false);
@@ -246,14 +241,17 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       const searchKeys = new Set([normalizedInput, scopedQuery.trim()].filter(Boolean));
       const alreadyCompleted = Array.from(searchKeys).some((key) => completedSearchKeysRef.current.has(key));
       if (alreadyCompleted) {
-        activeSearchKeysRef.current.clear();
+        if (activeSearchIdRef.current === searchId) {
+          activeSearchKeysRef.current.clear();
+          activeSearchIdRef.current = null;
+        }
         return;
       }
       activeSearchKeysRef.current = searchKeys;
+      activeSearchIdRef.current = searchId;
       completedSearchKeysRef.current.clear();
       lastExecutedQueryRef.current = scopedQuery;
 
-      // Choose relay set based on query type
       let relaySet: NDKRelaySet | undefined;
       if (isDirectQuery) {
         // Direct queries (NIP-19): use all relays
@@ -281,7 +279,6 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       }, relaySet, abortController.signal);
       searchSettled = true;
 
-      // Check if search was aborted after getting results
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
         return;
       }
@@ -315,9 +312,12 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       console.error('Search error:', error);
       setResults([]);
     } finally {
+      if (activeSearchIdRef.current === searchId) {
+        activeSearchKeysRef.current.clear();
+        activeSearchIdRef.current = null;
+      }
       // Only update loading state if this is still the current search
       if (currentSearchId.current === searchId) {
-        activeSearchKeysRef.current.clear();
         // Ensure minimum loading time for direct lookups to show animation
         if (minLoadingTime > 0) {
           setTimeout(() => {
@@ -332,7 +332,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, activeSearchKeysRef, completedSearchKeysRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
+  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, activeSearchIdRef, activeSearchKeysRef, completedSearchKeysRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
 
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
@@ -394,11 +394,16 @@ export function useSearchExecution(options: SearchExecutionOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && loading) {
+        const cancelledSearchId = currentSearchId.current;
         // Abort any ongoing search
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
         }
         currentSearchId.current++;
+        if (activeSearchIdRef.current === cancelledSearchId) {
+          activeSearchKeysRef.current.clear();
+          activeSearchIdRef.current = null;
+        }
         setLoading(false);
         setResolvingAuthor(false);
       }
@@ -408,7 +413,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [loading, abortControllerRef, currentSearchId, setLoading, setResolvingAuthor]);
+  }, [loading, abortControllerRef, currentSearchId, activeSearchIdRef, activeSearchKeysRef, setLoading, setResolvingAuthor]);
 
   return { isDirectQuery, handleSearch, handleContentSearch };
 }
