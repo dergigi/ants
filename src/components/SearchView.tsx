@@ -35,6 +35,7 @@ type Props = {
   onUrlUpdate?: (query: string) => void;
 };
 
+/** Renders the search interface and coordinates query state, filters, and URL sync. */
 export default function SearchView({ initialQuery = '', manageUrl = true, onUrlUpdate }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -81,6 +82,12 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
     handleInputChange,
     handleExampleNext
   } = useSearchUi({ query, loading, setQuery, suppressSearchRef: refs.suppressSearchRef });
+
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    refs.completedSearchKeysRef.current.clear();
+    refs.lastExecutedQueryRef.current = null;
+    handleInputChange(e);
+  }, [refs, handleInputChange]);
 
   const {
     runSlashCommand,
@@ -143,11 +150,18 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   const { setClearHandler } = useClearTrigger();
   const handleClear = useCallback(() => {
+    const cancelledSearchId = refs.currentSearchId.current;
     // Abort any ongoing search immediately
     if (refs.abortControllerRef.current) {
       refs.abortControllerRef.current.abort();
     }
     refs.currentSearchId.current++;
+    if (refs.activeSearchIdRef.current === cancelledSearchId) {
+      refs.activeSearchKeysRef.current.clear();
+      refs.activeSearchIdRef.current = null;
+    }
+    refs.completedSearchKeysRef.current.clear();
+    refs.lastExecutedQueryRef.current = null;
     setQuery('');
     setResults([]);
     setLoading(false);
@@ -268,7 +282,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
           resolvingAuthor={resolvingAuthor}
           showExternalButton={showExternalButton}
           profileScopeUser={profileScopeUser}
-          onInputChange={handleInputChange}
+          onInputChange={handleSearchInputChange}
           onClear={handleClear}
           onOpenExternal={handleOpenExternal}
           onSubmit={handleSubmit}
