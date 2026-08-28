@@ -159,6 +159,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       refs.activeSearchKeysRef.current.clear();
       refs.activeSearchIdRef.current = null;
     }
+    refs.completedSearchKeysRef.current.clear();
     setQuery('');
     setResults([]);
     setLoading(false);
