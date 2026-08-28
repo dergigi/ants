@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-08-28
+
+### Fixed
+- Prevent repeated same-query search refreshes from briefly clearing rendered results and showing the loading spinner again
+- Reset completed and last-executed search guards when the search input is edited or cleared
+
 ## [0.4.6] - 2026-08-19
 
 ### Added
