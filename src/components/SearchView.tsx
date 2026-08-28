@@ -85,6 +85,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
 
   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     refs.completedSearchKeysRef.current.clear();
+    refs.lastExecutedQueryRef.current = null;
     handleInputChange(e);
   }, [refs, handleInputChange]);
 
@@ -160,6 +161,7 @@ export default function SearchView({ initialQuery = '', manageUrl = true, onUrlU
       refs.activeSearchIdRef.current = null;
     }
     refs.completedSearchKeysRef.current.clear();
+    refs.lastExecutedQueryRef.current = null;
     setQuery('');
     setResults([]);
     setLoading(false);
