@@ -3,6 +3,7 @@
 import { extractMediaFromContent, getSearchQueryFromMedia, isValidMediaUrl, getTrimmedMediaUrl } from '@/lib/utils/mediaUtils';
 import ImageWithBlurhash from '@/components/ImageWithBlurhash';
 import VideoWithBlurhash from '@/components/VideoWithBlurhash';
+import AudioPlayer from '@/components/AudioPlayer';
 import UrlPreview from '@/components/UrlPreview';
 
 interface NoteMediaProps {
@@ -45,10 +46,20 @@ export default function NoteMedia({ content, onSearch, onUrlLoaded }: NoteMediaP
               className="relative w-full overflow-hidden rounded-md border border-[#3d3d3d] bg-black"
             >
               <VideoWithBlurhash
-                src={item.src}
+                src={getTrimmedMediaUrl(item.src)}
                 onClickSearch={() => onSearch(getSearchQueryFromMedia(item.src))}
               />
             </div>
+          );
+        }
+
+        if (item.type === 'audio') {
+          return (
+            <AudioPlayer
+              key={key}
+              src={getTrimmedMediaUrl(item.src)}
+              onClickSearch={() => onSearch(getSearchQueryFromMedia(item.src))}
+            />
           );
         }
         

@@ -256,14 +256,34 @@ function extractUrlsBase(text: string, filterFn?: (url: string) => boolean): str
   return urls;
 }
 
+const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
+const audioExtRegex = /\.(?:m4a|mp3|wav|flac|aac|opus)(?:$|[?#])/i;
+const ambiguousAudioVideoExtRegex = /\.(?:ogg|webm)(?:$|[?#])/i;
+const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
+
 /**
  * Extract image URLs from text content
  * @param text - The text to search for image URLs
  * @returns Array of image URLs found
  */
 export function extractImageUrls(text: string): string[] {
-  const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
   return extractUrlsBase(text, (url) => imageExtRegex.test(url));
+}
+
+/**
+ * Extract audio URLs from text content
+ * @param text - The text to search for audio URLs
+ * @returns Array of audio URLs found
+ */
+export function extractAudioUrls(text: string): string[] {
+  return extractUrlsBase(text, (url) => audioExtRegex.test(url));
+}
+
+/**
+ * Check if a media URL could be either audio or video based on its extension
+ */
+export function isAmbiguousAudioVideoUrl(url: string): boolean {
+  return ambiguousAudioVideoExtRegex.test(url);
 }
 
 /**
@@ -272,7 +292,6 @@ export function extractImageUrls(text: string): string[] {
  * @returns Array of video URLs found
  */
 export function extractVideoUrls(text: string): string[] {
-  const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
   return extractUrlsBase(text, (url) => videoExtRegex.test(url));
 }
 
@@ -282,9 +301,7 @@ export function extractVideoUrls(text: string): string[] {
  * @returns Array of non-media URLs found
  */
 export function extractNonMediaUrls(text: string): string[] {
-  const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
-  const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
-  return extractUrlsBase(text, (url) => !imageExtRegex.test(url) && !videoExtRegex.test(url));
+  return extractUrlsBase(text, (url) => !imageExtRegex.test(url) && !audioExtRegex.test(url) && !videoExtRegex.test(url));
 }
 
 /**

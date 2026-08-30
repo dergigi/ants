@@ -11,16 +11,17 @@ export const normalizeWhitespace = (text: string): string => {
 };
 
 /**
- * Strips media URLs (images and videos) from text content
+ * Strips media URLs (images, videos, and audio links) from text content
  * Removes various media file extensions and query parameters
  */
 export const stripMediaUrls = (text: string): string => {
   if (!text) return '';
   const cleaned = text
     .replace(/(https?:\/\/[^\s'"<>]+?\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg))(?:[?#][^\s]*)?/gi, '')
+    .replace(/(https?:\/\/[^\s'"<>]+?\.(?:m4a|mp3|wav|flac|aac|opus))(?:[?#][^\s]*)?/gi, '')
     .replace(/(https?:\/\/[^\s'"<>]+?\.(?:mp4|webm|ogg|ogv|mov|m4v))(?:[?#][^\s]*)?/gi, '')
-    .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
-    .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
+    .replace(/\?[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|m4a|mp3|wav|flac|aac|opus|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '')
+    .replace(/\?name=[^\s]*\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg|m4a|mp3|wav|flac|aac|opus|mp4|webm|ogg|ogv|mov|m4v)[^\s]*/gi, '');
   return normalizeWhitespace(cleaned);
 };
 
