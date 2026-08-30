@@ -43,3 +43,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# graphify cache and analysis artifacts
+/docs/code-map/graphify-out/.graphify_*
+/docs/code-map/graphify-out/cache/
+/docs/code-map/graphify-out/manifest.json
+/public/code-map/graphify-out/.graphify_*
+/public/code-map/graphify-out/cache/
+/public/code-map/graphify-out/manifest.json
