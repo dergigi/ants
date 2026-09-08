@@ -27,11 +27,122 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
 const HIGHLIGHT_SPAN_CLASSES = 'inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]';
 const HIGHLIGHT_SPAN_STYLE = { boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as const;
 
+type HighlightMatchRange = {
+  start: number;
+  end: number;
+};
+
 type Props = {
   highlight: HighlightData;
   contentClasses: string;
   renderContent: (content: string) => React.ReactNode;
   onAuthorClick?: (npub: string) => void;
+};
+
+const isWhitespace = (value: string) => /\s/.test(value);
+
+const getWhitespaceAwareMatchEnd = (
+  context: string,
+  content: string,
+  contextStart: number
+): number | null => {
+  let contextIndex = contextStart;
+  let contentIndex = 0;
+
+  while (contentIndex < content.length) {
+    const contentChar = content[contentIndex];
+
+    if (isWhitespace(contentChar)) {
+      if (contextIndex >= context.length || !isWhitespace(context[contextIndex])) {
+        return null;
+      }
+
+      while (contentIndex < content.length && isWhitespace(content[contentIndex])) {
+        contentIndex += 1;
+      }
+
+      while (contextIndex < context.length && isWhitespace(context[contextIndex])) {
+        contextIndex += 1;
+      }
+
+      continue;
+    }
+
+    if (contextIndex >= context.length || context[contextIndex] !== contentChar) {
+      return null;
+    }
+
+    contextIndex += 1;
+    contentIndex += 1;
+  }
+
+  return contextIndex;
+};
+
+const findHighlightMatchRange = (
+  context: string,
+  content: string,
+  fromIndex = 0
+): HighlightMatchRange | null => {
+  const trimmedContent = content.trim();
+
+  if (!trimmedContent) {
+    return null;
+  }
+
+  for (let index = fromIndex; index < context.length; index += 1) {
+    const matchEnd = getWhitespaceAwareMatchEnd(context, trimmedContent, index);
+
+    if (matchEnd !== null) {
+      return {
+        start: index,
+        end: matchEnd
+      };
+    }
+  }
+
+  return null;
+};
+
+const renderParagraphWithHighlight = (paragraph: string, content: string) => {
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  let matchCount = 0;
+
+  while (cursor < paragraph.length) {
+    const range = findHighlightMatchRange(paragraph, content, cursor);
+
+    if (!range) {
+      break;
+    }
+
+    if (range.start > cursor) {
+      parts.push(paragraph.slice(cursor, range.start));
+    }
+
+    parts.push(
+      <span
+        key={`highlight-${matchCount}`}
+        className={HIGHLIGHT_SPAN_CLASSES}
+        style={HIGHLIGHT_SPAN_STYLE}
+      >
+        {paragraph.slice(range.start, range.end)}
+      </span>
+    );
+
+    cursor = range.end;
+    matchCount += 1;
+  }
+
+  if (matchCount === 0) {
+    return paragraph.trim();
+  }
+
+  if (cursor < paragraph.length) {
+    parts.push(paragraph.slice(cursor));
+  }
+
+  return parts;
 };
 
 /** The highlight (NIP-84) rendering: comment, highlighted context, range, and source */
@@ -70,27 +181,9 @@ export default function EventCardHighlight({ highlight, contentClasses, renderCo
             const paragraphs = context.split(/\n\s*\n/).filter(p => p.trim() !== '');
 
             return paragraphs.map((paragraph, index) => {
-              // Check if this paragraph contains the highlighted content
-              const containsHighlight = paragraph.includes(content);
-
               return (
                 <p key={index} className="mb-4 last:mb-0">
-                  {containsHighlight ? (
-                    // Split paragraph around the content and highlight it
-                    paragraph.split(content).map((part, partIndex) => (
-                      <span key={partIndex}>
-                        {part}
-                        {partIndex < paragraph.split(content).length - 1 && (
-                          <span className={HIGHLIGHT_SPAN_CLASSES} style={HIGHLIGHT_SPAN_STYLE}>
-                            {content}
-                          </span>
-                        )}
-                      </span>
-                    ))
-                  ) : (
-                    // Regular paragraph without highlight
-                    paragraph.trim()
-                  )}
+                  {renderParagraphWithHighlight(paragraph, content)}
                 </p>
               );
             });
