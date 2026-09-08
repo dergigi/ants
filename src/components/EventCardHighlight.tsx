@@ -3,7 +3,6 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
-import { compareTwoStrings } from 'string-similarity';
 import { HighlightData } from '@/lib/highlights';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import InlineAuthor from '@/components/InlineAuthor';
@@ -30,6 +29,10 @@ const HIGHLIGHT_SPAN_STYLE = { boxDecorationBreak: 'clone', WebkitBoxDecorationB
 type HighlightMatchRange = {
   start: number;
   end: number;
+};
+
+type HighlightParagraph = HighlightMatchRange & {
+  text: string;
 };
 
 type Props = {
@@ -104,42 +107,105 @@ const findHighlightMatchRange = (
   return null;
 };
 
-const renderParagraphWithHighlight = (paragraph: string, content: string) => {
-  const parts: React.ReactNode[] = [];
+const findAllHighlightMatchRanges = (
+  context: string,
+  content: string
+): HighlightMatchRange[] => {
+  const ranges: HighlightMatchRange[] = [];
   let cursor = 0;
-  let matchCount = 0;
 
-  while (cursor < paragraph.length) {
-    const range = findHighlightMatchRange(paragraph, content, cursor);
+  while (cursor < context.length) {
+    const range = findHighlightMatchRange(context, content, cursor);
 
     if (!range) {
       break;
     }
 
+    ranges.push(range);
+    cursor = range.end;
+  }
+
+  return ranges;
+};
+
+const splitIntoParagraphRanges = (context: string): HighlightParagraph[] => {
+  const paragraphs: HighlightParagraph[] = [];
+  const separator = /\n\s*\n/g;
+  let paragraphStart = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = separator.exec(context)) !== null) {
+    const paragraphEnd = match.index;
+    const text = context.slice(paragraphStart, paragraphEnd);
+
+    if (text.trim() !== '') {
+      paragraphs.push({
+        text,
+        start: paragraphStart,
+        end: paragraphEnd
+      });
+    }
+
+    paragraphStart = match.index + match[0].length;
+  }
+
+  const text = context.slice(paragraphStart);
+
+  if (text.trim() !== '') {
+    paragraphs.push({
+      text,
+      start: paragraphStart,
+      end: context.length
+    });
+  }
+
+  return paragraphs;
+};
+
+const getParagraphHighlightRanges = (
+  paragraph: HighlightParagraph,
+  ranges: HighlightMatchRange[]
+): HighlightMatchRange[] => {
+  return ranges
+    .map((range) => ({
+      start: Math.max(range.start, paragraph.start) - paragraph.start,
+      end: Math.min(range.end, paragraph.end) - paragraph.start
+    }))
+    .filter((range) => range.end > range.start);
+};
+
+const renderParagraphWithHighlight = (
+  paragraph: HighlightParagraph,
+  ranges: HighlightMatchRange[]
+) => {
+  const parts: React.ReactNode[] = [];
+  const paragraphRanges = getParagraphHighlightRanges(paragraph, ranges);
+  let cursor = 0;
+
+  paragraphRanges.forEach((range, index) => {
     if (range.start > cursor) {
-      parts.push(paragraph.slice(cursor, range.start));
+      parts.push(paragraph.text.slice(cursor, range.start));
     }
 
     parts.push(
       <span
-        key={`highlight-${matchCount}`}
+        key={`highlight-${index}`}
         className={HIGHLIGHT_SPAN_CLASSES}
         style={HIGHLIGHT_SPAN_STYLE}
       >
-        {paragraph.slice(range.start, range.end)}
+        {paragraph.text.slice(range.start, range.end)}
       </span>
     );
 
     cursor = range.end;
-    matchCount += 1;
+  });
+
+  if (paragraphRanges.length === 0) {
+    return paragraph.text.trim();
   }
 
-  if (matchCount === 0) {
-    return paragraph.trim();
-  }
-
-  if (cursor < paragraph.length) {
-    parts.push(paragraph.slice(cursor));
+  if (cursor < paragraph.text.length) {
+    parts.push(paragraph.text.slice(cursor));
   }
 
   return parts;
@@ -147,15 +213,7 @@ const renderParagraphWithHighlight = (paragraph: string, content: string) => {
 
 /** The highlight (NIP-84) rendering: comment, highlighted context, range, and source */
 export default function EventCardHighlight({ highlight, contentClasses, renderContent, onAuthorClick }: Props) {
-  const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-  const contextSimilarity = highlight.context
-    ? compareTwoStrings(
-        normalizeForSimilarity(highlight.content),
-        normalizeForSimilarity(highlight.context)
-      )
-    : 0;
-  const shouldShowHighlightContext = Boolean(highlight.context && contextSimilarity < 0.9);
+  const shouldShowHighlightContext = Boolean(highlight.context && highlight.context !== highlight.content);
 
   return (
     <div className="mb-3 space-y-3">
@@ -176,14 +234,15 @@ export default function EventCardHighlight({ highlight, contentClasses, renderCo
             // When context is present, render the full context with the content highlighted within it
             const context = highlight.context;
             const content = highlight.content;
+            const highlightRanges = findAllHighlightMatchRanges(context, content);
 
             // Split context by double newlines to get paragraphs
-            const paragraphs = context.split(/\n\s*\n/).filter(p => p.trim() !== '');
+            const paragraphs = splitIntoParagraphRanges(context);
 
             return paragraphs.map((paragraph, index) => {
               return (
                 <p key={index} className="mb-4 last:mb-0">
-                  {renderParagraphWithHighlight(paragraph, content)}
+                  {renderParagraphWithHighlight(paragraph, highlightRanges)}
                 </p>
               );
             });
