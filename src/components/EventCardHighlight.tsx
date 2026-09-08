@@ -122,10 +122,28 @@ const findAllHighlightMatchRanges = (
     }
 
     ranges.push(range);
-    cursor = range.end;
+    cursor = range.start + 1;
   }
 
   return ranges;
+};
+
+const mergeHighlightMatchRanges = (
+  ranges: HighlightMatchRange[]
+): HighlightMatchRange[] => {
+  return [...ranges]
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+    .reduce<HighlightMatchRange[]>((mergedRanges, range) => {
+      const lastRange = mergedRanges[mergedRanges.length - 1];
+
+      if (lastRange && range.start <= lastRange.end) {
+        lastRange.end = Math.max(lastRange.end, range.end);
+        return mergedRanges;
+      }
+
+      mergedRanges.push({ ...range });
+      return mergedRanges;
+    }, []);
 };
 
 const splitIntoParagraphRanges = (context: string): HighlightParagraph[] => {
@@ -234,7 +252,9 @@ export default function EventCardHighlight({ highlight, contentClasses, renderCo
             // When context is present, render the full context with the content highlighted within it
             const context = highlight.context;
             const content = highlight.content;
-            const highlightRanges = findAllHighlightMatchRanges(context, content);
+            const highlightRanges = mergeHighlightMatchRanges(
+              findAllHighlightMatchRanges(context, content)
+            );
 
             // Split context by double newlines to get paragraphs
             const paragraphs = splitIntoParagraphRanges(context);
