@@ -37,7 +37,7 @@ export const isValidFilter = (filter: NDKFilter): boolean => {
  * @param options - Subscription options
  * @returns NDK subscription or null if filters are invalid
  */
-export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unknown> = {}): NDKSubscription | null => {
+export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unknown> = {}, autoStart = true): NDKSubscription | null => {
   const trackFilters = Boolean((options as { __trackFilters?: boolean }).__trackFilters);
   // Validate all filters
   const validFilters = filters.filter(isValidFilter);
@@ -63,7 +63,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
   }
 
   try {
-    return ndk.subscribe(reducedFilters, options);
+    return ndk.subscribe(reducedFilters, options, autoStart);
   } catch (error) {
     // If the sqlite-wasm cache throws the binding error, disable cache and retry once live-only
     if (isUndefinedBindWasmError(error)) {
@@ -72,7 +72,7 @@ export const safeSubscribe = (filters: NDKFilter[], options: Record<string, unkn
       try {
         // Force cache usage to ONLY_RELAY to bypass cache completely
         const liveOptions = { ...options, cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY };
-        return ndk.subscribe(reducedFilters, liveOptions);
+        return ndk.subscribe(reducedFilters, liveOptions, autoStart);
       } catch (e2) {
         console.error('Failed to create NDK subscription after disabling cache:', e2);
         return null;
