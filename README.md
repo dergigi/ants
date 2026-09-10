@@ -12,6 +12,10 @@ The current version is not very performant and will probably crash often.
 
 But it's useful to at least one person already, which is [me](https://ants.sh/p/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc).
 
+## Search syntax
+
+See the [search syntax reference and design review](docs/SEARCH_SYNTAX.md) for operators, examples, current limitations, and decisions for a future mobile app.
+
 ## Search Examples
 
 ants can search for [all kinds of stuff](https://ants.sh/?q=%2Fexamples) by making good use of [NIP-05](https://ants.sh/?q=nip%3A05), [NIP-50](https://ants.sh/?q=nip%3A50), and having human-readable shorthands for (pun intended) the most common `kind`s:
