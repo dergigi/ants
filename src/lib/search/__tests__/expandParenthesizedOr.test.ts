@@ -24,7 +24,7 @@ jest.mock('../../relays', () => ({
   extendWithUserAndPremium: jest.fn(),
 }));
 
-import { expandParenthesizedOr } from '../../search';
+import { expandParenthesizedOr } from '../queryTransforms';
 
 describe('expandParenthesizedOr', () => {
   it('returns input unchanged when no parentheses', () => {

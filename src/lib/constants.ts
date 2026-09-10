@@ -94,17 +94,19 @@ export const UI_CONFIG = {
     PING_TIMEOUT: 5000, // 5 seconds
     
     // Cache duration for relay info (milliseconds)
-    INFO_CACHE_DURATION: 60000, // 1 minute
+    INFO_CACHE_DURATION: 3600000, // 1 hour
+
+    // Cache duration for failed relay info lookups (milliseconds)
+    INFO_NEGATIVE_CACHE_DURATION: 600000, // 10 minutes
     
     // User relay cache duration (milliseconds)
     USER_RELAY_CACHE_DURATION: 3600000, // 1 hour
 
-    // NIP-66 relay monitor settings
-    NIP66_CACHE_DURATION: 1800000,       // 30 min (monitors publish hourly)
-    NIP66_FETCH_TIMEOUT: 15000,          // 15s to fetch monitor data
-    NIP66_REFRESH_INTERVAL: 1800000,     // 30 min background refresh
-    NIP66_SAFETY_THRESHOLD: 0.8,         // skip filter if >80% would be removed
-    NIP66_DEAD_ENTRY_MAX_AGE: 86400000,  // 24 hours — dead entries older than this degrade to 'unknown'
+    // NIP-66 relay discovery cache duration (milliseconds)
+    NIP66_DISCOVERY_CACHE_DURATION: 600000, // 10 minutes
+
+    // Active NIP-50 behavior cache duration (milliseconds)
+    NIP50_BEHAVIOR_CACHE_DURATION: 600000, // 10 minutes
   },
   
   // UI refresh intervals
@@ -154,14 +156,10 @@ export const RELAY_INFO_CHECK_TIMEOUT = UI_CONFIG.RELAYS.INFO_CHECK_TIMEOUT;
 export const RELAY_HTTP_REQUEST_TIMEOUT = UI_CONFIG.RELAYS.HTTP_REQUEST_TIMEOUT;
 export const RELAY_PING_TIMEOUT = UI_CONFIG.RELAYS.PING_TIMEOUT;
 export const RELAY_INFO_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_CACHE_DURATION;
+export const RELAY_INFO_NEGATIVE_CACHE_DURATION = UI_CONFIG.RELAYS.INFO_NEGATIVE_CACHE_DURATION;
 export const RELAY_USER_RELAY_CACHE_DURATION = UI_CONFIG.RELAYS.USER_RELAY_CACHE_DURATION;
-
-// NIP-66 constants
-export const NIP66_CACHE_DURATION = UI_CONFIG.RELAYS.NIP66_CACHE_DURATION;
-export const NIP66_FETCH_TIMEOUT = UI_CONFIG.RELAYS.NIP66_FETCH_TIMEOUT;
-export const NIP66_REFRESH_INTERVAL = UI_CONFIG.RELAYS.NIP66_REFRESH_INTERVAL;
-export const NIP66_SAFETY_THRESHOLD = UI_CONFIG.RELAYS.NIP66_SAFETY_THRESHOLD;
-export const NIP66_DEAD_ENTRY_MAX_AGE = UI_CONFIG.RELAYS.NIP66_DEAD_ENTRY_MAX_AGE;
+export const RELAY_NIP66_DISCOVERY_CACHE_DURATION = UI_CONFIG.RELAYS.NIP66_DISCOVERY_CACHE_DURATION;
+export const RELAY_NIP50_BEHAVIOR_CACHE_DURATION = UI_CONFIG.RELAYS.NIP50_BEHAVIOR_CACHE_DURATION;
 
 // UI refresh constants
 export const UI_RECENTLY_ACTIVE_INTERVAL = UI_CONFIG.UI_REFRESH.RECENTLY_ACTIVE_INTERVAL;

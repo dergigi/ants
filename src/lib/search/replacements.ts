@@ -1,6 +1,23 @@
 let cachedRules: Array<{ kind: string; key: string; expansion: string }> | null = null;
 let cachedDirectRules: Array<{ pattern: string; replacement: string }> | null = null;
 
+// Both rule sets parse the same file; fetch it once and share the result
+let replacementsTextPromise: Promise<string> | null = null;
+
+function fetchReplacementsText(): Promise<string> {
+  if (!replacementsTextPromise) {
+    replacementsTextPromise = (async () => {
+      const res = await fetch('/replacements.txt', { cache: 'no-store' });
+      if (!res.ok) throw new Error('failed');
+      return res.text();
+    })().catch((error) => {
+      replacementsTextPromise = null;
+      throw error;
+    });
+  }
+  return replacementsTextPromise;
+}
+
 function parseLine(line: string): { kind: string; key: string; expansion: string } | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith('#')) return null;
@@ -43,9 +60,7 @@ function parseDirectLine(line: string): { pattern: string; replacement: string }
 export async function loadRules(): Promise<Array<{ kind: string; key: string; expansion: string }>> {
   if (cachedRules) return cachedRules;
   try {
-    const res = await fetch('/replacements.txt', { cache: 'no-store' });
-    if (!res.ok) throw new Error('failed');
-    const txt = await res.text();
+    const txt = await fetchReplacementsText();
     const rules: Array<{ kind: string; key: string; expansion: string }> = [];
     for (const raw of txt.split(/\r?\n/)) {
       const r = parseLine(raw);
@@ -62,9 +77,7 @@ export async function loadRules(): Promise<Array<{ kind: string; key: string; ex
 async function loadDirectRules(): Promise<Array<{ pattern: string; replacement: string }>> {
   if (cachedDirectRules) return cachedDirectRules;
   try {
-    const res = await fetch('/replacements.txt', { cache: 'no-store' });
-    if (!res.ok) throw new Error('failed');
-    const txt = await res.text();
+    const txt = await fetchReplacementsText();
     const rules: Array<{ pattern: string; replacement: string }> = [];
     for (const raw of txt.split(/\r?\n/)) {
       const r = parseDirectLine(raw);

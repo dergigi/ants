@@ -10,7 +10,6 @@ export const PROFILE_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
-  { name: 'nostr.band', base: 'https://nostr.band/' },
   { name: 'npub.world', base: 'https://npub.world/' },
   { name: 'nosta.me', base: 'https://nosta.me/' },
   { name: 'castr.me', base: 'https://castr.me/' },
@@ -26,12 +25,20 @@ export const EVENT_EXPLORERS: readonly ExplorerLink[] = [
   { name: 'nostr.at', base: 'https://nostr.at/' },
   { name: 'nostr.eu', base: 'https://nostr.eu/' },
   { name: 'nostr.ae', base: 'https://nostr.ae/' },
-  { name: 'nostr.band', base: 'https://nostr.band/' },
   { name: 'nostx.io', base: 'https://nostx.io/' },
 ];
 
-export type ExplorerItem = { name: string; href: string };
+export const ARTICLE_EXPLORERS: readonly ExplorerLink[] = [
+  { name: 'Boris', base: 'https://read.withboris.com/a/' },
+  { name: 'Habla', base: 'https://habla.coracle.social/a/' },
+  { name: 'Primal', base: 'https://primal.net/e/' },
+] as const;
 
+export type ExplorerItem = { name: string; href: string; dividerAfter?: boolean };
+
+/**
+ * Build profile portal links from an `npub`, preferring `nprofile` for client deep links when possible.
+ */
 export function createProfileExplorerItems(npub: string, pubkey?: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = PROFILE_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${npub}` }));
   let nprofile: string | null = null;
@@ -51,6 +58,9 @@ export function createProfileExplorerItems(npub: string, pubkey?: string): reado
   return items;
 }
 
+/**
+ * Build generic event portal links from a shareable event identifier.
+ */
 export function createEventExplorerItems(nevent: string): readonly ExplorerItem[] {
   const items: ExplorerItem[] = EVENT_EXPLORERS.map((p) => ({ name: p.name, href: `${p.base}${nevent}` }));
   items.push({ name: 'Web Client', href: `web+nostr:${nevent}` });
@@ -58,4 +68,17 @@ export function createEventExplorerItems(nevent: string): readonly ExplorerItem[
   return items;
 }
 
+/**
+ * Build article-specific portals that render NIP-23 content well from an `naddr`.
+ */
+export function createArticleExplorerItems(naddr: string): readonly ExplorerItem[] {
+  const items: ExplorerItem[] = ARTICLE_EXPLORERS.map((p) => ({
+    name: p.name,
+    href: `${p.base}${naddr}`,
+  }));
 
+  return items.map((item, idx) => ({
+    ...item,
+    dividerAfter: idx === items.length - 1,
+  }));
+}

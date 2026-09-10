@@ -1,4 +1,5 @@
 import { NDKFilter } from '@nostr-dev-kit/ndk';
+import { parseDateValue } from './relativeDates';
 import { Nip50Extensions } from './searchUtils';
 import { parseOrQuery } from './queryTransforms';
 
@@ -88,37 +89,33 @@ export function extractKindFilter(rawQuery: string): { cleaned: string; kinds?: 
 }
 
 /**
- * Extract date filter(s) from query string: since:YYYY-MM-DD and until:YYYY-MM-DD
+ * Extract date filter(s) from query string: supports absolute dates and relative values.
  */
 export function extractDateFilter(rawQuery: string): { cleaned: string; since?: number; until?: number } {
   let cleaned = rawQuery;
   let since: number | undefined;
   let until: number | undefined;
 
-  // Convert YYYY-MM-DD to Unix timestamp (start of day in UTC)
-  const dateToTimestamp = (dateStr: string): number => {
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return Math.floor(date.getTime() / 1000);
-  };
+  const sinceRegex = /(?:^|\s)since:(\S+)(?=\s|$)/gi;
+  cleaned = cleaned.replace(sinceRegex, (match, value: string) => {
+    const parsed = parseDateValue(value, 'since');
+    if (!parsed) return match;
 
-  // Extract since:YYYY-MM-DD
-  const sinceRegex = /(?:^|\s)since:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
-  cleaned = cleaned.replace(sinceRegex, (_, dateStr: string) => {
-    since = dateToTimestamp(dateStr);
+    since = parsed.timestamp;
     return ' ';
   });
 
-  // Extract until:YYYY-MM-DD
-  const untilRegex = /(?:^|\s)until:([0-9]{4}-[0-9]{2}-[0-9]{2})(?=\s|$)/gi;
-  cleaned = cleaned.replace(untilRegex, (_, dateStr: string) => {
-    // For until, include entire day - add end of day timestamp
-    const startOfDay = dateToTimestamp(dateStr);
-    until = startOfDay + 86399; // Add 23:59:59 seconds
+  const untilRegex = /(?:^|\s)until:(\S+)(?=\s|$)/gi;
+  cleaned = cleaned.replace(untilRegex, (match, value: string) => {
+    const parsed = parseDateValue(value, 'until');
+    if (!parsed) return match;
+
+    until = parsed.timestamp;
     return ' ';
   });
 
   return {
-    cleaned: cleaned.trim(),
+    cleaned: cleaned.replace(/\s{2,}/g, ' ').trim(),
     since,
     until
   };

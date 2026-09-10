@@ -7,92 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-04-17
-
-### Changed
-- **Reverted codebase to the `v0.2.11` state** (#248). The `v0.3.0`..`v0.3.5` line introduced several regressions that broke core search behaviour — `by:` author resolution (#244), `stripNonVisible()` killing gif/URL/filename/`nip:05` matching (#190, #228), relay-set mutation (#227), and misc. rendering issues (#217, #243). Rather than continue fixing on top of a shaky base, the tree was reset to the last known-good release (`v0.2.11`) so development can resume from a stable foundation.
-- Version bumped to `0.4.0` to make the reboot explicit; the `v0.3.x` tags remain on GitHub for historical reference but are not part of the `master` lineage.
-
-### Removed
-- All post-`v0.2.11` code through `v0.3.5` (see the diff on #248). Notable deletions: `stripNonVisible` content filter, `relatr` profile provider, spell translate/discovery, NIP-45 count support, reply/d-tag/id/link/ref search strategies, article cards, relay discovery/info modules, and the OR-expansion pipeline. These may be re-introduced later on a case-by-case basis.
-
-## [0.2.11] - 2026-03-16
-
-### Added
-- NIP-05 well-known endpoint for `_@ants.sh`
-- Haven and WoT relays in NIP-05 response
-- Contributors and Contributing sections in README with nostr profile links
-
-### Changed
-- Video player now uses native browser controls (play/pause, seek, volume, fullscreen, playback speed) replacing custom overlay
-- Tutorial `/tutorial` command points to haven.dergigi.com hosted video
+## [0.4.7] - 2026-08-28
 
 ### Fixed
-- Video error handler sets error state immediately, preventing infinite loading spinner on codec/decode failures
+- Prevent repeated same-query search refreshes from briefly clearing rendered results and showing the loading spinner again
+- Reset completed and last-executed search guards when the search input is edited or cleared
 
-### Chores
-- Added CodeRabbit configuration with path filters and search-specific review instructions
-
-## [0.2.10] - 2026-03-15
+## [0.4.6] - 2026-08-19
 
 ### Added
-- `by:@me` modifier — search your own notes (requires login)
-- `mentions:@me` modifier — find notes that tag you (requires login)
-- Login-filtered examples — `@me` examples only show when logged in
-- README documentation for `@me` modifiers
-
-### Fixed
-- Scoped `@me` detection to `by:`/`mentions:` tokens only (won't trigger on bare `@me` in text)
-- Reset UI state on early return when not logged in (prevents stuck spinner)
-
-## [0.2.9] - 2026-03-15
-
-### Added
-- NIP-66 relay monitor integration — discovers NIP-50 relays beyond hardcoded list (7 → 58)
-- "Replying to @username" display in note headers
-- Search term highlighting in results
-- `mentions:` search filter for #p tag queries
-- Incremental pagination (show 50 results, "show more" button)
-- NIP-66 liveness indicator in relay status display
-- Shared profile resolver with relay fallback
-- NIP-66 before/after benchmark (`npm run bench:nip66`)
+- Added NIP-66 relay discovery as a source of candidate NIP-50 search relays
+- Added active NIP-50 behavior probes to reject relays that ignore `search` filters
 
 ### Changed
-- Parallel OR term search via `Promise.allSettled`
-- Parallel author resolution via `Promise.all`
-- Scoped relay ping measurement (per relay, not global)
-- O(n) Set-based deduplication replacing O(n²) findIndex
-- Fallback relays now verify NIP-50 support before injection
-- NIP-66 pre-filtering skips dead relays before HTTP probing (48% fewer probes)
-- NIP-66 fast-path skips HTTP probes for relays with confirmed NIP-50 support
+- Refreshed the hard-coded default, search, and profile search relay lists
 
 ### Fixed
-- NIP-51 tag parsing: kinds 10006/10007 now correctly parse `relay` tags (per spec)
-- Extension-only queries (`language:en`) no longer drop search field when base query is empty
-- Dead ternary in EventCard profile resolution
-- Improved parent event resolution reliability
+- Prevent stale asynchronous relay probes from refilling cleared relay caches
+- Kept profile lookup on the curated profile search relay set so username resolution stays stable
 
-## [0.2.8] - 2025-01-27
+## [0.4.5] - 2026-06-16
+
+### Added
+- Added article card actions for long-form posts, including article portal links, article-specific `naddr` sharing, `nevent` copy, and raw JSON access
+
+### Changed
+- Refreshed the article portal set by restoring Habla, replacing defunct destinations, and removing the imwald portal
+
+### Fixed
+- Restored article footnote rendering and preserved in-article footnote anchor navigation
+- Wait for a relay connection before fetching the profile during login restore so the header avatar resolves correctly
+
+## [0.4.4] - 2026-06-12
+
+### Changed
+- Cut cold-cache search time-to-first-result by prewarming search relay discovery, relay websocket connections, and `replacements.txt`
+- Resolve the NIP-50 search relay set early once three compatible relays confirm, while full validation continues in the background
+- Fetch NIP-51 relay lists in parallel and dedupe NIP-11 checks across relay URL slash variants
+
+### Fixed
+- Restrict `search` subscriptions to verified NIP-50 relays so text searches stop pulling garbage results from relays that ignore the `search` field
+- Fixed eager relay connection regressions around module-load connect ordering, relay ping subscriptions, and cache query errors
+
+## [0.4.3] - 2026-06-12
+
+### Added
+- Streaming search results that render partial matches while broader search collection continues
+
+### Changed
+- Profile search now shows candidates immediately and re-ranks them after NIP-05 verifications land
+- Refactored `SearchView`, relay handling, and NDK/search internals into smaller modules and hooks
+- Refreshed the default relay sets and improved relay info caching for more consistent searches
+
+### Fixed
+- Restored relative `since:` and `until:` date filters
+- Restored long-form article rendering, aliases, and helper utilities
+- Verify NIP-05 claims when resolving author aliases and down-rank failed claims in profile search
+- Suppressed known WASM cache errors and improved compact minute timestamp labels
+
+## [0.4.2] - 2026-05-10
 
 ### Added
 - Support for viewing Nostr follow packs (kind 39089) with `is:followpack` search shortcut
-- Follow pack member avatars display
-- Follow pack quick menu searches
-- Follow pack name in title bar
-
-### Changed
-- Domain updated from search.dergigi.com to ants.sh
-- Include follow packs in default search kinds
-- Flatten top-level by or queries
+- A real-relay search smoke suite in GitHub Actions with broader stable query coverage
 
 ### Fixed
-- Dedupe follow pack members to avoid duplicate React keys
-- Always show pack search link
-- Center follow pack image and ensure buttons remain visible
-- Search by hex pubkeys for pack members
+- Restored `by:@me` and `mentions:@me` search modifiers, related examples, and the `@me` query translation preview
+- Restored the `.well-known/nostr.json` NIP-05 endpoint for `_@ants.sh`, including Haven and WoT relay hints
+- Restored `/tutorial` to the hosted Haven tutorial event
+
+## [0.4.1] - 2026-05-06
+
+### Changed
+- **Reverted codebase to the `v0.2.8` state**. The `v0.2.9`..`v0.4.0` line kept shipping search regressions, including search term highlighting, `mentions:` search plumbing, NIP-66 relay selection changes, and later follow-on fixes that did not restore stable behaviour.
+- Version bumped to `0.4.1` to keep the reboot lineage monotonic while resetting the app to the last known-good pre-`v0.2.9` baseline.
 
 ### Removed
-- Advancednostrsearch directory
+- All post-`v0.2.8` code through `v0.4.0`. Notable deletions: search term highlighting, `mentions:` search, `@me` search modifiers, NIP-66 relay monitoring and liveness plumbing, the NIP-05 well-known endpoint, Fathom wiring, and the native video controls. These can come back later on a case-by-case basis.
+
+### Fixed
+- Updated Next.js to `15.5.14` and `eslint-config-next` to `15.5.14` so Vercel no longer blocks the build for a vulnerable framework version.
 
 ## [0.2.7] - 2025-11-23
 

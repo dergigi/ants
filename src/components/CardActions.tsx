@@ -11,6 +11,10 @@ type Props = {
   eventId?: string;
   profilePubkey?: string;
   eventKind?: number;
+  nostrId?: string;
+  copyTitle?: string;
+  secondaryCopyText?: string;
+  secondaryCopyTitle?: string;
   onToggleMenu?: () => void;
   menuButtonRef?: React.RefObject<HTMLButtonElement | null>;
   className?: string;
@@ -20,11 +24,18 @@ type Props = {
   onExternalClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
+/**
+ * Shared action cluster for cards that expose copy, native-client, portal, and external-link affordances.
+ */
 const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   {
     eventId,
     profilePubkey,
     eventKind,
+    nostrId,
+    copyTitle,
+    secondaryCopyText,
+    secondaryCopyTitle,
     onToggleMenu,
     menuButtonRef,
     className,
@@ -35,10 +46,12 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
   }: Props,
   ref
 ) {
-  const neventHref = eventId ? `nostr:${nip19.neventEncode({ id: eventId })}` : undefined;
+  const encodedEventId = eventId ? nip19.neventEncode({ id: eventId }) : undefined;
   const nprofile = profilePubkey ? nip19.nprofileEncode({ pubkey: profilePubkey }) : undefined;
+  const defaultNostrId = eventKind === 0 ? nprofile : (nostrId || encodedEventId);
+  const copyText = defaultNostrId ? `nostr:${defaultNostrId}` : undefined;
   const fallbackTitle = eventId ? 'Open in native client' : 'Open external';
-  const href = externalHref || neventHref;
+  const href = externalHref || (defaultNostrId ? `nostr:${defaultNostrId}` : undefined);
   const title = externalTitle || fallbackTitle;
   const target = externalTarget || (href && href.startsWith('http') ? '_blank' : undefined);
 
@@ -46,16 +59,17 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
 
   return (
     <div ref={ref} className={`flex items-center gap-2 ${className || ''}`.trim()}>
-      {eventKind === 0 && nprofile ? (
+      {copyText ? (
         <CopyButton
-          text={`nostr:${nprofile}`}
-          title="Copy nprofile"
+          text={copyText}
+          title={copyTitle || (eventKind === 0 ? 'Copy nprofile' : 'Copy nevent')}
           className="border-0 text-gray-300 hover:bg-[#3a3a3a]"
         />
-      ) : eventId ? (
+      ) : null}
+      {secondaryCopyText ? (
         <CopyButton
-          text={String(neventHref)}
-          title="Copy nevent"
+          text={secondaryCopyText}
+          title={secondaryCopyTitle || 'Copy'}
           className="border-0 text-gray-300 hover:bg-[#3a3a3a]"
         />
       ) : null}
@@ -78,17 +92,13 @@ const CardActions = forwardRef<HTMLDivElement, Props>(function CardActions(
           <FontAwesomeIcon icon={faMobileScreenButton} className="text-xs" />
         </IconButton>
       ) : null}
-      {(eventId || (eventKind === 0 && profilePubkey)) ? (
+      {defaultNostrId ? (
         <IconButton
           title="Open with njump.to"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            const njumpUrl = eventKind === 0 && nprofile 
-              ? `https://njump.to/${nprofile}`
-              : eventId 
-              ? `https://njump.to/${nip19.neventEncode({ id: eventId })}`
-              : null;
+            const njumpUrl = defaultNostrId ? `https://njump.to/${defaultNostrId}` : null;
             if (njumpUrl) {
               window.open(njumpUrl, '_blank', 'noopener,noreferrer');
             }

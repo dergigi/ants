@@ -1,152 +1,26 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { connectWithTimeout, resetLastReducedFilters } from './ndk';
-import { searchProfilesFullText } from './vertex';
 import { getNip50SearchRelaySet } from './relays';
 import { SEARCH_DEFAULT_KINDS } from './constants';
-
-// Import shared utilities
-import {
-  buildSearchQueryWithExtensions,
-  Nip50Extensions
-} from './search/searchUtils';
+import { buildSearchQueryWithExtensions } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
-
-// Import query parsing utilities
 import {
   extractNip50Extensions,
   stripRelayFilters,
-  extractKindFilter,
   applyDateFilter,
-  normalizeResidualSearchText,
   parseSearchQuery
 } from './search/queryParsing';
-
-// Import query transformation utilities
-import {
-  expandParenthesizedOr
-} from './search/queryTransforms';
-
-// Import relay management utilities
-import {
-  getBroadRelaySet
-} from './search/relayManagement';
-
-// Import subscription utilities
-import {
-  subscribeAndStream,
-  subscribeAndCollect
-} from './search/subscriptions';
-
-// Import orchestrator
+import { getBroadRelaySet } from './search/relayManagement';
+import { subscribeAndCollect, createPartialEmitter } from './search/subscriptions';
 import { runSearchStrategies } from './search/searchOrchestrator';
-// Import author search strategy for early author handling
 import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy';
-
-// Import term search utilities
-import { searchByAnyTerms } from './search/termSearch';
-import { resolveAuthorTokens } from './search/authorResolve';
-
-// Import types
-import { StreamingSearchOptions, SearchContext } from './search/types';
-
-
-// Note: We no longer inject properties into NDKEvent objects
-// Instead, we use the eventRelayTracking system to track relay sources
-
-
-
-
-
-// Centralized media extension lists (keep DRY)
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'gifs', 'apng', 'webp', 'avif', 'svg'] as const;
-export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v'] as const;
-export const GIF_EXTENSIONS = ['gif', 'gifs', 'apng'] as const;
-
-
-// (Removed heuristic content filter; rely on recursive OR expansion + relay-side search)
-
-
-// Re-export query transformation utilities for backwards compatibility
-export { parseOrQuery, expandParenthesizedOr } from './search/queryTransforms';
-
-// Helper functions for analyzing OR seeds with by: clauses
-/**
- * Extract all by: tokens from a seed string
- */
-function extractByTokens(seed: string): string[] {
-  const matches = Array.from(seed.matchAll(/\bby:(\S+)/gi));
-  return matches.map(m => m[1] || '').filter(Boolean);
-}
-
-/**
- * Extract the content of a seed string after removing all by: clauses
- */
-function extractNonByContent(seed: string): string {
-  return seed.replace(/\bby:\S+/gi, '').replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Optimize pure by: OR queries into a single filter with multiple authors.
- * Only applies when all seeds contain only by: clauses (no other content).
- * Returns null if optimization cannot be applied.
- */
-async function maybeOptimizeByOnlyOrSeeds(
-  seeds: string[],
-  effectiveKinds: number[],
-  dateFilter: { since?: number; until?: number },
-  nip50Extensions: Nip50Extensions | undefined,
-  chosenRelaySet: NDKRelaySet,
-  abortSignal: AbortSignal | undefined,
-  limit: number
-): Promise<NDKEvent[] | null> {
-  // Trim and filter empty seeds
-  const trimmedSeeds = seeds.map(s => s.trim()).filter(Boolean);
-  if (trimmedSeeds.length < 2) {
-    return null; // Need at least 2 seeds for OR optimization
-  }
-
-  // Check if all seeds are pure by: clauses (no residual content after stripping by:)
-  for (const seed of trimmedSeeds) {
-    const nonByContent = extractNonByContent(seed);
-    if (nonByContent.length > 0) {
-      return null; // Has residual content, not a pure by: query
-    }
-    // Also check that each seed has at least one by: token
-    if (!/\bby:\S+/i.test(seed)) {
-      return null; // Seed doesn't have a by: token
-    }
-  }
-
-  // Collect all by: tokens and de-duplicate
-  const allByTokens = trimmedSeeds.flatMap(extractByTokens);
-  const uniqueByTokens = Array.from(new Set(allByTokens));
-  if (uniqueByTokens.length === 0) {
-    return null;
-  }
-
-  // Resolve all tokens to hex pubkeys in parallel
-  const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
-
-  if (resolvedPubkeys.length === 0) {
-    return null; // No pubkeys could be resolved
-  }
-
-  // Build single filter with all authors
-  const filter: NDKFilter = applyDateFilter({
-    kinds: effectiveKinds,
-    authors: resolvedPubkeys,
-    limit: Math.max(limit, 500)
-  }, dateFilter) as NDKFilter;
-
-  // Execute single subscription
-  const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-  return sortEventsNewestFirst(results).slice(0, limit);
-}
+import { handleParenthesizedOr, handleTopLevelOr } from './search/orQueryHandler';
+import { SearchOptions, SearchContext } from './search/types';
 
 export async function searchEvents(
   query: string,
   limit: number = 200,
-  options?: { exact?: boolean } | StreamingSearchOptions,
+  options?: SearchOptions,
   relaySetOverride?: NDKRelaySet,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
@@ -169,9 +43,9 @@ export async function searchEvents(
     throw new Error('Search aborted');
   }
 
-  // Check if this is a streaming search
-  const isStreaming = options && 'streaming' in options && options.streaming;
-  const streamingOptions = isStreaming ? options as StreamingSearchOptions : undefined;
+  // Shared emitter: merges partials across all subscriptions of this search
+  const onPartialResults = createPartialEmitter(options?.onPartialResults);
+  const onProfileResultsUpdate = options?.onProfileResultsUpdate;
 
   // Extract NIP-50 extensions first
   const nip50Extraction = extractNip50Extensions(query);
@@ -209,191 +83,18 @@ export async function searchEvents(
     nip50Extensions,
     chosenRelaySet,
     relaySetOverride,
-    isStreaming: isStreaming || false,
-    streamingOptions,
     abortSignal,
     limit,
-    extensionFilters
+    extensionFilters,
+    onPartialResults,
+    onProfileResultsUpdate
   };
 
   // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
   // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
-  {
-    const expandedSeeds = expandParenthesizedOr(cleanedQuery).map((seed) => seed.trim()).filter(Boolean);
-    if (expandedSeeds.length > 1) {
-
-      // Special-case: if all expanded seeds are profile searches (p:<term>), run profile full-text search per seed
-      const isPSeed = (s: string) => /^p:\S+/i.test(s.replace(/^\s+|\s+$/g, ''));
-      const allPSeeds = expandedSeeds.every(isPSeed);
-      if (allPSeeds) {
-        const pTerms = expandedSeeds
-          .map((s) => s.replace(/^p:/i, '').trim())
-          .filter((t) => t.length > 0);
-        const mergedProfiles: NDKEvent[] = [];
-        const seenPubkeys = new Set<string>();
-        for (const term of pTerms) {
-          try {
-            const profiles = await searchProfilesFullText(term);
-            for (const evt of profiles) {
-              const pk = evt.pubkey || evt.author?.pubkey || '';
-              if (pk && !seenPubkeys.has(pk)) {
-                seenPubkeys.add(pk);
-                mergedProfiles.push(evt);
-              }
-            }
-          } catch {}
-        }
-        return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
-      }
-
-      // Try optimizing pure by: OR queries (only by: clauses, no other content)
-      const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-        expandedSeeds,
-        effectiveKinds,
-        dateFilter,
-        nip50Extensions,
-        chosenRelaySet,
-        abortSignal,
-        limit
-      );
-      if (byOnlyResults !== null) {
-        return byOnlyResults;
-      }
-
-      // Check if all seeds differ only by by: clauses (optimization: single filter with multiple authors)
-      const firstNonBy = extractNonByContent(expandedSeeds[0]);
-      const allSameNonBy = expandedSeeds.every(seed => extractNonByContent(seed) === firstNonBy);
-      const allHaveBy = expandedSeeds.every(seed => /\bby:\S+/i.test(seed));
-
-      if (allSameNonBy && allHaveBy && expandedSeeds.length > 1) {
-        // All seeds are identical except for by: clauses - optimize with single filter
-        const allByTokens = expandedSeeds.flatMap(extractByTokens);
-        const uniqueByTokens = Array.from(new Set(allByTokens));
-
-        // Resolve all authors to pubkeys in parallel
-        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
-
-        if (resolvedPubkeys.length > 0) {
-          // Build single filter with all authors
-          const baseQuery = firstNonBy || '';
-          const { applySimpleReplacements } = await import('./search/replacements');
-          const preprocessed = await applySimpleReplacements(baseQuery);
-          const tagMatches = Array.from(preprocessed.match(/#[A-Za-z0-9_]+/gi) || []).map((t) => t.slice(1).toLowerCase());
-
-          const filter: NDKFilter = applyDateFilter({
-            kinds: effectiveKinds,
-            authors: resolvedPubkeys,
-            limit: Math.max(limit, 500),
-            ...(tagMatches.length > 0 && { '#t': Array.from(new Set(tagMatches)) })
-          }, dateFilter) as NDKFilter;
-
-          // Extract residual search text
-          const residual = preprocessed
-            .replace(/\bkind:[^\s]+/gi, ' ')
-            .replace(/\bkinds:[^\s]+/gi, ' ')
-            .replace(/#[A-Za-z0-9_]+/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          if (residual.length > 0) {
-            filter.search = nip50Extensions
-              ? buildSearchQueryWithExtensions(residual, nip50Extensions)
-              : residual;
-          }
-
-          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-          return sortEventsNewestFirst(results).slice(0, limit);
-        }
-      }
-
-      // Check for combined hashtag + author OR patterns like:
-      // "(#yestr OR #nostr) (by:dergigi OR by:IntuitiveGuy)"
-      const extractTags = (s: string): string[] => {
-        const matches = Array.from(s.matchAll(/#[A-Za-z0-9_]+/gi));
-        return matches.map((m) => (m[0] || '').slice(1).toLowerCase()).filter(Boolean);
-      };
-
-      const extractCoreWithoutByAndTags = (s: string): string => {
-        return s
-          .replace(/\bby:\S+/gi, '')
-          .replace(/#[A-Za-z0-9_]+/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      };
-
-      const baseCore = extractCoreWithoutByAndTags(expandedSeeds[0]);
-      const allSameCore = expandedSeeds.every((seed) => extractCoreWithoutByAndTags(seed) === baseCore);
-      const allHaveTagAndBy = expandedSeeds.every((seed) => extractTags(seed).length > 0 && extractByTokens(seed).length > 0);
-
-      if (allSameCore && allHaveTagAndBy) {
-        const allTags = new Set<string>();
-        const allByTokens: string[] = [];
-        for (const seed of expandedSeeds) {
-          extractTags(seed).forEach((t) => allTags.add(t));
-          allByTokens.push(...extractByTokens(seed));
-        }
-
-        const uniqueByTokens = Array.from(new Set(allByTokens));
-
-        // Resolve all authors to pubkeys in parallel
-        const resolvedPubkeys = await resolveAuthorTokens(uniqueByTokens);
-
-        if (resolvedPubkeys.length > 0 && allTags.size > 0) {
-          const { applySimpleReplacements } = await import('./search/replacements');
-          const baseQuery = baseCore || '';
-          const preprocessed = await applySimpleReplacements(baseQuery);
-
-          const filter: NDKFilter = applyDateFilter({
-            kinds: effectiveKinds,
-            authors: resolvedPubkeys,
-            '#t': Array.from(allTags),
-            limit: Math.max(limit, 500)
-          }, dateFilter) as NDKFilter;
-
-          const residualRaw = preprocessed
-            .replace(/\bkind:[^\s]+/gi, ' ')
-            .replace(/\bkinds:[^\s]+/gi, ' ')
-            .replace(/#[A-Za-z0-9_]+/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          const residual = normalizeResidualSearchText(residualRaw);
-
-          if (residual.length > 0) {
-            filter.search = nip50Extensions
-              ? buildSearchQueryWithExtensions(residual, nip50Extensions)
-              : residual;
-          }
-
-          const results = await subscribeAndCollect(filter, 10000, chosenRelaySet, abortSignal);
-          return sortEventsNewestFirst(results).slice(0, limit);
-        }
-      }
-
-      const translatedSeeds = expandedSeeds
-        .map((seed) => {
-          const existingKind = extractKindFilter(seed);
-          if (existingKind.kinds && existingKind.kinds.length > 0) {
-            return seed;
-          }
-          const kindTokens = effectiveKinds.map((k) => `kind:${k}`).join(' ');
-          return kindTokens ? `${kindTokens} ${seed}`.trim() : seed;
-        });
-
-
-      const seedResults = await searchByAnyTerms(
-        translatedSeeds,
-        Math.max(limit, 500),
-        chosenRelaySet,
-        abortSignal,
-        nip50Extensions,
-        applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-        () => getBroadRelaySet()
-      );
-
-
-      return sortEventsNewestFirst(seedResults).slice(0, limit);
-    }
+  const parenthesizedOrResults = await handleParenthesizedOr(cleanedQuery, searchContext);
+  if (parenthesizedOrResults !== null) {
+    return parenthesizedOrResults;
   }
 
   // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
@@ -402,94 +103,9 @@ export async function searchEvents(
     if (earlyAuthorResults) return earlyAuthorResults;
   }
 
-  // (Already expanded above)
-
   // Check for top-level OR operator (outside parentheses)
   if (hasTopLevelOr) {
-    const normalizedParts = topLevelOrParts
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .reduce<string[]>((acc, part) => {
-        const expanded = expandParenthesizedOr(part);
-        const treatAsGroup = expanded.length > 1;
-        const seeds = treatAsGroup ? expanded : [part];
-        seeds.forEach((seed) => {
-          const trimmedSeed = seed.trim();
-          if (!trimmedSeed) return;
-          const seedKind = extractKindFilter(trimmedSeed);
-          if (seedKind.kinds && seedKind.kinds.length > 0) {
-            acc.push(trimmedSeed);
-            return;
-          }
-          if (/\bby:\S+/i.test(trimmedSeed)) {
-            acc.push(trimmedSeed);
-            return;
-          }
-          if (/#\w+/i.test(trimmedSeed)) {
-            acc.push(trimmedSeed);
-            return;
-          }
-          acc.push(trimmedSeed);
-        });
-        return acc;
-      }, []);
-
-    // Try optimizing pure by: OR queries (only by: clauses, no other content)
-    // Pure by-only OR queries are pre-optimized here and won't reach searchByAnyTerms
-    const byOnlyResults = await maybeOptimizeByOnlyOrSeeds(
-      normalizedParts,
-      effectiveKinds,
-      dateFilter,
-      nip50Extensions,
-      chosenRelaySet,
-      abortSignal,
-      limit
-    );
-    if (byOnlyResults !== null) {
-      return byOnlyResults;
-    }
-
-    // If all OR parts are p:<term>, do profile full-text search across parts
-    const isPClause = (s: string) => /^p:\S+/i.test(s);
-    const allPClauses = normalizedParts.length > 0 && normalizedParts.every(isPClause);
-    if (allPClauses) {
-      const pTerms = normalizedParts.map((s) => s.replace(/^p:/i, '').trim()).filter(Boolean);
-      const mergedProfiles: NDKEvent[] = [];
-      const seenPubkeys = new Set<string>();
-      for (const term of pTerms) {
-        try {
-          const profiles = await searchProfilesFullText(term);
-          for (const evt of profiles) {
-            const pk = evt.pubkey || evt.author?.pubkey || '';
-            if (pk && !seenPubkeys.has(pk)) {
-              seenPubkeys.add(pk);
-              mergedProfiles.push(evt);
-            }
-          }
-        } catch {}
-      }
-      return sortEventsNewestFirst(mergedProfiles).slice(0, limit);
-    }
-
-    // Note: Pure by-only OR queries are pre-optimized above and won't reach this path
-    let orResults = await searchByAnyTerms(
-      normalizedParts,
-      Math.max(limit, 500),
-      chosenRelaySet,
-      abortSignal,
-      nip50Extensions,
-      applyDateFilter({ kinds: effectiveKinds }, dateFilter),
-      () => getBroadRelaySet()
-    );
-
-    // If we got no results and we're using NIP-50 relays, try with broader relay set
-    if (orResults.length === 0 && !relaySetOverride) {
-      const broadRelaySet = await getBroadRelaySet();
-      orResults = await searchByAnyTerms(normalizedParts, Math.max(limit, 500), broadRelaySet, abortSignal, nip50Extensions, applyDateFilter({ kinds: effectiveKinds }, dateFilter));
-    }
-
-    const filteredResults = orResults.filter((evt) => effectiveKinds.length === 0 || effectiveKinds.includes(evt.kind));
-    return sortEventsNewestFirst(filteredResults).slice(0, limit);
+    return handleTopLevelOr(topLevelOrParts, searchContext);
   }
 
   // Run search strategies in order
@@ -499,30 +115,24 @@ export async function searchEvents(
   // Regular search without author filter
   try {
     let results: NDKEvent[] = [];
-    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery;
-    // Build search query even when baseSearch is empty — extensions alone are valid NIP-50 queries
-    const searchQuery = buildSearchQueryWithExtensions(baseSearch || '', nip50Extensions) || undefined;
+    const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
+    const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
     // Create the filter object that will be sent to NDK
     const searchFilter = applyDateFilter({
       kinds: effectiveKinds,
       search: searchQuery
     }, dateFilter) as NDKFilter;
 
-    results = isStreaming
-      ? await subscribeAndStream(searchFilter, {
-          timeoutMs: streamingOptions?.timeoutMs || 30000,
-          maxResults: streamingOptions?.maxResults || 1000,
-          onResults: streamingOptions?.onResults,
-          relaySet: chosenRelaySet,
-          abortSignal
-        })
-      : await subscribeAndCollect(searchFilter, 8000, chosenRelaySet, abortSignal);
-    // Dedupe by event id using Set for O(n) instead of O(n^2) findIndex
-    const seen = new Set<string>();
-    const filtered = results.filter(e => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
+    results = await subscribeAndCollect(searchFilter, {
+      timeoutMs: 8000,
+      relaySet: chosenRelaySet,
+      abortSignal,
+      onPartial: onPartialResults
+    });
+    // Dedupe by id
+    const filtered = results.filter((e, idx, arr) => {
+      const firstIdx = arr.findIndex((x) => x.id === e.id);
+      return firstIdx === idx;
     });
 
     return sortEventsNewestFirst(filtered).slice(0, limit);
@@ -534,25 +144,4 @@ export async function searchEvents(
     console.error('Error fetching events:', error);
     return [];
   }
-}
-
-// Convenience function for streaming search
-export async function searchEventsStreaming(
-  query: string,
-  onResults: (results: NDKEvent[], isComplete: boolean) => void,
-  options: {
-    maxResults?: number;
-    timeoutMs?: number;
-    exact?: boolean;
-    relaySetOverride?: NDKRelaySet;
-    abortSignal?: AbortSignal;
-  } = {}
-): Promise<NDKEvent[]> {
-  return searchEvents(query, 1000, {
-    streaming: true,
-    onResults,
-    maxResults: options.maxResults || 1000,
-    timeoutMs: options.timeoutMs || 30000,
-    exact: options.exact
-  }, options.relaySetOverride, options.abortSignal);
 }

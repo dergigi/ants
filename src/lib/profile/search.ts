@@ -19,6 +19,8 @@ import { PROFILE_SEARCH_MAX_RESULTS } from '../constants';
 type ProfileSearchCacheEntry = { events: NDKEvent[]; timestamp: number };
 
 const PROFILE_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const NIP05_RERANK_TIMEOUT_MS = 8000; // max time to wait for NIP-05 verifications before the background re-rank
+const NIP05_FAILED_PENALTY = 150; // outweighs the max NIP-05 string-match bonus in computeMatchScore
 const profileSearchCache = new Map<string, ProfileSearchCacheEntry>();
 
 function makeProfileSearchCacheKey(query: string, loggedIn: boolean): string {
@@ -39,8 +41,14 @@ function setCachedProfileSearch(key: string, events: NDKEvent[]): void {
   profileSearchCache.set(key, { events: events.slice(), timestamp: Date.now() });
 }
 
-// Full-text profile search with ranking
-export async function searchProfilesFullText(term: string, limit: number = PROFILE_SEARCH_MAX_RESULTS): Promise<NDKEvent[]> {
+// Full-text profile search with ranking. Returns immediately with the best
+// ranking available; when pending NIP-05 verifications land, re-ranks and
+// notifies the caller via onUpdate so the UI can re-sort.
+export async function searchProfilesFullText(
+  term: string,
+  limit: number = PROFILE_SEARCH_MAX_RESULTS,
+  onUpdate?: (events: NDKEvent[]) => void
+): Promise<NDKEvent[]> {
   const query = term.trim();
   if (!query) return [];
 
@@ -170,60 +178,79 @@ export async function searchProfilesFullText(term: string, limit: number = PROFI
     };
   });
 
-  // Step 3: don't await verifications; they run in background and update cache when done
-
-  // Step 4: assign final score and sort
-  for (const row of enriched) {
-    const verified = row.verifyHint === true
-      ? true
-      : (row.pubkey && row.nip05 ? (getCachedNip05Result(row.pubkey, row.nip05) ?? false) : false);
-    let score = row.baseScore;
-    if (verified) score += 100;
-    // Additional bonus for verified root NIP-05s (double checkmark)
-    if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
-    const updatedNutzap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.NUTZAP) : undefined;
-    const updatedZap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.ZAP) : undefined;
-    const hasNutzap = updatedNutzap ?? row.hasNutzap;
-    const hasZap = updatedZap ?? row.hasZap;
-    row.hasNutzap = hasNutzap;
-    row.hasZap = hasZap;
-    if (hasNutzap) score += 150;
-    else if (hasZap) score += 40;
-    if (row.isFriend) score += 50;
-    row.finalScore = score;
-    row.verified = verified;
-  }
-
-  enriched.sort((a, b) => {
-    const as = a.finalScore || 0;
-    const bs = b.finalScore || 0;
-    if (as !== bs) return bs - as;
-    // Tie-breakers: friend first, then name lexicographically
-    if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
-    return (a.name || '').localeCompare(b.name || '');
-  });
-
-  // Step 5: prepend Vertex results, then append ranked fallback, dedup by pubkey
-  const seen = new Set<string>();
-  const ordered: NDKEvent[] = [];
-
-  const pushIfNew = (evt: NDKEvent) => {
-    const pk = evt.pubkey || evt.author?.pubkey || '';
-    if (!pk || seen.has(pk)) return;
-    seen.add(pk);
-    if (!evt.kind) evt.kind = 0;
-    if (!evt.author && pk) {
-      const user = new NDKUser({ pubkey: pk });
-      user.ndk = evt.ndk;
-      evt.author = user;
+  // Step 3: score, sort and dedupe with whatever verification results are
+  // available in the cache right now
+  const rankAndOrder = (): NDKEvent[] => {
+    for (const row of enriched) {
+      // Actual verification result takes precedence; the self-claimed hint from
+      // profile content is only trusted when no real result is available
+      const actualResult = row.pubkey && row.nip05 ? getCachedNip05Result(row.pubkey, row.nip05) : null;
+      const verified = actualResult ?? (row.verifyHint === true);
+      let score = row.baseScore;
+      if (verified) score += 100;
+      // Additional bonus for verified root NIP-05s (double checkmark)
+      if (verified && row.nip05 && isRootNip05(row.nip05)) score += 50;
+      // Claimed NIP-05 that failed verification is an impersonation signal:
+      // cancel the string-match bonus the bogus identifier earned
+      if (actualResult === false) score -= NIP05_FAILED_PENALTY;
+      const updatedNutzap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.NUTZAP) : undefined;
+      const updatedZap = row.pubkey ? getCachedLightningFlag(row.pubkey, LIGHTNING_FLAGS.ZAP) : undefined;
+      const hasNutzap = updatedNutzap ?? row.hasNutzap;
+      const hasZap = updatedZap ?? row.hasZap;
+      row.hasNutzap = hasNutzap;
+      row.hasZap = hasZap;
+      if (hasNutzap) score += 150;
+      else if (hasZap) score += 40;
+      if (row.isFriend) score += 50;
+      row.finalScore = score;
+      row.verified = verified;
     }
-    ordered.push(evt);
+
+    const sorted = enriched.slice().sort((a, b) => {
+      const as = a.finalScore || 0;
+      const bs = b.finalScore || 0;
+      if (as !== bs) return bs - as;
+      // Tie-breakers: friend first, then name lexicographically
+      if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    const seen = new Set<string>();
+    const ordered: NDKEvent[] = [];
+
+    for (const row of sorted) {
+      const evt = row.event;
+      const pk = evt.pubkey || evt.author?.pubkey || '';
+      if (!pk || seen.has(pk)) continue;
+      seen.add(pk);
+      if (!evt.kind) evt.kind = 0;
+      if (!evt.author && pk) {
+        const user = new NDKUser({ pubkey: pk });
+        user.ndk = evt.ndk;
+        evt.author = user;
+      }
+      ordered.push(evt);
+    }
+
+    return ordered;
   };
 
-  for (const row of enriched) {
-    pushIfNew(row.event);
+  const initial = rankAndOrder();
+  setCachedProfileSearch(cacheKey, initial);
+
+  // Step 4: once pending verifications settle (bounded), re-rank in the
+  // background and notify the caller so the UI can re-sort
+  if (verifications.length > 0) {
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, NIP05_RERANK_TIMEOUT_MS));
+    void Promise.race([Promise.allSettled(verifications).then(() => undefined), timeout]).then(() => {
+      const updated = rankAndOrder();
+      setCachedProfileSearch(cacheKey, updated);
+      const orderChanged =
+        updated.length !== initial.length ||
+        updated.some((evt, idx) => evt.pubkey !== initial[idx]?.pubkey);
+      if (onUpdate && orderChanged) onUpdate(updated.slice(0, limit));
+    });
   }
 
-  setCachedProfileSearch(cacheKey, ordered);
-  return ordered.slice(0, limit);
+  return initial.slice(0, limit);
 }

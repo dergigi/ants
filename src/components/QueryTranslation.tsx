@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
-import { expandParenthesizedOr, parseOrQuery } from '@/lib/search';
-import { resolveAuthorToNpub } from '@/lib/vertex';
+import { expandParenthesizedOr, parseOrQuery } from '@/lib/search/queryTransforms';
+import { resolveScopedAuthorTokens } from '@/lib/search/queryPreprocessing';
 import { applySimpleReplacements } from '@/lib/search/replacements';
+import { resolveRelativeDates } from '@/lib/search/relativeDates';
 import { nip19 } from 'nostr-tools';
 import { getLastReducedFilters } from '@/lib/ndk';
 
@@ -53,48 +54,12 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
   const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
     try {
-      // 1) Apply simple replacements first
-      const afterReplacements = await applySimpleReplacements(query);
+      // 1) Resolve relative dates, then apply simple replacements
+      const { resolved: relativeDateResolvedQuery, translation: dateTranslation } = resolveRelativeDates(query);
+      const afterReplacements = await applySimpleReplacements(relativeDateResolvedQuery);
 
       // 2) Recursive OR substitution (distribute parentheses)
       const distributed = expandParenthesizedOr(afterReplacements);
-
-      // Helper: resolve all by:<author> tokens within a single query string
-      const resolveByTokensInQuery = async (q: string): Promise<string> => {
-        const rx = /(^|\s)by:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          
-          if (!skipAuthorResolution && !/^npub1[0-9a-z]+$/i.test(core)) {
-            // Check cache first
-            if (authorResolutionCache.current.has(core)) {
-              replacement = authorResolutionCache.current.get(core) || core;
-            } else {
-              try {
-                const npub = await resolveAuthorToNpub(core);
-                if (npub) {
-                  replacement = npub;
-                  authorResolutionCache.current.set(core, npub);
-                }
-              } catch {}
-            }
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}by:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
 
       // Helper: normalize p:<token> where token may be hex, npub or nprofile
       const resolvePTokensInQuery = (q: string): string => {
@@ -134,7 +99,10 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       // 3) Resolve authors inside each distributed branch (if not skipping)
       const resolvedDistributed = skipAuthorResolution 
         ? distributed 
-        : await Promise.all(distributed.map((q) => resolveByTokensInQuery(q)));
+        : await Promise.all(distributed.map(async (q) => {
+          const resolved = await resolveScopedAuthorTokens(q, { cache: authorResolutionCache.current });
+          return resolved.query;
+        }));
 
       const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
 
@@ -143,7 +111,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
       if (distributed.length > 1) {
         // We have parenthesized OR expansion - show all expanded queries
         const preview = withPResolved.join('\n');
-        return preview;
+        return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
       }
 
       // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
@@ -160,7 +128,7 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
 
       // Format compact preview
       const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      return preview;
+      return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
     } catch {
       return '';
     }
@@ -186,8 +154,8 @@ export default function QueryTranslation({ query, onAuthorResolved }: QueryTrans
         setTranslation(immediateResult);
       }
 
-      // Phase 2: Update with resolved authors (if any by: tokens exist)
-      if (query.includes('by:')) {
+      // Phase 2: Update with resolved authors (if any by:/mentions: tokens exist)
+      if (/(^|\s)(?:by|mentions):/i.test(query)) {
         const resolvedResult = await generateTranslation(query, false);
         if (!cancelled) {
           setTranslation(resolvedResult);

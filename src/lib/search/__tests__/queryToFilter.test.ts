@@ -36,7 +36,7 @@ is:video => (kind:21 OR kind:22)
   } as Response)
 ) as jest.Mock;
 
-import { expandParenthesizedOr } from '../../search';
+import { expandParenthesizedOr } from '../queryTransforms';
 import { applySimpleReplacements } from '../replacements';
 
 describe('Query to Filter Transformation', () => {

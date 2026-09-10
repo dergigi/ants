@@ -1,50 +1,30 @@
-import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { 
-  Nip50Extensions, 
-  sortEventsNewestFirst, 
-  buildSearchQueryWithExtensions,
-  subscribeAndStream,
-  subscribeAndCollect
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+import {
+  sortEventsNewestFirst,
+  buildSearchQueryWithExtensions
 } from './searchUtils';
-
-// Use the StreamingSearchOptions from the main search module
-type StreamingSearchOptions = {
-  exact?: boolean;
-  streaming?: boolean;
-  maxResults?: number;
-  timeoutMs?: number;
-  onResults?: (results: NDKEvent[], isComplete: boolean) => void;
-};
+import { subscribeAndCollect } from './subscriptions';
+import { SearchContext } from './types';
 
 export async function searchUrlEvents(
   cleanedQuery: string,
-  effectiveKinds: number[],
-  nip50Extensions: Nip50Extensions,
-  limit: number,
-  isStreaming: boolean,
-  streamingOptions: StreamingSearchOptions | undefined,
-  chosenRelaySet: NDKRelaySet,
-  abortSignal?: AbortSignal
+  context: SearchContext
 ): Promise<NDKEvent[]> {
+  const { effectiveKinds, nip50Extensions, limit, chosenRelaySet, abortSignal, onPartialResults } = context;
+
   // Search for the URL content (protocol stripping now handled by replacement rules)
-  const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions);
-  
-  const results = isStreaming 
-    ? await subscribeAndStream({
-        kinds: effectiveKinds,
-        search: searchQuery
-      }, {
-        timeoutMs: streamingOptions?.timeoutMs || 30000,
-        maxResults: streamingOptions?.maxResults || 1000,
-        onResults: streamingOptions?.onResults,
-        relaySet: chosenRelaySet,
-        abortSignal
-      })
-    : await subscribeAndCollect({
-        kinds: effectiveKinds,
-        search: searchQuery,
-        limit: Math.max(limit, 200)
-      }, 8000, chosenRelaySet, abortSignal);
-  
+  const searchQuery = buildSearchQueryWithExtensions(`"${cleanedQuery}"`, nip50Extensions || {});
+
+  const results = await subscribeAndCollect({
+    kinds: effectiveKinds,
+    search: searchQuery,
+    limit: Math.max(limit, 200)
+  }, {
+    timeoutMs: 8000,
+    relaySet: chosenRelaySet,
+    abortSignal,
+    onPartial: onPartialResults
+  });
+
   return sortEventsNewestFirst(results).slice(0, limit);
 }

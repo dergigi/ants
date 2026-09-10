@@ -20,19 +20,10 @@ export async function runSearchStrategies(
   cleanedQuery: string,
   context: SearchContext
 ): Promise<NDKEvent[] | null> {
-  const { isStreaming, streamingOptions, chosenRelaySet, abortSignal, effectiveKinds, nip50Extensions, limit } = context;
+  const { abortSignal } = context;
 
   // URL search: strip protocol and search for domain/path content
-  const urlResults = await tryHandleUrlSearch(
-    cleanedQuery,
-    effectiveKinds,
-    nip50Extensions,
-    limit,
-    isStreaming || false,
-    streamingOptions,
-    chosenRelaySet,
-    abortSignal
-  );
+  const urlResults = await tryHandleUrlSearch(cleanedQuery, context);
   if (urlResults) return urlResults;
 
   // nevent/note/naddr bech32: fetch by NIP-19 identifier
@@ -59,7 +50,7 @@ export async function runSearchStrategies(
   const identityResults = await tryHandleIdentitySearch(cleanedQuery, context);
   if (identityResults) return identityResults;
 
-  // Check for mentions filter (mentions:<user> → #p tag search)
+  // Check for mentions filter
   const mentionsResults = await tryHandleMentionsSearch(cleanedQuery, context);
   if (mentionsResults) return mentionsResults;
 
@@ -69,4 +60,3 @@ export async function runSearchStrategies(
 
   return null;
 }
-
