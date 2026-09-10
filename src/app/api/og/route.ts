@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetch as fetchOpengraph } from 'fetch-opengraph';
-import { isIP } from 'net';
+import { Parser } from 'htmlparser2';
+import { BlockedUrlError, safeFetch, validateUrl } from '@/lib/server/safeFetch';
 
 // Runtime hint: nodejs for network requests
 export const runtime = 'nodejs';
@@ -17,32 +17,6 @@ type OgResult = {
 
 function isHttpUrl(u: URL): boolean {
   return u.protocol === 'http:' || u.protocol === 'https:';
-}
-
-function isBlockedHostname(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
-  if (lower === 'localhost' || lower.endsWith('.localhost') || lower.endsWith('.local')) return true;
-  if (lower === '0.0.0.0') return true;
-  return false;
-}
-
-function isPrivateIp(ip: string): boolean {
-  // IPv4 ranges
-  const parts = ip.split('.').map((x) => parseInt(x, 10));
-  if (parts.length === 4 && parts.every((n) => !Number.isNaN(n))) {
-    const [a, b] = parts;
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 127) return true; // 127.0.0.0/8 loopback
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
-    if (a === 0) return true; // 0.0.0.0/8
-  }
-  // IPv6
-  if (ip === '::1') return true; // loopback
-  if (ip.startsWith('fe80:') || ip.startsWith('fe80::')) return true; // link-local
-  if (ip.startsWith('fc') || ip.startsWith('fd')) return true; // unique local
-  return false;
 }
 
 function resolveUrlMaybe(base: URL, value?: string | null): string | undefined {
@@ -64,7 +38,7 @@ function getYouTubeIdFromUrl(urlString: string): string | null {
       const id = u.pathname.split('/').filter(Boolean)[0] || '';
       return /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
     }
-    if (host.endsWith('youtube.com')) {
+    if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
       // /watch?v=, /shorts/<id>, /embed/<id>
       if (u.searchParams.get('v')) {
         const id = u.searchParams.get('v') || '';
@@ -88,9 +62,9 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
   // Try oEmbed first for title/author/thumbnail
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await globalThis.fetch(oembedUrl, { cache: 'no-store' });
-    if (res.ok) {
-      const data = (await res.json()) as {
+    const res = await safeFetch(oembedUrl);
+    if (res.status >= 200 && res.status < 300) {
+      const data = JSON.parse(res.body) as {
         title?: string;
         author_name?: string;
         thumbnail_url?: string;
@@ -133,8 +107,8 @@ async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
     const href = resolveUrlMaybe(urlObj, path);
     if (!href) continue;
     try {
-      const head = await globalThis.fetch(href, { method: 'HEAD', cache: 'no-store' });
-      if (head.ok) return href;
+      const head = await safeFetch(href, 'HEAD');
+      if (head.status >= 200 && head.status < 300) return head.url;
     } catch {
       // ignore and try next
     }
@@ -144,13 +118,30 @@ async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
 }
 
 async function fetchOgData(url: string): Promise<OgResult> {
-  const ogData = await fetchOpengraph(url);
-  const urlObj = new URL(url);
+  const response = await safeFetch(url);
+  if (response.status < 200 || response.status >= 300) throw new Error('Metadata fetch failed');
+  const urlObj = new URL(response.url);
+  const ogData: Record<string, string> = Object.create(null);
+  let inTitle = false;
+  let pageTitle = '';
+  const parser = new Parser({
+    onopentag(name, attributes) {
+      if (name === 'title') inTitle = true;
+      if (name === 'meta') {
+        const key = (attributes.property || attributes.name || '').toLowerCase();
+        if (key && attributes.content && !ogData[key]) ogData[key] = attributes.content;
+      }
+    },
+    ontext(text) { if (inTitle) pageTitle += text; },
+    onclosetag(name) { if (name === 'title') inTitle = false; },
+  }, { decodeEntities: true });
+  parser.end(response.body);
+  ogData.title = pageTitle.trim();
   
-  // Extract data from fetch-opengraph response
+  // Prefer OpenGraph metadata, then Twitter metadata and the page title.
   const title = ogData['og:title'] || ogData['twitter:title'] || ogData.title || undefined;
   const description = ogData['og:description'] || ogData['twitter:description'] || ogData.description || undefined;
-  const image = ogData['og:image'] || ogData['twitter:image:src'] || ogData.image || undefined;
+  const image = ogData['og:image'] || ogData['twitter:image'] || ogData['twitter:image:src'] || ogData.image || undefined;
   const siteName = ogData['og:site_name'] || urlObj.hostname;
   const type = ogData['og:type'] || undefined;
   
@@ -158,10 +149,10 @@ async function fetchOgData(url: string): Promise<OgResult> {
   const favicon = await resolveFavicon(urlObj);
   
   return {
-    url: ogData.url || url,
+    url: response.url,
     title,
     description,
-    image,
+    image: resolveUrlMaybe(urlObj, image),
     siteName,
     type,
     favicon
@@ -182,17 +173,12 @@ export async function GET(req: NextRequest) {
   if (!isHttpUrl(u)) {
     return NextResponse.json({ error: 'Only http(s) URLs are allowed' }, { status: 400 });
   }
-  if (isBlockedHostname(u.hostname)) {
-    return NextResponse.json({ error: 'Blocked host' }, { status: 400 });
-  }
-  if (isIP(u.hostname) && isPrivateIp(u.hostname)) {
-    return NextResponse.json({ error: 'Blocked IP' }, { status: 400 });
-  }
 
   try {
+    validateUrl(u);
     let data: OgResult;
     const host = u.hostname.toLowerCase();
-    if (host === 'youtu.be' || host.endsWith('youtube.com')) {
+    if (host === 'youtu.be' || (host === 'youtube.com' || host.endsWith('.youtube.com'))) {
       try {
         data = await fetchYouTubeOg(u.toString());
       } catch {
@@ -206,8 +192,8 @@ export async function GET(req: NextRequest) {
     res.headers.set('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400');
     return res;
   } catch (e: unknown) {
-    const errorMessage = e instanceof Error ? e.message : 'Fetch failed';
-    return NextResponse.json({ error: errorMessage }, { status: 502 });
+    const blocked = e instanceof BlockedUrlError;
+    return NextResponse.json({ error: blocked ? 'Blocked URL' : 'Metadata fetch failed' }, { status: blocked ? 400 : 502 });
   }
 }
 
