@@ -1,249 +1,242 @@
-# Graph Report - docs/code-map  (2026-07-22)
+# Code Graph Report
 
-## Corpus Check
-- cluster-only mode — file stats not available
+Generated from `graph.json` by `scripts/code-map-report.py`.
 
 ## Summary
-- 937 nodes · 2608 edges · 41 clusters (35 shown, 6 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.66)
-- Token cost: 0 input · 0 output
+
+- 937 nodes · 2608 edges · 41 clusters (all shown)
+- Extraction: 99.58% EXTRACTED (2597 edges) · 0.42% INFERRED (11 edges)
 
 ## Graph Freshness
-- Built from commit: `129dbecf`
-- Run `git rev-parse HEAD` and compare to check if the graph is stale.
-- Run `graphify update .` after code changes (no API cost).
 
-## Cluster Hubs (Navigation)
-- Profile Resolution and Caches
-- Search View and Query State
-- Search Parsing and Subscriptions
-- NDK Connections and Relay Status
-- Routes and Nostr Identifier Utilities
-- Runtime Dependencies
-- App Shell and Commands
-- Relay Configuration and Discovery
-- Package Scripts and Dev Tooling
-- TypeScript Project Configuration
-- Event Kind Metadata and Replacements
-- URL Previews and Image Search
-- Search Examples and Smoke Checks
-- Lightning Profile Signals
-- Relative Time and Browser Helpers
-- Follow Pack and Profile UI
-- Content Rendering Helpers
-- Zap History and Profile Age
-- Longform Article Rendering
-- Media Extraction and Display
-- Search Results and imeta Images
-- Profile Cards and Raw Events
-- Highlights Rendering
-- Open Graph API Route
-- Markdown and Nostr Links
-- Event Cards and Explorer Actions
-- Code Snippet Highlighting
-- Card Action Buttons
-- Prism Module Declarations
-- Profile Banner Controls
-- External Explorer Portals
-- ESLint Configuration
-- Next.js Build Metadata
-- Explorer Portal Menu
-- NIP-05 Well-Known Route
-- Expanded Filter Panel
-- Expanded Relay Panel
-- PostCSS Configuration
+- Built from commit: `129dbecf0419608fc7e5f307b307da1287eaf560`
+- This is a snapshot; compare that commit with the current checkout before relying on it.
 
-## God Nodes (most connected - your core abstractions)
-1. `subscribeAndCollect()` - 33 edges
-2. `safeSubscribe()` - 27 edges
-3. `ndk` - 24 edges
-4. `hasLocalStorage()` - 24 edges
-5. `sortEventsNewestFirst()` - 24 edges
-6. `searchProfilesFullText()` - 23 edges
-7. `useSearchExecution()` - 22 edges
-8. `getStoredPubkey()` - 22 edges
-9. `resolveAuthor()` - 21 edges
-10. `searchEvents()` - 20 edges
+## Cluster Hubs
 
-## Surprising Connections (you probably didn't know these)
-- `expectResultDatesWithinRange()` --calls--> `parseDateValue()`  [EXTRACTED]
-  e2e/search-smoke.spec.ts → src/lib/search/relativeDates.ts
-- `calculateRelayCounts()` --indirect_call--> `canonicalRelayId()`  [INFERRED]
-  src/lib/relayCounts.ts → src/lib/urlUtils.ts
-- `loadCacheFromStorage()` --calls--> `loadMapFromStorage()`  [EXTRACTED]
-  src/lib/relays/infoCache.ts → src/lib/storageCache.ts
-- `GET()` --calls--> `normalizeNip05String()`  [EXTRACTED]
-  src/app/api/nip05/verify/route.ts → src/lib/nip05.ts
-- `PidPage()` --calls--> `useNostrUser()`  [EXTRACTED]
-  src/app/p/[id]/page.tsx → src/hooks/useNostrUser.ts
+- Profile Resolution and Caches (125 nodes)
+- Search View and Query State (94 nodes)
+- Search Parsing and Subscriptions (73 nodes)
+- NDK Connections and Relay Status (61 nodes)
+- Routes and Nostr Identifier Utilities (59 nodes)
+- Runtime Dependencies (49 nodes)
+- App Shell and Commands (48 nodes)
+- Relay Configuration and Discovery (40 nodes)
+- Package Scripts and Dev Tooling (38 nodes)
+- TypeScript Project Configuration (30 nodes)
+- Event Kind Metadata and Replacements (30 nodes)
+- URL Previews and Image Search (21 nodes)
+- Search Examples and Smoke Checks (20 nodes)
+- Lightning Profile Signals (20 nodes)
+- Relative Time and Browser Helpers (16 nodes)
+- Follow Pack and Profile UI (15 nodes)
+- Content Rendering Helpers (15 nodes)
+- Zap History and Profile Age (14 nodes)
+- Longform Article Rendering (13 nodes)
+- Media Extraction and Display (21 nodes)
+- Search Results and imeta Images (12 nodes)
+- Profile Cards and Raw Events (12 nodes)
+- Highlights Rendering (12 nodes)
+- Open Graph API Route (11 nodes)
+- Markdown and Nostr Links (11 nodes)
+- Event Cards and Explorer Actions (11 nodes)
+- Code Snippet Highlighting (10 nodes)
+- Card Action Buttons (9 nodes)
+- Prism Module Declarations (8 nodes)
+- Profile Banner Controls (6 nodes)
+- External Explorer Portals (6 nodes)
+- ESLint Configuration (5 nodes)
+- Next.js Build Metadata (4 nodes)
+- Explorer Portal Menu (4 nodes)
+- NIP-05 Well-Known Route (3 nodes)
+- Expanded Filter Panel (3 nodes)
+- Expanded Relay Panel (3 nodes)
+- PostCSS Configuration (2 nodes)
+- Jest Configuration (1 nodes)
+- Playwright Configuration (1 nodes)
+- Regex Scratch Script (1 nodes)
 
-## Import Cycles
-- 2-file cycle: `src/lib/utils.ts -> src/lib/utils/nostrIdentifiers.ts -> src/lib/utils.ts`
-- 2-file cycle: `src/lib/ndk/index.ts -> src/lib/ndk/subscribe.ts -> src/lib/ndk/index.ts`
-- 3-file cycle: `src/lib/ndk/connection.ts -> src/lib/ndk/subscribe.ts -> src/lib/ndk/index.ts -> src/lib/ndk/connection.ts`
-- 3-file cycle: `src/lib/ndk/index.ts -> src/lib/ndk/subscribe.ts -> src/lib/utils/filterReduce.ts -> src/lib/ndk/index.ts`
-- 3-file cycle: `src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/nip50.ts -> src/lib/nip07.ts`
-- 3-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/ndk/index.ts`
-- 3-file cycle: `src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/userDiscovery.ts -> src/lib/nip07.ts`
-- 4-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/profile/cache.ts -> src/lib/profile/eventStorage.ts -> src/lib/ndk/index.ts`
-- 4-file cycle: `src/lib/ndk/connection.ts -> src/lib/ndk/subscribe.ts -> src/lib/utils/filterReduce.ts -> src/lib/ndk/index.ts -> src/lib/ndk/connection.ts`
-- 4-file cycle: `src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/nip50.ts -> src/lib/relays/userDiscovery.ts -> src/lib/nip07.ts`
-- 4-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/infoCache.ts -> src/lib/ndk/index.ts`
-- 4-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/userDiscovery.ts -> src/lib/ndk/index.ts`
-- 5-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/profile/cache.ts -> src/lib/profile/profile-event-cache.ts -> src/lib/profile/eventStorage.ts -> src/lib/ndk/index.ts`
-- 5-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/profile/cache.ts -> src/lib/profile/username-cache.ts -> src/lib/profile/eventStorage.ts -> src/lib/ndk/index.ts`
-- 5-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/nip50.ts -> src/lib/relays/infoCache.ts -> src/lib/ndk/index.ts`
-- 5-file cycle: `src/lib/ndk/index.ts -> src/lib/nip07.ts -> src/lib/relays/index.ts -> src/lib/relays/nip50.ts -> src/lib/relays/userDiscovery.ts -> src/lib/ndk/index.ts`
+## Most Connected Nodes
 
-## Clusters (41 total, 6 thin omitted)
+1. `ndk/index.ts` — 58 incident edges; `src/lib/ndk/index.ts`
+2. `SearchView.tsx` — 55 incident edges; `src/components/SearchView.tsx`
+3. `profile/cache.ts` — 53 incident edges; `src/lib/profile/cache.ts`
+4. `profile/index.ts` — 43 incident edges; `src/lib/profile/index.ts`
+5. `lib/utils.ts` — 40 incident edges; `src/lib/utils.ts`
+6. `SearchResultsList.tsx` — 40 incident edges; `src/components/SearchResultsList.tsx`
+7. `relays/index.ts` — 39 incident edges; `src/lib/relays/index.ts`
+8. `vertex.ts` — 38 incident edges; `src/lib/vertex.ts`
+9. `useSearchExecution.ts` — 36 incident edges; `src/hooks/useSearchExecution.ts`
+10. `subscribeAndCollect()` — 33 incident edges; `src/lib/search/subscriptions.ts`
+
+## Clusters (41 total, all shown)
 
 ### Profile Resolution and Caches
-Cohesion: 0.05
-Nodes (103): GET(), getDomainWithoutTld(), Nip05CheckResult, Nip05Display(), useNip05Status(), useNostrUser(), trackEventRelay(), markRelayActivity() (+95 more)
+
+Nodes (125): `verify/route.ts`, `GET()`, `Nip05Display.tsx`, `getDomainWithoutTld()`, `Nip05CheckResult`, `useNip05Status()`, `Nip05Display()`, `useNostrUser.ts` (+117 more)
 
 ### Search View and Query State
-Cohesion: 0.05
-Nodes (70): FilterMode, FilterSettings, NumberFilterProps, Props, FilterCollapsed(), FilterCollapsedProps, QueryTranslation(), QueryTranslationProps (+62 more)
+
+Nodes (94): `app/page.tsx`, `Home()`, `ClientFilters.tsx`, `FilterMode`, `FilterSettings`, `Props`, `NumberFilterProps`, `NumberFilter()` (+86 more)
 
 ### Search Parsing and Subscriptions
-Cohesion: 0.13
-Nodes (53): relaySets, fetchEventByIdentifier(), getPubkey(), isNpub(), sanitizeRelayUrls(), searchByNip19Identifier(), extractByTokens(), extractCoreWithoutByAndTags() (+45 more)
+
+Nodes (73): `relaySets`, `lib/search.ts`, `searchEvents()`, `idLookup.ts`, `isNpub()`, `getPubkey()`, `sanitizeRelayUrls()`, `fetchEventByIdentifier()` (+65 more)
 
 ### NDK Connections and Relay Status
-Cohesion: 0.08
-Nodes (48): InlineAuthor(), Props, InlineNostrToken(), InlineNostrTokenProps, NostrProfileLink(), NostrProfileLinkProps, RelayInfo, RelayStatusDisplay() (+40 more)
+
+Nodes (61): `InlineAuthor.tsx`, `Props`, `InlineAuthor()`, `InlineNostrToken.tsx`, `InlineNostrTokenProps`, `InlineNostrToken()`, `NostrProfileLink.tsx`, `NostrProfileLinkProps` (+53 more)
 
 ### Routes and Nostr Identifier Utilities
-Cohesion: 0.07
-Nodes (41): EidRedirectPage(), PidPage(), HashtagsPage(), LoadingLayout(), LoadingLayoutProps, PlaceholderProps, PlaceholderStyles(), ProfileCardPlaceholder() (+33 more)
+
+Nodes (59): `e/[id]/page.tsx`, `EidRedirectPage()`, `p/[id]/page.tsx`, `PidPage()`, `[hashtags]/page.tsx`, `HashtagsPage()`, `LoadingLayout.tsx`, `LoadingLayoutProps` (+51 more)
 
 ### Runtime Dependencies
-Cohesion: 0.04
-Nodes (49): blurhash, fetch-opengraph, @fortawesome/fontawesome-svg-core, @fortawesome/free-brands-svg-icons, @fortawesome/free-regular-svg-icons, @fortawesome/free-solid-svg-icons, @fortawesome/react-fontawesome, fuse.js (+41 more)
+
+Nodes (49): `dependencies`, `@fortawesome/fontawesome-svg-core`, `@fortawesome/fontawesome-svg-core`, `@fortawesome/free-brands-svg-icons`, `@fortawesome/free-brands-svg-icons`, `@fortawesome/free-regular-svg-icons`, `@fortawesome/free-regular-svg-icons`, `@fortawesome/free-solid-svg-icons` (+41 more)
 
 ### App Shell and Commands
-Cohesion: 0.08
-Nodes (34): geistMono, geistSans, metadata, Footer(), Header(), Logo(), LogoProps, Props (+26 more)
+
+Nodes (48): `layout.tsx`, `geistSans`, `geistMono`, `metadata`, `RootLayout()`, `Footer.tsx`, `Footer()`, `Header.tsx` (+40 more)
 
 ### Relay Configuration and Discovery
-Cohesion: 0.12
-Nodes (33): createRelaySet(), normalizeRelayUrl(), RELAYS, CachedRelayInfo, cacheRelayInfo(), checkRelayInfoViaHttp(), clearRelayInfoCache(), getRelayInfo() (+25 more)
+
+Nodes (40): `config.ts`, `RELAYS`, `normalizeRelayUrl()`, `createRelaySet()`, `relays/index.ts`, `infoCache.ts`, `RelayInfo`, `CachedRelayInfo` (+32 more)
 
 ### Package Scripts and Dev Tooling
-Cohesion: 0.05
-Nodes (37): eslint, eslint-config-next, @eslint/eslintrc, jest, devDependencies, eslint, eslint-config-next, @eslint/eslintrc (+29 more)
+
+Nodes (38): `package.json`, `name`, `version`, `private`, `scripts`, `dev`, `build`, `start` (+30 more)
 
 ### TypeScript Project Configuration
-Cohesion: 0.07
-Nodes (29): dom, dom.iterable, esnext, next-env.d.ts, .next/types/**/*.ts, node_modules, nostr-band-app, npub.world (+21 more)
+
+Nodes (30): `tsconfig.json`, `compilerOptions`, `target`, `lib`, `dom`, `dom.iterable`, `esnext`, `allowJs` (+22 more)
 
 ### Event Kind Metadata and Replacements
-Cohesion: 0.12
-Nodes (22): NoteHeader(), NoteHeaderProps, RelayIndicator(), RelayIndicatorProps, EVENT_KIND_ICONS, getEventKindDisplayName(), getEventKindIcon(), getKindSearchQuery() (+14 more)
+
+Nodes (30): `NoteHeader.tsx`, `NoteHeaderProps`, `NoteHeader()`, `RelayIndicator.tsx`, `RelayIndicatorProps`, `RelayIndicator()`, `eventKindIcons.ts`, `EVENT_KIND_ICONS` (+22 more)
 
 ### URL Previews and Image Search
-Cohesion: 0.16
-Nodes (13): ImageWithBlurhash(), ImageWithBlurhashProps, ReverseImageSearchButton(), ReverseImageSearchButtonProps, SearchIconButton(), SearchIconButtonProps, OgData, Props (+5 more)
+
+Nodes (21): `ImageWithBlurhash.tsx`, `ImageWithBlurhashProps`, `ImageWithBlurhash()`, `ReverseImageSearchButton.tsx`, `ReverseImageSearchButtonProps`, `ReverseImageSearchButton()`, `SearchIconButton.tsx`, `SearchIconButtonProps` (+13 more)
 
 ### Search Examples and Smoke Checks
-Cohesion: 0.16
-Nodes (16): DateExpectation, exampleSet, expectResultDatesWithinRange(), getCardExactTimestamp(), smokeQueries, SmokeQuery, loginRequiredExamples, SearchExample (+8 more)
+
+Nodes (20): `search-smoke.spec.ts`, `DateExpectation`, `SmokeQuery`, `smokeQueries`, `exampleSet`, `getResultCards()`, `getCardExactTimestamp()`, `expectResultDatesWithinRange()` (+12 more)
 
 ### Lightning Profile Signals
-Cohesion: 0.15
-Nodes (18): DebugState, defaultState, Props, RankingDebug(), buildFilters(), getCachedLightningFlag(), getCachedLightningRealness(), inFlight (+10 more)
+
+Nodes (20): `RankingDebug.tsx`, `Props`, `DebugState`, `defaultState`, `RankingDebug()`, `lightning.ts`, `LightningFlagType`, `LightningRealness` (+12 more)
 
 ### Relative Time and Browser Helpers
-Cohesion: 0.21
-Nodes (14): calculateTimeDifferences(), formatMobileRelativeTime(), formatRelativeTime(), formatRelativeTimeAuto(), formatters, isMobileViewport(), MOBILE_UNIT_SUFFIXES, MobileRelativeUnit (+6 more)
+
+Nodes (16): `relativeTime.ts`, `formatters`, `MOBILE_UNIT_SUFFIXES`, `MobileRelativeUnit`, `formatMobileRelativeTime()`, `isMobileViewport()`, `calculateTimeDifferences()`, `formatRelativeTime()` (+8 more)
 
 ### Follow Pack and Profile UI
-Cohesion: 0.23
-Nodes (10): FollowPackCard(), FollowPackCardProps, FollowPackData, ProfileImage(), ProfileImageProps, ProfileScopeIndicator(), ProfileScopeIndicatorProps, getIsKindTokens() (+2 more)
+
+Nodes (15): `FollowPackCard.tsx`, `FollowPackData`, `FollowPackCardProps`, `FollowPackMemberAvatar()`, `FollowPackCard()`, `ProfileImage.tsx`, `ProfileImageProps`, `ProfileImage()` (+7 more)
 
 ### Content Rendering Helpers
-Cohesion: 0.25
-Nodes (11): NeventSearchButton(), Props, ContentRenderer, useContentRenderer(), formatEventTimestamp(), getReplyToEventId(), createNostrTokenRegex(), normalizeWhitespace() (+3 more)
+
+Nodes (15): `NeventSearchButton.tsx`, `Props`, `NeventSearchButton()`, `useContentRenderer.tsx`, `ContentRenderer`, `useContentRenderer()`, `eventHelpers.ts`, `formatEventTimestamp()` (+7 more)
 
 ### Zap History and Profile Age
-Cohesion: 0.25
-Nodes (12): cleanLightningAddress(), ProfileCreatedAt(), Props, buildNutzapFilters(), buildZapFilters(), LightningFilterFactory, nutzapSenderCache, useHasSentNutzap() (+4 more)
+
+Nodes (14): `ProfileCreatedAt.tsx`, `cleanLightningAddress()`, `Props`, `ProfileCreatedAt()`, `useHasSentZap.ts`, `zapSenderCache`, `nutzapSenderCache`, `LightningFilterFactory` (+6 more)
 
 ### Longform Article Rendering
-Cohesion: 0.26
-Nodes (9): ArticleCard(), ArticleCardProps, ArticleHeader(), encodeNevent(), createArticleExplorerItems(), ArticleMetadata, extractArticleMetadata(), formatArticleDate() (+1 more)
+
+Nodes (13): `ArticleCard.tsx`, `ArticleCardProps`, `ArticleCard()`, `encodeNevent()`, `ArticleHeader()`, `ArticleBody()`, `ArticleTopics()`, `createArticleExplorerItems()` (+5 more)
 
 ### Media Extraction and Display
-Cohesion: 0.20
-Nodes (17): NoteMedia(), NoteMediaProps, extractMediaFromContent(), getSearchQueryFromMedia(), getTrimmedMediaUrl(), isValidMediaUrl(), MediaItem, cleanUrlBase() (+9 more)
+
+Nodes (21): `NoteMedia.tsx`, `NoteMediaProps`, `NoteMedia()`, `mediaUtils.ts`, `MediaItem`, `extractMediaFromContent()`, `getSearchQueryFromMedia()`, `isValidMediaUrl()` (+13 more)
 
 ### Search Results and imeta Images
-Cohesion: 0.38
-Nodes (9): Props, SearchResultsList(), extractImetaBlurhashes(), extractImetaDimensions(), extractImetaHashes(), extractImetaImageUrls(), extractImetaVideoUrls(), isHttpUrl() (+1 more)
+
+Nodes (12): `SearchResultsList.tsx`, `Props`, `SearchResultsList()`, `picture.ts`, `isHttpUrl()`, `extractImetaImageUrls()`, `extractImetaVideoUrls()`, `extractImetaBlurhashes()` (+4 more)
 
 ### Profile Cards and Raw Events
-Cohesion: 0.26
-Nodes (8): CopyButton(), Props, ProfileCard(), ProfileCardProps, Props, RawEventJson(), createProfileExplorerItems(), toPlainEvent()
+
+Nodes (12): `CopyButton.tsx`, `Props`, `CopyButton()`, `ProfileCard.tsx`, `ProfileCardProps`, `ProfileCard()`, `RawEventJson.tsx`, `Props` (+4 more)
 
 ### Highlights Rendering
-Cohesion: 0.21
-Nodes (7): EventCardHighlight(), HIGHLIGHT_SPAN_STYLE, navigateToSearch(), Props, SearchButton(), HighlightData, formatUrlResponsive()
+
+Nodes (12): `EventCardHighlight.tsx`, `navigateToSearch()`, `SearchButton()`, `HIGHLIGHT_SPAN_STYLE`, `Props`, `EventCardHighlight()`, `highlights.ts`, `HighlightData` (+4 more)
 
 ### Open Graph API Route
-Cohesion: 0.35
-Nodes (10): fetchOgData(), fetchYouTubeOg(), GET(), getYouTubeIdFromUrl(), isBlockedHostname(), isHttpUrl(), isPrivateIp(), OgResult (+2 more)
+
+Nodes (11): `og/route.ts`, `OgResult`, `isHttpUrl()`, `isBlockedHostname()`, `isPrivateIp()`, `resolveUrlMaybe()`, `getYouTubeIdFromUrl()`, `fetchYouTubeOg()` (+3 more)
 
 ### Markdown and Nostr Links
-Cohesion: 0.31
-Nodes (9): ArticleMarkdown(), ArticleMarkdownProps, joinClasses(), withoutNode(), NOSTR_TOKEN_RE, PROFILE_PREFIXES, remarkNostrLinks(), tokenToDisplay() (+1 more)
+
+Nodes (11): `ArticleMarkdown.tsx`, `ArticleMarkdownProps`, `joinClasses()`, `withoutNode()`, `ArticleMarkdown()`, `remarkNostrLinks.ts`, `NOSTR_TOKEN_RE`, `PROFILE_PREFIXES` (+3 more)
 
 ### Event Cards and Explorer Actions
-Cohesion: 0.27
-Nodes (6): EventCard(), Props, UI_CONFIG, parseFollowPackTags(), parseHighlightEvent(), createEventExplorerItems()
+
+Nodes (11): `AuthorBadge.tsx`, `AuthorBadge()`, `EventCard.tsx`, `Props`, `EventCard()`, `constants.ts`, `UI_CONFIG`, `followPack.ts` (+3 more)
 
 ### Code Snippet Highlighting
-Cohesion: 0.36
-Nodes (8): CodeSnippet(), extractLanguageFromTags(), Props, ensureBashLanguage(), ensureLanguage(), exposePrism(), importers, loadedLanguages
+
+Nodes (10): `CodeSnippet.tsx`, `Props`, `extractLanguageFromTags()`, `CodeSnippet()`, `prism.ts`, `loadedLanguages`, `exposePrism()`, `importers` (+2 more)
 
 ### Card Action Buttons
-Cohesion: 0.28
-Nodes (5): CardActions, Props, IconButton, Props, ShareButtonProps
+
+Nodes (9): `CardActions.tsx`, `Props`, `CardActions`, `IconButton.tsx`, `Props`, `IconButton`, `ShareButton.tsx`, `ShareButtonProps` (+1 more)
 
 ### Prism Module Declarations
-Cohesion: 0.25
-Nodes (7): prismjs/components/prism-bash, prismjs/components/prism-css, prismjs/components/prism-java, prismjs/components/prism-javascript, prismjs/components/prism-json, prismjs/components/prism-markdown, prismjs/components/prism-typescript
+
+Nodes (8): `prism-modules.d.ts`, `prismjs/components/prism-bash`, `prismjs/components/prism-typescript`, `prismjs/components/prism-javascript`, `prismjs/components/prism-json`, `prismjs/components/prism-css`, `prismjs/components/prism-markdown`, `prismjs/components/prism-java`
 
 ### Profile Banner Controls
-Cohesion: 0.40
-Nodes (3): Props, Props, TitleBarButton
+
+Nodes (6): `ProfileBanner.tsx`, `Props`, `ProfileBanner()`, `TitleBarButton.tsx`, `Props`, `TitleBarButton`
 
 ### External Explorer Portals
-Cohesion: 0.33
-Nodes (5): ARTICLE_EXPLORERS, EVENT_EXPLORERS, ExplorerItem, ExplorerLink, PROFILE_EXPLORERS
+
+Nodes (6): `portals.ts`, `ExplorerLink`, `PROFILE_EXPLORERS`, `EVENT_EXPLORERS`, `ARTICLE_EXPLORERS`, `ExplorerItem`
 
 ### ESLint Configuration
-Cohesion: 0.40
-Nodes (4): compat, __dirname, eslintConfig, __filename
 
-## Knowledge Gaps
-- **223 isolated node(s):** `DateExpectation`, `SmokeQuery`, `smokeQueries`, `exampleSet`, `__filename` (+218 more)
-  These have ≤1 connection - possible missing edges or undocumented components.
-- **6 thin clusters (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+Nodes (5): `eslint.config.mjs`, `__filename`, `__dirname`, `compat`, `eslintConfig`
 
-## Suggested Questions
-_Questions this graph is uniquely positioned to answer:_
+### Next.js Build Metadata
 
-- **Why does `dependencies` connect `Runtime Dependencies` to `Package Scripts and Dev Tooling`?**
-  _High betweenness centrality (0.092) - this node is a cross-cluster bridge._
-- **Why does `ndk` connect `NDK Connections and Relay Status` to `Profile Resolution and Caches`, `Search View and Query State`, `Search Parsing and Subscriptions`, `App Shell and Commands`, `Relay Configuration and Discovery`, `Follow Pack and Profile UI`, `Longform Article Rendering`?**
-  _High betweenness centrality (0.048) - this node is a cross-cluster bridge._
-- **What connects `DateExpectation`, `SmokeQuery`, `smokeQueries` to the rest of the system?**
-  _223 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Profile Resolution and Caches` be split into smaller, more focused modules?**
-  _Cohesion score 0.05432258064516129 - nodes in this cluster are weakly interconnected._
-- **Should `Search View and Query State` be split into smaller, more focused modules?**
-  _Cohesion score 0.05444978265843056 - nodes in this cluster are weakly interconnected._
-- **Should `Search Parsing and Subscriptions` be split into smaller, more focused modules?**
-  _Cohesion score 0.1263318112633181 - nodes in this cluster are weakly interconnected._
-- **Should `NDK Connections and Relay Status` be split into smaller, more focused modules?**
-  _Cohesion score 0.07759562841530054 - nodes in this cluster are weakly interconnected._
+Nodes (4): `next.config.ts`, `getGitCommitHash()`, `getGitCommitHashShort()`, `nextConfig`
+
+### Explorer Portal Menu
+
+Nodes (4): `ExplorerPortalMenu.tsx`, `ExplorerMenuItem`, `Props`, `ExplorerPortalMenu()`
+
+### NIP-05 Well-Known Route
+
+Nodes (3): `nostr.json/route.ts`, `NIP05_DATA`, `GET()`
+
+### Expanded Filter Panel
+
+Nodes (3): `FilterExpanded.tsx`, `FilterExpandedProps`, `FilterExpanded()`
+
+### Expanded Relay Panel
+
+Nodes (3): `RelayExpanded.tsx`, `RelayExpandedProps`, `RelayExpanded()`
+
+### PostCSS Configuration
+
+Nodes (2): `postcss.config.mjs`, `config`
+
+### Jest Configuration
+
+Nodes (1): `jest.config.js`
+
+### Playwright Configuration
+
+Nodes (1): `playwright.config.ts`
+
+### Regex Scratch Script
+
+Nodes (1): `test-regex.js`
+
+## Limitations
+
+- 3 nodes have no recorded edges.
+- Static extraction can miss runtime connections; inferred edges are not verified dependencies.
+- Cluster names are heuristic descriptions, not architectural boundaries.
