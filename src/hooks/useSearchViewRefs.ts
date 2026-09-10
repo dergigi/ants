@@ -13,6 +13,9 @@ export type SearchViewRefs = {
   initialQueryRef: MutableRefObject<string>;
   lastHashQueryRef: MutableRefObject<string | null>;
   lastExecutedQueryRef: MutableRefObject<string | null>;
+  activeSearchIdRef: MutableRefObject<number | null>;
+  activeSearchKeysRef: MutableRefObject<Set<string>>;
+  completedSearchKeysRef: MutableRefObject<Set<string>>;
 };
 
 /** Mutable refs shared between the search execution and URL sync hooks */
@@ -29,6 +32,9 @@ export function useSearchViewRefs(initialQuery: string, manageUrl: boolean): Sea
   const initialQueryRef = useRef(initialQuery);
   const lastHashQueryRef = useRef<string | null>(bootstrapInitial);
   const lastExecutedQueryRef = useRef<string | null>(bootstrapInitial);
+  const activeSearchIdRef = useRef<number | null>(null);
+  const activeSearchKeysRef = useRef<Set<string>>(new Set());
+  const completedSearchKeysRef = useRef<Set<string>>(new Set());
 
   return useMemo(() => ({
     currentSearchId,
@@ -39,6 +45,9 @@ export function useSearchViewRefs(initialQuery: string, manageUrl: boolean): Sea
     initialQueryNormalizedRef,
     initialQueryRef,
     lastHashQueryRef,
-    lastExecutedQueryRef
+    lastExecutedQueryRef,
+    activeSearchIdRef,
+    activeSearchKeysRef,
+    completedSearchKeysRef
   }), []);
 }
