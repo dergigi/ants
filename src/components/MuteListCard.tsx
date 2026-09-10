@@ -41,12 +41,12 @@ function MutedProfileRow({
     } catch {}
 
     if (onAuthorClick) {
-      onAuthorClick(user.npub);
+      onAuthorClick(npub);
       return;
     }
 
     if (typeof window !== 'undefined') {
-      window.location.href = `/p/${user.npub}`;
+      window.location.href = `/p/${npub}`;
     }
   };
 

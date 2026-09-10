@@ -2,12 +2,12 @@ import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
 import { profileEventFromPubkey, resolveAuthor } from '../../vertex';
 import { RELAYS } from '../../relays';
+import { getNip50SearchRelaySet } from '../../relays/nip50';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { expandParenthesizedOr } from '../queryTransforms';
 import { subscribeAndCollect } from '../subscriptions';
 import { searchByAnyTerms } from '../termSearch';
-import { getBroadRelaySet } from '../relayManagement';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { setMuteListResultData } from '../muteListResultData';
 import { SearchContext } from '../types';
@@ -147,7 +147,7 @@ export async function tryHandleAuthorSearch(
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
           const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
-          return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
+          return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: await getNip50SearchRelaySet(), abortSignal, onPartial: partialResultsHandler });
         } catch { return []; }
       }));
       const seen = new Set<string>();
@@ -155,10 +155,10 @@ export async function tryHandleAuthorSearch(
         for (const e of r) { if (!seen.has(e.id)) { seen.add(e.id); res.push(e); } }
       }
     } else {
-      res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
+      res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: filters.search ? await getNip50SearchRelaySet() : chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
     }
   } else {
-    res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
+    res = await subscribeAndCollect(filters, { timeoutMs: 8000, relaySet: filters.search ? await getNip50SearchRelaySet() : chosenRelaySet, abortSignal, onPartial: partialResultsHandler });
   }
 
   // If the remaining terms contain parenthesized OR seeds like (a OR b), run a seeded OR search too
@@ -177,11 +177,11 @@ export async function tryHandleAuthorSearch(
       const seeded = await searchByAnyTerms(
         seedTerms,
         limit,
-        chosenRelaySet,
+        await getNip50SearchRelaySet(),
         abortSignal,
         nip50Extensions,
         applyDateFilter({ authors: [pubkey], kinds: effectiveKinds }, dateFilter),
-        () => getBroadRelaySet(),
+        () => getNip50SearchRelaySet(),
         onPartialResults
       );
       res = [...res, ...seeded];
@@ -191,7 +191,7 @@ export async function tryHandleAuthorSearch(
   const broadRelays = Array.from(new Set<string>([...RELAYS.DEFAULT, ...RELAYS.SEARCH]));
   const broadRelaySet = NDKRelaySet.fromRelayUrls(broadRelays, ndk);
   if (res.length === 0) {
-    res = await subscribeAndCollect(filters, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal, onPartial: partialResultsHandler });
+    res = await subscribeAndCollect(filters, { timeoutMs: 10000, relaySet: filters.search ? await getNip50SearchRelaySet() : broadRelaySet, abortSignal, onPartial: partialResultsHandler });
   }
   // Additional fallback for very short terms (e.g., "GM") or stubborn empties:
   // some relays require >=3 chars for NIP-50 search; fetch author-only and filter client-side
