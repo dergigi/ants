@@ -56,13 +56,13 @@ function getYouTubeIdFromUrl(urlString: string): string | null {
   }
 }
 
-async function fetchYouTubeOg(url: string): Promise<OgResult> {
+async function fetchYouTubeOg(url: string, signal: AbortSignal): Promise<OgResult> {
   const id = getYouTubeIdFromUrl(url);
   const siteName = 'YouTube';
   // Try oEmbed first for title/author/thumbnail
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await safeFetch(oembedUrl);
+    const res = await safeFetch(oembedUrl, 'GET', signal);
     if (res.status >= 200 && res.status < 300) {
       const data = JSON.parse(res.body) as {
         title?: string;
@@ -93,7 +93,7 @@ async function fetchYouTubeOg(url: string): Promise<OgResult> {
   throw new Error('YouTube metadata unavailable');
 }
 
-async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
+async function resolveFavicon(urlObj: URL, signal: AbortSignal): Promise<string | undefined> {
   // Try common favicon locations first with a lightweight HEAD request
   const candidatePaths = [
     '/favicon.ico',
@@ -104,10 +104,11 @@ async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
     '/icons/icon-192x192.png',
   ];
   for (const path of candidatePaths) {
+    if (signal.aborted) break;
     const href = resolveUrlMaybe(urlObj, path);
     if (!href) continue;
     try {
-      const head = await safeFetch(href, 'HEAD');
+      const head = await safeFetch(href, 'HEAD', signal);
       if (head.status >= 200 && head.status < 300) return head.url;
     } catch {
       // ignore and try next
@@ -117,8 +118,8 @@ async function resolveFavicon(urlObj: URL): Promise<string | undefined> {
   return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
 }
 
-async function fetchOgData(url: string): Promise<OgResult> {
-  const response = await safeFetch(url);
+async function fetchOgData(url: string, signal: AbortSignal): Promise<OgResult> {
+  const response = await safeFetch(url, 'GET', signal);
   if (response.status < 200 || response.status >= 300) throw new Error('Metadata fetch failed');
   const urlObj = new URL(response.url);
   const ogData: Record<string, string> = Object.create(null);
@@ -146,7 +147,7 @@ async function fetchOgData(url: string): Promise<OgResult> {
   const type = ogData['og:type'] || undefined;
   
   // Resolve favicon with fallbacks
-  const favicon = await resolveFavicon(urlObj);
+  const favicon = await resolveFavicon(urlObj, signal);
   
   return {
     url: response.url,
@@ -176,16 +177,17 @@ export async function GET(req: NextRequest) {
 
   try {
     validateUrl(u);
+    const signal = AbortSignal.timeout(8000);
     let data: OgResult;
     const host = u.hostname.toLowerCase();
     if (host === 'youtu.be' || (host === 'youtube.com' || host.endsWith('.youtube.com'))) {
       try {
-        data = await fetchYouTubeOg(u.toString());
+        data = await fetchYouTubeOg(u.toString(), signal);
       } catch {
-        data = await fetchOgData(u.toString());
+        data = await fetchOgData(u.toString(), signal);
       }
     } else {
-      data = await fetchOgData(u.toString());
+      data = await fetchOgData(u.toString(), signal);
     }
     // Short cache headers (10 minutes) to reduce repeated fetches
     const res = NextResponse.json(data, { status: 200 });

@@ -11,7 +11,7 @@ const blocked = new BlockList();
 for (const [address, prefix] of [
   ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
   ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24],
-  ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+  ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
   ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
 ] as const) blocked.addSubnet(address, prefix, 'ipv4');
 blocked.addSubnet('2001::', 23, 'ipv6');
@@ -56,7 +56,7 @@ async function requestOnce(url: URL, method: 'GET' | 'HEAD', signal: AbortSignal
     const request = url.protocol === 'https:' ? httpsRequest : httpRequest;
     const req = request({
       protocol: url.protocol,
-      hostname: addresses[0].address,
+      hostname: (addresses.find(({ address }) => isIP(address) === 4) || addresses[0]).address,
       servername: isIP(hostname) ? undefined : hostname,
       port: url.port || undefined,
       path: url.pathname + url.search,
@@ -91,8 +91,8 @@ async function requestOnce(url: URL, method: 'GET' | 'HEAD', signal: AbortSignal
   });
 }
 
-export async function safeFetch(input: string, method: 'GET' | 'HEAD' = 'GET'): Promise<SafeResponse> {
-  const signal = AbortSignal.timeout(8000);
+export async function safeFetch(input: string, method: 'GET' | 'HEAD' = 'GET', signal = AbortSignal.timeout(8000)): Promise<SafeResponse> {
+  signal.throwIfAborted();
   const run = async () => {
     let url = new URL(input);
     for (let redirects = 0; redirects <= 5; redirects++) {
