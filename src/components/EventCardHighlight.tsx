@@ -3,7 +3,6 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
-import { compareTwoStrings } from 'string-similarity';
 import { HighlightData } from '@/lib/highlights';
 import { formatUrlResponsive } from '@/lib/utils/urlUtils';
 import InlineAuthor from '@/components/InlineAuthor';
@@ -27,6 +26,15 @@ const SearchButton = ({ query, children, className = "text-blue-400 hover:text-b
 const HIGHLIGHT_SPAN_CLASSES = 'inline rounded-[2px] bg-[#f6de74]/30 px-1 py-[1px] text-gray-100 shadow-[0_1px_4px_rgba(246,222,116,0.15)] border-b-2 border-[#f6de74]';
 const HIGHLIGHT_SPAN_STYLE = { boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as const;
 
+type HighlightMatchRange = {
+  start: number;
+  end: number;
+};
+
+type HighlightParagraph = HighlightMatchRange & {
+  text: string;
+};
+
 type Props = {
   highlight: HighlightData;
   contentClasses: string;
@@ -34,17 +42,196 @@ type Props = {
   onAuthorClick?: (npub: string) => void;
 };
 
+const isWhitespace = (value: string) => /\s/.test(value);
+
+const getWhitespaceAwareMatchEnd = (
+  context: string,
+  content: string,
+  contextStart: number
+): number | null => {
+  let contextIndex = contextStart;
+  let contentIndex = 0;
+
+  while (contentIndex < content.length) {
+    const contentChar = content[contentIndex];
+
+    if (isWhitespace(contentChar)) {
+      if (contextIndex >= context.length || !isWhitespace(context[contextIndex])) {
+        return null;
+      }
+
+      while (contentIndex < content.length && isWhitespace(content[contentIndex])) {
+        contentIndex += 1;
+      }
+
+      while (contextIndex < context.length && isWhitespace(context[contextIndex])) {
+        contextIndex += 1;
+      }
+
+      continue;
+    }
+
+    if (contextIndex >= context.length || context[contextIndex] !== contentChar) {
+      return null;
+    }
+
+    contextIndex += 1;
+    contentIndex += 1;
+  }
+
+  return contextIndex;
+};
+
+const findHighlightMatchRange = (
+  context: string,
+  content: string,
+  fromIndex = 0
+): HighlightMatchRange | null => {
+  const trimmedContent = content.trim();
+
+  if (!trimmedContent) {
+    return null;
+  }
+
+  for (let index = fromIndex; index < context.length; index += 1) {
+    const matchEnd = getWhitespaceAwareMatchEnd(context, trimmedContent, index);
+
+    if (matchEnd !== null) {
+      return {
+        start: index,
+        end: matchEnd
+      };
+    }
+  }
+
+  return null;
+};
+
+const findAllHighlightMatchRanges = (
+  context: string,
+  content: string
+): HighlightMatchRange[] => {
+  const ranges: HighlightMatchRange[] = [];
+  let cursor = 0;
+
+  while (cursor < context.length) {
+    const range = findHighlightMatchRange(context, content, cursor);
+
+    if (!range) {
+      break;
+    }
+
+    ranges.push(range);
+    cursor = range.start + 1;
+  }
+
+  return ranges;
+};
+
+const mergeHighlightMatchRanges = (
+  ranges: HighlightMatchRange[]
+): HighlightMatchRange[] => {
+  return [...ranges]
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+    .reduce<HighlightMatchRange[]>((mergedRanges, range) => {
+      const lastRange = mergedRanges[mergedRanges.length - 1];
+
+      if (lastRange && range.start <= lastRange.end) {
+        lastRange.end = Math.max(lastRange.end, range.end);
+        return mergedRanges;
+      }
+
+      mergedRanges.push({ ...range });
+      return mergedRanges;
+    }, []);
+};
+
+const splitIntoParagraphRanges = (context: string): HighlightParagraph[] => {
+  const paragraphs: HighlightParagraph[] = [];
+  const separator = /\n\s*\n/g;
+  let paragraphStart = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = separator.exec(context)) !== null) {
+    const paragraphEnd = match.index;
+    const text = context.slice(paragraphStart, paragraphEnd);
+
+    if (text.trim() !== '') {
+      paragraphs.push({
+        text,
+        start: paragraphStart,
+        end: paragraphEnd
+      });
+    }
+
+    paragraphStart = match.index + match[0].length;
+  }
+
+  const text = context.slice(paragraphStart);
+
+  if (text.trim() !== '') {
+    paragraphs.push({
+      text,
+      start: paragraphStart,
+      end: context.length
+    });
+  }
+
+  return paragraphs;
+};
+
+const getParagraphHighlightRanges = (
+  paragraph: HighlightParagraph,
+  ranges: HighlightMatchRange[]
+): HighlightMatchRange[] => {
+  return ranges
+    .map((range) => ({
+      start: Math.max(range.start, paragraph.start) - paragraph.start,
+      end: Math.min(range.end, paragraph.end) - paragraph.start
+    }))
+    .filter((range) => range.end > range.start);
+};
+
+const renderParagraphWithHighlight = (
+  paragraph: HighlightParagraph,
+  ranges: HighlightMatchRange[]
+) => {
+  const parts: React.ReactNode[] = [];
+  const paragraphRanges = getParagraphHighlightRanges(paragraph, ranges);
+  let cursor = 0;
+
+  paragraphRanges.forEach((range, index) => {
+    if (range.start > cursor) {
+      parts.push(paragraph.text.slice(cursor, range.start));
+    }
+
+    parts.push(
+      <span
+        key={`highlight-${index}`}
+        className={HIGHLIGHT_SPAN_CLASSES}
+        style={HIGHLIGHT_SPAN_STYLE}
+      >
+        {paragraph.text.slice(range.start, range.end)}
+      </span>
+    );
+
+    cursor = range.end;
+  });
+
+  if (paragraphRanges.length === 0) {
+    return paragraph.text.trim();
+  }
+
+  if (cursor < paragraph.text.length) {
+    parts.push(paragraph.text.slice(cursor));
+  }
+
+  return parts;
+};
+
 /** The highlight (NIP-84) rendering: comment, highlighted context, range, and source */
 export default function EventCardHighlight({ highlight, contentClasses, renderContent, onAuthorClick }: Props) {
-  const normalizeForSimilarity = (value?: string) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-  const contextSimilarity = highlight.context
-    ? compareTwoStrings(
-        normalizeForSimilarity(highlight.content),
-        normalizeForSimilarity(highlight.context)
-      )
-    : 0;
-  const shouldShowHighlightContext = Boolean(highlight.context && contextSimilarity < 0.9);
+  const shouldShowHighlightContext = Boolean(highlight.context && highlight.context !== highlight.content);
 
   return (
     <div className="mb-3 space-y-3">
@@ -65,32 +252,17 @@ export default function EventCardHighlight({ highlight, contentClasses, renderCo
             // When context is present, render the full context with the content highlighted within it
             const context = highlight.context;
             const content = highlight.content;
+            const highlightRanges = mergeHighlightMatchRanges(
+              findAllHighlightMatchRanges(context, content)
+            );
 
             // Split context by double newlines to get paragraphs
-            const paragraphs = context.split(/\n\s*\n/).filter(p => p.trim() !== '');
+            const paragraphs = splitIntoParagraphRanges(context);
 
             return paragraphs.map((paragraph, index) => {
-              // Check if this paragraph contains the highlighted content
-              const containsHighlight = paragraph.includes(content);
-
               return (
                 <p key={index} className="mb-4 last:mb-0">
-                  {containsHighlight ? (
-                    // Split paragraph around the content and highlight it
-                    paragraph.split(content).map((part, partIndex) => (
-                      <span key={partIndex}>
-                        {part}
-                        {partIndex < paragraph.split(content).length - 1 && (
-                          <span className={HIGHLIGHT_SPAN_CLASSES} style={HIGHLIGHT_SPAN_STYLE}>
-                            {content}
-                          </span>
-                        )}
-                      </span>
-                    ))
-                  ) : (
-                    // Regular paragraph without highlight
-                    paragraph.trim()
-                  )}
+                  {renderParagraphWithHighlight(paragraph, highlightRanges)}
                 </p>
               );
             });
