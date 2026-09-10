@@ -48,7 +48,7 @@ export default function AudioPlayer({ src, onClickSearch }: AudioPlayerProps) {
           </button>
         </div>
       </div>
-      <audio controls preload="metadata" className="w-full">
+      <audio key={src} controls preload="metadata" className="w-full">
         <source src={src} />
         Your browser does not support the audio tag.
       </audio>

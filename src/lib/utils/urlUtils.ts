@@ -256,10 +256,18 @@ function extractUrlsBase(text: string, filterFn?: (url: string) => boolean): str
   return urls;
 }
 
-const imageExtRegex = /\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)(?:$|[?#])/i;
-const audioExtRegex = /\.(?:m4a|mp3|wav|flac|aac|opus)(?:$|[?#])/i;
-const ambiguousAudioVideoExtRegex = /\.(?:ogg|webm)(?:$|[?#])/i;
-const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
+/** Classify actual filenames, never arbitrary search text in a URL query. */
+export function getMediaUrlType(value: string): 'image' | 'audio' | 'video' | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const filename = url.searchParams.get('filename') || url.searchParams.get('name') || url.pathname;
+    if (/\.(?:png|jpe?g|gif|gifs|apng|webp|avif|svg)$/i.test(filename)) return 'image';
+    if (/\.(?:m4a|mp3|wav|flac|aac|opus)$/i.test(filename)) return 'audio';
+    if (/\.(?:mp4|webm|ogg|ogv|mov|m4v)$/i.test(filename)) return 'video';
+  } catch { /* Invalid URLs are ordinary text. */ }
+  return null;
+}
 
 /**
  * Extract image URLs from text content
@@ -267,7 +275,7 @@ const videoExtRegex = /\.(?:mp4|webm|ogg|ogv|mov|m4v)(?:$|[?#])/i;
  * @returns Array of image URLs found
  */
 export function extractImageUrls(text: string): string[] {
-  return extractUrlsBase(text, (url) => imageExtRegex.test(url));
+  return extractUrlsBase(text, (url) => getMediaUrlType(url) === 'image');
 }
 
 /**
@@ -276,14 +284,18 @@ export function extractImageUrls(text: string): string[] {
  * @returns Array of audio URLs found
  */
 export function extractAudioUrls(text: string): string[] {
-  return extractUrlsBase(text, (url) => audioExtRegex.test(url));
+  return extractUrlsBase(text, (url) => getMediaUrlType(url) === 'audio');
 }
 
 /**
  * Check if a media URL could be either audio or video based on its extension
  */
 export function isAmbiguousAudioVideoUrl(url: string): boolean {
-  return ambiguousAudioVideoExtRegex.test(url);
+  try {
+    const parsed = new URL(url);
+    const filename = parsed.searchParams.get('filename') || parsed.searchParams.get('name') || parsed.pathname;
+    return /\.(?:ogg|webm)$/i.test(filename);
+  } catch { return false; }
 }
 
 /**
@@ -292,7 +304,7 @@ export function isAmbiguousAudioVideoUrl(url: string): boolean {
  * @returns Array of video URLs found
  */
 export function extractVideoUrls(text: string): string[] {
-  return extractUrlsBase(text, (url) => videoExtRegex.test(url));
+  return extractUrlsBase(text, (url) => getMediaUrlType(url) === 'video');
 }
 
 /**
@@ -301,7 +313,7 @@ export function extractVideoUrls(text: string): string[] {
  * @returns Array of non-media URLs found
  */
 export function extractNonMediaUrls(text: string): string[] {
-  return extractUrlsBase(text, (url) => !imageExtRegex.test(url) && !audioExtRegex.test(url) && !videoExtRegex.test(url));
+  return extractUrlsBase(text, (url) => getMediaUrlType(url) === null);
 }
 
 /**

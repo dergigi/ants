@@ -43,6 +43,8 @@ export default function VideoWithBlurhash({
     setRenderAsAudio(false);
     if (dim && dim.width > 0 && dim.height > 0) {
       setDimensions(dim);
+    } else {
+      setDimensions(null);
     }
   }, [src, dim]);
 
