@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-09-14
+
+### Added
+- Render audio players for linked note audio files
+- Add a generated Graphify code map under `public/code-map/`
+
+### Changed
+- Bound search subscription waits and clean up relay subscriptions more aggressively
+- Render muted search results as profile-list cards while preserving raw kind `10000` JSON access
+
+### Fixed
+- Match highlight context across whitespace differences, including line breaks in source context
+- Prevent OpenGraph preview requests from reaching private or reserved network addresses
+
 ## [0.4.7] - 2026-08-28
 
 ### Fixed
