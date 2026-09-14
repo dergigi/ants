@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Blurhash } from 'react-blurhash';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage, faExternalLink, faPlay, faPause } from '@fortawesome/free-solid-svg-icons';
-import { isAbsoluteHttpUrl } from '@/lib/utils/urlUtils';
+import { isAbsoluteHttpUrl, isAmbiguousAudioVideoUrl } from '@/lib/utils/urlUtils';
 import SearchIconButton from './SearchIconButton';
 import ReverseImageSearchButton from './ReverseImageSearchButton';
+import AudioPlayer from './AudioPlayer';
 
 interface VideoWithBlurhashProps {
   src: string;
@@ -24,6 +25,7 @@ export default function VideoWithBlurhash({
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [renderAsAudio, setRenderAsAudio] = useState(false);
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(() => {
     if (dim && dim.width > 0 && dim.height > 0) {
       return dim;
@@ -31,14 +33,18 @@ export default function VideoWithBlurhash({
     return null;
   });
   const videoRef = useRef<HTMLVideoElement>(null);
+  const allowAudioFallback = isAmbiguousAudioVideoUrl(src);
 
   useEffect(() => {
     setVideoLoaded(false);
     setVideoError(false);
     setIsPlaying(false);
     setShowControls(false);
+    setRenderAsAudio(false);
     if (dim && dim.width > 0 && dim.height > 0) {
       setDimensions(dim);
+    } else {
+      setDimensions(null);
     }
   }, [src, dim]);
 
@@ -68,6 +74,10 @@ export default function VideoWithBlurhash({
 
   if (!isAbsoluteHttpUrl(src)) {
     return null;
+  }
+
+  if (renderAsAudio) {
+    return <AudioPlayer src={src} onClickSearch={onClickSearch} />;
   }
 
   const aspectStyle = dimensions && dimensions.width > 0 && dimensions.height > 0
@@ -133,6 +143,10 @@ export default function VideoWithBlurhash({
         }`}
         onLoadedMetadata={(event) => {
           const element = event.currentTarget;
+          if (allowAudioFallback && (!element.videoWidth || !element.videoHeight)) {
+            setRenderAsAudio(true);
+            return;
+          }
           if (element?.videoWidth && element?.videoHeight) {
             setDimensions({ width: element.videoWidth, height: element.videoHeight });
           }
