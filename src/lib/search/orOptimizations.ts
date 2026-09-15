@@ -1,8 +1,7 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
-import { resolveAuthor } from '../vertex';
 import { Nip50Extensions } from './searchUtils';
 import { applyDateFilter } from './queryParsing';
+import { resolveAuthorTokens } from './authorResolve';
 import { subscribeAndCollect } from './subscriptions';
 import { sortEventsNewestFirst } from '../utils/searchUtils';
 
@@ -32,25 +31,9 @@ export function extractCoreWithoutByAndTags(seed: string): string {
     .trim();
 }
 
-/** Resolve a list of by: tokens (npubs or names) to hex pubkeys, skipping failures */
+/** Resolve a list of by: tokens to hex pubkeys, skipping failures */
 export async function resolveByTokensToPubkeys(byTokens: string[]): Promise<string[]> {
-  const resolvedPubkeys: string[] = [];
-  for (const authorToken of byTokens) {
-    try {
-      if (/^npub1[0-9a-z]+$/i.test(authorToken)) {
-        const hex = nip19.decode(authorToken).data as string;
-        resolvedPubkeys.push(hex);
-      } else {
-        const resolved = await resolveAuthor(authorToken);
-        if (resolved.pubkeyHex) {
-          resolvedPubkeys.push(resolved.pubkeyHex);
-        }
-      }
-    } catch (error) {
-      console.warn(`Failed to resolve author ${authorToken}:`, error);
-    }
-  }
-  return resolvedPubkeys;
+  return resolveAuthorTokens(byTokens);
 }
 
 /**

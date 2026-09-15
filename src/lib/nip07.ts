@@ -1,5 +1,6 @@
 import { NDKNip07Signer, NDKUser } from '@nostr-dev-kit/ndk';
 import { ndk } from './ndk';
+import { clearContactsCache } from './contacts';
 import { clearAllProfileCaches } from './profile/cache';
 import { clearRelayCaches } from './relays';
 
@@ -35,6 +36,7 @@ export async function login(): Promise<NDKUser | null> {
     // Clear all caches on successful login to avoid stale profile resolution
     try {
       clearRelayCaches();
+      clearContactsCache();
       clearAllProfileCaches();
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ants_nip50_support_cache');
@@ -63,6 +65,7 @@ export function logout(): void {
   ndk.signer = undefined;
   try {
     clearRelayCaches();
+    clearContactsCache();
     clearAllProfileCaches();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ants_nip50_support_cache');

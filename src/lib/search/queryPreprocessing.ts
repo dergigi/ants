@@ -93,6 +93,12 @@ async function resolveAuthorCore(
       : { value: core, needsLoginForAtMe: true };
   }
 
+  if (/^@contacts$/i.test(core)) {
+    return getStoredNpub()
+      ? { value: core, needsLoginForAtMe: false }
+      : { value: core, needsLoginForAtMe: true };
+  }
+
   const cacheKey = core.trim();
   const cached = options.cache?.get(cacheKey);
   if (cached) {
