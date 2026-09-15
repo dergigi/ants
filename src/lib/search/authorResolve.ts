@@ -39,7 +39,7 @@ async function resolveAuthorToken(authorToken: string): Promise<string[]> {
 export async function resolveAuthorTokens(tokens: string[]): Promise<string[]> {
   const results = await Promise.all(tokens.map(async (token) => {
     try {
-      return resolveAuthorToken(token);
+      return await resolveAuthorToken(token);
     } catch (error) {
       console.warn(`Failed to resolve author ${token}:`, error);
       return [];
