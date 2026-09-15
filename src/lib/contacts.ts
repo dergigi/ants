@@ -1,5 +1,6 @@
 import { ndk } from './ndk';
-import { getStoredPubkey } from './nip07';
+
+const NIP07_PUBKEY_KEY = 'nip07_pubkey';
 
 let cachedContacts: string[] | null = null;
 let cachedForPubkey: string | null = null;
@@ -8,7 +9,7 @@ let cachedForPubkey: string | null = null;
  * Fetch the logged-in user's kind:3 contact list as hex pubkeys.
  */
 export async function getContactPubkeys(): Promise<string[]> {
-  const pubkey = getStoredPubkey();
+  const pubkey = getStoredContactOwnerPubkey();
   if (!pubkey) return [];
 
   if (cachedContacts && cachedForPubkey === pubkey) {
@@ -34,4 +35,13 @@ export async function getContactPubkeys(): Promise<string[]> {
 export function clearContactsCache(): void {
   cachedContacts = null;
   cachedForPubkey = null;
+}
+
+function getStoredContactOwnerPubkey(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(NIP07_PUBKEY_KEY);
+  } catch {
+    return null;
+  }
 }
