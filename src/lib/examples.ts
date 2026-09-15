@@ -25,11 +25,14 @@ export const searchExamples = [
   'by:snowden',
   'by:socrates',
 
-  // @me (requires login)
+  // @me / @contacts (requires login)
   'by:@me',
   'GM by:@me',
   'mentions:@me',
   'by:@me has:image',
+  'by:@contacts',
+  'bitcoin by:@contacts',
+  'mentions:@contacts',
 
   // Combined
   'GM by:dergigi',
@@ -172,6 +175,9 @@ const loginRequiredExamples = [
   'GM by:@me',
   'mentions:@me',
   'by:@me has:image',
+  'by:@contacts',
+  'bitcoin by:@contacts',
+  'mentions:@contacts',
 ] as const;
 
 // Get examples filtered by login status

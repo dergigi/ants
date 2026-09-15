@@ -1,8 +1,9 @@
 import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk } from '../../ndk';
-import { profileEventFromPubkey, resolveAuthor } from '../../vertex';
+import { profileEventFromPubkey } from '../../vertex';
 import { RELAYS } from '../../relays';
 import { getNip50SearchRelaySet } from '../../relays/nip50';
+import { resolveAuthorTokens } from '../authorResolve';
 import { applyDateFilter } from '../queryParsing';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { expandParenthesizedOr } from '../queryTransforms';
@@ -101,16 +102,8 @@ export async function tryHandleAuthorSearch(
   // Extract search terms by removing the author filter
   const terms = cleanedQuery.replace(/(?:^|\s)by:(\S+)(?:\s|$)/i, '').trim();
 
-  let pubkey: string | null = null;
-  try {
-    // Unified resolver handles npub, nip05, and username with a single DVM attempt
-    const resolved = await resolveAuthor(author);
-    pubkey = resolved.pubkeyHex;
-  } catch (error) {
-    console.error('Error resolving author:', error);
-  }
-
-  if (!pubkey) {
+  const pubkeys = await resolveAuthorTokens([author]);
+  if (pubkeys.length === 0) {
     return [];
   }
 
@@ -121,7 +114,7 @@ export async function tryHandleAuthorSearch(
 
   const filters: NDKFilter = applyDateFilter({
     kinds: effectiveKinds,
-    authors: [pubkey],
+    authors: pubkeys,
     limit: Math.max(limit, 200)
   }, dateFilter) as NDKFilter;
 
@@ -146,7 +139,7 @@ export async function tryHandleAuthorSearch(
           const searchQuery = nip50Extensions 
             ? buildSearchQueryWithExtensions(seed, nip50Extensions)
             : seed;
-          const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
+          const f: NDKFilter = applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, search: searchQuery, limit: Math.max(limit, 200) }, dateFilter) as NDKFilter;
           return await subscribeAndCollect(f, { timeoutMs: 8000, relaySet: await getNip50SearchRelaySet(), abortSignal, onPartial: partialResultsHandler });
         } catch { return []; }
       }));
@@ -180,7 +173,7 @@ export async function tryHandleAuthorSearch(
         await getNip50SearchRelaySet(),
         abortSignal,
         nip50Extensions,
-        applyDateFilter({ authors: [pubkey], kinds: effectiveKinds }, dateFilter),
+        applyDateFilter({ authors: pubkeys, kinds: effectiveKinds }, dateFilter),
         () => getNip50SearchRelaySet(),
         onPartialResults
       );
@@ -200,11 +193,11 @@ export async function tryHandleAuthorSearch(
   // No onPartial here: these fetch all author events and filter client-side,
   // so partials would surface unrelated notes
   if (res.length === 0 && termStr) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   } else if (res.length === 0 && hasShortToken) {
-    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: [pubkey], limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
+    const authorOnly = await subscribeAndCollect(applyDateFilter({ kinds: effectiveKinds, authors: pubkeys, limit: Math.max(limit, 600) }, dateFilter) as NDKFilter, { timeoutMs: 10000, relaySet: broadRelaySet, abortSignal });
     const needle = termStr.toLowerCase();
     res = authorOnly.filter((e) => (e.content || '').toLowerCase().includes(needle));
   }

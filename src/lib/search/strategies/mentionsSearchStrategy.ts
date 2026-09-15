@@ -1,48 +1,13 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
-import { nip19 } from 'nostr-tools';
-import { getStoredPubkey } from '../../nip07';
-import { resolveAuthor } from '../../vertex';
 import { sortEventsNewestFirst } from '../../utils/searchUtils';
 import { applyDateFilter } from '../queryParsing';
 import { getBroadRelaySet } from '../relayManagement';
+import { resolveAuthorTokens } from '../authorResolve';
 import { buildSearchQueryWithExtensions } from '../searchUtils';
 import { subscribeAndCollect } from '../subscriptions';
 import { SearchContext } from '../types';
 
 type TagPFilter = NDKFilter & { '#p'?: string[] };
-
-function getLoggedInPubkey(): string | null {
-  try {
-    if (typeof window === 'undefined') return null;
-    return getStoredPubkey();
-  } catch {
-    return null;
-  }
-}
-
-async function resolveAuthorTokens(tokens: string[]): Promise<string[]> {
-  const results = await Promise.all(tokens.map(async (token) => {
-    try {
-      if (/^@me$/i.test(token)) {
-        const pubkey = getLoggedInPubkey();
-        return pubkey ? [pubkey] : [];
-      }
-      if (/^[0-9a-f]{64}$/i.test(token)) {
-        return [token.toLowerCase()];
-      }
-      if (/^npub1[0-9a-z]+$/i.test(token)) {
-        return [nip19.decode(token).data as string];
-      }
-      const resolved = await resolveAuthor(token);
-      return resolved.pubkeyHex ? [resolved.pubkeyHex] : [];
-    } catch (error) {
-      console.warn(`Failed to resolve author ${token}:`, error);
-      return [];
-    }
-  }));
-
-  return [...new Set(results.flat())];
-}
 
 export async function tryHandleMentionsSearch(
   cleanedQuery: string,
