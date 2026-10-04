@@ -9,7 +9,7 @@ const description =
   "Advanced Nostr search, native on Android. Find notes, discover people, explore media, and follow your curiosity. No account required.";
 
 export const metadata: Metadata = {
-  title: "ants for Android — Nostr in your pocket",
+  title: "ants for Android — nostr search. In your pocket",
   description,
   alternates: { canonical: "/android" },
   openGraph: {
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     url: "/android",
     images: [
       {
-        url: "/android/og.png",
+        url: "/android/og.png?v=2",
         width: 1200,
         height: 630,
-        alt: "ants for Android — Nostr in your pocket. Search notes, find your people, and follow your curiosity.",
+        alt: "ants for Android — nostr search. In your pocket. Search notes, find your people, and follow your curiosity.",
       },
     ],
   },
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/android/og.png",
-        alt: "ants for Android — Nostr in your pocket",
+        url: "/android/og.png?v=2",
+        alt: "ants for Android — nostr search. In your pocket",
       },
     ],
   },
