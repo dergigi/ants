@@ -1,6 +1,6 @@
 # Search syntax
 
-This document describes the ANTLR web query language, version 1. The grammar and portable fixtures live in [grammar](../grammar/README.md). Android integration is a separate step; these rules do not yet describe the Android release.
+This document describes the ANTLR web query language, version 1. The grammar and portable fixtures live in [grammar](../grammar/README.md). Android has its own implementation in [ants-android](https://github.com/dergigi/ants-android), using the same grammar and portable fixtures. This document describes web behavior; platform-specific aliases and release versions may differ.
 
 ## Start here
 
@@ -94,4 +94,4 @@ The executor runs at most four branches concurrently, with an eight-second event
 - Profile lookup uses explicit `p:`; bare domains are text.
 - Oversized plans and invalid dates are rejected.
 
-The executable examples and [portable fixtures](../grammar/fixtures/queries.json) are checked in CI. The fixtures are intended to become the common web/Android contract.
+The executable examples and [portable fixtures](../grammar/fixtures/queries.json) are checked in CI. The grammar and portable fixtures are shared with Android; see the [interoperability notes](../grammar/README.md#android-interoperability) for the compared revision.

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-04
+
+### Added
+- ANTLR-based web search with nested groups, explicit AND/OR precedence, scoped fields such as `by:(alice OR bob)`, and escaped quotes
+- A [search syntax reference](docs/SEARCH_SYNTAX.md), updated help and examples, and a shared grammar with portable web/Android fixtures
+- An Android app landing page at `/android`, with screenshots, query examples, download links, and a social preview
+
+### Changed
+- Execute OR branches independently while preserving each branch's authors, kinds, dates, and tags; merge and deduplicate results afterward
+- Bound searches to 32 branches with four concurrent executions, a shared 500-event / 8 MiB estimated retained-payload budget, and a 5,000-contact limit
+- Preserve collected results when the overall search deadline or resource budget is reached, show an incomplete-search notice, and allow retrying
+- Use precomputed sets for structured event matching and keep `@contacts` compact in the preview while resolving individual authors through Vertex
+
+### Fixed
+- Restore `by:@contacts` and `mentions:@contacts`, including login handling and contact resolution
+- Preserve nested and mixed-author constraints when submitting, sharing, or reloading profile-page searches
+- Keep quoted operators and modifier-looking text literal; reject malformed queries instead of silently repairing them
+- Preserve profile ranking updates, direct identifier lookups, and mute-list presentation under bounded execution
+
+### Migration notes
+- Use `p:alice` or `p:example.com` for profile lookup; bare domains now search event text
+- Repeated author and kind filters intersect. Use OR or comma-separated values for alternatives, such as `kind:1,30023`
+- Unknown fields and removed `relay:` / `relays:` modifiers now produce errors; choose relays through the app controls
+- Use `#a OR #b` and `mentions:(alice OR bob)` for alternatives; multiple required hashtags and repeated mentions in one branch are rejected
+- `NOT` is reserved and unsupported; quote it to search for literal text. Invalid calendar dates and oversized plans are rejected
+- Text and phrase matching within each branch still depend on the NIP-50 relay
+
 ## [0.4.8] - 2026-09-14
 
 ### Added
