@@ -36,7 +36,15 @@ export function useSlashCommands(options: {
     onHelp: (commands) => {
       const lines = [
         'Available commands:',
-        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`)
+        ...commands.map(c => `  ${c.label.padEnd(12)} ${c.description}`),
+        '',
+        'Search syntax:',
+        '  (bitcoin OR nostr) by:alice',
+        '  by:(alice OR bob) kind:(1 OR 30023)',
+        '  AND binds before OR; spaces also mean AND.',
+        '  Quote literal text: "(cats OR dogs)"',
+        '  Use p:alice for profiles; /kinds lists aliases.',
+        '  Up to 16 nested groups and 32 expanded branches.'
       ];
       setTopCommandText(buildCli('--help', lines));
       setHelpCommands(commands);

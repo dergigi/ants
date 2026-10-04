@@ -2,150 +2,153 @@ import { NDKEvent, NDKFilter, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { connectWithTimeout, resetLastReducedFilters } from './ndk';
 import { getNip50SearchRelaySet } from './relays';
 import { SEARCH_DEFAULT_KINDS } from './constants';
-import { buildSearchQueryWithExtensions } from './search/searchUtils';
 import { sortEventsNewestFirst } from './utils/searchUtils';
-import {
-  extractNip50Extensions,
-  stripRelayFilters,
-  applyDateFilter,
-  parseSearchQuery
-} from './search/queryParsing';
+import { searchByNip19Identifier } from './search/idLookup';
 import { getBroadRelaySet } from './search/relayManagement';
 import { subscribeAndCollect, createPartialEmitter } from './search/subscriptions';
-import { runSearchStrategies } from './search/searchOrchestrator';
-import { tryHandleAuthorSearch } from './search/strategies/authorSearchStrategy';
-import { handleParenthesizedOr, handleTopLevelOr } from './search/orQueryHandler';
-import { SearchOptions, SearchContext } from './search/types';
+import { SearchOptions } from './search/types';
+import { loadRules } from './search/replacements';
+import { parseQuery } from './search/query/parse';
+import { planQuery } from './search/query/plan';
+import { abortable, checkAbort, identifierFilter, mapBounded, createStructuredMatcher, resolvePlans } from './search/query/execute';
+import { ResultStore } from './search/query/resultStore';
+import { resolveQueryAuthor } from './search/query/resolveAuthor';
+import { tryHandleProfileSearch } from './search/strategies/profileSearchStrategy';
+import { expandMuteListResults, emitMuteListPartialResults } from './search/muteListSearch';
+import { setMuteListResultData } from './search/muteListResultData';
 
-export async function searchEvents(
-  query: string,
-  limit: number = 200,
-  options?: SearchOptions,
-  relaySetOverride?: NDKRelaySet,
-  abortSignal?: AbortSignal
-): Promise<NDKEvent[]> {
+export async function searchEvents(query: string, limit = 200, options?: SearchOptions, relaySetOverride?: NDKRelaySet, abortSignal?: AbortSignal): Promise<NDKEvent[]> {
   resetLastReducedFilters();
-  // Check if already aborted
-  if (abortSignal?.aborted) {
-    throw new Error('Search aborted');
-  }
-
-  // Ensure we're connected before issuing any queries (with timeout)
+  checkAbort(abortSignal);
+  parseQuery(query); // Syntax errors are reported before fetching aliases or connecting.
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  abortSignal?.addEventListener('abort', cancel, { once: true });
+  const state: { reason?: 'timeout' | 'limit'; finished: boolean } = { finished: false };
+  const stop = (reason: 'timeout' | 'limit') => { state.reason ??= reason; cancel(); };
+  const deadline = setTimeout(() => stop('timeout'), 30000);
+  const signal = controller.signal;
+  limit = Number.isFinite(limit) ? Math.max(1, Math.min(500, Math.floor(limit))) : 200;
+  const store = new ResultStore(() => stop('limit'));
+  const profileOrder = new Map<number, string[]>();
+  const muteIds = new Set<string>();
+  const ordinaryIds = new Set<string>();
+  const muteRepresentatives = new Map<number, NDKEvent>();
+  let profileOnly = false;
+  const merge = () => {
+    const representatives = new Set([...muteRepresentatives.values()].map(event => event.id));
+    const events = store.values().filter(event => !muteIds.has(event.id) || ordinaryIds.has(event.id) || representatives.has(event.id));
+    if (!profileOnly) return sortEventsNewestFirst(events).slice(0, limit);
+    const byId = new Map(events.map(event => [event.id, event]));
+    const ordered = [...new Set([...profileOrder].sort(([a], [b]) => a - b).flatMap(([, ids]) => ids))];
+    return ordered.flatMap(id => byId.has(id) ? [byId.get(id)!] : []).slice(0, limit);
+  };
+  const retain = (events: NDKEvent[]) => {
+    const kept: NDKEvent[] = [];
+    for (const event of events) {
+      if (abortSignal?.aborted || state.reason) break;
+      const canonical = store.keep(event);
+      if (canonical) kept.push(canonical);
+    }
+    return kept;
+  };
+  const emitter = createPartialEmitter(options?.onPartialResults ? events => options.onPartialResults!(events.slice(0, limit)) : undefined, signal);
+  const reportIncomplete = () => options?.onIncomplete?.(state.reason === 'timeout'
+    ? 'Search timed out. Showing the results collected so far; try fewer branches or retry.'
+    : 'Search reached its result or memory limit. Showing the results collected so far.');
   try {
-    await connectWithTimeout(5000); // Increased timeout
-  } catch (e) {
-    console.warn('NDK connect failed or timed out:', e);
-    // Continue anyway - search might still work with cached connections
-  }
-
-  // Check if aborted after connection
-  if (abortSignal?.aborted) {
-    throw new Error('Search aborted');
-  }
-
-  // Shared emitter: merges partials across all subscriptions of this search
-  const onPartialResults = createPartialEmitter(options?.onPartialResults, abortSignal);
-  try {
-    const onProfileResultsUpdate = options?.onProfileResultsUpdate;
-
-    // Extract NIP-50 extensions first
-    const nip50Extraction = extractNip50Extensions(query);
-    const nip50Extensions = nip50Extraction.extensions;
-
-    // Remove legacy relay filters and choose the default search relay set
-    let chosenRelaySet: NDKRelaySet;
-    if (relaySetOverride) {
-      chosenRelaySet = relaySetOverride;
-    } else {
-      try {
-        chosenRelaySet = await getNip50SearchRelaySet();
-      } catch (error) {
-        console.warn('Failed to get NIP-50 search relay set, falling back to broader relay set:', error);
-        // Fallback to broader relay set if NIP-50 search fails
-        chosenRelaySet = await getBroadRelaySet();
+    const rules = await abortable(loadRules(), signal);
+    const plan = planQuery(query, rules, SEARCH_DEFAULT_KINDS, new Date(), options?.exact);
+    const filters = await abortable(resolvePlans(plan.branches, resolveQueryAuthor, signal), signal);
+    checkAbort(signal);
+    try { await abortable(connectWithTimeout(5000), signal); } catch { checkAbort(signal); }
+    const searchRelays = relaySetOverride || await abortable(getNip50SearchRelaySet(), signal);
+    let broad: Promise<NDKRelaySet> | undefined;
+    profileOnly = plan.branches.every(b => b.profile !== undefined);
+    await mapBounded(plan.branches, async (branch, index) => {
+      let filter: NDKFilter = { ...filters[index], limit };
+      const leaves = plan.leaves[index];
+      // Only an unquoted standalone identifier receives special lookup semantics.
+      if (leaves.length === 1 && leaves[0].type === 'text') {
+        if (/^(note|nevent|naddr)1/i.test(leaves[0].value)) {
+          identifierFilter(leaves[0].value); // Validate instead of silently falling through.
+          const events = await abortable(searchByNip19Identifier(leaves[0].value, signal, getBroadRelaySet), signal);
+          const accepted = retain(events);
+          accepted.forEach(event => ordinaryIds.add(event.id));
+          emitter?.(accepted);
+          return;
+        }
+        const identifier = identifierFilter(leaves[0].value);
+        if (identifier) filter = { ...(identifier.authors && !identifier.kinds ? { kinds: SEARCH_DEFAULT_KINDS } : {}), ...identifier, limit };
       }
-    }
-
-    // Strip legacy relay filters but keep the rest of the query intact
-    const extCleanedQuery = stripRelayFilters(nip50Extraction.cleaned);
-
-    // Apply simple replacements to expand is: patterns to kind: patterns
-    const { applySimpleReplacements } = await import('./search/replacements');
-    const preprocessedQuery = await applySimpleReplacements(extCleanedQuery);
-
-    // Parse query into structured format
-    const parsedQuery = parseSearchQuery(preprocessedQuery, SEARCH_DEFAULT_KINDS);
-    const { cleanedQuery, effectiveKinds, dateFilter, hasTopLevelOr, topLevelOrParts, extensionFilters } = parsedQuery;
-
-    // Build search context for strategies (needed early for author search)
-    const searchContext: SearchContext = {
-      effectiveKinds,
-      dateFilter,
-      nip50Extensions,
-      chosenRelaySet,
-      relaySetOverride,
-      abortSignal,
-      limit,
-      extensionFilters,
-      onPartialResults,
-      onProfileResultsUpdate
-    };
-
-    // Distribute parenthesized OR seeds across the entire query BEFORE any specialized handling
-    // e.g., "(GM OR GN) by:dergigi" => ["GM by:dergigi", "GN by:dergigi"]
-    const parenthesizedOrResults = await handleParenthesizedOr(cleanedQuery, searchContext);
-    if (parenthesizedOrResults !== null) {
-      return parenthesizedOrResults;
-    }
-
-    // EARLY: Author filter handling (resolve by:<author> to npub and use authors[] filter)
-    if (!hasTopLevelOr) {
-      const earlyAuthorResults = await tryHandleAuthorSearch(cleanedQuery, searchContext);
-      if (earlyAuthorResults) return earlyAuthorResults;
-    }
-
-    // Check for top-level OR operator (outside parentheses)
-    if (hasTopLevelOr) {
-      return handleTopLevelOr(topLevelOrParts, searchContext);
-    }
-
-    // Run search strategies in order
-    const strategyResults = await runSearchStrategies(extCleanedQuery, cleanedQuery, searchContext);
-    if (strategyResults) return strategyResults;
-
-    // Regular search without author filter
-    try {
-      let results: NDKEvent[] = [];
-      const baseSearch = options?.exact ? `"${cleanedQuery}"` : cleanedQuery || undefined;
-      const searchQuery = baseSearch ? buildSearchQueryWithExtensions(baseSearch, nip50Extensions) : undefined;
-      // Create the filter object that will be sent to NDK
-      const searchFilter = applyDateFilter({
-        kinds: effectiveKinds,
-        search: searchQuery
-      }, dateFilter) as NDKFilter;
-
-      results = await subscribeAndCollect(searchFilter, {
-        timeoutMs: 8000,
-        relaySet: chosenRelaySet,
-        abortSignal,
-        onPartial: onPartialResults
-      });
-      // Dedupe by id
-      const filtered = results.filter((e, idx, arr) => {
-        const firstIdx = arr.findIndex((x) => x.id === e.id);
-        return firstIdx === idx;
-      });
-
-      return sortEventsNewestFirst(filtered).slice(0, limit);
-    } catch (error) {
-      // Treat aborted searches as benign; return empty without logging an error
-      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
-        return [];
+      const relaySet = filter.search ? searchRelays : relaySetOverride || await abortable(broad ??= getBroadRelaySet(), signal);
+      const matches = createStructuredMatcher(filter);
+      const muteList = filter.kinds?.length === 1 && filter.kinds[0] === 10000 && !!filter.authors?.length && !filter.search;
+      const accept = (events: NDKEvent[]) => {
+        const accepted = retain(events.filter(matches));
+        for (const event of accepted) {
+          if (!muteList) ordinaryIds.add(event.id);
+          else {
+            muteIds.add(event.id);
+            const previous = muteRepresentatives.get(index);
+            if (!previous || (event.created_at ?? 0) > (previous.created_at ?? 0)) muteRepresentatives.set(index, event);
+          }
+        }
+        return accepted;
+      };
+      if (branch.profile !== undefined) {
+        const profiles = await abortable(tryHandleProfileSearch(`p:${branch.profile}`, {
+          effectiveKinds: [0], chosenRelaySet: relaySet, abortSignal: signal, limit,
+          onProfileResultsUpdate: events => {
+            if (abortSignal?.aborted || state.reason || (!state.finished && signal.aborted)) return;
+            const accepted = accept(events);
+            profileOrder.set(index, accepted.map(event => event.id));
+            if (state.finished) {
+              options?.onProfileResultsUpdate?.(merge());
+              if (state.reason) reportIncomplete();
+            }
+            else emitter?.(accepted);
+          }
+        }), signal);
+        const accepted = accept(profiles || []);
+        if (!state.reason || accepted.length) profileOrder.set(index, accepted.map(event => event.id));
+        emitter?.(accepted);
+        return;
       }
-      console.error('Error fetching events:', error);
-      return [];
+      const events = await subscribeAndCollect(filter, {
+        timeoutMs: 8000, relaySet, abortSignal: signal, maxEvents: limit,
+        accept: event => {
+          const duplicate = store.has(event.id);
+          return accept([event]).length > 0 && !duplicate;
+        },
+        onPartial: batch => {
+          const accepted = accept(batch);
+          if (muteList) emitMuteListPartialResults(accepted, emitter);
+          else emitter?.(accepted);
+        }
+      });
+      const accepted = accept(events);
+      checkAbort(signal);
+      if (muteList && events.length) {
+        const representative = sortEventsNewestFirst(accepted)[0];
+        if (!representative) return;
+        setMuteListResultData(representative, await abortable(expandMuteListResults(accepted, { signal, retain: event => store.keep(event, false) }), signal));
+        return;
+      }
+    }, signal);
+    checkAbort(signal);
+    state.finished = true;
+    return merge();
+  } catch (error) {
+    if (state.reason && !abortSignal?.aborted) {
+      reportIncomplete();
+      return merge();
     }
+    throw error;
   } finally {
-    onPartialResults?.dispose();
+    cancel();
+    clearTimeout(deadline);
+    abortSignal?.removeEventListener('abort', cancel);
+    emitter?.dispose();
   }
 }

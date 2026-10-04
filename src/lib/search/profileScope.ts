@@ -1,3 +1,6 @@
+import { parseQuery } from './query/parse';
+import { printQuery } from './query/ast';
+import { guaranteesAuthor, mapAuthors, removeMatchingAuthor, withAuthor } from './query/scope';
 import { NDKUser } from '@nostr-dev-kit/ndk';
 
 export type ProfileScopeIdentifiers = {
@@ -10,9 +13,6 @@ export type ProfileScopeIdentifiers = {
   hasNip05: boolean;
   profileIdentifier: string;
 };
-
-// Allow dots in tokens so NIP-05 like dergigi.com is fully captured
-const BY_TOKEN_REGEX = /(^|\s)by:([^\s),;]+)(?=[\s),.;]|$)/gi;
 
 type Nip05Like = string | { url?: string | undefined } | undefined;
 
@@ -71,50 +71,29 @@ function tokenMatchesProfile(token: string, identifiers: ProfileScopeIdentifiers
 }
 
 export function containsProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
-  BY_TOKEN_REGEX.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = BY_TOKEN_REGEX.exec(query)) !== null) {
-    const token = match[2] || '';
-    if (tokenMatchesProfile(token, identifiers)) {
-      return true;
-    }
-  }
-  return false;
+  try { return guaranteesAuthor(parseQuery(query), value => tokenMatchesProfile(value, identifiers)); }
+  catch { return false; }
 }
 
-export function hasProfileScope(query: string, identifiers: ProfileScopeIdentifiers): boolean {
-  return containsProfileScope(query, identifiers);
-}
+export const hasProfileScope = containsProfileScope;
 
 export function replaceProfileScopeIdentifier(query: string, identifiers: ProfileScopeIdentifiers): string {
-  const value = identifiers.profileIdentifier;
-  BY_TOKEN_REGEX.lastIndex = 0;
-  const replaced = query.replace(BY_TOKEN_REGEX, (full, pre, token) => {
-    return tokenMatchesProfile(token || '', identifiers) ? `${pre || ''}by:${value}` : full;
-  });
-  return replaced;
+  try { return printQuery(mapAuthors(parseQuery(query), value => tokenMatchesProfile(value, identifiers), identifiers.profileIdentifier)); }
+  catch { return query; }
 }
 
 export function addProfileScope(query: string, identifiers: ProfileScopeIdentifiers): string {
-  const trimmed = query.trim();
-  if (containsProfileScope(trimmed, identifiers)) {
-    return replaceProfileScopeIdentifier(trimmed, identifiers);
-  }
-  const value = identifiers.profileIdentifier;
-  if (!trimmed) return `by:${value}`;
-  const tokens = trimmed.split(/\s+/);
-  for (const token of tokens) {
-    if (tokenMatchesProfile(token.replace(/^by:/i, ''), identifiers)) {
-      return replaceProfileScopeIdentifier(trimmed, identifiers);
-    }
-  }
-  return `${trimmed} by:${value}`.trim();
+  return containsProfileScope(query, identifiers)
+    ? replaceProfileScopeIdentifier(query, identifiers)
+    : withAuthor(query, identifiers.profileIdentifier, false);
 }
 
 export function removeProfileScope(query: string, identifiers: ProfileScopeIdentifiers): string {
-  BY_TOKEN_REGEX.lastIndex = 0;
-  const result = query.replace(BY_TOKEN_REGEX, (full, pre, token) => {
-    return tokenMatchesProfile(token || '', identifiers) ? pre || '' : full;
-  });
-  return result.replace(/\s{2,}/g, ' ').trim();
+  try {
+    const tree = parseQuery(query);
+    const matches = (value: string) => tokenMatchesProfile(value, identifiers);
+    if (!guaranteesAuthor(tree, matches)) return query;
+    const remaining = removeMatchingAuthor(tree, matches);
+    return remaining ? printQuery(remaining) : '';
+  } catch { return query; }
 }

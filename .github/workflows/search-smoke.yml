@@ -22,8 +22,19 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Set up Java for ANTLR
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify generated query parser
+        run: |
+          npm run generate:query
+          git diff --exit-code -- src/lib/search/query/generated
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

@@ -4,6 +4,7 @@ import { Nip50Extensions } from './searchUtils';
 // Options accepted by searchEvents
 export interface SearchOptions {
   exact?: boolean;
+  onIncomplete?: (message: string) => void;
   // Called with partial results while subscriptions are still collecting
   onPartialResults?: (results: NDKEvent[]) => void;
   // Called when profile search results are re-ranked after NIP-05 verifications land

@@ -195,7 +195,7 @@ test.describe('real relay search smoke', () => {
       await expect(spinner).toHaveCount(0, { timeout: 45_000 });
 
       if (expectedEffectiveFilterSubstrings) {
-        const filtersButton = page.getByRole('button', { name: /effective filters/i });
+        const filtersButton = page.locator('summary').filter({ hasText: 'Effective filters' });
         await expect(filtersButton).toBeVisible();
         await filtersButton.click();
 

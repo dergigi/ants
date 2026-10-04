@@ -1,8 +1,7 @@
 // Utilities to keep profile-page query handling DRY
 
-// Regexes
-const BY_TOKEN_RX = /(^|\s)by:(\S+)(?=\s|$)/i;
-const BY_NPUB_RX = /(^|\s)by:(npub1[0-9a-z]+)(?=\s|$)/ig;
+import { parseQuery } from './query/parse';
+import { isAuthor, withAuthor } from './query/scope';
 
 export function getCurrentProfileNpub(pathname: string | null | undefined): string | null {
   if (!pathname) return null;
@@ -10,33 +9,25 @@ export function getCurrentProfileNpub(pathname: string | null | undefined): stri
   return m ? m[1] : null;
 }
 
-// For the URL bar on /p pages: strip a matching by:<current npub> from the query
+// Preserve explicit branch constraints in shared URLs. Only the complete
+// profile-only query can be omitted safely; restoring an empty query adds it back.
 export function toImplicitUrlQuery(explicitQuery: string, currentNpub: string | null): string {
-  if (!explicitQuery) return '';
-  if (!currentNpub) return explicitQuery.trim();
-  return explicitQuery
-    .replace(BY_NPUB_RX, (m, pre: string, npub: string) => {
-      return npub.toLowerCase() === currentNpub.toLowerCase() ? (pre ? pre : '') : m;
-    })
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  const query = explicitQuery.trim();
+  if (query && currentNpub) {
+    try {
+      const tree = parseQuery(query);
+      if (isAuthor(tree) && tree.value.toLowerCase() === currentNpub.toLowerCase()) return '';
+    } catch { /* Preserve invalid editor text for the parser's diagnostic. */ }
+  }
+  return query;
 }
 
-// For the input on /p pages: ensure by:<current npub> is visible/explicit alongside urlQuery
 export function toExplicitInputFromUrl(urlQuery: string, currentNpub: string | null, displayIdentifier?: string | null): string {
-  if (!currentNpub) return (urlQuery || '').trim();
-  const base = (urlQuery || '').trim();
-  const identifier = displayIdentifier || currentNpub;
-  if (!base) return `by:${identifier}`;
-  return /(^|\s)by:\S+(?=\s|$)/i.test(base) ? base : `${base} by:${identifier}`;
+  return currentNpub ? withAuthor(urlQuery, displayIdentifier || currentNpub, true) : urlQuery.trim();
 }
 
-// For backend searches on /p pages: ensure by:<current npub> filter is included
 export function ensureAuthorForBackend(query: string, currentNpub: string | null): string {
-  const base = (query || '').trim();
-  if (!currentNpub) return base;
-  if (BY_TOKEN_RX.test(base)) return base; // already has a by: token
-  return base ? `${base} by:${currentNpub}` : `by:${currentNpub}`;
+  return currentNpub ? withAuthor(query, currentNpub, true) : query.trim();
 }
 
 // Decode a URL query parameter safely, also mapping '+' back to spaces

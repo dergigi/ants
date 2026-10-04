@@ -162,3 +162,17 @@ test('10,000 duplicate relay deliveries across 100 batches produce no extra UI u
   expect(notify).toHaveBeenCalledTimes(1);
   emit.dispose();
 });
+
+test('filters before emitting partials and closes at the local result cap', async () => {
+  const onPartial = jest.fn();
+  sub.start.mockImplementation(() => {
+    sub.emit('event', event('reject'));
+    sub.emit('event', event('keep'));
+    sub.emit('event', event('late'));
+  });
+  const events = await subscribeAndCollect({ kinds: [1] }, { relaySet, maxEvents: 1, accept: e => e.id !== 'reject', onPartial });
+  expect(events.map(e => e.id)).toEqual(['keep']);
+  expect(onPartial.mock.calls.flatMap(([batch]) => batch.map((e: NDKEvent) => e.id))).not.toContain('reject');
+  expect(sub.stop).toHaveBeenCalledTimes(1);
+  expect(jest.getTimerCount()).toBe(0);
+});

@@ -205,3 +205,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 ---
 
 original ant and loupe vectors by [joko sutrisno](https://www.vecteezy.com/vector-art/8688053-ant-symbol-icon) and [noodledoodle](https://www.vecteezy.com/vector-art/183049-lupa-vector-realistic-different-colour)
+
+## Search language
+
+See the [search syntax reference](docs/SEARCH_SYNTAX.md) for nesting, precedence, scoped filters, quoting, and limits. The [shared ANTLR grammar](grammar/README.md) and portable fixtures define the contract for the web app and the upcoming Android parser integration.
