@@ -4,12 +4,13 @@ import { restoreLogin, getStoredPubkey } from '@/lib/nip07';
 import { ndk, connect } from '@/lib/ndk';
 import { useState, useEffect } from 'react';
 import { NDKUser } from '@nostr-dev-kit/ndk';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ProfileImage from '@/components/ProfileImage';
 import Logo from '@/components/Logo';
 import { useLoginTrigger } from '@/lib/LoginTrigger';
 
 export function Header() {
+  const pathname = usePathname();
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Force re-render of avatar when profile data updates on the same NDKUser instance
@@ -121,6 +122,9 @@ export function Header() {
     // Navigate to search for /help
     router.push('/?q=%2Fhelp');
   };
+
+  // The Android landing page provides its own navigation.
+  if (pathname === '/android') return null;
 
   if (isLoading) {
     return (

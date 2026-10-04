@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExternalLink } from '@fortawesome/free-solid-svg-icons';
 
@@ -42,6 +43,8 @@ export function Footer() {
         </a>
       </p>
       <p className="mt-1">
+        <Link href="/android" className="underline hover:text-gray-300">Get ants for Android</Link>
+        <span className="mx-2">·</span>
         <a href="#" onClick={handleSearchClick('"dergigi/ants"')} className="underline hover:text-gray-300">
           GitHub
           <button
