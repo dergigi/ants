@@ -99,9 +99,6 @@ export default function AndroidPage() {
 
       <section className={styles.hero} aria-labelledby="android-title">
         <div className={styles.heroCopy}>
-          <p className={styles.eyebrow}>
-            <span className={styles.status} /> NATIVE ON ANDROID
-          </p>
           <h1 id="android-title">
             Put your
             <br />
