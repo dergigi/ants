@@ -16,13 +16,25 @@ export const metadata: Metadata = {
     title: "ants for Android",
     description,
     url: "/android",
-    images: ["/android-chrome-512x512.png"],
+    images: [
+      {
+        url: "/android/og.png",
+        width: 1200,
+        height: 630,
+        alt: "ants for Android — Nostr in your pocket. Search notes, find your people, and follow your curiosity.",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "ants for Android",
     description,
-    images: ["/android-chrome-512x512.png"],
+    images: [
+      {
+        url: "/android/og.png",
+        alt: "ants for Android — Nostr in your pocket",
+      },
+    ],
   },
 };
 
