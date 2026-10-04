@@ -39,23 +39,29 @@ export async function resolvePlans(plans: BranchPlan[], resolve: (token: string)
     const filter: NDKFilter = { ...plan.filter };
     for (const group of plan.authors) {
       const keys = [...new Set(group.flatMap(t => resolved.get(t)!))];
-      filter.authors = filter.authors ? filter.authors.filter(k => keys.includes(k)) : keys;
+      const keySet = new Set(keys);
+      filter.authors = filter.authors ? filter.authors.filter(k => keySet.has(k)) : keys;
       if (!filter.authors.length) throw new QueryError('Author filters contradict each other. Use OR for alternatives');
     }
     if (plan.mentions.length) filter['#p'] = [...new Set(plan.mentions[0].flatMap(t => resolved.get(t)!))];
     return filter;
   });
 }
+export function createStructuredMatcher(filter: NDKFilter): (event: NDKEvent) => boolean {
+  const kinds = new Set(filter.kinds), authors = new Set(filter.authors), ids = new Set(filter.ids);
+  const tags = Object.entries(filter).filter(([key, values]) => key.startsWith('#') && Array.isArray(values))
+    .map(([key, values]) => [key.slice(1), new Set(values as string[])] as const);
+  return event => {
+    if (kinds.size && !kinds.has(event.kind)) return false;
+    if (authors.size && !authors.has(event.pubkey)) return false;
+    if (ids.size && !ids.has(event.id)) return false;
+    if (filter.since !== undefined && (event.created_at ?? 0) < filter.since) return false;
+    if (filter.until !== undefined && (event.created_at ?? 0) > filter.until) return false;
+    return tags.every(([key, values]) => event.tags.some(t => t[0] === key && values.has(t[1])));
+  };
+}
 export function matchesStructured(event: NDKEvent, filter: NDKFilter): boolean {
-  if (filter.kinds?.length && !filter.kinds.includes(event.kind)) return false;
-  if (filter.authors?.length && !filter.authors.includes(event.pubkey)) return false;
-  if (filter.ids?.length && !filter.ids.includes(event.id)) return false;
-  if (filter.since !== undefined && (event.created_at ?? 0) < filter.since) return false;
-  if (filter.until !== undefined && (event.created_at ?? 0) > filter.until) return false;
-  for (const [key, values] of Object.entries(filter)) {
-    if (key.startsWith('#') && Array.isArray(values) && !event.tags.some(t => t[0] === key.slice(1) && (values as unknown[]).includes(t[1]))) return false;
-  }
-  return true;
+  return createStructuredMatcher(filter)(event);
 }
 // Decode direct identifiers into filters, so they also work inside OR groups.
 export function identifierFilter(value: string): NDKFilter | undefined {

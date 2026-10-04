@@ -74,7 +74,7 @@ export function useUrlUpdater(options: {
 
     // Handle profile pages
     if (isOnProfilePath) {
-      // URL should be implicit on profile pages: strip matching by:npub
+      // Preserve branch-local authors; omit only a complete profile-only query.
       const urlValue = toImplicitUrlQuery(searchQuery, currentProfileNpub);
       const params = new URLSearchParams(searchParams.toString());
 

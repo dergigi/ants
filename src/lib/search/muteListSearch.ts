@@ -28,7 +28,7 @@ function extractMuteListPubkeys(events: NDKEvent[]): string[] {
 /**
  * Resolve muted pubkeys into profile events without fanning out unbounded requests.
  */
-export async function expandMuteListResults(events: NDKEvent[]): Promise<{ pubkeys: string[]; profiles: NDKEvent[] }> {
+export async function expandMuteListResults(events: NDKEvent[], options?: { signal?: AbortSignal; retain?: (event: NDKEvent) => NDKEvent | undefined }): Promise<{ pubkeys: string[]; profiles: NDKEvent[] }> {
   const pubkeys = extractMuteListPubkeys(events);
   if (pubkeys.length === 0) {
     return { pubkeys: [], profiles: [] };
@@ -37,6 +37,7 @@ export async function expandMuteListResults(events: NDKEvent[]): Promise<{ pubke
   const profiles: NDKEvent[] = [];
 
   for (let i = 0; i < pubkeys.length; i += MUTE_LIST_PROFILE_BATCH_SIZE) {
+    if (options?.signal?.aborted) break;
     const batch = pubkeys.slice(i, i + MUTE_LIST_PROFILE_BATCH_SIZE);
     const resolvedProfiles = await Promise.all(batch.map(async (pubkey) => {
       try {
@@ -46,7 +47,11 @@ export async function expandMuteListResults(events: NDKEvent[]): Promise<{ pubke
       }
     }));
 
-    profiles.push(...resolvedProfiles.filter((event): event is NDKEvent => event !== null));
+    for (const event of resolvedProfiles) {
+      if (!event || options?.signal?.aborted) continue;
+      const kept = options?.retain ? options.retain(event) : event;
+      if (kept) profiles.push(kept);
+    }
   }
 
   return { pubkeys, profiles };

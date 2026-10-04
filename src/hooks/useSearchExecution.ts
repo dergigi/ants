@@ -11,6 +11,7 @@ import { getCurrentProfileNpub, toImplicitUrlQuery } from '@/lib/search/queryTra
 import { nip19 } from 'nostr-tools';
 import { resolveQueryAuthor } from '@/lib/search/query/resolveAuthor';
 import { abortable } from '@/lib/search/query/execute';
+import { parseQuery } from '@/lib/search/query/parse';
 import { printQuery } from '@/lib/search/query/ast';
 import { planQuery, withoutAuthorFields } from '@/lib/search/query/plan';
 import { loadRules } from '@/lib/search/replacements';
@@ -156,7 +157,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       }
     }
     // Mark this URL state as already handled so URL sync does not immediately re-run the same search.
-    // On profile pages, compare against the implicit URL form without the matching by:<current profile> token.
+    // Profile URLs preserve explicit branch constraints, except for a complete profile-only query.
     const currentProfileNpubForUrl = getCurrentProfileNpub(pathname);
     lastHashQueryRef.current = currentProfileNpubForUrl
       ? toImplicitUrlQuery(searchQuery, currentProfileNpubForUrl)
@@ -209,7 +210,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         if (keys.length === 1) {
           const target = nip19.npubEncode(keys[0]);
           if (target !== currentProfile) {
-            const implicit = withoutAuthorFields(planned.tree);
+            const implicit = withoutAuthorFields(parseQuery(searchQuery));
             router.push(`/p/${target}?q=${encodeURIComponent(implicit ? printQuery(implicit) : '')}`);
             return;
           }
@@ -241,12 +242,19 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
       // Render results as they arrive; the awaited final result overwrites them
       let searchSettled = false;
+      let incomplete = false;
       const applyPartialResults = (updated: NDKEvent[]) => {
         if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
         setResults(updated);
       };
 
       const searchResults = await searchEvents(scopedQuery, 200, {
+        onIncomplete: message => {
+          if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+          incomplete = true;
+          completedSearchKeysRef.current.clear();
+          setTopCommandText(message);
+        },
         // Ignore throttled partials that flush after the final result landed
         onPartialResults: (updated) => {
           if (searchSettled) return;
@@ -281,7 +289,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
 
       // Check if this was a URL query and if we got 0 results
       setShowExternalButton(isUrlQuery(searchQuery) && filtered.length === 0);
-      completedSearchKeysRef.current = new Set(searchKeys);
+      completedSearchKeysRef.current = incomplete ? new Set() : new Set(searchKeys);
     } catch (error) {
       // Don't log aborted searches as errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {

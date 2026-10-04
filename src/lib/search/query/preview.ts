@@ -12,6 +12,7 @@ export async function resolvePreviewAuthors(
   const tokens = [...new Set(branches.flat().filter(isIdentity).flatMap(n => n.value.split(',')))];
   const resolved = new Map<string, string>();
   await mapBounded(tokens, async token => {
+    if (/^@contacts$/i.test(token)) { resolved.set(token, '@contacts'); return; }
     const keys = await resolve(token);
     if (keys.length) resolved.set(token, keys.map(key => nip19.npubEncode(key)).join(','));
   }, signal);

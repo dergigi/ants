@@ -102,3 +102,114 @@ test('exact matching quotes text without swallowing NIP-50 extensions', async ()
   await searchEvents('hello world language:en', 200, { exact: true });
   expect(subscribe.mock.calls[0][0].search).toBe('"hello world" language:en');
 });
+
+test('overall timeout preserves successful branches and reports incomplete results', async () => {
+  jest.useFakeTimers();
+  try {
+    const partial = event('partial');
+    subscribe.mockImplementation(async (filter, options) => {
+      if (filter.search === 'fast') { options?.onPartial?.([partial]); return [partial]; }
+      return new Promise(resolve => options?.abortSignal?.addEventListener('abort', () => resolve([]), { once: true }));
+    });
+    const onIncomplete = jest.fn();
+    const work = searchEvents('fast OR slow', 200, { onIncomplete });
+    await jest.advanceTimersByTimeAsync(30000);
+    expect(await work).toEqual([partial]);
+    expect(onIncomplete).toHaveBeenCalledWith(expect.stringContaining('timed out'));
+  } finally { jest.useRealTimers(); }
+});
+test('caller cancellation still rejects rather than reporting a completed partial search', async () => {
+  const controller = new AbortController();
+  const onIncomplete = jest.fn();
+  subscribe.mockImplementation(async (_filter, options) => {
+    options?.onPartial?.([event('partial')]);
+    controller.abort();
+    return [];
+  });
+  await expect(searchEvents('a', 200, { onIncomplete }, undefined, controller.signal)).rejects.toThrow('Search aborted');
+  expect(onIncomplete).not.toHaveBeenCalled();
+});
+test('global event budget caps the union and stops queued branches', async () => {
+  subscribe.mockImplementation(async (filter, options) => {
+    const events = Array.from({ length: 300 }, (_, i) => event(`${filter.search}-${i}`));
+    const accepted = events.filter(e => options?.accept?.(e));
+    options?.onPartial?.(accepted);
+    return accepted;
+  });
+  const onIncomplete = jest.fn();
+  const results = await searchEvents('a OR b OR c OR d OR e OR f', 500, { onIncomplete });
+  expect(results).toHaveLength(500);
+  expect(new Set(results.map(e => e.id)).size).toBe(500);
+  expect(subscribe.mock.calls.length).toBeLessThanOrEqual(4);
+  expect(onIncomplete).toHaveBeenCalledWith(expect.stringContaining('limit'));
+});
+test('oversized payload stops collection while retaining earlier events', async () => {
+  const first = event('first');
+  subscribe.mockImplementation(async (_filter, options) => {
+    const events = [first, { ...event('oversized'), content: 'x'.repeat(5 * 1024 * 1024) } as NDKEvent];
+    return events.filter(e => options?.accept?.(e));
+  });
+  const onIncomplete = jest.fn();
+  expect(await searchEvents('a', 200, { onIncomplete })).toEqual([first]);
+  expect(onIncomplete).toHaveBeenCalledWith(expect.stringContaining('limit'));
+});
+test('large follow lists fail before opening a search subscription', async () => {
+  jest.mocked(resolveAuthorTokens).mockResolvedValueOnce(Array.from({ length: 5001 }, (_, i) => i.toString(16).padStart(64, '0')));
+  await expect(searchEvents('by:@contacts')).rejects.toThrow('5000-contact');
+  expect(subscribe).not.toHaveBeenCalled();
+});
+test('mute-list searches return one representative and retain expanded data', async () => {
+  const { expandMuteListResults } = await import('../muteListSearch');
+  const { getMuteListResultData } = await import('../muteListResultData');
+  const first = event('new', 10000), older = event('old', 10000);
+  first.pubkey = older.pubkey = 'alice'.padEnd(64, '0'); older.created_at = 1;
+  subscribe.mockResolvedValueOnce([older, first]);
+  const data = { pubkeys: ['a'.repeat(64)], profiles: [event('profile', 0)] };
+  jest.mocked(expandMuteListResults).mockResolvedValueOnce(data);
+  expect(await searchEvents('kind:10000 by:alice')).toEqual([first]);
+  expect(getMuteListResultData(first)).toEqual(data);
+});
+
+test('timeout before identity resolution reports incomplete empty results without subscribing', async () => {
+  jest.useFakeTimers();
+  try {
+    jest.mocked(resolveAuthorTokens).mockImplementationOnce(() => new Promise(() => {}));
+    const onIncomplete = jest.fn();
+    const work = searchEvents('by:stalled-identity', 200, { onIncomplete });
+    await jest.advanceTimersByTimeAsync(30000);
+    expect(await work).toEqual([]);
+    expect(onIncomplete).toHaveBeenCalledTimes(1);
+    expect(subscribe).not.toHaveBeenCalled();
+  } finally { jest.useRealTimers(); }
+});
+test('profile budget keeps collected ranking and ignores later updates after truncation', async () => {
+  const { tryHandleProfileSearch } = await import('../strategies/profileSearchStrategy');
+  let update: ((events: NDKEvent[]) => void) | undefined;
+  const profiles = Array.from({ length: 501 }, (_, i) => event(`profile-${i}`, 0));
+  jest.mocked(tryHandleProfileSearch).mockImplementationOnce(async (_query, context) => {
+    update = context.onProfileResultsUpdate;
+    return profiles;
+  });
+  const onIncomplete = jest.fn(), onProfileResultsUpdate = jest.fn();
+  expect(await searchEvents('p:alice', 500, { onIncomplete, onProfileResultsUpdate })).toEqual(profiles.slice(0, 500));
+  update?.([profiles[500]]);
+  expect(onProfileResultsUpdate).not.toHaveBeenCalled();
+  expect(onIncomplete).toHaveBeenCalledTimes(1);
+});
+test('events violating structured constraints do not consume the result budget', async () => {
+  subscribe.mockImplementation(async (_filter, options) => {
+    const events = [...Array.from({ length: 501 }, (_, i) => event(`invalid-${i}`, 20)), event('valid')];
+    return events.filter(e => options?.accept?.(e));
+  });
+  const onIncomplete = jest.fn();
+  expect((await searchEvents('kind:1', 200, { onIncomplete })).map(e => e.id)).toEqual(['valid']);
+  expect(onIncomplete).not.toHaveBeenCalled();
+});
+
+test('direct identifiers retain results even without a partial-results callback', async () => {
+  const { nip19 } = await import('nostr-tools');
+  const { searchByNip19Identifier } = await import('../idLookup');
+  const result = event('a'.repeat(64));
+  jest.mocked(searchByNip19Identifier).mockResolvedValueOnce([result]);
+  expect(await searchEvents(nip19.noteEncode(result.id))).toEqual([result]);
+});

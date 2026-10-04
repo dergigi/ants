@@ -70,9 +70,11 @@ Standalone `note`, `nevent`, and `naddr` identifiers retain direct lookup and re
 
 Use `p:dergigi.com` for a profile lookup and `site:dergigi.com` for domain text. Bare domains are now ordinary search text, so a filename or website does not unexpectedly become an identity lookup.
 
+On a profile page, an author-free query such as `bitcoin OR nostr` applies the profile author to the entire expression: `(bitcoin OR nostr) by:<profile>`. Explicit author filters keep their own scope, including mixed-author branches. Shared URLs preserve those explicit constraints; quoted `"by:alice"` is text and does not count as an author filter.
+
 ## Preview and errors
 
-The preview uses the same parser, aliases, and branch plan as execution. It resolves author and mention fields through the existing Vertex/profile resolver and displays their npubs, including values inside scoped groups. Literal quoted text is never resolved. In-flight identity lookups are shared with submission.
+The preview uses the same parser, aliases, and branch plan as execution. It resolves author and mention fields through the existing Vertex/profile resolver and displays their npubs, including values inside scoped groups. `@contacts` stays compact in the preview; execution resolves the current follow list, up to 5,000 contacts. Literal quoted text is never resolved. In-flight identity lookups are shared with submission.
 
 Errors include a character position. Positions use UTF-16 offsets, matching JavaScript and Java string indices. A malformed query is never executed with silently repaired syntax. An unresolved author causes an error rather than removing the author constraint.
 
@@ -80,7 +82,7 @@ Errors include a character position. Positions use UTF-16 offsets, matching Java
 
 Queries allow up to 2,000 UTF-16 code units, 16 nested groups, and 256 syntax-tree nodes before alias expansion. After alias expansion and safe same-field compaction, a plan may contain at most 32 branches. The planner checks the branch product before allocating it.
 
-The executor runs at most four branches concurrently, with an eight-second event-subscription timeout and a 30-second overall search deadline. Event subscriptions retain at most the requested result count, capped at 500 per branch. Results are checked against structured branch filters before being shown, merged by ID, sorted newest first, and limited for display. Specialized profile and identifier lookups retain their existing internal transport behavior.
+The executor runs at most four branches concurrently, with an eight-second event-subscription timeout and a 30-second overall search deadline. Event subscriptions retain at most the requested result count, capped at 500 per branch. All branches together share a budget of 500 unique events and 8 MiB of estimated retained event payloads, including profiles loaded for mute lists. Payload accounting includes UTF-16 strings and tag overhead; it is not a limit on total browser memory or NDK caches. Reaching the overall deadline or either budget stops outstanding work, preserves collected results, and displays an incomplete-search notice. You can retry the same query. Cancelling or replacing a search still discards that search. Results are checked against structured branch filters before being shown, merged by ID, sorted newest first, and limited for display. Specialized profile and identifier lookups retain their existing internal transport behavior.
 
 ## Changes from the previous web parser
 

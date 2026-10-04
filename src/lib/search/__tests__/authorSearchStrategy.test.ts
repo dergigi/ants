@@ -63,3 +63,18 @@ test('preserves the original mute event and resolves unique valid public p tags'
   expect(profileEventFromPubkey).toHaveBeenCalledTimes(1);
   expect(profileEventFromPubkey).toHaveBeenCalledWith(pubkey);
 });
+
+test('mute profile expansion stops scheduling batches when the shared budget is exhausted', async () => {
+  const { expandMuteListResults } = await import('../muteListSearch');
+  const { ResultStore } = await import('../query/resultStore');
+  const controller = new AbortController();
+  const store = new ResultStore(() => controller.abort(), 2);
+  const mute = { id: 'mute', tags: Array.from({ length: 40 }, (_, i) => ['p', i.toString(16).padStart(64, '0')]) } as NDKEvent;
+  store.keep(mute);
+  jest.mocked(profileEventFromPubkey).mockImplementation(async pubkey => ({ id: pubkey, kind: 0, tags: [] }) as unknown as NDKEvent);
+  const result = await expandMuteListResults([mute], { signal: controller.signal, retain: event => store.keep(event, false) });
+  expect(result.profiles).toHaveLength(1);
+  expect(profileEventFromPubkey).toHaveBeenCalledTimes(20);
+  expect(controller.signal.aborted).toBe(true);
+  expect(store.values()).toEqual([mute]);
+});
