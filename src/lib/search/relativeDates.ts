@@ -34,7 +34,7 @@ export function parseDateValue(value: string, keyword: 'since' | 'until', now = 
 
   if (ABSOLUTE_DATE_REGEX.test(trimmed)) {
     const timestamp = keyword === 'until' ? getEndOfUtcDayTimestamp(trimmed) : getStartOfUtcDayTimestamp(trimmed);
-    if (!Number.isFinite(timestamp)) return null;
+    if (!Number.isFinite(timestamp) || formatUtcDate(new Date(getStartOfUtcDayTimestamp(trimmed) * 1000)) !== trimmed) return null;
 
     return {
       timestamp,
@@ -46,12 +46,14 @@ export function parseDateValue(value: string, keyword: 'since' | 'until', now = 
   if (!relativeMatch) return null;
 
   const amount = parseInt(relativeMatch[1], 10);
+  if (!Number.isSafeInteger(amount)) return null;
   const unit = relativeMatch[2].toLowerCase();
   const resolvedDate = new Date(now);
 
   switch (unit) {
     case 'h': {
       resolvedDate.setTime(resolvedDate.getTime() - amount * HOUR_MS);
+      if (!Number.isFinite(resolvedDate.getTime())) return null;
       return {
         timestamp: Math.floor(resolvedDate.getTime() / 1000),
         displayValue: formatUtcDateTime(resolvedDate),
@@ -76,6 +78,7 @@ export function parseDateValue(value: string, keyword: 'since' | 'until', now = 
       return null;
   }
 
+  if (!Number.isFinite(resolvedDate.getTime())) return null;
   const displayValue = formatUtcDate(resolvedDate);
 
   return {

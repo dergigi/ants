@@ -32,6 +32,8 @@ const PARTIAL_EMIT_INTERVAL_MS = 500;
 
 export type CollectOptions = {
   timeoutMs?: number;
+  maxEvents?: number;
+  accept?: (event: NDKEvent) => boolean;
   relaySet?: NDKRelaySet;
   abortSignal?: AbortSignal;
   /**
@@ -129,9 +131,11 @@ export async function subscribeAndCollect(filter: NDKFilter, options: CollectOpt
         try { markRelayActivity(relayUrl); } catch {}
       }
       trackEventRelay(event, normalizeRelayUrl(relayUrl));
+      if (options.accept && !options.accept(event)) return;
       if (event.id && !collected.has(event.id)) {
         collected.set(event.id, event);
         emit([event]);
+        if (options.maxEvents && collected.size >= options.maxEvents) finish();
       }
     };
     const finish = () => {

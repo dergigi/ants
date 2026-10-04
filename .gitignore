@@ -51,3 +51,6 @@ next-env.d.ts
 /public/code-map/graphify-out/.graphify_*
 /public/code-map/graphify-out/cache/
 /public/code-map/graphify-out/manifest.json
+
+# Downloaded parser generator
+.cache/antlr/

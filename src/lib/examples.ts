@@ -75,7 +75,7 @@ export const searchExamples = [
   'p:fiatjaf',
   'p:hodl',
   'p:dergigi.com',
-  '@dergigi.com',
+  'p:dergigi.com',
   'p:zaps.lol',
   'p:nostrplebs.com',
   'p:dave',
@@ -101,6 +101,12 @@ export const searchExamples = [
   'einundzwanzig or by:twentyone.world',
   '#runstr OR #plebwalk OR by:bitcoinwalk',
   '(p:dad OR p:husband OR p:father)',
+
+  // Grouping, scoped fields, and branch-specific filters
+  'by:(dergigi OR fiatjaf) kind:(1 OR 30023)',
+  '(by:dergigi kind:1) OR (by:fiatjaf kind:30023)',
+  '(bitcoin OR (nostr AND lightning)) since:2w',
+  '"(cats OR dogs)"',
 
   // Nested OR
   '(GM OR GN) by:dergigi has:image',
@@ -131,7 +137,7 @@ export const searchExamples = [
   // URLs
   'site:yt', // Site-specific search
   'https://dergigi.com/vew', // URL
-  'dergigi.com', // NIP-05
+  'p:dergigi.com', // Explicit profile lookup
 
   // Kinds filter examples
   'is:zap by:marty',

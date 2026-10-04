@@ -10,6 +10,7 @@ export default defineConfig({
   },
   use: {
     baseURL: 'http://localhost:7473',
+    channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
     trace: 'on-first-retry',
   },
   webServer: {

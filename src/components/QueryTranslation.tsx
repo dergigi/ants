@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEquals, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
-import { expandParenthesizedOr, parseOrQuery } from '@/lib/search/queryTransforms';
-import { resolveScopedAuthorTokens } from '@/lib/search/queryPreprocessing';
-import { applySimpleReplacements } from '@/lib/search/replacements';
-import { resolveRelativeDates } from '@/lib/search/relativeDates';
-import { nip19 } from 'nostr-tools';
+import { useEffect, useState, useRef } from 'react';
+import { planQuery } from '@/lib/search/query/plan';
+import { resolvePreviewAuthors } from '@/lib/search/query/preview';
+import { resolveQueryAuthor } from '@/lib/search/query/resolveAuthor';
+import { abortable } from '@/lib/search/query/execute';
+import { Leaf, printQuery } from '@/lib/search/query/ast';
+import { loadRules } from '@/lib/search/replacements';
+import { parseDateValue } from '@/lib/search/relativeDates';
+import { SEARCH_DEFAULT_KINDS } from '@/lib/constants';
+import { useLoginTrigger } from '@/lib/LoginTrigger';
 import { getLastReducedFilters } from '@/lib/ndk';
 
 interface QueryTranslationProps {
@@ -15,257 +17,55 @@ interface QueryTranslationProps {
   onAuthorResolved?: () => void;
 }
 
+// Preview and execution use the same parser, branch planner, and Vertex resolver.
 export default function QueryTranslation({ query, onAuthorResolved }: QueryTranslationProps) {
-  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
-  const [translation, setTranslation] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
-  const authorResolutionCache = useRef<Map<string, string>>(new Map());
-  const lastResolvedQueryRef = useRef<string | null>(null);
-  const resolutionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasTriggeredSearchRef = useRef<boolean>(false);
-
-  // Determine an adaptive debounce based on device/network characteristics
-  const getAdaptiveDebounceMs = useCallback((): number => {
-    let delay = 700;
-    try {
-      const nav: unknown = typeof navigator !== 'undefined' ? navigator : undefined;
-      // Hardware concurrency: fewer cores → longer debounce
-      const cores = (nav as { hardwareConcurrency?: number })?.hardwareConcurrency;
-      if (typeof cores === 'number') {
-        if (cores <= 2) delay += 300; // very low-end
-        else if (cores <= 4) delay += 150; // low-end
-      }
-      // Device memory: low memory → longer debounce
-      const deviceMemory = (nav as { deviceMemory?: number })?.deviceMemory as number | undefined;
-      if (typeof deviceMemory === 'number' && deviceMemory > 0 && deviceMemory <= 4) {
-        delay += 100;
-      }
-      // Network quality: slower connections → slightly longer debounce
-      const anyNav = nav as { connection?: { effectiveType?: string } } | undefined;
-      const effectiveType = anyNav?.connection?.effectiveType || '';
-      if (typeof effectiveType === 'string') {
-        if (effectiveType.includes('2g') || effectiveType === 'slow-2g') delay += 200;
-        else if (effectiveType.includes('3g')) delay += 100;
-      }
-    } catch {}
-    // Clamp to 700–1000ms range
-    return Math.min(1000, Math.max(700, delay));
-  }, []);
-
-  const generateTranslation = useCallback(async (query: string, skipAuthorResolution = false): Promise<string> => {
-    try {
-      // 1) Resolve relative dates, then apply simple replacements
-      const { resolved: relativeDateResolvedQuery, translation: dateTranslation } = resolveRelativeDates(query);
-      const afterReplacements = await applySimpleReplacements(relativeDateResolvedQuery);
-
-      // 2) Recursive OR substitution (distribute parentheses)
-      const distributed = expandParenthesizedOr(afterReplacements);
-
-      // Helper: normalize p:<token> where token may be hex, npub or nprofile
-      const resolvePTokensInQuery = (q: string): string => {
-        const rx = /(^|\s)p:(\S+)/gi;
-        let result = '';
-        let lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(q)) !== null) {
-          const full = m[0];
-          const pre = m[1] || '';
-          const raw = m[2] || '';
-          const match = raw.match(/^([^),.;]+)([),.;]*)$/);
-          const core = (match && match[1]) || raw;
-          const suffix = (match && match[2]) || '';
-          let replacement = core;
-          if (/^[0-9a-fA-F]{64}$/.test(core)) {
-            try { replacement = nip19.npubEncode(core.toLowerCase()); } catch {}
-          } else if (/^npub1[0-9a-z]+$/i.test(core)) {
-            replacement = core;
-          } else if (/^nprofile1[0-9a-z]+$/i.test(core)) {
-            try {
-              const decoded = nip19.decode(core);
-              if (decoded?.type === 'nprofile') {
-                const pk = (decoded.data as { pubkey: string }).pubkey;
-                replacement = nip19.npubEncode(pk);
-              }
-            } catch {}
-          }
-          result += q.slice(lastIndex, m.index);
-          result += `${pre}p:${replacement}${suffix}`;
-          lastIndex = m.index + full.length;
-        }
-        result += q.slice(lastIndex);
-        return result;
-      };
-
-      // 3) Resolve authors inside each distributed branch (if not skipping)
-      const resolvedDistributed = skipAuthorResolution 
-        ? distributed 
-        : await Promise.all(distributed.map(async (q) => {
-          const resolved = await resolveScopedAuthorTokens(q, { cache: authorResolutionCache.current });
-          return resolved.query;
-        }));
-
-      const withPResolved = resolvedDistributed.map((q) => resolvePTokensInQuery(q));
-
-      // 4) For parenthesized OR expansion, show all expanded queries
-      // Don't split further if we already have multiple distributed queries
-      if (distributed.length > 1) {
-        // We have parenthesized OR expansion - show all expanded queries
-        const preview = withPResolved.join('\n');
-        return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
-      }
-
-      // 5) Split into multiple queries if top-level OR exists (for non-parenthesized OR)
-      const finalQueriesSet = new Set<string>();
-      for (const q of withPResolved) {
-        const parts = parseOrQuery(q);
-        if (parts.length > 1) {
-          parts.forEach((p) => { const s = p.trim(); if (s) finalQueriesSet.add(s); });
-        } else {
-          const s = q.trim(); if (s) finalQueriesSet.add(s);
-        }
-      }
-      const finalQueries = Array.from(finalQueriesSet);
-
-      // Format compact preview
-      const preview = finalQueries.length > 0 ? finalQueries.join('\n') : afterReplacements;
-      return dateTranslation ? `${dateTranslation}\n${preview}` : preview;
-    } catch {
-      return '';
-    }
-  }, [authorResolutionCache]);
-
-  // Generate translation when query changes
+  const { currentUser } = useLoginTrigger();
+  const [translation, setTranslation] = useState('');
+  const [error, setError] = useState('');
+  const notify = useRef(onAuthorResolved);
+  notify.current = onAuthorResolved;
   useEffect(() => {
     let cancelled = false;
-    let debounceId: ReturnType<typeof setTimeout> | null = null;
-    
-    if (!query.trim()) {
-      setTranslation('');
-      return;
-    }
-
-    const generateAndSetTranslation = async () => {
-      // Reset search trigger flag for new query
-      hasTriggeredSearchRef.current = false;
-      
-      // Phase 1: Show expanded queries immediately (without author resolution)
-      const immediateResult = await generateTranslation(query, true);
-      if (!cancelled) {
-        setTranslation(immediateResult);
-      }
-
-      // Phase 2: Update with resolved authors (if any by:/mentions: tokens exist)
-      if (/(^|\s)(?:by|mentions):/i.test(query)) {
-        const resolvedResult = await generateTranslation(query, false);
+    const controller = new AbortController();
+    setTranslation('');
+    setError('');
+    if (!query.trim() || query.startsWith('/')) return;
+    const timer = setTimeout(async () => {
+      try {
+        const now = new Date();
+        const plan = planQuery(query, await loadRules(), SEARCH_DEFAULT_KINDS, now);
+        const format = (branches: Leaf[][]) => branches.map(branch => branch.map(node => {
+          if (node.type === 'field' && (node.name === 'since' || node.name === 'until')) {
+            return `${node.name}:${parseDateValue(node.value, node.name, now)!.displayValue}`;
+          }
+          return printQuery(node);
+        }).join(' ')).join('\nOR ');
+        const preview = format(plan.leaves);
+        if (!cancelled) setTranslation(preview);
+        const resolved = await abortable(resolvePreviewAuthors(plan.leaves, resolveQueryAuthor, controller.signal), controller.signal);
         if (!cancelled) {
-          setTranslation(resolvedResult);
-          
-          // Clear any existing timeout
-          if (resolutionTimeoutRef.current) {
-            clearTimeout(resolutionTimeoutRef.current);
-          }
-          
-          // Set a timeout to trigger search after resolution stabilizes
-          // This allows time for NIP-05 verification and re-ranking to complete
-          resolutionTimeoutRef.current = setTimeout(() => {
-            if (lastResolvedQueryRef.current !== query && !hasTriggeredSearchRef.current) {
-              lastResolvedQueryRef.current = query;
-              hasTriggeredSearchRef.current = true;
-              onAuthorResolved?.();
-            }
-          }, 2000); // Wait 2 seconds for final resolution
+          const translated = format(resolved);
+          setTranslation(translated);
+          if (translated !== preview) notify.current?.();
         }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Invalid query');
       }
-    };
-
-    debounceId = setTimeout(() => {
-      generateAndSetTranslation();
-    }, getAdaptiveDebounceMs()); // Adaptive debounce to reduce typing lag on slower devices
-
-    return () => { 
-      cancelled = true;
-      if (debounceId) {
-        clearTimeout(debounceId);
-        debounceId = null;
-      }
-      if (resolutionTimeoutRef.current) {
-        clearTimeout(resolutionTimeoutRef.current);
-        resolutionTimeoutRef.current = null;
-      }
-    };
-  }, [query, generateTranslation, onAuthorResolved, getAdaptiveDebounceMs]);
-
-  const filtersJson = (() => {
-    try {
-      const filters = getLastReducedFilters();
-      if (!filters || filters.length === 0) return '';
-      const json = JSON.stringify(filters, null, 2);
-      return json.length > 2000 ? `${json.slice(0, 2000)}\n…` : json;
-    } catch {
-      return '';
-    }
-  })();
-
+    }, 700);
+    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+  }, [query, currentUser?.pubkey]);
+  if (error) return <div id="search-explanation" role="alert" className="mt-1 text-xs text-red-400">{error}</div>;
   if (!translation) return null;
-
-  const isLongTranslation = translation.split('\n').length > 4;
-
+  const filters = getLastReducedFilters();
+  const firstLine = translation.split('\n')[0];
+  const summary = firstLine.length > 180 ? `${firstLine.slice(0, 180)}…` : firstLine;
   return (
-    <div 
-      id="search-explanation" 
-      className={`mt-1 text-[11px] text-gray-400 font-mono break-all whitespace-pre-wrap flex items-start gap-2 ${
-        isLongTranslation ? 'cursor-pointer hover:bg-gray-800/20 rounded px-1 py-0.5 -mx-1 -my-0.5' : ''
-      }`}
-      onClick={() => {
-        if (isLongTranslation) {
-          setIsExplanationExpanded(!isExplanationExpanded);
-        }
-      }}
-    >
-      <button
-        type="button"
-        className="mt-0.5 flex-shrink-0 text-xs text-gray-500 hover:text-gray-200"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (filtersJson) {
-            setShowFilters((prev) => !prev);
-          }
-        }}
-        aria-label="Show effective filters"
-        aria-expanded={showFilters}
-      >
-        <FontAwesomeIcon icon={faEquals} />
-      </button>
-      <div className="flex-1 min-w-0">
-        {isLongTranslation && !isExplanationExpanded ? (
-          <>
-            <div className="overflow-hidden" style={{ 
-              display: '-webkit-box',
-              WebkitLineClamp: 4,
-              WebkitBoxOrient: 'vertical'
-            }}>
-              {translation.split('\n').slice(0, 4).join('\n')}
-            </div>
-            <div className="flex items-center justify-center mt-1 text-gray-500">
-              <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
-            </div>
-          </>
-        ) : (
-          <>
-            <span>{translation}</span>
-            {isLongTranslation && (
-              <div className="flex items-center justify-center mt-1 text-gray-500">
-                <FontAwesomeIcon icon={faChevronUp} className="text-[10px]" />
-              </div>
-            )}
-          </>
-        )}
-        {showFilters && filtersJson && (
-          <pre className="mt-1 max-h-48 overflow-auto rounded border border-gray-700/60 bg-black/40 p-2 text-[10px] leading-snug whitespace-pre-wrap">
-            {filtersJson}
-          </pre>
-        )}
-      </div>
+    <div id="search-explanation" className="mt-1 text-[11px] text-gray-400 font-mono break-all whitespace-pre-wrap">
+      <details>
+        <summary className="cursor-pointer">{summary}{translation.includes('\n') ? ' …' : ''}</summary>
+        <div>{translation}</div>
+      </details>
+      {!!filters?.length && <details><summary className="cursor-pointer">Effective filters</summary><pre>{JSON.stringify(filters, null, 2)}</pre></details>}
     </div>
   );
 }

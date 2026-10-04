@@ -7,9 +7,15 @@ import { connect, ConnectionStatus } from '@/lib/ndk';
 import { searchEvents } from '@/lib/search';
 import { extractRelaySourcesFromEvent, createRelaySet } from '@/lib/urlUtils';
 import { extractNip19Identifiers, decodeNip19Identifier } from '@/lib/utils/nostrIdentifiers';
-import { getCurrentProfileNpub, toImplicitUrlQuery, ensureAuthorForBackend } from '@/lib/search/queryTransforms';
-import { extractScopedAuthorTokens, isNpubAuthorToken, resolveScopedAuthorTokens } from '@/lib/search/queryPreprocessing';
-import { getProfileScopeIdentifiers, hasProfileScope } from '@/lib/search/profileScope';
+import { getCurrentProfileNpub, toImplicitUrlQuery } from '@/lib/search/queryTransforms';
+import { nip19 } from 'nostr-tools';
+import { resolveQueryAuthor } from '@/lib/search/query/resolveAuthor';
+import { abortable } from '@/lib/search/query/execute';
+import { printQuery } from '@/lib/search/query/ast';
+import { planQuery, withoutAuthorFields } from '@/lib/search/query/plan';
+import { loadRules } from '@/lib/search/replacements';
+import { SEARCH_DEFAULT_KINDS } from '@/lib/constants';
+import { getStoredPubkey } from '@/lib/nip07';
 import { relaySets, getNip50SearchRelaySet } from '@/lib/relays';
 import { prewarmSearchRuntime } from '@/lib/search/prewarm';
 import { isSlashCommand, isUrlQuery, buildCli } from '@/lib/utils/searchViewUtils';
@@ -50,7 +56,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     setSuccessfullyActiveRelays, setToggledRelays,
     setTopCommandText, setTopExamples, setKindsRules,
     setIsConnecting, setConnectionDetails,
-    triggerLogin, runSlashCommand, updateUrlForSearch, profileScopeUser
+    triggerLogin, runSlashCommand, updateUrlForSearch
   } = options;
   const router = useRouter();
   const pathname = usePathname();
@@ -182,62 +188,34 @@ export function useSearchExecution(options: SearchExecutionOptions) {
     const isDirectLookup = !manageUrl && initialQuery === searchQuery;
     const minLoadingTime = isDirectLookup ? 800 : 0;
 
-    const authorTokens = extractScopedAuthorTokens(searchQuery);
-    const needsAuthorResolution = authorTokens.some(({ core }) => !isNpubAuthorToken(core));
-
-    if (needsAuthorResolution) {
-      setResolvingAuthor(true);
-    }
-
     try {
       if (abortController.signal.aborted || currentSearchId.current !== searchId) {
         return;
       }
 
-      let effectiveQuery = searchQuery;
-      if (authorTokens.length > 0) {
-        const resolvedAuthors = await resolveScopedAuthorTokens(searchQuery, { onMissingMe: 'flag' });
-        if (abortController.signal.aborted || currentSearchId.current !== searchId) {
-          return;
-        }
-
-        if (resolvedAuthors.needsLoginForAtMe) {
-          triggerLogin();
-          setLoading(false);
-          setResolvingAuthor(false);
-          return;
-        }
-
-        effectiveQuery = resolvedAuthors.query;
-
-        const onProfilePage = /^\/p\//i.test(pathname || '');
-        const currentProfileNpub = getCurrentProfileNpub(pathname);
-        const uniqueByAuthors = Array.from(new Set(
-          resolvedAuthors.byAuthors
-            .filter((author) => isNpubAuthorToken(author))
-            .map((author) => author.toLowerCase())
-        ));
-
-        if (onProfilePage && currentProfileNpub && uniqueByAuthors.length === 1 && currentProfileNpub.toLowerCase() !== uniqueByAuthors[0]) {
-          const targetProfileNpub = uniqueByAuthors[0];
-          const implicitQ = toImplicitUrlQuery(effectiveQuery, targetProfileNpub);
-          const carry = encodeURIComponent(implicitQ);
-          router.push(`/p/${targetProfileNpub}?q=${carry}`);
-          setResolvingAuthor(false);
-          setLoading(false);
-          return;
+      const planned = planQuery(searchQuery, await loadRules(), SEARCH_DEFAULT_KINDS);
+      if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+      const authors = planned.branches.flatMap(b => [...b.authors.flat(), ...b.mentions.flat()]);
+      if (authors.some(a => /^@(me|contacts)$/i.test(a)) && !getStoredPubkey()) {
+        triggerLogin();
+        return;
+      }
+      setResolvingAuthor(authors.length > 0);
+      const currentProfile = getCurrentProfileNpub(pathname);
+      const byTokens = [...new Set(planned.branches.flatMap(b => b.authors.flat()))];
+      if (currentProfile && byTokens.length === 1 && planned.branches.every(b => b.authors.length > 0)) {
+        const keys = await abortable(resolveQueryAuthor(byTokens[0]), abortController.signal);
+        if (abortController.signal.aborted || currentSearchId.current !== searchId) return;
+        if (keys.length === 1) {
+          const target = nip19.npubEncode(keys[0]);
+          if (target !== currentProfile) {
+            const implicit = withoutAuthorFields(planned.tree);
+            router.push(`/p/${target}?q=${encodeURIComponent(implicit ? printQuery(implicit) : '')}`);
+            return;
+          }
         }
       }
-
-      if (needsAuthorResolution) {
-        setResolvingAuthor(false);
-      }
-
-      const expanded = effectiveQuery;
-      const currentProfileNpub = getCurrentProfileNpub(pathname);
-      const identifiers = getProfileScopeIdentifiers(profileScopeUser, currentProfileNpub);
-      const shouldScope = identifiers ? hasProfileScope(expanded, identifiers) : false;
-      const scopedQuery = shouldScope ? ensureAuthorForBackend(expanded, currentProfileNpub) : expanded;
+      const scopedQuery = searchQuery;
       const searchKeys = new Set([normalizedInput, scopedQuery.trim()].filter(Boolean));
       const alreadyCompleted = Array.from(searchKeys).some((key) => completedSearchKeysRef.current.has(key));
       if (alreadyCompleted) {
@@ -309,7 +287,9 @@ export function useSearchExecution(options: SearchExecutionOptions) {
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Search aborted')) {
         return;
       }
+      if (currentSearchId.current !== searchId) return;
       console.error('Search error:', error);
+      setTopCommandText(error instanceof Error ? error.message : 'Search failed');
       setResults([]);
     } finally {
       if (activeSearchIdRef.current === searchId) {
@@ -332,7 +312,7 @@ export function useSearchExecution(options: SearchExecutionOptions) {
         }
       }
     }
-  }, [pathname, router, updateUrlForSearch, profileScopeUser, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, activeSearchIdRef, activeSearchKeysRef, completedSearchKeysRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
+  }, [pathname, router, updateUrlForSearch, initialQuery, manageUrl, isDirectQuery, triggerLogin, suppressSearchRef, abortControllerRef, currentSearchId, lastIdentifierRedirectRef, lastHashQueryRef, lastExecutedQueryRef, activeSearchIdRef, activeSearchKeysRef, completedSearchKeysRef, setResults, setLoading, setResolvingAuthor, setShowExternalButton, setSuccessfullyActiveRelays, setToggledRelays, setTopCommandText, setTopExamples, setKindsRules]);
 
   // DRY helper function for root searches (always navigate to root path)
   const setQueryAndNavigateToRoot = useCallback((query: string) => {
