@@ -1,8 +1,8 @@
 # Query parser options for ants
 
-Research date: 3 October 2026. This is a design recommendation, not a description of implemented syntax.
+Research date: 3 October 2026. Updated 4 October 2026 after reviewing ants-android. This is a design recommendation, not a description of implemented syntax.
 
-**Recommendation: use Peggy to define a small, explicit grammar, producing a shared query tree before resolving aliases or building relay filters.** A handwritten recursive-descent parser is the strongest alternative if avoiding dependencies matters more than maintaining a separate grammar. If the mobile app will use native Swift or Dart and must parse offline, reconsider ANTLR first.
+**Updated recommendation: prototype an action-free ANTLR grammar with Java output for the existing Kotlin Android app and TypeScript output for the web app.** Compare it with small handwritten recursive-descent parsers sharing one specification and conformance corpus. Peggy remains attractive for the web alone, but it cannot generate the native JVM parser the existing Android application needs.
 
 The essential change is architectural: parsing, meaning, and execution need separate stages. Changing libraries while retaining global token extraction and string expansion would preserve the most serious problems.
 
@@ -24,27 +24,37 @@ Four groups produced 16 strings; eight produced 256. These are measured expansio
 
 The causes are visible in [queryTransforms.ts](https://github.com/dergigi/ants/blob/391b30c373a2efccab4ceee3a7ae879d4a689ffa/src/lib/search/queryTransforms.ts), [queryParsing.ts](https://github.com/dergigi/ants/blob/391b30c373a2efccab4ceee3a7ae879d4a689ffa/src/lib/search/queryParsing.ts), and their ordering in [search.ts](https://github.com/dergigi/ants/blob/391b30c373a2efccab4ceee3a7ae879d4a689ffa/src/lib/search.ts). Quotes, groups, and filters are handled by different string operations. Quote toggling also has no escaped-quote state. The [OR handler](https://github.com/dergigi/ants/blob/391b30c373a2efccab4ceee3a7ae879d4a689ffa/src/lib/search/orQueryHandler.ts) then turns expanded strings into search work.
 
+## Evidence from the existing Android app
+
+The mobile application already exists in native Kotlin and Jetpack Compose. Reviewed [ants-android at f38d463](https://github.com/dergigi/ants-android/tree/f38d463ecdc44653b2714884fce5a37a4dd1fbe8) through source inspection, without modifying, building, or running it.
+
+[SearchQuery.kt](https://github.com/dergigi/ants-android/blob/f38d463ecdc44653b2714884fce5a37a4dd1fbe8/app/src/main/java/org/dergigi/ants/SearchQuery.kt) already splits top-level OR before extracting branch filters. Each `SearchBranch` has its own filter, so the web's global kind/date extraction problem is not the same on Android. It enforces a 2,000-character query limit and at most eight OR branches, validates kind numbers and date ordering, and explicitly rejects grouping. Its parentheses check also rejects parentheses inside quoted text, except for the earlier standalone-URL path. Tokenization and quote counting do not implement escaped quotes. These are source observations, not executed Android test results.
+
+[RelaySearch.kt](https://github.com/dergigi/ants-android/blob/f38d463ecdc44653b2714884fce5a37a4dd1fbe8/app/src/main/java/org/dergigi/ants/RelaySearch.kt) places branch filters in one `REQ` per relay route. It checks structured and local branch predicates, verifies signatures, and deduplicates events by ID. It also bounds retained results and memory and closes work on timeout or cancellation. [OutboxRouter.kt](https://github.com/dergigi/ants-android/blob/f38d463ecdc44653b2714884fce5a37a4dd1fbe8/app/src/main/java/org/dergigi/ants/OutboxRouter.kt) directs branches with search text to configured search relays and routes structured branches separately.
+
+This confirms the intended execution model: one logical search filter per branch, followed by union and deduplication. Separate logical branches need not mean separate subscriptions or sockets. Preserve that batching when introducing nesting, except where branch-specific local predicates require keeping track of which branch returned an event. Currently `SearchBranch.accepts` does not check the `search` text, and a multi-filter subscription does not identify the matching filter. Mixed text/local-predicate branches therefore need an explicit attribution policy; this is an execution concern independent of grammar choice.
+
+The migration should preserve Android's existing branch model and resource limits. Insert a syntax tree before `SearchBranch` compilation; move asynchronous profile resolution out of syntax recognition. [QueryTranslation.kt](https://github.com/dergigi/ants-android/blob/f38d463ecdc44653b2714884fce5a37a4dd1fbe8/app/src/main/java/org/dergigi/ants/QueryTranslation.kt) separately tokenizes previews, so include it when replacing syntax logic. Share semantic fixtures for dates and aliases as well as grammar fixtures: grammar generation alone cannot prevent those behaviors from drifting.
+
 ## The five options
 
-The ranking is my assessment for the current TypeScript application, a reviewable syntax specification, and an unspecified future mobile stack. It is not a ranking from comparative performance measurements. All five can represent nested expressions; all still need semantic validation and execution limits.
+The updated ranking is my assessment for the existing TypeScript web and Kotlin Android applications and a reviewable shared syntax specification. It is not a ranking from comparative performance measurements. All five can represent nested expressions; all still need semantic validation and execution limits.
 
 | Rank | Approach | Best reason to choose it | Main cost | Mobile implication |
 | --- | --- | --- | --- | --- |
-| 1 | Peggy | A concise grammar that is easy to review beside the syntax guide | Generated code and deliberate grammar design | Share generated JavaScript with a JavaScript mobile app, subject to runtime testing |
-| 2 | Handwritten tokenizer and recursive descent | Direct control with no parser runtime dependency | ants owns the parser and diagnostics | Share TypeScript, or port a small implementation with common fixtures |
-| 3 | Chevrotain | Structured TypeScript/JavaScript tooling and error recovery | More framework machinery; completion requires separate work | JavaScript reuse; no native Swift or Dart generator |
-| 4 | ANTLR | One grammar with several native language targets | Generator, runtimes, and cross-target maintenance | Strongest candidate for Swift, Dart, or Android through Java |
-| 5 | Lezer | Incremental parsing and editor feedback | Concrete-tree conversion and editor-oriented integration | Particularly relevant to a web-based query editor |
+| 1 | ANTLR | One grammar generating TypeScript and Java parsers | Generator, runtimes, and cross-target semantic adapters | Kotlin consumes the generated Java parser |
+| 2 | Handwritten tokenizer and recursive descent | Small implementations with direct control | Two implementations must pass the same conformance corpus | Native Kotlin and TypeScript implementations |
+| 3 | Peggy | A concise grammar for the web parser | Does not generate JVM code; Android needs another implementation or a JS engine | Less suitable as the shared foundation |
+| 4 | Chevrotain | Structured TypeScript/JavaScript tooling and error recovery | No JVM generation; completion requires separate work | Android still needs a separate parser |
+| 5 | Lezer | Incremental parsing and editor feedback | Editor-oriented integration and no JVM generation | Primarily a web editor option |
 
-### 1 Peggy
+### 1 ANTLR
 
-Peggy generates a JavaScript parser from a PEG grammar. It supports actions that construct a query tree, source locations, syntax errors, and generated TypeScript declarations. Generate the parser at build time; the generated parser does not require the Peggy runtime. Its ordered alternatives mean grammar order must be intentional. Caching is off by default; its documented cache option trades overhead for protection against pathological repeated parsing. [Peggy documentation](https://peggyjs.org/documentation.html)
+ANTLR generates parsers and tree visitors/listeners from a grammar. Official targets include JavaScript, TypeScript, Swift, Dart, and Java. Kotlin is not an official target in that list; Android can consume Java-generated code. The generator uses Java, while deployed parsers use their target runtime. Target features are not always introduced simultaneously. [ANTLR project](https://github.com/antlr/antlr4), [target documentation](https://github.com/antlr/antlr4/blob/dev/doc/targets.md)
 
-For ants, I would put precedence, grouping, phrases, escapes, and recognized field syntax in one grammar. Keep date interpretation, identifier resolution, alias definitions, and Nostr planning outside grammar actions. This makes the grammar reviewable without embedding the whole application in it.
+**Why first after inspecting Android:** Java output is directly usable from Kotlin, and TypeScript output serves the web. Keep the grammar free of target-specific semantic actions; implement adapters from each parse tree to the same versioned query model. Share fixtures for parsing, diagnostics, dates, aliases, and compiled branch filters. This provides one syntax definition while allowing each application to retain its existing execution code.
 
-**Why first:** the user's requirement includes reviewing and documenting the language. A grammar file gives that review a concrete implementation counterpart. My expected benefit is fewer scattered parsing rules, not an unmeasured speed advantage.
-
-**Tradeoff:** friendly suggestions and partial-input handling still require application code. A generated JavaScript parser is not a native Swift/Dart implementation; verify the actual mobile engine before promising reuse.
+**Tradeoff:** tool/runtime coordination, generated code, and two semantic adapters are real costs. A prototype must demonstrate acceptable Android initialization, APK impact, diagnostics, and equivalent output before adoption. The recommendation is based on the actual language targets, not an unmeasured performance claim.
 
 ### 2 Handwritten tokenizer and recursive descent
 
@@ -52,27 +62,29 @@ A tokenizer would recognize complete quoted strings, parentheses, operators, and
 
 **Why second:** ants' language can remain deliberately small. An explicit scanner and predictive parser offer direct control over errors and require no third-party parsing runtime. This is a complete replacement for structural regex rewriting, not another layer of regex patches.
 
-**Tradeoff:** ants must maintain escape handling, synchronization, precedence, and diagnostics. The grammar in the documentation can drift from the implementation unless examples and generated cases exercise both.
+**Tradeoff:** ants must maintain escape handling, synchronization, precedence, and diagnostics in both Kotlin and TypeScript. The grammar in the documentation can drift from the implementation unless examples and generated cases exercise both.
 
 A predictive implementation can aim for linear scanning and parsing of this grammar, but bounded input and nesting remain necessary. Any claim that it is faster or smaller than a generated alternative needs measurement on the same language and inputs.
 
-### 3 Chevrotain
+### 3 Peggy
+
+Peggy generates a JavaScript parser from a PEG grammar. It supports actions that construct a query tree, source locations, syntax errors, and generated TypeScript declarations. Generate the parser at build time; the generated parser does not require the Peggy runtime. Its ordered alternatives mean grammar order must be intentional. Caching is off by default; its documented cache option trades overhead for protection against pathological repeated parsing. [Peggy documentation](https://peggyjs.org/documentation.html)
+
+For ants, I would put precedence, grouping, phrases, escapes, and recognized field syntax in one grammar. Keep date interpretation, identifier resolution, alias definitions, and Nostr planning outside grammar actions. This makes the grammar reviewable without embedding the whole application in it.
+
+**Why third after inspecting Android:** the user's requirement includes reviewing and documenting the language. A grammar file gives that review a concrete implementation counterpart. My expected benefit is fewer scattered parsing rules, not an unmeasured speed advantage.
+
+**Tradeoff:** friendly suggestions and partial-input handling still require application code. It does not generate JVM code. Adding a JavaScript engine to the native Android app solely for parsing needs a stronger justification than this report establishes.
+
+### 4 Chevrotain
 
 Chevrotain defines grammars through a JavaScript DSL without a code-generation step. Its concrete syntax trees and visitors support a separate semantic layer. It also supplies recovery mechanisms such as token insertion, deletion, and resynchronization. These are useful for displaying errors while someone types. [Project documentation](https://chevrotain.io/docs/), [concrete syntax trees](https://chevrotain.io/docs/guide/concrete_syntax_tree.html), [error recovery](https://chevrotain.io/docs/tutorial/step4_fault_tolerance.html)
 
-**Why third:** a good choice if the team prefers TypeScript tooling and detailed diagnostics over a separate grammar format. Recovering enough structure to underline an unfinished group can improve mobile input.
+**Why fourth:** a good choice if the team prefers TypeScript tooling and detailed diagnostics over a separate grammar format. Recovering enough structure to underline an unfinished group can improve web input, but the native Android app needs equivalent support separately.
 
 **Current-version caveat:** version 12 removed `computeContentAssist` and `getNextPossibleTokenTypes`; older articles still advertise these APIs. Version 12 also raised the Node requirement to 22. Do not select it assuming current built-in autocomplete. [Breaking changes](https://chevrotain.io/docs/changes/BREAKING_CHANGES)
 
-**Tradeoff:** more machinery than the simplest handwritten parser. Keep recovery for editing; reject errors on submission so a repaired tree cannot silently drop an author restriction. Reuse parser initialization where appropriate and benchmark cold startup as well as repeated parsing.
-
-### 4 ANTLR
-
-ANTLR generates parsers and tree visitors/listeners from a grammar. Official targets include JavaScript, TypeScript, Swift, Dart, and Java. Kotlin is not an official target in that list; Android can consume Java-generated code. The generator uses Java, while deployed parsers use their target runtime. Target features are not always introduced simultaneously. [ANTLR project](https://github.com/antlr/antlr4), [target documentation](https://github.com/antlr/antlr4/blob/dev/doc/targets.md)
-
-**Why fourth today, potentially first for native mobile:** it is the strongest of these options when sharing the grammar across different native languages is an actual requirement. Keep the grammar free of target-specific semantic actions; implement adapters from each target's parse tree to the same versioned JSON query model. Cross-target fixtures must also cover field semantics, not just successful parsing.
-
-**Tradeoff:** tool/runtime version coordination and multiple adapters are real maintenance costs for a compact search box. The native mobile framework has not been chosen, so those costs are premature today. Swift and Dart generation should be tested in a small prototype before treating grammar portability as complete application portability.
+**Tradeoff:** more machinery than the simplest handwritten parser, without solving JVM parser generation. Keep recovery for editing; reject errors on submission so a repaired tree cannot silently drop an author restriction. Reuse parser initialization where appropriate and benchmark cold startup as well as repeated parsing.
 
 ### 5 Lezer
 
@@ -115,7 +127,7 @@ Keep syntax size separate from plan size. An AND of twelve OR groups has a compa
 
 NIP-01 combines fields within a filter with AND, list values with OR, and multiple filters with OR. NIP-50 leaves text-search behavior to relay implementations and tells relays to ignore unsupported extensions. Neither specifies a portable, general Boolean full-text language. [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md), [NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md)
 
-The practical consequence is that a correct parser cannot guarantee exact phrase, conjunction, or negation semantics across arbitrary relays. Intersecting two independently limited result sets can miss genuine matches. Negation needs a defined candidate universe or a backend that supports the operation. These are deductions from the protocol constraints, not parser-library limitations.
+OR should be implemented as branch filters with union and deduplication, as Android already does. The narrower limitation is that a correct parser cannot guarantee exact phrase, conjunction, or negation semantics inside each branch across arbitrary relays. Intersecting two independently limited result sets can miss genuine matches. Negation needs a defined candidate universe or a backend that supports the operation. These are deductions from the protocol constraints, not parser-library limitations.
 
 The planner should distinguish exact structured filters, relay-dependent text search, and unsupported operations. Document that distinction in the user guide. Do not silently broaden a request when a branch cannot be implemented, and defer general `NOT` until its execution semantics are defined.
 
@@ -140,13 +152,13 @@ For mobile, define a versioned query model and a canonical printer now. Text inp
 ## Migration and performance validation
 
 1. Establish a conformance corpus from documented examples, existing tests, saved-query formats, and the failures above. Separate compatibility cases from deliberate semantic changes; do not make every existing bug a requirement.
-2. Prototype Peggy and the handwritten alternative against the same query model. If native mobile is already decided, substitute ANTLR for the handwritten comparison.
-3. Compare cold initialization, warm parse latency, memory, generated/bundled bytes, malformed-input behavior, and deeply nested input. Measure execution planning separately, including many shallow OR groups and aliases. Use representative phones or their actual JavaScript runtime before drawing mobile conclusions.
+2. Prototype ANTLR with Java and TypeScript targets against the same query model. Compare it with small handwritten Kotlin and TypeScript parsers using identical fixtures and branch outputs.
+3. Compare cold initialization, warm parse latency, memory, generated/bundled bytes, malformed-input behavior, and deeply nested input. Measure execution planning separately, including many shallow OR groups and aliases. Measure generated Java on representative Android devices and TypeScript output in target browsers before drawing performance conclusions.
 4. Add generated tests for normalized parse/print/parse equivalence, escaped quotes, Unicode, parentheses, alias expansion, and bounded rejection. Property-based tools can generate cases and shrink failures. [fast-check introduction](https://fast-check.dev/docs/introduction/)
 5. Test planner equivalence over a finite fixture event set, especially correlated branches, contradictory dates, deduplication, and filter-array optimizations. Verify cancellation and concurrency limits using fake relays.
 6. Compare old and new parse/planning results behind a flag without sending duplicate relay searches. Migrate shared URLs and saved queries deliberately, then remove the old structural rewriting paths. Keep examples executable in CI and publish the syntax guide beside the grammar.
 
-No five-way runtime benchmark was performed for this report. The recommendation rests on source inspection, executed failure probes, official library documentation, and protocol constraints. Remaining decisions are the mobile stack, exact text-matching promises, acceptable query budgets, and whether a rich editor is worth its integration cost.
+No five-way runtime benchmark was performed for this report. The recommendation rests on source inspection, executed failure probes, official library documentation, and protocol constraints. Remaining decisions are the shared parser approach, exact text-matching promises within branches, nesting and expansion budgets beyond Android's existing limits, and whether a rich editor is worth its integration cost.
 
 ## Reproduce the local probes
 
