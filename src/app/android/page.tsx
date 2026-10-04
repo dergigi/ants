@@ -103,14 +103,12 @@ export default function AndroidPage() {
             <span className={styles.status} /> NATIVE ON ANDROID
           </p>
           <h1 id="android-title">
-            A little ant.
-            <br />A whole world
+            Put your
             <br />
-            to <span>discover.</span>
+            <span>feelers out.</span>
           </h1>
           <p className={styles.intro}>
-            Powerful query syntax. Vertex-powered profile discovery. A fast,
-            native Android app that puts Nostr search in your pocket.
+            Fast, native Nostr search. In your pocket.
           </p>
           <DownloadLinks />
           <p className={styles.fine}>
