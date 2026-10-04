@@ -35,7 +35,7 @@ try {
     .phone img { display: block; width: 100%; height: auto; }
   </style></head><body><div class="glow"></div><div class="ring"></div><div class="ring inner"></div><main>
     <div class="brand"><img src="${logo}" alt="">ants <span>/ android</span></div>
-    <h1>nostr search.<br>In your <span>pocket.</span></h1>
+    <h1>nostr <span>search.</span><br>In your pocket.</h1>
     <p>Search notes. Find your people.<br>Follow your curiosity.</p>
     <div class="bottom"><div class="badge">Get it on Zapstore ↗</div><div class="url">ants.sh/android</div></div>
   </main><div class="phone"><img src="${screenshot}" alt=""></div></body></html>`);

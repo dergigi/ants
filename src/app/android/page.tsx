@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     url: "/android",
     images: [
       {
-        url: "/android/og-clean.png",
+        url: "/android/og-clean.png?v=2",
         width: 1200,
         height: 630,
         alt: "ants for Android — nostr search. In your pocket. Search notes, find your people, and follow your curiosity.",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/android/og-clean.png",
+        url: "/android/og-clean.png?v=2",
         alt: "ants for Android — nostr search. In your pocket",
       },
     ],
