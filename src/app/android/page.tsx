@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     url: "/android",
     images: [
       {
-        url: "/android/og.png?v=2",
+        url: "/android/og.png?v=3",
         width: 1200,
         height: 630,
         alt: "ants for Android — nostr search. In your pocket. Search notes, find your people, and follow your curiosity.",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/android/og.png?v=2",
+        url: "/android/og.png?v=3",
         alt: "ants for Android — nostr search. In your pocket",
       },
     ],
@@ -124,14 +124,14 @@ export default function AndroidPage() {
           </div>
           <a
             className={styles.phone}
-            href="/android/search-results.png"
+            href="/android/personal-search.png"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Enlarge Android search results screenshot (opens in a new tab)"
           >
             <Image
-              src="/android/search-results.png"
-              alt="ants on Android showing a search with author and hashtag filters, image results, and replies"
+              src="/android/personal-search.png"
+              alt="ants on Android showing (GM or GN) by:@me with a coffee image in the search results"
               width={1008}
               height={2244}
               sizes="(max-width: 700px) 250px, 264px"
@@ -237,25 +237,48 @@ export default function AndroidPage() {
             screen to take a closer look.
           </p>
         </div>
-        <div className={styles.screenshotGrid}>
+        <div
+          className={styles.screenshotGrid}
+          tabIndex={0}
+          role="region"
+          aria-label="App screenshots; scroll to explore"
+        >
           {[
             {
-              file: "search-results",
-              title: "Native results.",
-              text: "Notes, images, and replies together in your search results.",
-              alt: "Search results with an image post and a reply on ants for Android",
+              file: "query-help",
+              title: "Powerful syntax, built in.",
+              text: "Open /help for grouping, operators, scoped filters, and commands — right inside the app.",
+              alt: "Android search help showing AND and OR operators, nested groups, author filters, and commands",
             },
             {
-              file: "query-breakdown",
-              title: "See how your search works.",
-              text: "Expand a query to see its author and hashtag combinations while ants searches.",
-              alt: "Expanded OR query showing combinations of hashtags and authors while a search is running",
+              file: "personal-search",
+              title: "Your posts. Your query.",
+              text: "Combine (GM or GN) with by:@me to find your own posts after connecting your signer.",
+              alt: "The query (GM or GN) by:@me with 374 results and a coffee image",
             },
             {
               file: "search-examples",
-              title: "Learn the query language.",
-              text: "Open /examples and tap a query to explore authors, dates, and content types.",
-              alt: "The Android examples screen with tappable queries for highlights, articles, dates, and more",
+              title: "Learn by searching.",
+              text: "Tap an example to try author filters, date ranges, or specific content types.",
+              alt: "Tappable example queries for authors, dates, highlights, and articles",
+            },
+            {
+              file: "gif-search",
+              title: "Find that GIF.",
+              text: "Search for a name and .gif to find matching posts, with media right in the results.",
+              alt: "Search results for Liotta .gif with a Ray Liotta reaction image",
+            },
+            {
+              file: "article-reader",
+              title: "Settle into a longer read.",
+              text: "Open articles in a native reader with formatted text and inline images.",
+              alt: "Native article reader displaying Inalienable Property Rights with an illustration and formatted text",
+            },
+            {
+              file: "image-gallery",
+              title: "Take a closer look.",
+              text: "Open images in the native gallery. Zoom, save, or share straight from your phone.",
+              alt: "Full-screen Android image viewer with save, share, and background controls",
             },
           ].map((screen) => (
             <figure key={screen.file}>

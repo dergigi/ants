@@ -676,3 +676,23 @@
     transition: none;
   }
 }
+
+@media (max-width: 700px) {
+  .screenshotGrid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 85%;
+    max-width: none;
+    gap: 22px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 8px 4px 20px;
+  }
+  .screenshotGrid figure {
+    scroll-snap-align: start;
+  }
+}
+.screenshotGrid:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 5px;
+}

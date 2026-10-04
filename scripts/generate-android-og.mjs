@@ -15,7 +15,7 @@ try {
   });
   const logo = await asset("public/ant-blue.svg", "image/svg+xml");
   const screenshot = await asset(
-    "public/android/search-results.png",
+    "public/android/personal-search.png",
     "image/png",
   );
   await page.setContent(`<!doctype html><html><head><style>
