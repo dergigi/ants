@@ -6,7 +6,7 @@ import styles from "./page.module.css";
 const storeUrl = "https://zapstore.dev/apps/org.dergigi.ants";
 const releasesUrl = "https://github.com/dergigi/ants-android/releases/latest";
 const description =
-  "Advanced Nostr search, native on Android. Find notes, discover people, explore media, and follow your curiosity. No account required.";
+  "Fast, native Nostr search for Android. Powerful query syntax, a shared ANTLR grammar, and Vertex-powered profile discovery. No account required.";
 
 export const metadata: Metadata = {
   title: "ants for Android — nostr search. In your pocket",
@@ -54,28 +54,28 @@ function DownloadLinks() {
 
 const features = [
   {
-    icon: "⌕",
-    title: "Find your people.",
-    text: "Look up profiles by name, Nostr address, or public key. Explore their posts and keep following the conversation.",
-    detail: "Names. Profiles. Connections.",
+    icon: "( )",
+    title: "Powered by ANTLR.",
+    text: "A real query language, built on a shared ANTLR grammar. Nest groups, combine AND and OR, and scope filters with the same syntax on Android and the web.",
+    detail: "One grammar. Both platforms.",
   },
   {
-    icon: "▷",
-    title: "More than words.",
-    text: "Play videos right in your results. Open images in a swipeable gallery, zoom in, save your favorites, or share them.",
-    detail: "Images. Video. Long-form reads.",
+    icon: "⌕",
+    title: "Find people with Vertex.",
+    text: "Discover profiles with Vertex search and personalized PageRank. Connect your Android signer for personalized discovery, with relay search as a fallback.",
+    detail: "Profile search with social context.",
   },
   {
     icon: "↗",
-    title: "Pick up the thread.",
-    text: "Tap a reply to load its parent. Follow quoted notes, hashtags, and mentions. Open an event in another Nostr app.",
-    detail: "One discovery leads to another.",
+    title: "Native to your phone.",
+    text: "Built in Kotlin with Jetpack Compose. Native navigation, image galleries, and video playback, with Android sharing and signer integration built in.",
+    detail: "Made for Android.",
   },
   {
-    icon: "⌘",
-    title: "Make it personal.",
-    text: "Connect Amber or another Android signer to search your own posts, mentions, and the people you follow.",
-    detail: "Your keys stay with your signer.",
+    icon: "ϟ",
+    title: "Built to feel fast.",
+    text: "Search relays directly. Cached profile lookups speed up repeat searches, while back navigation restores your results and scroll position within the session.",
+    detail: "Less waiting. Keep exploring.",
   },
 ];
 
@@ -109,8 +109,8 @@ export default function AndroidPage() {
             to <span>discover.</span>
           </h1>
           <p className={styles.intro}>
-            The power of Nostr search. Now in your pocket. Find that note,
-            discover your people, and see where your curiosity takes you.
+            Powerful query syntax. Vertex-powered profile discovery. A fast,
+            native Android app that puts Nostr search in your pocket.
           </p>
           <DownloadLinks />
           <p className={styles.fine}>
@@ -119,7 +119,9 @@ export default function AndroidPage() {
         </div>
         <figure className={styles.showcase}>
           <div className={styles.orbit} aria-hidden="true" />
-          <div className={styles.floatingTag}>small app. big curiosity.</div>
+          <div className={styles.floatingTag}>
+            native app. powerful queries.
+          </div>
           <a
             className={styles.phone}
             href="/android/search-results.png"
@@ -146,9 +148,9 @@ export default function AndroidPage() {
       </section>
 
       <div className={styles.trust}>
-        <span>Built for Android</span>
-        <span>Powered by Nostr</span>
-        <span>Open source, always curious</span>
+        <span>Native Android</span>
+        <span>ANTLR query language</span>
+        <span>Vertex profile search</span>
       </div>
 
       <section
@@ -157,27 +159,29 @@ export default function AndroidPage() {
         aria-labelledby="features-title"
       >
         <div className={styles.sectionHeading}>
-          <p className={styles.eyebrow}>FOLLOW YOUR CURIOSITY</p>
+          <p className={styles.eyebrow}>BUILT FOR SEARCH</p>
           <h2 id="features-title">
             Less scrolling.
             <br />
             <span>More finding.</span>
           </h2>
-          <p>A familiar search box. A surprisingly powerful little app.</p>
+          <p>Precise queries. Relevant profiles. Native speed.</p>
         </div>
         <article className={styles.searchFeature}>
           <div>
             <span className={styles.featureNumber}>
-              01 / SEARCH WITH PRECISION
+              01 / POWERFUL QUERY SYNTAX
             </span>
             <h3>
-              Big questions.
+              Say exactly what
               <br />
-              Tiny search box.
+              you’re looking for.
             </h3>
             <p>
-              Combine words, authors, hashtags, dates, and content types. Go
-              broad, get specific, or build a query as curious as you are.
+              Combine text, authors, hashtags, dates, and content types. Use
+              AND, OR, and nested groups to narrow your search. Scope a filter
+              to a whole group, or search the people you follow with
+              by:@contacts.
             </p>
             <Link href="/?q=%2Fhelp">
               Explore the search syntax <span aria-hidden="true">↗</span>
@@ -185,9 +189,9 @@ export default function AndroidPage() {
           </div>
           <div className={styles.queries}>
             <div>
-              <span>Find the conversation</span>
+              <span>Combine terms and narrow by date</span>
               <code>
-                bitcoin <b>OR</b> lightning
+                (bitcoin <b>OR</b> lightning) <b>since:</b>1w
               </code>
             </div>
             <div>
@@ -197,9 +201,9 @@ export default function AndroidPage() {
               </code>
             </div>
             <div>
-              <span>Follow a spark of inspiration</span>
+              <span>Read articles from your contacts</span>
               <code>
-                <b>is:</b>highlight <b>#</b>freedom
+                <b>is:</b>article <b>by:</b>@contacts
               </code>
             </div>
           </div>
@@ -227,17 +231,17 @@ export default function AndroidPage() {
       >
         <div className={styles.sectionHeading}>
           <p className={styles.eyebrow}>A CLOSER LOOK</p>
-          <h2 id="screenshots-title">Put your curiosity to work.</h2>
+          <h2 id="screenshots-title">From query to results.</h2>
           <p>
-            From your first query to your next discovery. Tap a screen to take a
-            closer look.
+            See the syntax, inspect your query, and browse native results. Tap a
+            screen to take a closer look.
           </p>
         </div>
         <div className={styles.screenshotGrid}>
           {[
             {
               file: "search-results",
-              title: "Find the good stuff.",
+              title: "Native results.",
               text: "Notes, images, and replies together in your search results.",
               alt: "Search results with an image post and a reply on ants for Android",
             },
@@ -249,7 +253,7 @@ export default function AndroidPage() {
             },
             {
               file: "search-examples",
-              title: "Start with a little inspiration.",
+              title: "Learn the query language.",
               text: "Open /examples and tap a query to explore authors, dates, and content types.",
               alt: "The Android examples screen with tappable queries for highlights, articles, dates, and more",
             },
@@ -284,12 +288,12 @@ export default function AndroidPage() {
           <Image src="/ant-blue.svg" alt="" width={72} height={88} />
         </div>
         <div>
-          <p className={styles.eyebrow}>SMALL FOOTPRINT. OPEN HORIZONS.</p>
-          <h2 id="freedom-title">Just you and the nostrverse.</h2>
+          <p className={styles.eyebrow}>OPEN SOURCE. SHARED FOUNDATIONS.</p>
+          <h2 id="freedom-title">The grammar is open, too.</h2>
           <p>
-            Start searching without an account. Choose your search relays. Keep
-            your search history on your phone. Explore the code, too — ants is
-            open source.
+            The Android app and ants on the web share an ANTLR grammar and query
+            fixtures. Explore how the language works, inspect the native app, or
+            help improve both. It’s all open source.
           </p>
           <a href="https://github.com/dergigi/ants-android">
             Take a look under the hood <span aria-hidden="true">↗</span>
@@ -302,11 +306,11 @@ export default function AndroidPage() {
         className={styles.download}
         aria-labelledby="download-title"
       >
-        <p className={styles.eyebrow}>TAKE YOUR CURIOSITY WITH YOU</p>
+        <p className={styles.eyebrow}>POWERFUL SEARCH. READY TO GO.</p>
         <h2 id="download-title">
-          Your next rabbit hole
+          Nostr search.
           <br />
-          is a tap away.
+          Native. Fast. In your pocket.
         </h2>
         <p>Meet ants for Android.</p>
         <DownloadLinks />
