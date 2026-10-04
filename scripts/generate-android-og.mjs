@@ -15,7 +15,7 @@ try {
   });
   const logo = await asset("public/ant-blue.svg", "image/svg+xml");
   const screenshot = await asset(
-    "public/android/personal-search.png",
+    "public/android/personal-search-clean.png",
     "image/png",
   );
   await page.setContent(`<!doctype html><html><head><style>
@@ -31,7 +31,7 @@ try {
     .bottom { display: flex; align-items: center; gap: 22px; margin-top: 38px; font-size: 18px; }
     .badge { color: #081323; background: #69afff; padding: 14px 21px; border-radius: 9px; font-weight: 700; }
     .url { color: #aab6c9; }
-    .phone { position: absolute; width: 251px; height: 552px; top: 44px; right: 86px; border: 5px solid #343e4d; border-radius: 32px; overflow: hidden; transform: rotate(8deg); box-shadow: 10px 25px 65px #0009; background: #191919; }
+    .phone { position: absolute; width: 251px; height: 500px; top: 65px; right: 86px; border: 5px solid #343e4d; border-radius: 32px; overflow: hidden; transform: rotate(8deg); box-shadow: 10px 25px 65px #0009; background: #191919; }
     .phone img { display: block; width: 100%; height: auto; }
   </style></head><body><div class="glow"></div><div class="ring"></div><div class="ring inner"></div><main>
     <div class="brand"><img src="${logo}" alt="">ants <span>/ android</span></div>
@@ -45,7 +45,7 @@ try {
       Promise.all(images.map((image) => image.decode())),
     );
   await page.screenshot({
-    path: fileURLToPath(new URL("public/android/og.png", root)),
+    path: fileURLToPath(new URL("public/android/og-clean.png", root)),
   });
 } finally {
   await browser.close();

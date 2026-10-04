@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     url: "/android",
     images: [
       {
-        url: "/android/og.png?v=3",
+        url: "/android/og-clean.png",
         width: 1200,
         height: 630,
         alt: "ants for Android — nostr search. In your pocket. Search notes, find your people, and follow your curiosity.",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/android/og.png?v=3",
+        url: "/android/og-clean.png",
         alt: "ants for Android — nostr search. In your pocket",
       },
     ],
@@ -122,16 +122,16 @@ export default function AndroidPage() {
           </div>
           <a
             className={styles.phone}
-            href="/android/personal-search.png"
+            href="/android/personal-search-clean.png"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Enlarge Android search results screenshot (opens in a new tab)"
           >
             <Image
-              src="/android/personal-search.png"
+              src="/android/personal-search-clean.png"
               alt="ants on Android showing (GM or GN) by:@me with a coffee image in the search results"
               width={1008}
-              height={2244}
+              height={2046}
               sizes="(max-width: 700px) 250px, 264px"
               priority
             />
@@ -282,16 +282,16 @@ export default function AndroidPage() {
             <figure key={screen.file}>
               <a
                 className={styles.screenshotLink}
-                href={`/android/${screen.file}.png`}
+                href={`/android/${screen.file}-clean.png`}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Enlarge: ${screen.title} (opens in a new tab)`}
               >
                 <Image
-                  src={`/android/${screen.file}.png`}
+                  src={`/android/${screen.file}-clean.png`}
                   alt={screen.alt}
                   width={1008}
-                  height={2244}
+                  height={2046}
                   sizes="(max-width: 700px) 80vw, 320px"
                 />
               </a>
