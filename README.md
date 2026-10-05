@@ -180,12 +180,12 @@ It's probably very stupid to do it this way, but I [went with the flow](https://
 - [x] add support for code snippets (`kind:1337`)
 - [x] don't do so many requests, lots of requests can be merged into one
 - [x] add a `/kinds` command that shows all substitutions
-- [ ] implement streaming search aka "live" mode
+- [x] implement streaming search aka "live" mode
 - [ ] support relatr in addition to vertex
-- [ ] be nice to relays (respect limits etc)
-- [ ] add proper support for blog posts (`kind:30023`)
+- [x] be nice to relays (respect limits etc)
+- [x] add proper support for blog posts (`kind:30023`)
 - [ ] add "blossom search" to images (via sha256 hash)
-- [ ] explain what the different icons and symbols mean somehow
+- [x] explain what the different icons and symbols mean somehow
 - [ ] move some things around in the UI
 - [ ] make stuff less stupid and buggy overall
 
