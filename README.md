@@ -209,3 +209,11 @@ original ant and loupe vectors by [joko sutrisno](https://www.vecteezy.com/vecto
 ## Search language
 
 See the [search syntax reference](docs/SEARCH_SYNTAX.md) for nesting, precedence, scoped filters, quoting, and limits. The [shared ANTLR grammar](grammar/README.md) and portable fixtures define the contract for the web app and the upcoming Android parser integration.
+
+## Analytics
+
+Production builds load Fathom when `NEXT_PUBLIC_FATHOM_ID` is set at build time. Set it in the hosting project's **Production** environment and redeploy after changing it. Development and Vercel preview deployments do not load analytics.
+
+The root layout loads Fathom once with its [automatic SPA tracking](https://usefathom.com/docs/integrations/spas), which counts the initial visit and client-side navigation. Tracking uses the actual browser URL (`data-canonical="false"`) because canonical metadata can briefly lag behind client-side navigation. Do not add a second manual pageview tracker.
+
+To verify a deployment, open browser developer tools on the live site and check for `cdn.usefathom.com/script.js` with the expected `data-site` value, followed by a Fathom pageview request. Navigate to `/android` without reloading and check for another pageview. If requests succeed but the dashboard stays empty, check the selected Fathom site, date range, and allowed-domain settings. Browser content blockers can prevent the requests.

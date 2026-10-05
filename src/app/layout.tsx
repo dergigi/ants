@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
@@ -6,6 +7,10 @@ import { Footer } from "@/components/Footer";
 import { LoginTriggerProvider } from "@/lib/LoginTrigger";
 import { ClearTriggerProvider } from "@/lib/ClearTrigger";
 import { Suspense } from "react";
+
+const fathomSiteId = process.env.NEXT_PUBLIC_FATHOM_ID?.trim();
+const enableAnalytics = process.env.NODE_ENV === "production"
+  && (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production");
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "https://ants.sh";
 
@@ -73,6 +78,16 @@ export default function RootLayout({
             </Suspense>
           </ClearTriggerProvider>
         </LoginTriggerProvider>
+        {enableAnalytics && fathomSiteId && (
+          <Script
+            id="fathom-analytics"
+            src="https://cdn.usefathom.com/script.js"
+            data-site={fathomSiteId}
+            data-spa="auto"
+            data-canonical="false"
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );
