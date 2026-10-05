@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Restore Fathom analytics on production pages, including client-side navigation
+
 ## [0.5.0] - 2026-10-04
 
 ### Added
