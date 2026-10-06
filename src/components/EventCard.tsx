@@ -15,6 +15,8 @@ import { parseHighlightEvent, HIGHLIGHTS_KIND } from '@/lib/highlights';
 import { parseFollowPackTags } from '@/lib/followPack';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
 import { nip19 } from 'nostr-tools';
+import PaymentContent from '@/components/PaymentContent';
+import { isPaymentKind } from '@/lib/payments';
 
 type Props = {
   event: NDKEvent;
@@ -83,14 +85,16 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
   };
 
   return (
-    <div className={containerClasses}>
+    <div className={containerClasses} data-event-id={event.id}>
       {showRaw ? (
         <div className="mt-0">
           <RawEventJson event={event} />
         </div>
       ) : (
         <>
-          {isHighlight && highlight ? (
+          {isPaymentKind(event.kind) ? (
+            <PaymentContent event={event} onAuthorClick={onAuthorClick} renderContent={renderContent} />
+          ) : isHighlight && highlight ? (
             <EventCardHighlight
               highlight={highlight}
               contentClasses={contentClasses}
@@ -113,7 +117,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
-          {variant !== 'inline' && mediaRenderer ? mediaRenderer(event.content || '') : null}
+          {variant !== 'inline' && mediaRenderer && !isPaymentKind(event.kind) ? mediaRenderer(event.content || '') : null}
         </>
       )}
       {showFooter && (

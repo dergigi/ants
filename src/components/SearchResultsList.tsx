@@ -97,7 +97,7 @@ function SearchResultsList({ results, loading, query, isDirectQuery, topCommandT
             {renderParentChain(event)}
             {event.kind === 0 ? (
               <ProfileCard event={event} onAuthorClick={(npub) => goToProfile(npub, event)} showBanner={false} />
-            ) : event.kind === 1 ? (
+            ) : event.kind === 1 || event.kind === 9735 || event.kind === 9321 ? (
               <EventCard
                 {...getCommonEventCardProps(event, noteCardClasses)}
                 renderContent={(text) => (

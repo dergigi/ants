@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Android-style zap and nutzap cards with sender/recipient profiles, published amounts, transaction details, and referenced-note navigation
+
 ### Fixed
 - Restore Fathom analytics on production pages, including client-side navigation
 
