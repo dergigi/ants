@@ -252,6 +252,12 @@ export default function AndroidPage() {
               alt: "The query (GM or GN) by:@me with 374 results and a coffee image",
             },
             {
+              file: "zap-search",
+              title: "Search zaps and nutzaps.",
+              text: "Combine (is:nutzap or is:zap) with by:@contacts to explore published payment events from the people you follow.",
+              alt: "Android results for (is:nutzap or is:zap) by:@contacts, with zap and nutzap cards showing amounts in sats",
+            },
+            {
               file: "search-examples",
               title: "Learn by searching.",
               text: "Tap an example to try author filters, date ranges, or specific content types.",
