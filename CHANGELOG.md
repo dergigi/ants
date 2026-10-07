@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-07
+
 ### Added
 - Render public mute-list profiles, threads, hashtags, and words in mention searches and quoted events, with expandable lists and encrypted-content indicators
 - Android-style zap and nutzap cards with sender/recipient profiles, published amounts, transaction details, and referenced-note navigation
 
+### Changed
+- Add a cropped zap and nutzap search screenshot to the Android feature page
+
 ### Fixed
+- Treat mute-list thread references as muted entries rather than reply parents
 - Restore Fathom analytics on production pages, including client-side navigation
 
 ## [0.5.0] - 2026-10-04
