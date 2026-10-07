@@ -16,7 +16,6 @@ import NeventSearchButton from '@/components/NeventSearchButton';
 import SearchCommandCard from '@/components/SearchCommandCard';
 import { SearchResultsPlaceholder } from '@/components/Placeholder';
 import { detectSearchType } from '@/lib/search/searchTypeDetection';
-import { getMuteListResultData } from '@/lib/search/muteListResultData';
 import { extractImetaImageUrls, extractImetaVideoUrls, extractImetaBlurhashes, extractImetaDimensions, extractImetaHashes } from '@/lib/picture';
 import { extractVideoUrls, getFilenameFromUrl } from '@/lib/utils/urlUtils';
 import { trimImageUrl } from '@/lib/utils';
@@ -110,7 +109,7 @@ function SearchResultsList({ results, loading, query, isDirectQuery, topCommandT
                 )}
                 mediaRenderer={renderNoteMedia}
               />
-            ) : event.kind === 10000 && getMuteListResultData(event) ? (
+            ) : event.kind === 10000 ? (
               <MuteListCard
                 event={event}
                 onAuthorClick={goToProfile}

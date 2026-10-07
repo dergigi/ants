@@ -11,6 +11,7 @@ import RelayIndicator from '@/components/RelayIndicator';
 import { getEventKindIcon, getEventKindDisplayName } from '@/lib/eventKindIcons';
 import { getKindSearchQuery } from '@/lib/eventKindSearch';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
+import { getReplyToEventId } from '@/lib/utils/eventHelpers';
 
 interface NoteHeaderProps {
   event: NDKEvent;
@@ -46,28 +47,6 @@ export default function NoteHeader({
     })();
     return () => { isMounted = false; };
   }, [event.kind]);
-
-  const getReplyToEventId = useCallback((event: NDKEvent): string | null => {
-    try {
-      const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
-      if (eTags.length === 0) return null;
-      
-      // Deduplicate e tags by event ID to prevent duplicate quoted events
-      const uniqueETags = new Map<string, typeof eTags[0]>();
-      eTags.forEach(tag => {
-        const eventId = tag[1];
-        if (eventId && !uniqueETags.has(eventId)) {
-          uniqueETags.set(eventId, tag);
-        }
-      });
-      const deduplicatedETags = Array.from(uniqueETags.values());
-      
-      const replyTag = deduplicatedETags.find((t) => t[3] === 'reply') || deduplicatedETags.find((t) => t[3] === 'root') || deduplicatedETags[deduplicatedETags.length - 1];
-      return replyTag && replyTag[1] ? replyTag[1] : null;
-    } catch {
-      return null;
-    }
-  }, []);
 
   const fetchEventById = useCallback(async (eventId: string): Promise<NDKEvent | null> => {
     return new Promise<NDKEvent | null>((resolve) => {

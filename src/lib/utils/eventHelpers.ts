@@ -23,7 +23,9 @@ export function formatTimestamp(timestamp: number | undefined, fallback: string 
  * Determine the event id this event replies to, preferring NIP-10 markers.
  * Falls back to the last unique e-tag when no reply/root marker is present.
  */
-export function getReplyToEventId(event: { tags?: string[][] }): string | null {
+export function getReplyToEventId(event: { kind?: number; tags?: string[][] }): string | null {
+  // Mute-list e-tags are muted threads, not replies.
+  if (event.kind === 10000) return null;
   try {
     const eTags = (event.tags || []).filter((t) => t && t[0] === 'e');
     if (eTags.length === 0) return null;

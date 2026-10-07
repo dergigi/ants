@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Render public mute-list profiles, threads, hashtags, and words in mention searches and quoted events, with expandable lists and encrypted-content indicators
 - Android-style zap and nutzap cards with sender/recipient profiles, published amounts, transaction details, and referenced-note navigation
 
 ### Fixed
