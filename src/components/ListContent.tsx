@@ -13,19 +13,21 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { ndk } from "@/lib/ndk";
 import { getDisplayName } from "@/lib/utils/profileUtils";
-import { parseMuteList, type MuteEntry } from "@/lib/muteLists";
+import { parseList, parseListAddress, type ListEntry } from "@/lib/lists";
 import { getMuteListResultData } from "@/lib/search/muteListResultData";
 import ProfileImage from "@/components/ProfileImage";
 
 const rowClass =
   "flex min-w-0 items-center gap-3 rounded-md border border-[#3d3d3d] bg-[#262626] px-3 py-2 hover:bg-[#333]";
 
-function MutedProfile({
+function ListProfile({
   pubkey,
+  muted,
   profile,
   onAuthorClick,
 }: {
   pubkey: string;
+  muted: boolean;
   profile?: NDKEvent;
   onAuthorClick?: (npub: string) => void;
 }) {
@@ -64,7 +66,7 @@ function MutedProfile({
       href={`/p/${user.npub}`}
       className={rowClass}
       title={user.npub}
-      aria-label={`Muted profile: ${name}`}
+      aria-label={`${muted ? "Muted profile" : "Profile"}: ${name}`}
       onClick={(e) => {
         if (onAuthorClick) {
           e.preventDefault();
@@ -86,22 +88,47 @@ function MutedProfile({
   );
 }
 
-function EntryLink({ entry }: { entry: MuteEntry }) {
+function EntryLink({ entry, muted }: { entry: ListEntry; muted: boolean }) {
   const { type, value } = entry;
-  const label = type === "e" ? "Thread" : type === "t" ? "Hashtag" : "Word";
-  const icon = type === "e" ? faComment : type === "t" ? faHashtag : faFont;
+  const address = type === "a" ? parseListAddress(value) : null;
+  const label =
+    type === "e"
+      ? muted
+        ? "Thread"
+        : "Note"
+      : type === "a"
+        ? address?.kind === 30023
+          ? "Article"
+          : "Event"
+        : type === "t"
+          ? "Hashtag"
+          : "Word";
+  const icon =
+    type === "e" || type === "a"
+      ? faComment
+      : type === "t"
+        ? faHashtag
+        : faFont;
   const text =
-    type === "e" ? nip19.noteEncode(value) : type === "t" ? `#${value}` : value;
+    type === "e"
+      ? nip19.noteEncode(value)
+      : address
+        ? address.identifier || `Kind ${address.kind}`
+        : type === "t"
+          ? `#${value}`
+          : value;
   const href =
     type === "e"
       ? `/e/${nip19.neventEncode({ id: value })}`
-      : `/?q=${encodeURIComponent(type === "t" ? `#${value}` : JSON.stringify(value))}`;
+      : address
+        ? `/e/${nip19.naddrEncode(address)}`
+        : `/?q=${encodeURIComponent(type === "t" ? `#${value}` : JSON.stringify(value))}`;
   return (
     <Link
       href={href}
       className={rowClass}
       title={text}
-      aria-label={`Muted ${label.toLowerCase()}: ${text}`}
+      aria-label={`${muted ? "Muted " : ""}${label.toLowerCase()}: ${text}`}
     >
       <span className="h-9 w-9 shrink-0 flex items-center justify-center rounded bg-[#333] text-gray-400">
         <FontAwesomeIcon icon={icon} />
@@ -114,7 +141,7 @@ function EntryLink({ entry }: { entry: MuteEntry }) {
   );
 }
 
-export default function MuteListContent({
+export default function ListContent({
   event,
   onAuthorClick,
 }: {
@@ -122,10 +149,19 @@ export default function MuteListContent({
   onAuthorClick?: (npub: string) => void;
 }) {
   const [limit, setLimit] = useState(8);
-  const cached = getMuteListResultData(event);
+  const muted = event.kind === 10000;
+  const title = muted
+    ? "Mute list"
+    : event.kind === 3
+      ? "Following"
+      : event.kind === 10001
+        ? "Pinned notes"
+        : "Bookmarks";
+  const cached = muted ? getMuteListResultData(event) : undefined;
   const data = useMemo(
     () =>
-      parseMuteList({
+      parseList({
+        kind: event.kind,
         content: event.content,
         tags: [
           ...event.tags,
@@ -146,12 +182,19 @@ export default function MuteListContent({
   );
   const remaining = data.entries.length - limit;
   return (
-    <div className="space-y-3" data-testid="mute-list-content">
+    <div
+      className="space-y-3"
+      data-testid={muted ? "mute-list-content" : "list-content"}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-medium text-gray-200">Mute list</h3>
+        <h3 className="text-sm font-medium text-gray-200">{title}</h3>
         <span className="text-xs text-gray-400">
-          {data.entries.length} public muted{" "}
-          {data.entries.length === 1 ? "entry" : "entries"}
+          {data.entries.length}{" "}
+          {event.kind === 3
+            ? data.entries.length === 1
+              ? "profile"
+              : "profiles"
+            : `public ${muted ? "muted " : ""}${data.entries.length === 1 ? "entry" : "entries"}`}
         </span>
       </div>
       {data.entries.length ? (
@@ -160,19 +203,28 @@ export default function MuteListContent({
             .slice(0, limit)
             .map((entry) =>
               entry.type === "p" ? (
-                <MutedProfile
+                <ListProfile
+                  muted={muted}
                   key={`p:${entry.value}`}
                   pubkey={entry.value}
                   profile={profiles.get(entry.value)}
                   onAuthorClick={onAuthorClick}
                 />
               ) : (
-                <EntryLink key={`${entry.type}:${entry.value}`} entry={entry} />
+                <EntryLink
+                  muted={muted}
+                  key={`${entry.type}:${entry.value}`}
+                  entry={entry}
+                />
               ),
             )}
         </div>
       ) : (
-        <p className="text-sm text-gray-400">No public muted entries.</p>
+        <p className="text-sm text-gray-400">
+          {event.kind === 3
+            ? "No profiles followed."
+            : `No public ${muted ? "muted " : ""}entries.`}
+        </p>
       )}
       {remaining > 0 && (
         <button

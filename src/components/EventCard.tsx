@@ -16,7 +16,8 @@ import { parseFollowPackTags } from '@/lib/followPack';
 import { FOLLOW_PACK_KIND } from '@/lib/constants';
 import { nip19 } from 'nostr-tools';
 import PaymentContent from '@/components/PaymentContent';
-import MuteListContent from '@/components/MuteListContent';
+import ListContent from '@/components/ListContent';
+import { isListKind } from '@/lib/lists';
 import { isPaymentKind } from '@/lib/payments';
 
 type Props = {
@@ -93,8 +94,8 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
         </div>
       ) : (
         <>
-          {event.kind === 10000 ? (
-            <MuteListContent event={event} onAuthorClick={onAuthorClick} />
+          {isListKind(event.kind) ? (
+            <ListContent event={event} onAuthorClick={onAuthorClick} />
           ) : isPaymentKind(event.kind) ? (
             <PaymentContent event={event} onAuthorClick={onAuthorClick} renderContent={renderContent} />
           ) : isHighlight && highlight ? (
@@ -120,7 +121,7 @@ export default function EventCard({ event, onAuthorClick, renderContent, variant
           ) : (
             <div className={contentClasses}>{renderContent(event.content || '')}</div>
           )}
-          {variant !== 'inline' && mediaRenderer && event.kind !== 10000 && !isPaymentKind(event.kind) ? mediaRenderer(event.content || '') : null}
+          {variant !== 'inline' && mediaRenderer && !isListKind(event.kind) && !isPaymentKind(event.kind) ? mediaRenderer(event.content || '') : null}
         </>
       )}
       {showFooter && (

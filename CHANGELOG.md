@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Render follow lists, pinned notes, and bookmarks as expandable cards with profile and event links, including addressable bookmarks and private-entry indicators
+
 ## [0.6.0] - 2026-10-07
 
 ### Added
