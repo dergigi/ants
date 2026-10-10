@@ -58,9 +58,11 @@ The `/t/` path supports multiple separators (comma, plus, and space).
 
 ## Relay Logic
 
-There is hardcoded relays for search (NIP-50) as well as for general use.
+There are default relays for search (NIP-50) and general use. Text searches use relays that advertise NIP-50 support and pass behavioral checks. NIP-66 discovery and manually added relays provide additional candidates.
 
-Upon login, we retrieve the user's relays as per NIP-51 (kind:10002) and remove any blocked relays (kind:10006). We also retrieve the user's search relays (kind:10007) and use them for search queries in addition it to the hardcoded list of search relays.
+Structured queries without text also use NIP-65 relay lists: authors' write relays and mentioned users' read relays are added to the existing fallback relays. Discovery is limited to 32 people per query branch, four relays per person and direction, and 16 additional relays per subscription. Relay lists are cached for ten minutes; missing lists are retried after one minute. Discovery waits at most four seconds within the subscription deadline.
+
+Upon login, we retrieve the user's NIP-65 relay list (kind:10002) and remove blocked relays (kind:10006) from the configured candidates. We also retrieve the user's search relays (kind:10007) and add them to the search candidates.
 
 When connecting to a relay we retrieve the `supported_nips` as per NIP-11. The relay list as well as the supported NIPs are shown in the relay status indicator. Relays that returned one or more of the results that are currently shown on the page are shown in blue. Relays that support NIP-50 show a magnifying glass. The relay icon in the relay status display allows for relay-based client-side filtering of results.
 
@@ -79,7 +81,7 @@ Search queries:
 
 Direct queries:
 
-- Connect to all relays
+- Query the general and search fallback relays, plus applicable NIP-65 routes and identifier relay hints
 - Retrieve the bech32-encoded entity directly
 - (No need for a NIP-50 search)
 

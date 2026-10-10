@@ -5,6 +5,7 @@ import { safeSubscribe } from '../../ndk';
 import { getSearchRelaySet } from '../relayManagement';
 import { filterNip50Relays } from '../../relays';
 import { trackEventRelay } from '../../eventRelayTracking';
+import { getOutboxRelaySet } from '../../relays/outbox';
 
 jest.mock('@nostr-dev-kit/ndk', () => ({ NDKSubscriptionCacheUsage: { ONLY_RELAY: 'relay' } }));
 jest.mock('../../ndk', () => ({ safeSubscribe: jest.fn(), isValidFilter: () => true, markRelayActivity: jest.fn() }));
@@ -12,6 +13,7 @@ jest.mock('../../urlUtils', () => ({ normalizeRelayUrl: (url: string) => url }))
 jest.mock('../../eventRelayTracking', () => ({ trackEventRelay: jest.fn() }));
 jest.mock('../../relays', () => ({ filterNip50Relays: jest.fn(), getNip50SearchRelaySet: jest.fn(), createRelaySet: jest.fn() }));
 jest.mock('../relayManagement', () => ({ getSearchRelaySet: jest.fn() }));
+jest.mock('../../relays/outbox', () => ({ getOutboxRelaySet: jest.fn(async (_filter, fallback) => fallback) }));
 
 const relaySet = { relays: new Set([{ url: 'wss://search.example' }]) } as unknown as NDKRelaySet;
 const event = (id: string, created_at = 1) => ({ id, created_at }) as NDKEvent;
@@ -24,6 +26,7 @@ beforeEach(() => {
   jest.mocked(safeSubscribe).mockReturnValue(sub as never);
   jest.mocked(getSearchRelaySet).mockResolvedValue(relaySet);
   jest.mocked(filterNip50Relays).mockResolvedValue(['wss://search.example']);
+  jest.mocked(getOutboxRelaySet).mockImplementation(async (_filter, fallback) => fallback);
 });
 afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
 
@@ -57,6 +60,35 @@ test('timeout includes NIP-50 capability discovery', async () => {
   void subscribeAndCollect({ search: 'bitcoin' }, { relaySet, timeoutMs: 100 }).then(done);
   await jest.advanceTimersByTimeAsync(100);
   expect(done).toHaveBeenCalledWith([]);
+  expect(safeSubscribe).not.toHaveBeenCalled();
+});
+
+test('structured subscriptions use the expanded outbox relay set', async () => {
+  const expanded = { relays: new Set([{ url: 'wss://author.example' }]) } as unknown as NDKRelaySet;
+  jest.mocked(getOutboxRelaySet).mockResolvedValue(expanded);
+  sub.start.mockImplementation(() => sub.emit('eose'));
+  await subscribeAndCollect({ authors: ['a'.repeat(64)] }, { relaySet });
+  expect(safeSubscribe).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ relaySet: expanded }), false);
+});
+
+test('text subscriptions only use NIP-50 routing even with an author', async () => {
+  sub.start.mockImplementation(() => sub.emit('eose'));
+  await subscribeAndCollect({ search: 'nostr', authors: ['a'.repeat(64)] }, { relaySet });
+  expect(filterNip50Relays).toHaveBeenCalled();
+  expect(getOutboxRelaySet).not.toHaveBeenCalled();
+});
+
+test('subscription deadline cancels outbox discovery and prevents a late query', async () => {
+  let resolveRouting!: (value: NDKRelaySet) => void;
+  jest.mocked(getOutboxRelaySet).mockReturnValue(new Promise(resolve => { resolveRouting = resolve; }));
+  const result = subscribeAndCollect({ authors: ['a'.repeat(64)] }, { relaySet, timeoutMs: 100 });
+  await tick();
+  const signal = jest.mocked(getOutboxRelaySet).mock.calls[0][2]!;
+  await jest.advanceTimersByTimeAsync(100);
+  expect(await result).toEqual([]);
+  expect(signal.aborted).toBe(true);
+  resolveRouting(relaySet);
+  await tick();
   expect(safeSubscribe).not.toHaveBeenCalled();
 });
 

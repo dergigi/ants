@@ -5,6 +5,7 @@ import { extendWithUserAndPremium, clearUserRelayCache } from './userDiscovery';
 import { clearRelayInfoCache } from './infoCache';
 import { clearSearchRelayUrlCache } from './nip50';
 import { clearNip66DiscoveryCache } from './nip66';
+import { clearOutboxCache } from './outbox';
 
 export { RELAYS, createRelaySet } from './config';
 export { discoverUserRelays, extendWithUserAndPremium } from './userDiscovery';
@@ -31,6 +32,7 @@ export const relaySets = {
 } as const;
 
 export function clearRelayCaches(): void {
+  clearOutboxCache();
   clearRelayInfoCache();
   clearUserRelayCache();
   clearSearchRelayUrlCache();
