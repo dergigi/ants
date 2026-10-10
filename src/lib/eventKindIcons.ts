@@ -17,6 +17,12 @@ import {
   faBookmark,
   faCircleUser,
   faUsers,
+  faClipboardCheck,
+  faClipboardQuestion,
+  faUserCheck,
+  faShieldHalved,
+  faListCheck,
+  faPersonCircleCheck,
   type IconDefinition
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -44,6 +50,18 @@ export const EVENT_KIND_ICONS: Record<number, IconDefinition> = {
   10000: faEyeSlash,   // Mute lists
   10001: faThumbtack,  // Pin lists
   10003: faBookmark,   // Bookmark lists
+  10040: faShieldHalved, // Trusted assertion service providers
+  30382: faPersonCircleCheck, // Trusted assertion (user)
+  30383: faClipboardCheck, // Trusted assertion (event)
+  30384: faClipboardCheck, // Trusted assertion (address)
+  30392: faListCheck,   // Trusted list
+  30393: faListCheck,   // Trusted list (topic-based)
+  30394: faListCheck,   // Trusted list (deduplicated)
+  30395: faListCheck,   // Trusted list (with metadata)
+  31871: faClipboardCheck, // Attestation
+  31872: faClipboardQuestion, // Attestation request
+  31873: faUserCheck,   // Attestor recommendation
+  11871: faUserCheck,   // Attestor proficiency declaration
   39089: faUsers,      // Follow packs
 };
 
@@ -82,6 +100,18 @@ export function getEventKindIconName(kind: number): string | null {
     10000: 'eye-slash',
     10001: 'fa-thumbtack',
     10003: 'fa-bookmark',
+    10040: 'fa-shield-halved',
+    30382: 'fa-person-circle-check',
+    30383: 'fa-clipboard-check',
+    30384: 'fa-clipboard-check',
+    30392: 'fa-list-check',
+    30393: 'fa-list-check',
+    30394: 'fa-list-check',
+    30395: 'fa-list-check',
+    31871: 'fa-clipboard-check',
+    31872: 'fa-clipboard-question',
+    31873: 'fa-user-check',
+    11871: 'fa-user-check',
     39089: 'fa-users',
   };
   
@@ -114,6 +144,18 @@ export function getEventKindDisplayName(kind: number): string {
     10000: 'Mute List',
     10001: 'Pin List',
     10003: 'Bookmark List',
+    10040: 'Trusted Service Providers',
+    30382: 'Trusted Assertion (User)',
+    30383: 'Trusted Assertion (Event)',
+    30384: 'Trusted Assertion (Address)',
+    30392: 'Trusted List',
+    30393: 'Trusted List (Topic)',
+    30394: 'Trusted List (Deduplicated)',
+    30395: 'Trusted List (Metadata)',
+    31871: 'Attestation',
+    31872: 'Attestation Request',
+    31873: 'Attestor Recommendation',
+    11871: 'Attestor Proficiency',
     39089: 'Follow Pack',
   };
   
