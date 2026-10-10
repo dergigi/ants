@@ -5,6 +5,7 @@ import { trackEventRelay } from '../eventRelayTracking';
 import { sortEventsNewestFirst } from '../utils/searchUtils';
 import { createRelaySet, filterNip50Relays, getNip50SearchRelaySet } from '../relays';
 import { getSearchRelaySet } from './relayManagement';
+import { getOutboxRelaySet } from '../relays/outbox';
 
 /**
  * Text searches MUST only go to NIP-50 relays. Relays without NIP-50 support
@@ -118,6 +119,7 @@ export async function subscribeAndCollect(filter: NDKFilter, options: CollectOpt
     const collected = new Map<string, NDKEvent>();
     let settled = false;
     let sub: NDKSubscription | null = null;
+    const setupController = new AbortController();
 
     const emit = (events: NDKEvent[]) => {
       if (!onPartial || abortSignal?.aborted || events.length === 0) return;
@@ -141,6 +143,7 @@ export async function subscribeAndCollect(filter: NDKFilter, options: CollectOpt
     const finish = () => {
       if (settled) return;
       settled = true;
+      setupController.abort();
       clearTimeout(timer);
       abortSignal?.removeEventListener('abort', finish);
       if (sub) {
@@ -162,6 +165,7 @@ export async function subscribeAndCollect(filter: NDKFilter, options: CollectOpt
         let rs = relaySet || await getSearchRelaySet();
         if (settled) return;
         if (filter.search) rs = await restrictToNip50Relays(rs);
+        else rs = await getOutboxRelaySet(filter, rs, setupController.signal);
         if (settled) return;
 
         // NDK otherwise schedules an automatic start in addition to ours.
